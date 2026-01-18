@@ -26,7 +26,7 @@ interface AppData {
 
 export default function Home() {
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
-  const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart' | 'about'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart' | 'about' | 'changelog'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -810,6 +810,95 @@ export default function Home() {
             </section>
           </div>
         )}
+        {/* Change Log */}
+        {activeTab === 'changelog' && (
+          <div style={{ maxWidth: '800px' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>Change Log</h2>
+            <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '2rem' }}>
+              A history of updates and improvements to GanttApp.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 3.2 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.2
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 19, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add Change Log accessible via footer link
+                </p>
+              </div>
+
+              {/* Version 3.1 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.1
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 18, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Fix timezone bug in date display
+                </p>
+              </div>
+
+              {/* Version 3.0 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.0
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 18, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add Firebase database, Today's Date toggle line, and About tab
+                </p>
+              </div>
+
+              {/* Version 2.1 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 2.1
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 17, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add copyright footer and GNU GPL v3 license
+                </p>
+              </div>
+
+              {/* Version 2.0 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 2.0
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 17, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add Export/Import functionality and copy chart as image
+                </p>
+              </div>
+
+              {/* Version 1.0 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 1.0
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 17, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Initial release with localStorage, Projects, Releases, and Gantt chart
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <footer style={{
@@ -820,7 +909,14 @@ export default function Home() {
         fontSize: '0.9rem',
         color: '#666'
       }}>
-        © 2026 William W. Davis, MSPM, PMP | Version 3.0 | Licensed under GNU GPL v3
+        © 2026 William W. Davis, MSPM, PMP | <span
+          onClick={() => setActiveTab('changelog')}
+          style={{
+            color: '#0070f3',
+            cursor: 'pointer',
+            textDecoration: 'underline'
+          }}
+        >Version 3.2</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );

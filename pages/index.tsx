@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import styles from '@/styles/Home.module.css';
+import { signInAnonymously } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 
 // Types
 interface Project {
@@ -22,15 +24,13 @@ interface AppData {
   releases: Release[];
 }
 
-// localStorage key
-const STORAGE_KEY = 'gantt_app_data';
-
 export default function Home() {
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
-  const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart' | 'about'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Form states
   const [projectName, setProjectName] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   
@@ -40,48 +40,51 @@ export default function Home() {
   const [lateFinish, setLateFinish] = useState('');
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
 
-  // Load data from localStorage on mount
+  // Initialize Firebase Auth and load data
   useEffect(() => {
-    console.log('Loading from localStorage...');
-    const stored = localStorage.getItem(STORAGE_KEY);
-    console.log('Stored data:', stored);
-    if (stored) {
+    const initAuth = async () => {
       try {
-        const parsed = JSON.parse(stored);
-        console.log('Parsed data:', parsed);
-        setData(parsed);
-        if (parsed.projects && parsed.projects.length > 0) {
-          console.log('Setting selected project to:', parsed.projects[0].id);
-          setSelectedProjectId(parsed.projects[0].id);
+        const userCredential = await signInAnonymously(auth);
+        const uid = userCredential.user.uid;
+        setUserId(uid);
+        
+        const docRef = doc(db, 'users', uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const loadedData = docSnap.data() as AppData;
+          setData(loadedData);
+          if (loadedData.projects && loadedData.projects.length > 0) {
+            setSelectedProjectId(loadedData.projects[0].id);
+          }
         }
-      } catch (e) {
-        console.error('Failed to parse stored data:', e);
+      } catch (error) {
+        console.error('Auth error:', error);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      console.log('No stored data found');
-    }
+    };
+    
+    initAuth();
   }, []);
 
-  // Update selected project when data changes and no project is selected
-  useEffect(() => {
-    if (data.projects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(data.projects[0].id);
+  // Save data to Firestore
+  const saveData = async (newData: AppData) => {
+    if (!userId) return;
+    try {
+      const docRef = doc(db, 'users', userId);
+      await setDoc(docRef, newData);
+    } catch (error) {
+      console.error('Save error:', error);
     }
-  }, [data.projects, selectedProjectId]);
+  };
 
-  // Save data to localStorage whenever it changes (but not on initial render)
-  const isInitialMount = useRef(true);
-  
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    console.log('Saving to localStorage:', data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
+  const updateData = (newData: AppData) => {
+    setData(newData);
+    saveData(newData);
+  };
 
-  // Export data to JSON file
+  // Export/Import functions
   const exportData = () => {
     const dataStr = JSON.stringify(data, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -95,7 +98,6 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  // Import data from JSON file
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -106,9 +108,8 @@ export default function Home() {
         const content = e.target?.result as string;
         const imported = JSON.parse(content);
         
-        // Basic validation
         if (imported.projects && imported.releases && Array.isArray(imported.projects) && Array.isArray(imported.releases)) {
-          setData(imported);
+          updateData(imported);
           if (imported.projects.length > 0) {
             setSelectedProjectId(imported.projects[0].id);
           }
@@ -122,8 +123,6 @@ export default function Home() {
       }
     };
     reader.readAsText(file);
-    
-    // Reset the input so the same file can be imported again
     event.target.value = '';
   };
 
@@ -134,7 +133,8 @@ export default function Home() {
       id: Date.now().toString(),
       name: projectName.trim()
     };
-    setData(prev => ({ ...prev, projects: [...prev.projects, newProject] }));
+    const newData = { ...data, projects: [...data.projects, newProject] };
+    updateData(newData);
     setProjectName('');
     if (!selectedProjectId) {
       setSelectedProjectId(newProject.id);
@@ -143,21 +143,23 @@ export default function Home() {
 
   const updateProject = () => {
     if (!projectName.trim() || !editingProjectId) return;
-    setData(prev => ({
-      ...prev,
-      projects: prev.projects.map(p => 
+    const newData = {
+      ...data,
+      projects: data.projects.map(p => 
         p.id === editingProjectId ? { ...p, name: projectName.trim() } : p
       )
-    }));
+    };
+    updateData(newData);
     setProjectName('');
     setEditingProjectId(null);
   };
 
   const deleteProject = (id: string) => {
-    setData(prev => ({
-      projects: prev.projects.filter(p => p.id !== id),
-      releases: prev.releases.filter(r => r.projectId !== id)
-    }));
+    const newData = {
+      projects: data.projects.filter(p => p.id !== id),
+      releases: data.releases.filter(r => r.projectId !== id)
+    };
+    updateData(newData);
     if (selectedProjectId === id) {
       const remaining = data.projects.filter(p => p.id !== id);
       setSelectedProjectId(remaining.length > 0 ? remaining[0].id : '');
@@ -186,16 +188,17 @@ export default function Home() {
       earlyFinishDate: earlyFinish,
       lateFinishDate: lateFinish
     };
-    setData(prev => ({ ...prev, releases: [...prev.releases, newRelease] }));
+    const newData = { ...data, releases: [...data.releases, newRelease] };
+    updateData(newData);
     clearReleaseForm();
   };
 
   const updateRelease = () => {
     if (!releaseName.trim() || !editingReleaseId || !startDate || !earlyFinish || !lateFinish) return;
     
-    setData(prev => ({
-      ...prev,
-      releases: prev.releases.map(r => 
+    const newData = {
+      ...data,
+      releases: data.releases.map(r => 
         r.id === editingReleaseId ? {
           ...r,
           name: releaseName.trim(),
@@ -204,15 +207,17 @@ export default function Home() {
           lateFinishDate: lateFinish
         } : r
       )
-    }));
+    };
+    updateData(newData);
     clearReleaseForm();
   };
 
   const deleteRelease = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      releases: prev.releases.filter(r => r.id !== id)
-    }));
+    const newData = {
+      ...data,
+      releases: data.releases.filter(r => r.id !== id)
+    };
+    updateData(newData);
   };
 
   const startEditRelease = (release: Release) => {
@@ -231,10 +236,23 @@ export default function Home() {
     setEditingReleaseId(null);
   };
 
-  // Get releases for selected project
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
 
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        fontSize: '1.5rem',
+        color: '#666'
+      }}>
+        Loading...
+      </div>
+    );
+  }
   return (
     <>
       <Head>
@@ -306,6 +324,21 @@ export default function Home() {
           >
             Gantt Chart
           </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              border: 'none',
+              background: activeTab === 'about' ? '#0070f3' : 'transparent',
+              color: activeTab === 'about' ? 'white' : '#666',
+              cursor: 'pointer',
+              fontWeight: '600',
+              borderRadius: '4px 4px 0 0',
+              transition: 'all 0.2s'
+            }}
+          >
+            About
+          </button>
         </div>
 
         {/* Projects Tab */}
@@ -314,7 +347,6 @@ export default function Home() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', color: '#333' }}>Projects</h2>
               
-              {/* Export/Import buttons */}
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={exportData}
@@ -703,9 +735,74 @@ export default function Home() {
             />
           </div>
         )}
+
+        {/* About Tab */}
+        {activeTab === 'about' && (
+          <div style={{ maxWidth: '800px' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>About This App</h2>
+            
+            <section style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Purpose</h3>
+              <p style={{ lineHeight: '1.6', color: '#555' }}>
+                This application helps project managers communicate release uncertainty to stakeholders. 
+                Traditional Gantt charts show single delivery dates, but real projects have uncertainty. 
+                GanttApp visualizes this by showing:
+              </p>
+              <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
+                <li><strong>Solid blue bars:</strong> Design, Code, Test phase (predictable work)</li>
+                <li><strong>Hatched blue bars:</strong> Delivery uncertainty window (the "maybe" zone)</li>
+              </ul>
+            </section>
+
+            <section style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data</h3>
+              <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+                <li>Stored securely in <strong>Firebase</strong> (cloud database)</li>
+                <li>Private to your browser session</li>
+                <li>Use <strong>Export</strong> to backup your data anytime</li>
+                <li>Use <strong>Import</strong> to restore from a backup</li>
+              </ul>
+            </section>
+
+            <section style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
+              <p style={{ lineHeight: '1.6', color: '#555' }}>
+                When new versions are released, your data remains safe in Firebase. We recommend 
+                exporting a backup before major updates as a precaution.
+              </p>
+            </section>
+
+            <section style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Author & Source Code</h3>
+              <p style={{ lineHeight: '1.6', color: '#555', marginBottom: '0.5rem' }}>
+                Created by <strong>William W. Davis, MSPM, PMP</strong>
+              </p>
+              <a 
+                href="https://github.com/famousdavis/GanttApp" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-block',
+                  padding: '0.75rem 1.5rem',
+                  background: '#0070f3',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '4px',
+                  fontWeight: '600',
+                  marginTop: '0.5rem'
+                }}
+              >
+                View Source Code on GitHub
+              </a>
+              <p style={{ lineHeight: '1.6', color: '#555', marginTop: '1rem' }}>
+                This software is open source under <strong>GNU GPL v3</strong>. 
+                Feel free to fork, modify, and contribute!
+              </p>
+            </section>
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
       <footer style={{
         textAlign: 'center',
         padding: '2rem',
@@ -714,16 +811,16 @@ export default function Home() {
         fontSize: '0.9rem',
         color: '#666'
       }}>
-        © 2026 William W. Davis, MSPM, PMP | Version 2.1 | Licensed under GNU GPL v3
+        © 2026 William W. Davis, MSPM, PMP | Version 3.0 | Licensed under GNU GPL v3
       </footer>
     </>
   );
 }
-
 // Gantt Chart Component
 function GanttChart({ releases, projectName }: { releases: Release[], projectName: string }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
+  const [showTodayLine, setShowTodayLine] = useState(true);
 
   if (releases.length === 0) {
     return <p style={{ color: '#999', fontStyle: 'italic' }}>No releases to display.</p>;
@@ -737,6 +834,9 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
   const minDate = Math.min(...allDates);
   const maxDate = Math.max(...allDates);
   const dateRange = maxDate - minDate;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
 
   // Chart dimensions
   const chartWidth = 900;
@@ -784,6 +884,10 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
     day: 'numeric' 
   });
 
+  // Check if today is within the chart range
+  const todayInRange = todayTime >= minDate && todayTime <= maxDate;
+  const todayX = todayInRange ? dateToX(today.toISOString().split('T')[0]) : null;
+
   // Copy chart as image
   const copyChartAsImage = async () => {
     if (!chartRef.current) return;
@@ -791,14 +895,12 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
     setCopyStatus('copying');
     
     try {
-      // Use html2canvas to capture the chart
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(chartRef.current, {
         backgroundColor: '#ffffff',
-        scale: 2 // Higher quality
+        scale: 2
       });
       
-      // Convert to blob
       canvas.toBlob(async (blob) => {
         if (!blob) {
           setCopyStatus('error');
@@ -807,7 +909,6 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
         }
         
         try {
-          // Copy to clipboard
           await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob })
           ]);
@@ -829,7 +930,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
 
   return (
     <div ref={chartRef}>
-      {/* Header with project name and date */}
+      {/* Header with project name, toggle, and date */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -839,7 +940,23 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
         <h2 style={{ fontSize: '1.5rem', color: '#333', margin: 0 }}>
           Gantt Chart: {projectName}
         </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            fontSize: '0.9rem',
+            color: '#666',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={showTodayLine}
+              onChange={(e) => setShowTodayLine(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Today's Date
+          </label>
           <span style={{ fontSize: '0.9rem', color: '#666' }}>
             Date Prepared: {todayFormatted}
           </span>
@@ -886,6 +1003,18 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
               </g>
             );
           })}
+
+          {/* Today's date line */}
+          {showTodayLine && todayInRange && todayX && (
+            <line
+              x1={todayX}
+              y1={topMargin - 10}
+              x2={todayX}
+              y2={chartHeight - 20}
+              stroke="#dc3545"
+              strokeWidth="2"
+            />
+          )}
 
           {/* Time axis */}
           <line
@@ -1050,6 +1179,12 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
             </svg>
             <span>Delivery Uncertainty</span>
           </div>
+          {showTodayLine && todayInRange && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '30px', height: '2px', background: '#dc3545' }}></div>
+              <span>Today</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

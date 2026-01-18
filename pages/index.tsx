@@ -244,7 +244,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
-      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', minHeight: 'calc(100vh - 100px)' }}>
         <h1 style={{ 
           fontSize: '2.5rem', 
           fontWeight: '700', 
@@ -704,6 +704,18 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      <footer style={{
+        textAlign: 'center',
+        padding: '2rem',
+        marginTop: '3rem',
+        borderTop: '1px solid #eee',
+        fontSize: '0.9rem',
+        color: '#666'
+      }}>
+        © 2026 William W. Davis, MSPM, PMP | Licensed under GNU GPL v3
+      </footer>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import styles from '@/styles/Home.module.css';
 
@@ -42,24 +42,90 @@ export default function Home() {
 
   // Load data from localStorage on mount
   useEffect(() => {
+    console.log('Loading from localStorage...');
     const stored = localStorage.getItem(STORAGE_KEY);
+    console.log('Stored data:', stored);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
+        console.log('Parsed data:', parsed);
         setData(parsed);
-        if (parsed.projects.length > 0 && !selectedProjectId) {
+        if (parsed.projects && parsed.projects.length > 0) {
+          console.log('Setting selected project to:', parsed.projects[0].id);
           setSelectedProjectId(parsed.projects[0].id);
         }
       } catch (e) {
         console.error('Failed to parse stored data:', e);
       }
+    } else {
+      console.log('No stored data found');
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
+  // Update selected project when data changes and no project is selected
   useEffect(() => {
+    if (data.projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(data.projects[0].id);
+    }
+  }, [data.projects, selectedProjectId]);
+
+  // Save data to localStorage whenever it changes (but not on initial render)
+  const isInitialMount = useRef(true);
+  
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    console.log('Saving to localStorage:', data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data]);
+
+  // Export data to JSON file
+  const exportData = () => {
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gantt-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Import data from JSON file
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const imported = JSON.parse(content);
+        
+        // Basic validation
+        if (imported.projects && imported.releases && Array.isArray(imported.projects) && Array.isArray(imported.releases)) {
+          setData(imported);
+          if (imported.projects.length > 0) {
+            setSelectedProjectId(imported.projects[0].id);
+          }
+          alert('Data imported successfully!');
+        } else {
+          alert('Invalid file format');
+        }
+      } catch (err) {
+        alert('Error reading file');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset the input so the same file can be imported again
+    event.target.value = '';
+  };
 
   // Project CRUD
   const addProject = () => {
@@ -245,7 +311,47 @@ export default function Home() {
         {/* Projects Tab */}
         {activeTab === 'projects' && (
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>Projects</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.5rem', color: '#333' }}>Projects</h2>
+              
+              {/* Export/Import buttons */}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={exportData}
+                  disabled={data.projects.length === 0}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: data.projects.length === 0 ? '#ccc' : '#00c9a7',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: data.projects.length === 0 ? 'not-allowed' : 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  📥 Export Data
+                </button>
+                <label style={{
+                  padding: '0.5rem 1rem',
+                  background: '#0070f3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.9rem'
+                }}>
+                  📤 Import Data
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={importData}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            </div>
             
             <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
               <input
@@ -591,11 +697,10 @@ export default function Home() {
         {/* Gantt Chart Tab */}
         {activeTab === 'chart' && (
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>
-              Gantt Chart: {selectedProject?.name}
-            </h2>
-            
-            <GanttChart releases={currentReleases} />
+            <GanttChart 
+              releases={currentReleases} 
+              projectName={selectedProject?.name || ''}
+            />
           </div>
         )}
       </main>
@@ -604,7 +709,10 @@ export default function Home() {
 }
 
 // Gantt Chart Component
-function GanttChart({ releases }: { releases: Release[] }) {
+function GanttChart({ releases, projectName }: { releases: Release[], projectName: string }) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
+
   if (releases.length === 0) {
     return <p style={{ color: '#999', fontStyle: 'italic' }}>No releases to display.</p>;
   }
@@ -657,191 +765,279 @@ function GanttChart({ releases }: { releases: Release[] }) {
 
   const quarterBoundaries = getQuarterBoundaries();
 
+  // Get today's date formatted
+  const todayFormatted = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
+  // Copy chart as image
+  const copyChartAsImage = async () => {
+    if (!chartRef.current) return;
+    
+    setCopyStatus('copying');
+    
+    try {
+      // Use html2canvas to capture the chart
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2 // Higher quality
+      });
+      
+      // Convert to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setCopyStatus('error');
+          setTimeout(() => setCopyStatus('idle'), 2000);
+          return;
+        }
+        
+        try {
+          // Copy to clipboard
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          setCopyStatus('success');
+          setTimeout(() => setCopyStatus('idle'), 2000);
+        } catch (err) {
+          console.error('Clipboard error:', err);
+          setCopyStatus('error');
+          setTimeout(() => setCopyStatus('idle'), 2000);
+        }
+      }, 'image/png');
+      
+    } catch (err) {
+      console.error('Capture error:', err);
+      setCopyStatus('error');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    }
+  };
+
   return (
-    <div style={{ overflowX: 'auto', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
-      <svg width={chartWidth} height={chartHeight}>
-        {/* Quarterly gridlines */}
-        {quarterBoundaries.map((date, i) => {
-          const x = dateToX(date.toISOString().split('T')[0]);
-          return (
-            <g key={i}>
-              <line
-                x1={x}
-                y1={topMargin - 10}
-                x2={x}
-                y2={chartHeight - 20}
-                stroke="#ddd"
-                strokeWidth="1"
-                strokeDasharray="5,5"
-              />
-            </g>
-          );
-        })}
+    <div ref={chartRef}>
+      {/* Header with project name and date */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'baseline',
+        marginBottom: '1.5rem'
+      }}>
+        <h2 style={{ fontSize: '1.5rem', color: '#333', margin: 0 }}>
+          Gantt Chart: {projectName}
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '0.9rem', color: '#666' }}>
+            Date Prepared: {todayFormatted}
+          </span>
+          <button
+            onClick={copyChartAsImage}
+            disabled={copyStatus === 'copying'}
+            title="Copy chart as image"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: copyStatus === 'copying' ? 'wait' : 'pointer',
+              fontSize: '1.2rem',
+              padding: '0.25rem',
+              opacity: 0.6,
+              transition: 'opacity 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+          >
+            {copyStatus === 'copying' && '⏳'}
+            {copyStatus === 'success' && '✅'}
+            {copyStatus === 'error' && '❌'}
+            {copyStatus === 'idle' && '📋'}
+          </button>
+        </div>
+      </div>
 
-        {/* Time axis */}
-        <line
-          x1={leftMargin}
-          y1={topMargin - 10}
-          x2={chartWidth - rightMargin}
-          y2={topMargin - 10}
-          stroke="#333"
-          strokeWidth="2"
-        />
+      <div style={{ overflowX: 'auto', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
+        <svg width={chartWidth} height={chartHeight}>
+          {/* Quarterly gridlines */}
+          {quarterBoundaries.map((date, i) => {
+            const x = dateToX(date.toISOString().split('T')[0]);
+            return (
+              <g key={i}>
+                <line
+                  x1={x}
+                  y1={topMargin - 10}
+                  x2={x}
+                  y2={chartHeight - 20}
+                  stroke="#ddd"
+                  strokeWidth="1"
+                  strokeDasharray="5,5"
+                />
+              </g>
+            );
+          })}
 
-        {/* Year markers */}
-        {(() => {
-          const startYear = new Date(minDate).getFullYear();
-          const endYear = new Date(maxDate).getFullYear();
-          const years: number[] = [];
-          
-          for (let year = startYear; year <= endYear; year++) {
-            years.push(year);
-          }
-          
-          return years.map((year, index) => {
-            let x: number;
+          {/* Time axis */}
+          <line
+            x1={leftMargin}
+            y1={topMargin - 10}
+            x2={chartWidth - rightMargin}
+            y2={topMargin - 10}
+            stroke="#333"
+            strokeWidth="2"
+          />
+
+          {/* Year markers */}
+          {(() => {
+            const startYear = new Date(minDate).getFullYear();
+            const endYear = new Date(maxDate).getFullYear();
+            const years: number[] = [];
             
-            if (index === 0) {
-              // First year - position at the start
-              x = leftMargin + 20;
-            } else {
-              // Subsequent years - position at Jan 1 of that year
-              const jan1 = new Date(year, 0, 1).getTime();
-              if (jan1 < minDate || jan1 > maxDate) return null;
-              x = dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
+            for (let year = startYear; year <= endYear; year++) {
+              years.push(year);
             }
             
+            return years.map((year, index) => {
+              let x: number;
+              
+              if (index === 0) {
+                x = leftMargin + 20;
+              } else {
+                const jan1 = new Date(year, 0, 1).getTime();
+                if (jan1 < minDate || jan1 > maxDate) return null;
+                x = dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
+              }
+              
+              return (
+                <text
+                  key={year}
+                  x={x}
+                  y={topMargin - 20}
+                  fontSize="14"
+                  fill="#333"
+                  fontWeight="600"
+                  textAnchor={index === 0 ? "start" : "middle"}
+                >
+                  {year}
+                </text>
+              );
+            });
+          })()}
+
+          {/* Releases */}
+          {releases.map((release, i) => {
+            const y = topMargin + i * rowHeight;
+            const startX = dateToX(release.startDate);
+            const earlyX = dateToX(release.earlyFinishDate);
+            const lateX = dateToX(release.lateFinishDate);
+
             return (
-              <text
-                key={year}
-                x={x}
-                y={topMargin - 20}
-                fontSize="14"
-                fill="#333"
-                fontWeight="600"
-                textAnchor={index === 0 ? "start" : "middle"}
-              >
-                {year}
-              </text>
+              <g key={release.id}>
+                {/* Release name */}
+                <text
+                  x={10}
+                  y={y + barHeight / 2 + 5}
+                  fontSize="14"
+                  fill="#333"
+                  fontWeight="600"
+                >
+                  {release.name}
+                </text>
+
+                {/* Solid bar (start to early finish) */}
+                <rect
+                  x={startX}
+                  y={y}
+                  width={earlyX - startX}
+                  height={barHeight}
+                  fill="#0070f3"
+                  rx="4"
+                />
+
+                {/* Hatched bar (early finish to late finish) */}
+                <defs>
+                  <pattern
+                    id={`hatch-${release.id}`}
+                    patternUnits="userSpaceOnUse"
+                    width="8"
+                    height="8"
+                    patternTransform="rotate(45)"
+                  >
+                    <line
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="8"
+                      stroke="#0070f3"
+                      strokeWidth="3"
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x={earlyX}
+                  y={y}
+                  width={lateX - earlyX}
+                  height={barHeight}
+                  fill={`url(#hatch-${release.id})`}
+                  stroke="#0070f3"
+                  strokeWidth="2"
+                  rx="4"
+                />
+
+                {/* Date labels */}
+                <text
+                  x={startX}
+                  y={y + barHeight + 15}
+                  fontSize="11"
+                  fill="#666"
+                  textAnchor="middle"
+                >
+                  {formatDate(release.startDate)}
+                </text>
+                <text
+                  x={earlyX}
+                  y={y + barHeight + 15}
+                  fontSize="11"
+                  fill="#666"
+                  textAnchor="middle"
+                >
+                  {formatDate(release.earlyFinishDate)}
+                </text>
+                <text
+                  x={lateX}
+                  y={y + barHeight + 15}
+                  fontSize="11"
+                  fill="#666"
+                  textAnchor="middle"
+                >
+                  {formatDate(release.lateFinishDate)}
+                </text>
+              </g>
             );
-          });
-        })()}
+          })}
+        </svg>
 
-        {/* Releases */}
-        {releases.map((release, i) => {
-          const y = topMargin + i * rowHeight;
-          const startX = dateToX(release.startDate);
-          const earlyX = dateToX(release.earlyFinishDate);
-          const lateX = dateToX(release.lateFinishDate);
-
-          return (
-            <g key={release.id}>
-              {/* Release name */}
-              <text
-                x={10}
-                y={y + barHeight / 2 + 5}
-                fontSize="14"
-                fill="#333"
-                fontWeight="600"
-              >
-                {release.name}
-              </text>
-
-              {/* Solid bar (start to early finish) */}
-              <rect
-                x={startX}
-                y={y}
-                width={earlyX - startX}
-                height={barHeight}
-                fill="#0070f3"
-                rx="4"
-              />
-
-              {/* Hatched bar (early finish to late finish) */}
+        {/* Legend */}
+        <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '30px', height: '20px', background: '#0070f3', borderRadius: '4px' }}></div>
+            <span>Design, Code, Test</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg width="30" height="20">
               <defs>
                 <pattern
-                  id={`hatch-${release.id}`}
+                  id="legend-hatch"
                   patternUnits="userSpaceOnUse"
                   width="8"
                   height="8"
                   patternTransform="rotate(45)"
                 >
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="8"
-                    stroke="#0070f3"
-                    strokeWidth="3"
-                  />
+                  <line x1="0" y1="0" x2="0" y2="8" stroke="#0070f3" strokeWidth="3" />
                 </pattern>
               </defs>
-              <rect
-                x={earlyX}
-                y={y}
-                width={lateX - earlyX}
-                height={barHeight}
-                fill={`url(#hatch-${release.id})`}
-                stroke="#0070f3"
-                strokeWidth="2"
-                rx="4"
-              />
-
-              {/* Date labels */}
-              <text
-                x={startX}
-                y={y + barHeight + 15}
-                fontSize="11"
-                fill="#666"
-                textAnchor="middle"
-              >
-                {formatDate(release.startDate)}
-              </text>
-              <text
-                x={earlyX}
-                y={y + barHeight + 15}
-                fontSize="11"
-                fill="#666"
-                textAnchor="middle"
-              >
-                {formatDate(release.earlyFinishDate)}
-              </text>
-              <text
-                x={lateX}
-                y={y + barHeight + 15}
-                fontSize="11"
-                fill="#666"
-                textAnchor="middle"
-              >
-                {formatDate(release.lateFinishDate)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Legend */}
-      <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ width: '30px', height: '20px', background: '#0070f3', borderRadius: '4px' }}></div>
-          <span>Design, Code, Test</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <svg width="30" height="20">
-            <defs>
-              <pattern
-                id="legend-hatch"
-                patternUnits="userSpaceOnUse"
-                width="8"
-                height="8"
-                patternTransform="rotate(45)"
-              >
-                <line x1="0" y1="0" x2="0" y2="8" stroke="#0070f3" strokeWidth="3" />
-              </pattern>
-            </defs>
-            <rect width="30" height="20" fill="url(#legend-hatch)" stroke="#0070f3" strokeWidth="2" rx="4" />
-          </svg>
-          <span>Delivery Uncertainty</span>
+              <rect width="30" height="20" fill="url(#legend-hatch)" stroke="#0070f3" strokeWidth="2" rx="4" />
+            </svg>
+            <span>Delivery Uncertainty</span>
+          </div>
         </div>
       </div>
     </div>

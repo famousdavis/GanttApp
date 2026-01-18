@@ -714,7 +714,7 @@ export default function Home() {
         fontSize: '0.9rem',
         color: '#666'
       }}>
-        © 2026 William W. Davis, MSPM, PMP | Licensed under GNU GPL v3
+        © 2026 William W. Davis, MSPM, PMP | Version 2.1 | Licensed under GNU GPL v3
       </footer>
     </>
   );

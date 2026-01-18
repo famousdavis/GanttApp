@@ -30,10 +30,10 @@ export default function Home() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const [projectName, setProjectName] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  
+
   const [releaseName, setReleaseName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [earlyFinish, setEarlyFinish] = useState('');
@@ -47,10 +47,10 @@ export default function Home() {
         const userCredential = await signInAnonymously(auth);
         const uid = userCredential.user.uid;
         setUserId(uid);
-        
+
         const docRef = doc(db, 'users', uid);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const loadedData = docSnap.data() as AppData;
           setData(loadedData);
@@ -64,7 +64,7 @@ export default function Home() {
         setLoading(false);
       }
     };
-    
+
     initAuth();
   }, []);
 
@@ -107,7 +107,7 @@ export default function Home() {
       try {
         const content = e.target?.result as string;
         const imported = JSON.parse(content);
-        
+
         if (imported.projects && imported.releases && Array.isArray(imported.projects) && Array.isArray(imported.releases)) {
           updateData(imported);
           if (imported.projects.length > 0) {
@@ -145,7 +145,7 @@ export default function Home() {
     if (!projectName.trim() || !editingProjectId) return;
     const newData = {
       ...data,
-      projects: data.projects.map(p => 
+      projects: data.projects.map(p =>
         p.id === editingProjectId ? { ...p, name: projectName.trim() } : p
       )
     };
@@ -179,7 +179,7 @@ export default function Home() {
   // Release CRUD
   const addRelease = () => {
     if (!releaseName.trim() || !selectedProjectId || !startDate || !earlyFinish || !lateFinish) return;
-    
+
     const newRelease: Release = {
       id: Date.now().toString(),
       projectId: selectedProjectId,
@@ -195,10 +195,10 @@ export default function Home() {
 
   const updateRelease = () => {
     if (!releaseName.trim() || !editingReleaseId || !startDate || !earlyFinish || !lateFinish) return;
-    
+
     const newData = {
       ...data,
-      releases: data.releases.map(r => 
+      releases: data.releases.map(r =>
         r.id === editingReleaseId ? {
           ...r,
           name: releaseName.trim(),
@@ -241,10 +241,10 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         minHeight: '100vh',
         fontSize: '1.5rem',
         color: '#666'
@@ -261,11 +261,11 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      
+
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', minHeight: 'calc(100vh - 100px)' }}>
-        <h1 style={{ 
-          fontSize: '2.5rem', 
-          fontWeight: '700', 
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: '700',
           marginBottom: '2rem',
           background: 'linear-gradient(to right, #0070f3, #00c9a7)',
           WebkitBackgroundClip: 'text',
@@ -346,7 +346,7 @@ export default function Home() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', color: '#333' }}>Projects</h2>
-              
+
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={exportData}
@@ -384,7 +384,7 @@ export default function Home() {
                 </label>
               </div>
             </div>
-            
+
             <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
               <input
                 type="text"
@@ -680,11 +680,20 @@ export default function Home() {
                         {release.name}
                       </strong>
                       <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                        <span>Start: {new Date(release.startDate).toLocaleDateString()}</span>
+                        <span>Start: {(() => {
+                          const [y, m, d] = release.startDate.split('-').map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString();
+                        })()}</span>
                         <span style={{ margin: '0 1rem' }}>|</span>
-                        <span>Early: {new Date(release.earlyFinishDate).toLocaleDateString()}</span>
+                        <span>Early: {(() => {
+                          const [y, m, d] = release.earlyFinishDate.split('-').map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString();
+                        })()}</span>
                         <span style={{ margin: '0 1rem' }}>|</span>
-                        <span>Late: {new Date(release.lateFinishDate).toLocaleDateString()}</span>
+                        <span>Late: {(() => {
+                          const [y, m, d] = release.lateFinishDate.split('-').map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString();
+                        })()}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -729,8 +738,8 @@ export default function Home() {
         {/* Gantt Chart Tab */}
         {activeTab === 'chart' && (
           <div>
-            <GanttChart 
-              releases={currentReleases} 
+            <GanttChart
+              releases={currentReleases}
               projectName={selectedProject?.name || ''}
             />
           </div>
@@ -740,12 +749,12 @@ export default function Home() {
         {activeTab === 'about' && (
           <div style={{ maxWidth: '800px' }}>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>About This App</h2>
-            
+
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Purpose</h3>
               <p style={{ lineHeight: '1.6', color: '#555' }}>
-                This application helps project managers communicate release uncertainty to stakeholders. 
-                Traditional Gantt charts show single delivery dates, but real projects have uncertainty. 
+                This application helps project managers communicate release uncertainty to stakeholders.
+                Traditional Gantt charts show single delivery dates, but real projects have uncertainty.
                 GanttApp visualizes this by showing:
               </p>
               <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
@@ -767,7 +776,7 @@ export default function Home() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
               <p style={{ lineHeight: '1.6', color: '#555' }}>
-                When new versions are released, your data remains safe in Firebase. We recommend 
+                When new versions are released, your data remains safe in Firebase. We recommend
                 exporting a backup before major updates as a precaution.
               </p>
             </section>
@@ -777,9 +786,9 @@ export default function Home() {
               <p style={{ lineHeight: '1.6', color: '#555', marginBottom: '0.5rem' }}>
                 Created by <strong>William W. Davis, MSPM, PMP</strong>
               </p>
-              <a 
-                href="https://github.com/famousdavis/GanttApp" 
-                target="_blank" 
+              <a
+                href="https://github.com/famousdavis/GanttApp"
+                target="_blank"
                 rel="noopener noreferrer"
                 style={{
                   display: 'inline-block',
@@ -795,7 +804,7 @@ export default function Home() {
                 View Source Code on GitHub
               </a>
               <p style={{ lineHeight: '1.6', color: '#555', marginTop: '1rem' }}>
-                This software is open source under <strong>GNU GPL v3</strong>. 
+                This software is open source under <strong>GNU GPL v3</strong>.
                 Feel free to fork, modify, and contribute!
               </p>
             </section>
@@ -827,10 +836,15 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
   }
 
   // Calculate date range
-  const allDates = releases.flatMap(r => [
-    new Date(r.startDate).getTime(),
-    new Date(r.lateFinishDate).getTime()
-  ]);
+  const allDates = releases.flatMap(r => {
+    const [y1, m1, d1] = r.startDate.split('-').map(Number);
+    const [y2, m2, d2] = r.lateFinishDate.split('-').map(Number);
+    return [
+      new Date(y1, m1 - 1, d1).getTime(),
+      new Date(y2, m2 - 1, d2).getTime()
+    ];
+  });
+
   const minDate = Math.min(...allDates);
   const maxDate = Math.max(...allDates);
   const dateRange = maxDate - minDate;
@@ -848,13 +862,16 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
   const rowHeight = 60;
 
   const dateToX = (date: string) => {
-    const timestamp = new Date(date).getTime();
+    const [year, month, day] = date.split('-').map(Number);
+    const timestamp = new Date(year, month - 1, day).getTime();
     const ratio = (timestamp - minDate) / dateRange;
     return leftMargin + ratio * (chartWidth - leftMargin - rightMargin);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   // Calculate quarter boundaries for gridlines
@@ -862,52 +879,51 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
     const start = new Date(minDate);
     const end = new Date(maxDate);
     const boundaries: Date[] = [];
-    
+
     let current = new Date(start.getFullYear(), Math.floor(start.getMonth() / 3) * 3, 1);
-    
+
     while (current <= end) {
       current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
       if (current > start && current < end) {
         boundaries.push(new Date(current));
       }
     }
-    
+
     return boundaries;
   };
 
   const quarterBoundaries = getQuarterBoundaries();
 
   // Get today's date formatted
-  const todayFormatted = new Date().toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 
   // Check if today is within the chart range
   const todayInRange = todayTime >= minDate && todayTime <= maxDate;
-  const todayX = todayInRange ? dateToX(today.toISOString().split('T')[0]) : null;
-
+  const todayX = todayInRange ? dateToX(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`) : null;
   // Copy chart as image
   const copyChartAsImage = async () => {
     if (!chartRef.current) return;
-    
+
     setCopyStatus('copying');
-    
+
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(chartRef.current, {
         backgroundColor: '#ffffff',
         scale: 2
       });
-      
+
       canvas.toBlob(async (blob) => {
         if (!blob) {
           setCopyStatus('error');
           setTimeout(() => setCopyStatus('idle'), 2000);
           return;
         }
-        
+
         try {
           await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob })
@@ -920,7 +936,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
           setTimeout(() => setCopyStatus('idle'), 2000);
         }
       }, 'image/png');
-      
+
     } catch (err) {
       console.error('Capture error:', err);
       setCopyStatus('error');
@@ -931,9 +947,9 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
   return (
     <div ref={chartRef}>
       {/* Header with project name, toggle, and date */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'baseline',
         marginBottom: '1.5rem'
       }}>
@@ -941,9 +957,9 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
           Gantt Chart: {projectName}
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <label style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.5rem',
             fontSize: '0.9rem',
             color: '#666',
@@ -1031,14 +1047,14 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
             const startYear = new Date(minDate).getFullYear();
             const endYear = new Date(maxDate).getFullYear();
             const years: number[] = [];
-            
+
             for (let year = startYear; year <= endYear; year++) {
               years.push(year);
             }
-            
+
             return years.map((year, index) => {
               let x: number;
-              
+
               if (index === 0) {
                 x = leftMargin + 20;
               } else {
@@ -1046,7 +1062,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                 if (jan1 < minDate || jan1 > maxDate) return null;
                 x = dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
               }
-              
+
               return (
                 <text
                   key={year}

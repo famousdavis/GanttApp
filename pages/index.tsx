@@ -961,6 +961,19 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 3.4 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.4
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 19, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add intelligent label hiding on Gantt chart to prevent overlapping date labels
+                </p>
+              </div>
+
               {/* Version 3.3 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1071,7 +1084,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 3.3</span> | Licensed under GNU GPL v3
+        >Version 3.4</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
@@ -1337,6 +1350,10 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
             const earlyX = dateToX(release.earlyFinishDate);
             const lateX = dateToX(release.lateFinishDate);
 
+            // Label collision detection - minimum 40px spacing
+            const MIN_LABEL_SPACING = 40;
+            const showEarlyLabel = (earlyX - startX) >= MIN_LABEL_SPACING && (lateX - earlyX) >= MIN_LABEL_SPACING;
+
             return (
               <g key={release.id}>
                 {/* Release name */}
@@ -1391,6 +1408,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                 />
 
                 {/* Date labels */}
+                {/* Always show start date */}
                 <text
                   x={startX}
                   y={y + barHeight + 15}
@@ -1400,15 +1418,21 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                 >
                   {formatDate(release.startDate)}
                 </text>
-                <text
-                  x={earlyX}
-                  y={y + barHeight + 15}
-                  fontSize="11"
-                  fill="#666"
-                  textAnchor="middle"
-                >
-                  {formatDate(release.earlyFinishDate)}
-                </text>
+
+                {/* Show early finish date only if there's enough spacing */}
+                {showEarlyLabel && (
+                  <text
+                    x={earlyX}
+                    y={y + barHeight + 15}
+                    fontSize="11"
+                    fill="#666"
+                    textAnchor="middle"
+                  >
+                    {formatDate(release.earlyFinishDate)}
+                  </text>
+                )}
+
+                {/* Always show late finish date */}
                 <text
                   x={lateX}
                   y={y + barHeight + 15}

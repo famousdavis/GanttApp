@@ -805,6 +805,89 @@ new Date(year, month - 1, day).getTime()
 - Most users won't care about version history
 - Discoverable for power users via footer
 
+### **Version 3.3** (January 19, 2026)
+**Features:**
+- Real-time validation for project names, release names, and date logic
+- Project name validation: Button disabled when empty
+- Release validation: All fields required with date logic checks
+- Smart error messages appear only after user interaction (on blur)
+- Form clearing on tab switch and project selection change
+- Field labels added: "Release Name", "Start Date", "Early Finish Date", "Late Finish Date"
+
+**Files Changed:**
+- index.tsx:
+  - Added validation functions: `isProjectNameValid()`, `isReleaseValid()`, `getDateErrorMessage()`
+  - Added `touchedFields` state to track user interaction
+  - Added `useEffect` hooks to clear form on navigation
+  - Updated all Add/Update buttons with conditional styling (disabled state, gray background, reduced opacity)
+  - Added `onBlur` handlers to date fields
+  - Added validation error display in Releases tab
+  - Added field labels above input fields
+
+**Technical Details:**
+```typescript
+// Validation only triggers after field is touched (onBlur)
+const [touchedFields, setTouchedFields] = useState({
+  startDate: false,
+  earlyFinish: false,
+  lateFinish: false
+});
+
+// Date validation checks complete date format (YYYY-MM-DD)
+const isValidDateFormat = (dateStr: string) => {
+  if (!dateStr || dateStr.length !== 10) return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+};
+```
+
+**UX Improvements:**
+- No premature error messages (only after blur)
+- Clear visual feedback (disabled buttons are gray with reduced opacity)
+- Form resets when switching contexts
+- Error messages match field labels for clarity
+
+### **Version 3.4** (January 19, 2026)
+**Features:**
+- Intelligent label hiding on Gantt chart to prevent overlapping date labels
+- Early Finish Date label conditionally rendered based on available space
+- Minimum 40px spacing threshold between labels
+- Always shows Start Date and Late Finish Date (critical boundaries)
+- Hides Early Finish Date only when spacing would cause overlap
+
+**Files Changed:**
+- index.tsx:
+  - Added collision detection logic in GanttChart component
+  - Added `MIN_LABEL_SPACING` constant (40px)
+  - Added `showEarlyLabel` calculation based on pixel distances
+  - Wrapped Early Finish Date label in conditional rendering
+
+**Technical Details:**
+```typescript
+// Label collision detection - minimum 40px spacing
+const MIN_LABEL_SPACING = 40;
+const showEarlyLabel = (earlyX - startX) >= MIN_LABEL_SPACING &&
+                       (lateX - earlyX) >= MIN_LABEL_SPACING;
+
+// Conditional rendering
+{showEarlyLabel && (
+  <text x={earlyX} y={y + barHeight + 15} fontSize="11" fill="#666" textAnchor="middle">
+    {formatDate(release.earlyFinishDate)}
+  </text>
+)}
+```
+
+**Design Rationale:**
+- 40px threshold chosen after testing (70→60→50→40px progression)
+- Balances information density with readability
+- Prioritizes boundary dates (start/late) over intermediate date (early)
+- No visual indicator when label hidden (keeps chart clean)
+- Spacing calculation based on actual pixel positions on timeline
+
+**Development Process:**
+- Initial solution explored 5 approaches (hiding, staggering, dynamic measurement, tooltips, abbreviation)
+- Selected simplest solution (Solution #1: Intelligent Hiding)
+- Iteratively tuned spacing threshold with user testing
+
 ---
 
 ## <a name="future"></a>9. Known Issues & Future Enhancements

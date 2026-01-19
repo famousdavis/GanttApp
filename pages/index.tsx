@@ -40,6 +40,9 @@ export default function Home() {
   const [lateFinish, setLateFinish] = useState('');
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
 
+  // Track which date fields have been touched (user left the field)
+  const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false });
+
   // Initialize Firebase Auth and load data
   useEffect(() => {
     const initAuth = async () => {
@@ -67,6 +70,28 @@ export default function Home() {
 
     initAuth();
   }, []);
+
+  // Clear release form when switching away from releases tab (only if not editing)
+  useEffect(() => {
+    if (activeTab !== 'releases' && !editingReleaseId) {
+      setReleaseName('');
+      setStartDate('');
+      setEarlyFinish('');
+      setLateFinish('');
+      setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
+    }
+  }, [activeTab, editingReleaseId]);
+
+  // Clear release form when changing project selection (only if not editing)
+  useEffect(() => {
+    if (!editingReleaseId) {
+      setReleaseName('');
+      setStartDate('');
+      setEarlyFinish('');
+      setLateFinish('');
+      setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
+    }
+  }, [selectedProjectId, editingReleaseId]);
 
   // Save data to Firestore
   const saveData = async (newData: AppData) => {
@@ -234,6 +259,67 @@ export default function Home() {
     setEarlyFinish('');
     setLateFinish('');
     setEditingReleaseId(null);
+    setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
+  };
+
+  // Validation function for project name
+  const isProjectNameValid = () => {
+    return projectName.trim().length > 0;
+  };
+
+  // Validation function for release (all fields)
+  const isReleaseValid = () => {
+    // Check name
+    if (releaseName.trim().length === 0) return false;
+
+    // Check all dates filled
+    if (!startDate || !earlyFinish || !lateFinish) return false;
+
+    // Check date logic
+    const start = new Date(startDate);
+    const early = new Date(earlyFinish);
+    const late = new Date(lateFinish);
+
+    // Start must be before early
+    if (start >= early) return false;
+
+    // Early must be before or equal to late
+    if (early > late) return false;
+
+    return true;
+  };
+
+  // Generate user-friendly error message for dates
+  const getDateErrorMessage = () => {
+    // Only validate when date fields have complete values (format: YYYY-MM-DD)
+    const isValidDateFormat = (dateStr: string) => {
+      // Must be exactly 10 characters in YYYY-MM-DD format
+      if (!dateStr || dateStr.length !== 10) return false;
+      // Check format with regex
+      return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+    };
+
+    // Check start vs early only when earlyFinish field has been touched AND both dates are complete
+    if (touchedFields.earlyFinish && isValidDateFormat(startDate) && isValidDateFormat(earlyFinish)) {
+      const start = new Date(startDate);
+      const early = new Date(earlyFinish);
+
+      if (start >= early) {
+        return 'Start date must be before the Early finish date';
+      }
+    }
+
+    // Check early vs late only when lateFinish field has been touched AND both dates are complete
+    if (touchedFields.lateFinish && isValidDateFormat(earlyFinish) && isValidDateFormat(lateFinish)) {
+      const early = new Date(earlyFinish);
+      const late = new Date(lateFinish);
+
+      if (early > late) {
+        return 'Early finish date must be before or equal to the Late finish date';
+      }
+    }
+
+    return '';
   };
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
@@ -405,15 +491,17 @@ export default function Home() {
                 <>
                   <button
                     onClick={updateProject}
+                    disabled={!isProjectNameValid()}
                     style={{
                       padding: '0.75rem 1.5rem',
-                      background: '#00c9a7',
+                      background: isProjectNameValid() ? '#00c9a7' : '#ccc',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: 'pointer',
+                      cursor: isProjectNameValid() ? 'pointer' : 'not-allowed',
                       fontWeight: '600',
-                      marginRight: '0.5rem'
+                      marginRight: '0.5rem',
+                      opacity: isProjectNameValid() ? 1 : 0.6
                     }}
                   >
                     Update
@@ -436,14 +524,16 @@ export default function Home() {
               ) : (
                 <button
                   onClick={addProject}
+                  disabled={!isProjectNameValid()}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    background: '#0070f3',
+                    background: isProjectNameValid() ? '#0070f3' : '#ccc',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: '600'
+                    cursor: isProjectNameValid() ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    opacity: isProjectNameValid() ? 1 : 0.6
                   }}
                 >
                   Add Project
@@ -559,68 +649,118 @@ export default function Home() {
 
             <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  placeholder="Release name"
-                  value={releaseName}
-                  onChange={(e) => setReleaseName(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    fontSize: '1rem',
-                    border: '2px solid #ddd',
-                    borderRadius: '4px'
-                  }}
-                />
-                <input
-                  type="date"
-                  placeholder="Start date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    fontSize: '1rem',
-                    border: '2px solid #ddd',
-                    borderRadius: '4px'
-                  }}
-                />
-                <input
-                  type="date"
-                  placeholder="Early finish"
-                  value={earlyFinish}
-                  onChange={(e) => setEarlyFinish(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    fontSize: '1rem',
-                    border: '2px solid #ddd',
-                    borderRadius: '4px'
-                  }}
-                />
-                <input
-                  type="date"
-                  placeholder="Late finish"
-                  value={lateFinish}
-                  onChange={(e) => setLateFinish(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    fontSize: '1rem',
-                    border: '2px solid #ddd',
-                    borderRadius: '4px'
-                  }}
-                />
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Release Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Release name"
+                    value={releaseName}
+                    onChange={(e) => setReleaseName(e.target.value)}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    onBlur={() => setTouchedFields(prev => ({ ...prev, startDate: true }))}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Early Finish Date
+                  </label>
+                  <input
+                    type="date"
+                    value={earlyFinish}
+                    onChange={(e) => {
+                      setEarlyFinish(e.target.value);
+                      // Reset touched state when user is actively changing the value
+                      setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
+                    }}
+                    onBlur={() => setTouchedFields(prev => ({ ...prev, earlyFinish: true }))}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Late Finish Date
+                  </label>
+                  <input
+                    type="date"
+                    value={lateFinish}
+                    onChange={(e) => {
+                      setLateFinish(e.target.value);
+                      // Reset touched state when user is actively changing the value
+                      setTouchedFields(prev => ({ ...prev, lateFinish: false }));
+                    }}
+                    onBlur={() => setTouchedFields(prev => ({ ...prev, lateFinish: true }))}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
               </div>
+
+              {/* Validation error message */}
+              {getDateErrorMessage() && (
+                <div style={{
+                  color: '#dc3545',
+                  fontSize: '0.9rem',
+                  marginBottom: '0.75rem',
+                  padding: '0.5rem',
+                  background: '#f8d7da',
+                  borderRadius: '4px',
+                  border: '1px solid #f5c6cb'
+                }}>
+                  {getDateErrorMessage()}
+                </div>
+              )}
+
               {editingReleaseId ? (
                 <>
                   <button
                     onClick={updateRelease}
+                    disabled={!isReleaseValid()}
                     style={{
                       padding: '0.75rem 1.5rem',
-                      background: '#00c9a7',
+                      background: isReleaseValid() ? '#00c9a7' : '#ccc',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: 'pointer',
+                      cursor: isReleaseValid() ? 'pointer' : 'not-allowed',
                       fontWeight: '600',
-                      marginRight: '0.5rem'
+                      marginRight: '0.5rem',
+                      opacity: isReleaseValid() ? 1 : 0.6
                     }}
                   >
                     Update Release
@@ -643,14 +783,16 @@ export default function Home() {
               ) : (
                 <button
                   onClick={addRelease}
+                  disabled={!isReleaseValid()}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    background: '#0070f3',
+                    background: isReleaseValid() ? '#0070f3' : '#ccc',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: '600'
+                    cursor: isReleaseValid() ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    opacity: isReleaseValid() ? 1 : 0.6
                   }}
                 >
                   Add Release
@@ -819,6 +961,19 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 3.3 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.3
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 19, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add real-time validation for project names, release names, and date logic
+                </p>
+              </div>
+
               {/* Version 3.2 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -916,7 +1071,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 3.2</span> | Licensed under GNU GPL v3
+        >Version 3.3</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );

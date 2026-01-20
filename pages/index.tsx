@@ -1091,10 +1091,10 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              {/* Version 3.6 */}
+              {/* Version 4.0 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
-                  Version 3.6
+                  Version 4.0
                   <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
                     January 19, 2026
                   </span>
@@ -1240,7 +1240,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 3.6</span> | Licensed under GNU GPL v3
+        >Version 4.0</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );

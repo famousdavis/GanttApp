@@ -19,10 +19,25 @@ interface Release {
   lateFinishDate: string;
 }
 
+interface ChartColors {
+  solidBar: string;
+  hatchedBar: string;
+  todayLine: string;
+}
+
 interface AppData {
   projects: Project[];
   releases: Release[];
+  chartColors?: ChartColors;
+  activePreset?: string;
 }
+
+// Default color scheme
+const DEFAULT_CHART_COLORS: ChartColors = {
+  solidBar: '#0070f3',
+  hatchedBar: '#0070f3',
+  todayLine: '#dc3545'
+};
 
 export default function Home() {
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
@@ -30,6 +45,8 @@ export default function Home() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
+  const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
 
   const [projectName, setProjectName] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -59,6 +76,14 @@ export default function Home() {
           setData(loadedData);
           if (loadedData.projects && loadedData.projects.length > 0) {
             setSelectedProjectId(loadedData.projects[0].id);
+          }
+          // Load chart colors or use defaults
+          if (loadedData.chartColors) {
+            setChartColors(loadedData.chartColors);
+          }
+          // Load active preset if it exists
+          if (loadedData.activePreset) {
+            setActivePreset(loadedData.activePreset);
           }
         }
       } catch (error) {
@@ -106,6 +131,19 @@ export default function Home() {
 
   const updateData = (newData: AppData) => {
     setData(newData);
+    saveData(newData);
+  };
+
+  // Update chart colors and persist to Firebase
+  const updateChartColors = (newColors: ChartColors, presetName?: string) => {
+    setChartColors(newColors);
+
+    // If presetName is provided, set it as active
+    // If presetName is explicitly undefined/null (custom color change), clear active preset
+    const newActivePreset = presetName !== undefined ? presetName : undefined;
+    setActivePreset(newActivePreset);
+
+    const newData = { ...data, chartColors: newColors, activePreset: newActivePreset };
     saveData(newData);
   };
 
@@ -883,6 +921,9 @@ export default function Home() {
             <GanttChart
               releases={currentReleases}
               projectName={selectedProject?.name || ''}
+              chartColors={chartColors}
+              onColorsChange={updateChartColors}
+              activePreset={activePreset}
             />
           </div>
         )}
@@ -918,7 +959,7 @@ export default function Home() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
               <p style={{ lineHeight: '1.6', color: '#555' }}>
-                When new versions are released, your data remains safe in Firebase. We recommend
+                When new versions are released, your data remains safe in Firebase. I recommend
                 exporting a backup before major updates as a precaution.
               </p>
             </section>
@@ -961,6 +1002,19 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 3.5 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.5
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 19, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Add configurable chart colors with custom color pickers and preset themes. Active preset is visually indicated and automatically clears when custom colors are selected. Chart color settings persist to Firebase.
+                </p>
+              </div>
+
               {/* Version 3.4 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1084,13 +1138,171 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 3.4</span> | Licensed under GNU GPL v3
+        >Version 3.5</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
 }
+// Standard color palette for individual color selection
+const STANDARD_COLORS = [
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Amber', value: '#f59e0b' },
+  { name: 'Yellow', value: '#eab308' },
+  { name: 'Lime', value: '#84cc16' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Emerald', value: '#10b981' },
+  { name: 'Teal', value: '#14b8a6' },
+  { name: 'Cyan', value: '#06b6d4' },
+  { name: 'Sky', value: '#0ea5e9' },
+  { name: 'Blue', value: '#0070f3' },
+  { name: 'Indigo', value: '#4f46e5' },
+  { name: 'Violet', value: '#7c3aed' },
+  { name: 'Purple', value: '#9333ea' },
+  { name: 'Fuchsia', value: '#d946ef' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Rose', value: '#f43f5e' },
+  { name: 'Gray', value: '#6b7280' },
+  { name: 'Slate', value: '#475569' },
+  { name: 'Black', value: '#000000' }
+];
+
+// Color preset themes
+const COLOR_PRESETS: { [key: string]: ChartColors } = {
+  'Default': DEFAULT_CHART_COLORS,
+  'Professional': { solidBar: '#2c3e50', hatchedBar: '#34495e', todayLine: '#e74c3c' },
+  'Colorful': { solidBar: '#9b59b6', hatchedBar: '#3498db', todayLine: '#e67e22' },
+  'Grayscale': { solidBar: '#555555', hatchedBar: '#777777', todayLine: '#333333' },
+  'High Contrast': { solidBar: '#000000', hatchedBar: '#0066cc', todayLine: '#ff0000' },
+  'Forest': { solidBar: '#2d5016', hatchedBar: '#56ab2f', todayLine: '#ff6b6b' },
+  'Ocean': { solidBar: '#1e3a8a', hatchedBar: '#3b82f6', todayLine: '#f59e0b' },
+  'Sunset': { solidBar: '#dc2626', hatchedBar: '#f97316', todayLine: '#7c2d12' },
+  'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899' },
+  'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d' }
+};
+
+// Color Swatch Picker Component
+function ColorSwatchPicker({ value, onChange, label }: { value: string, onChange: (color: string) => void, label: string }) {
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Close picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+
+    if (showPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showPicker]);
+
+  return (
+    <div style={{ position: 'relative' }} ref={pickerRef}>
+      <label style={{
+        display: 'block',
+        marginBottom: '0.5rem',
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        color: '#555'
+      }}>
+        {label}
+      </label>
+      <div
+        onClick={() => setShowPicker(!showPicker)}
+        style={{
+          width: '100%',
+          height: '40px',
+          background: value,
+          border: '2px solid #ddd',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      />
+
+      {showPicker && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          marginTop: '0.5rem',
+          background: 'white',
+          border: '2px solid #ddd',
+          borderRadius: '8px',
+          padding: '1rem',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          zIndex: 1000,
+          minWidth: '280px'
+        }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '0.5rem',
+            marginBottom: '0.75rem'
+          }}>
+            {STANDARD_COLORS.map(color => (
+              <div
+                key={color.value}
+                onClick={() => {
+                  onChange(color.value);
+                  setShowPicker(false);
+                }}
+                title={color.name}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  background: color.value,
+                  border: value === color.value ? '3px solid #0070f3' : '2px solid #ddd',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.1s',
+                  boxSizing: 'border-box'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              />
+            ))}
+          </div>
+          <div style={{ borderTop: '1px solid #ddd', paddingTop: '0.75rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              color: '#555',
+              marginBottom: '0.5rem'
+            }}>
+              Custom Color
+            </label>
+            <input
+              type="color"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              style={{
+                width: '100%',
+                height: '36px',
+                border: '2px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Gantt Chart Component
-function GanttChart({ releases, projectName }: { releases: Release[], projectName: string }) {
+function GanttChart({ releases, projectName, chartColors, onColorsChange, activePreset }: {
+  releases: Release[],
+  projectName: string,
+  chartColors: ChartColors,
+  onColorsChange: (colors: ChartColors, presetName?: string) => void,
+  activePreset?: string
+}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
   const [showTodayLine, setShowTodayLine] = useState(true);
@@ -1291,7 +1503,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
               y1={topMargin - 10}
               x2={todayX}
               y2={chartHeight - 20}
-              stroke="#dc3545"
+              stroke={chartColors.todayLine}
               strokeWidth="2"
             />
           )}
@@ -1373,7 +1585,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                   y={y}
                   width={earlyX - startX}
                   height={barHeight}
-                  fill="#0070f3"
+                  fill={chartColors.solidBar}
                   rx="4"
                 />
 
@@ -1391,7 +1603,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                       y1="0"
                       x2="0"
                       y2="8"
-                      stroke="#0070f3"
+                      stroke={chartColors.hatchedBar}
                       strokeWidth="3"
                     />
                   </pattern>
@@ -1402,7 +1614,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                   width={lateX - earlyX}
                   height={barHeight}
                   fill={`url(#hatch-${release.id})`}
-                  stroke="#0070f3"
+                  stroke={chartColors.hatchedBar}
                   strokeWidth="2"
                   rx="4"
                 />
@@ -1450,7 +1662,7 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
         {/* Legend */}
         <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ width: '30px', height: '20px', background: '#0070f3', borderRadius: '4px' }}></div>
+            <div style={{ width: '30px', height: '20px', background: chartColors.solidBar, borderRadius: '4px' }}></div>
             <span>Design, Code, Test</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1463,19 +1675,103 @@ function GanttChart({ releases, projectName }: { releases: Release[], projectNam
                   height="8"
                   patternTransform="rotate(45)"
                 >
-                  <line x1="0" y1="0" x2="0" y2="8" stroke="#0070f3" strokeWidth="3" />
+                  <line x1="0" y1="0" x2="0" y2="8" stroke={chartColors.hatchedBar} strokeWidth="3" />
                 </pattern>
               </defs>
-              <rect width="30" height="20" fill="url(#legend-hatch)" stroke="#0070f3" strokeWidth="2" rx="4" />
+              <rect width="30" height="20" fill="url(#legend-hatch)" stroke={chartColors.hatchedBar} strokeWidth="2" rx="4" />
             </svg>
             <span>Delivery Uncertainty</span>
           </div>
           {showTodayLine && todayInRange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '30px', height: '2px', background: '#dc3545' }}></div>
+              <div style={{ width: '30px', height: '2px', background: chartColors.todayLine }}></div>
               <span>Today</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Chart Color Settings - Outside chartRef so not included in copy-to-image */}
+      <div style={{
+        marginTop: '2rem',
+        padding: '1.5rem',
+        background: '#f9f9f9',
+        borderRadius: '8px',
+        border: '1px solid #ddd'
+      }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#333' }}>Chart Colors</h3>
+
+        {/* Color Pickers */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <ColorSwatchPicker
+            label="Solid Bars"
+            value={chartColors.solidBar}
+            onChange={(color) => onColorsChange({ ...chartColors, solidBar: color }, undefined)}
+          />
+          <ColorSwatchPicker
+            label="Hatched Bars"
+            value={chartColors.hatchedBar}
+            onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color }, undefined)}
+          />
+          <ColorSwatchPicker
+            label="Today's Line"
+            value={chartColors.todayLine}
+            onChange={(color) => onColorsChange({ ...chartColors, todayLine: color }, undefined)}
+          />
+        </div>
+
+        {/* Preset Themes */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '0.5rem',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            color: '#555'
+          }}>
+            Color Presets
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {Object.keys(COLOR_PRESETS).map(presetName => {
+              const isActive = activePreset === presetName;
+              return (
+                <button
+                  key={presetName}
+                  onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: isActive ? '#e6f2ff' : 'white',
+                    border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: isActive ? '600' : '500',
+                    transition: 'all 0.2s',
+                    boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.2)' : 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = '#0070f3';
+                      e.currentTarget.style.background = '#f0f8ff';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = '#ddd';
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  {presetName}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,10 @@ interface AppData {
   releases: Release[];
   chartColors?: ChartColors;
   activePreset?: string;
+  legendLabels?: {
+    solidBar: string;
+    hatchedBar: string;
+  };
 }
 
 // Default color scheme
@@ -60,6 +64,15 @@ export default function Home() {
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [draggedReleaseId, setDraggedReleaseId] = useState<string | null>(null);
 
+  // Collapsible color settings state
+  const [showColorSettings, setShowColorSettings] = useState(false);
+
+  // Legend label editing state
+  const [solidBarLabel, setSolidBarLabel] = useState('Design, Code, Test');
+  const [hatchedBarLabel, setHatchedBarLabel] = useState('Delivery Uncertainty');
+  const [editingLegendLabel, setEditingLegendLabel] = useState<'solid' | 'hatched' | null>(null);
+  const [tempLabelValue, setTempLabelValue] = useState('');
+
   // Load data from localStorage on mount
   useEffect(() => {
     const loadData = () => {
@@ -78,6 +91,11 @@ export default function Home() {
           // Load active preset if it exists
           if (loadedData.activePreset) {
             setActivePreset(loadedData.activePreset);
+          }
+          // Load legend labels if they exist
+          if (loadedData.legendLabels) {
+            setSolidBarLabel(loadedData.legendLabels.solidBar);
+            setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
           }
         }
       } catch (error) {
@@ -138,6 +156,20 @@ export default function Home() {
     const newData = { ...data, chartColors: newColors, activePreset: newActivePreset };
     saveData(newData);
   };
+
+  // Save legend labels to localStorage whenever they change
+  useEffect(() => {
+    if (!loading) {
+      const newData = {
+        ...data,
+        legendLabels: {
+          solidBar: solidBarLabel,
+          hatchedBar: hatchedBarLabel
+        }
+      };
+      saveData(newData);
+    }
+  }, [solidBarLabel, hatchedBarLabel]);
 
   // Export/Import functions
   const exportData = () => {
@@ -1010,6 +1042,29 @@ export default function Home() {
               chartColors={chartColors}
               onColorsChange={updateChartColors}
               activePreset={activePreset}
+              showColorSettings={showColorSettings}
+              setShowColorSettings={setShowColorSettings}
+              solidBarLabel={solidBarLabel}
+              hatchedBarLabel={hatchedBarLabel}
+              editingLegendLabel={editingLegendLabel}
+              tempLabelValue={tempLabelValue}
+              onStartEditLabel={(type: 'solid' | 'hatched') => {
+                setEditingLegendLabel(type);
+                setTempLabelValue(type === 'solid' ? solidBarLabel : hatchedBarLabel);
+              }}
+              onSaveLabelEdit={() => {
+                if (editingLegendLabel === 'solid') {
+                  setSolidBarLabel(tempLabelValue);
+                } else if (editingLegendLabel === 'hatched') {
+                  setHatchedBarLabel(tempLabelValue);
+                }
+                setEditingLegendLabel(null);
+              }}
+              onCancelLabelEdit={() => {
+                setEditingLegendLabel(null);
+                setTempLabelValue('');
+              }}
+              onTempLabelChange={setTempLabelValue}
             />
           </div>
         )}
@@ -1022,7 +1077,7 @@ export default function Home() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Purpose</h3>
               <p style={{ lineHeight: '1.6', color: '#555' }}>
-                This application helps project managers communicate release uncertainty to stakeholders.
+                <strong>GanttApp</strong> helps project managers communicate release uncertainty to stakeholders.
                 Traditional Gantt charts show single delivery dates, but real projects have uncertainty.
                 GanttApp visualizes this by showing:
               </p>
@@ -1091,6 +1146,22 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 4.1 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 4.1
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 20, 2026
+                  </span>
+                </h3>
+                <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+                  <li>Removed "Gantt Chart:" label prefix from chart display (project name only)</li>
+                  <li>Added collapsible color settings section (collapsed by default)</li>
+                  <li>Made legend labels editable with localStorage persistence</li>
+                  <li>Enhanced About page formatting (bolded "GanttApp" in description)</li>
+                </ul>
+              </div>
+
               {/* Version 4.0 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1240,7 +1311,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 4.0</span> | Licensed under GNU GPL v3
+        >Version 4.1</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
@@ -1398,12 +1469,38 @@ function ColorSwatchPicker({ value, onChange, label }: { value: string, onChange
 }
 
 // Gantt Chart Component
-function GanttChart({ releases, projectName, chartColors, onColorsChange, activePreset }: {
+function GanttChart({
+  releases,
+  projectName,
+  chartColors,
+  onColorsChange,
+  activePreset,
+  showColorSettings,
+  setShowColorSettings,
+  solidBarLabel,
+  hatchedBarLabel,
+  editingLegendLabel,
+  tempLabelValue,
+  onStartEditLabel,
+  onSaveLabelEdit,
+  onCancelLabelEdit,
+  onTempLabelChange
+}: {
   releases: Release[],
   projectName: string,
   chartColors: ChartColors,
   onColorsChange: (colors: ChartColors, presetName?: string) => void,
-  activePreset?: string
+  activePreset?: string,
+  showColorSettings: boolean,
+  setShowColorSettings: (show: boolean) => void,
+  solidBarLabel: string,
+  hatchedBarLabel: string,
+  editingLegendLabel: 'solid' | 'hatched' | null,
+  tempLabelValue: string,
+  onStartEditLabel: (type: 'solid' | 'hatched') => void,
+  onSaveLabelEdit: () => void,
+  onCancelLabelEdit: () => void,
+  onTempLabelChange: (value: string) => void
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -1533,7 +1630,7 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
         marginBottom: '1.5rem'
       }}>
         <h2 style={{ fontSize: '1.5rem', color: '#333', margin: 0 }}>
-          Gantt Chart: {projectName}
+          {projectName}
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <label style={{
@@ -1766,7 +1863,50 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
         <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ width: '30px', height: '20px', background: chartColors.solidBar, borderRadius: '4px' }}></div>
-            <span>Design, Code, Test</span>
+            {editingLegendLabel === 'solid' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <input
+                  type="text"
+                  value={tempLabelValue}
+                  onChange={(e) => onTempLabelChange(e.target.value)}
+                  onBlur={onCancelLabelEdit}
+                  autoFocus
+                  style={{
+                    fontSize: '0.9rem',
+                    padding: '2px 4px',
+                    border: '1px solid #0070f3',
+                    borderRadius: '3px',
+                    outline: 'none',
+                    minWidth: '120px'
+                  }}
+                />
+                <button
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSaveLabelEdit();
+                  }}
+                  style={{
+                    background: '#10a37f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ✓
+                </button>
+              </div>
+            ) : (
+              <span
+                onClick={() => onStartEditLabel('solid')}
+                style={{ cursor: 'pointer' }}
+              >
+                {solidBarLabel}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <svg width="30" height="20">
@@ -1783,7 +1923,50 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
               </defs>
               <rect width="30" height="20" fill="url(#legend-hatch)" stroke={chartColors.hatchedBar} strokeWidth="2" rx="4" />
             </svg>
-            <span>Delivery Uncertainty</span>
+            {editingLegendLabel === 'hatched' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <input
+                  type="text"
+                  value={tempLabelValue}
+                  onChange={(e) => onTempLabelChange(e.target.value)}
+                  onBlur={onCancelLabelEdit}
+                  autoFocus
+                  style={{
+                    fontSize: '0.9rem',
+                    padding: '2px 4px',
+                    border: '1px solid #0070f3',
+                    borderRadius: '3px',
+                    outline: 'none',
+                    minWidth: '120px'
+                  }}
+                />
+                <button
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSaveLabelEdit();
+                  }}
+                  style={{
+                    background: '#10a37f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ✓
+                </button>
+              </div>
+            ) : (
+              <span
+                onClick={() => onStartEditLabel('hatched')}
+                style={{ cursor: 'pointer' }}
+              >
+                {hatchedBarLabel}
+              </span>
+            )}
           </div>
           {showTodayLine && todayInRange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1803,80 +1986,98 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
         borderRadius: '8px',
         border: '1px solid #ddd'
       }}>
-        <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#333' }}>Chart Colors</h3>
+        <h3
+          onClick={() => setShowColorSettings(!showColorSettings)}
+          style={{
+            fontSize: '1.2rem',
+            marginBottom: showColorSettings ? '1rem' : '0',
+            color: '#333',
+            cursor: 'pointer',
+            userSelect: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          Chart Color Settings {showColorSettings ? '▲' : '▼'}
+        </h3>
 
-        {/* Color Pickers */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem'
-        }}>
-          <ColorSwatchPicker
-            label="Solid Bars"
-            value={chartColors.solidBar}
-            onChange={(color) => onColorsChange({ ...chartColors, solidBar: color }, undefined)}
-          />
-          <ColorSwatchPicker
-            label="Hatched Bars"
-            value={chartColors.hatchedBar}
-            onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color }, undefined)}
-          />
-          <ColorSwatchPicker
-            label="Today's Line"
-            value={chartColors.todayLine}
-            onChange={(color) => onColorsChange({ ...chartColors, todayLine: color }, undefined)}
-          />
-        </div>
+        {showColorSettings && (
+          <>
+            {/* Color Pickers */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.5rem'
+            }}>
+              <ColorSwatchPicker
+                label="Solid Bars"
+                value={chartColors.solidBar}
+                onChange={(color) => onColorsChange({ ...chartColors, solidBar: color }, undefined)}
+              />
+              <ColorSwatchPicker
+                label="Hatched Bars"
+                value={chartColors.hatchedBar}
+                onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color }, undefined)}
+              />
+              <ColorSwatchPicker
+                label="Today's Line"
+                value={chartColors.todayLine}
+                onChange={(color) => onColorsChange({ ...chartColors, todayLine: color }, undefined)}
+              />
+            </div>
 
-        {/* Preset Themes */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            fontSize: '0.9rem',
-            fontWeight: '600',
-            color: '#555'
-          }}>
-            Color Presets
-          </label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {Object.keys(COLOR_PRESETS).map(presetName => {
-              const isActive = activePreset === presetName;
-              return (
-                <button
-                  key={presetName}
-                  onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: isActive ? '#e6f2ff' : 'white',
-                    border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: isActive ? '600' : '500',
-                    transition: 'all 0.2s',
-                    boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.2)' : 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.borderColor = '#0070f3';
-                      e.currentTarget.style.background = '#f0f8ff';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.borderColor = '#ddd';
-                      e.currentTarget.style.background = 'white';
-                    }
-                  }}
-                >
-                  {presetName}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {/* Preset Themes */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                color: '#555'
+              }}>
+                Color Presets
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {Object.keys(COLOR_PRESETS).map(presetName => {
+                  const isActive = activePreset === presetName;
+                  return (
+                    <button
+                      key={presetName}
+                      onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: isActive ? '#e6f2ff' : 'white',
+                        border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: isActive ? '600' : '500',
+                        transition: 'all 0.2s',
+                        boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.2)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = '#0070f3';
+                          e.currentTarget.style.background = '#f0f8ff';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.borderColor = '#ddd';
+                          e.currentTarget.style.background = 'white';
+                        }
+                      }}
+                    >
+                      {presetName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );

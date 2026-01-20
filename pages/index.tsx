@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
 
 // Types
 interface Project {
@@ -43,7 +40,6 @@ export default function Home() {
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
   const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart' | 'about' | 'changelog'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
@@ -60,19 +56,17 @@ export default function Home() {
   // Track which date fields have been touched (user left the field)
   const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false });
 
-  // Initialize Firebase Auth and load data
+  // Drag and drop state
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
+  const [draggedReleaseId, setDraggedReleaseId] = useState<string | null>(null);
+
+  // Load data from localStorage on mount
   useEffect(() => {
-    const initAuth = async () => {
+    const loadData = () => {
       try {
-        const userCredential = await signInAnonymously(auth);
-        const uid = userCredential.user.uid;
-        setUserId(uid);
-
-        const docRef = doc(db, 'users', uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const loadedData = docSnap.data() as AppData;
+        const savedData = localStorage.getItem('ganttAppData');
+        if (savedData) {
+          const loadedData = JSON.parse(savedData) as AppData;
           setData(loadedData);
           if (loadedData.projects && loadedData.projects.length > 0) {
             setSelectedProjectId(loadedData.projects[0].id);
@@ -87,13 +81,13 @@ export default function Home() {
           }
         }
       } catch (error) {
-        console.error('Auth error:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    initAuth();
+    loadData();
   }, []);
 
   // Clear release form when switching away from releases tab (only if not editing)
@@ -118,12 +112,10 @@ export default function Home() {
     }
   }, [selectedProjectId, editingReleaseId]);
 
-  // Save data to Firestore
-  const saveData = async (newData: AppData) => {
-    if (!userId) return;
+  // Save data to localStorage
+  const saveData = (newData: AppData) => {
     try {
-      const docRef = doc(db, 'users', userId);
-      await setDoc(docRef, newData);
+      localStorage.setItem('ganttAppData', JSON.stringify(newData));
     } catch (error) {
       console.error('Save error:', error);
     }
@@ -134,7 +126,7 @@ export default function Home() {
     saveData(newData);
   };
 
-  // Update chart colors and persist to Firebase
+  // Update chart colors and persist to localStorage
   const updateChartColors = (newColors: ChartColors, presetName?: string) => {
     setChartColors(newColors);
 
@@ -298,6 +290,62 @@ export default function Home() {
     setLateFinish('');
     setEditingReleaseId(null);
     setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
+  };
+
+  // Drag and drop handlers for projects
+  const handleProjectDragStart = (projectId: string) => {
+    setDraggedProjectId(projectId);
+  };
+
+  const handleProjectDragOver = (e: React.DragEvent<HTMLDivElement>, targetProjectId: string) => {
+    e.preventDefault();
+    if (!draggedProjectId || draggedProjectId === targetProjectId) return;
+
+    const draggedIndex = data.projects.findIndex(p => p.id === draggedProjectId);
+    const targetIndex = data.projects.findIndex(p => p.id === targetProjectId);
+
+    const newProjects = [...data.projects];
+    const [removed] = newProjects.splice(draggedIndex, 1);
+    newProjects.splice(targetIndex, 0, removed);
+
+    const newData = { ...data, projects: newProjects };
+    updateData(newData);
+  };
+
+  const handleProjectDragEnd = () => {
+    setDraggedProjectId(null);
+  };
+
+  // Drag and drop handlers for releases
+  const handleReleaseDragStart = (releaseId: string) => {
+    setDraggedReleaseId(releaseId);
+  };
+
+  const handleReleaseDragOver = (e: React.DragEvent<HTMLDivElement>, targetReleaseId: string) => {
+    e.preventDefault();
+    if (!draggedReleaseId || draggedReleaseId === targetReleaseId) return;
+
+    // Only reorder within the same project
+    const draggedRelease = data.releases.find(r => r.id === draggedReleaseId);
+    const targetRelease = data.releases.find(r => r.id === targetReleaseId);
+    if (!draggedRelease || !targetRelease || draggedRelease.projectId !== targetRelease.projectId) return;
+
+    const projectReleases = data.releases.filter(r => r.projectId === draggedRelease.projectId);
+    const otherReleases = data.releases.filter(r => r.projectId !== draggedRelease.projectId);
+
+    const draggedIndex = projectReleases.findIndex(r => r.id === draggedReleaseId);
+    const targetIndex = projectReleases.findIndex(r => r.id === targetReleaseId);
+
+    const newProjectReleases = [...projectReleases];
+    const [removed] = newProjectReleases.splice(draggedIndex, 1);
+    newProjectReleases.splice(targetIndex, 0, removed);
+
+    const newData = { ...data, releases: [...otherReleases, ...newProjectReleases] };
+    updateData(newData);
+  };
+
+  const handleReleaseDragEnd = () => {
+    setDraggedReleaseId(null);
   };
 
   // Validation function for project name
@@ -586,6 +634,10 @@ export default function Home() {
                 {data.projects.map(project => (
                   <div
                     key={project.id}
+                    draggable
+                    onDragStart={() => handleProjectDragStart(project.id)}
+                    onDragOver={(e) => handleProjectDragOver(e, project.id)}
+                    onDragEnd={handleProjectDragEnd}
                     style={{
                       padding: '1rem',
                       background: 'white',
@@ -593,14 +645,29 @@ export default function Home() {
                       borderRadius: '8px',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      cursor: draggedProjectId === project.id ? 'grabbing' : 'grab',
+                      opacity: draggedProjectId === project.id ? 0.5 : 1,
+                      transition: 'opacity 0.2s'
                     }}
                   >
-                    <div>
-                      <strong style={{ fontSize: '1.1rem' }}>{project.name}</strong>
-                      <span style={{ marginLeft: '1rem', color: '#999', fontSize: '0.9rem' }}>
-                        ({data.releases.filter(r => r.projectId === project.id).length} releases)
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
+                        cursor: 'grab'
+                      }}>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                      </div>
+                      <div>
+                        <strong style={{ fontSize: '1.1rem' }}>{project.name}</strong>
+                        <span style={{ marginLeft: '1rem', color: '#999', fontSize: '0.9rem' }}>
+                          ({data.releases.filter(r => r.projectId === project.id).length} releases)
+                        </span>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
@@ -845,6 +912,10 @@ export default function Home() {
                 {currentReleases.map(release => (
                   <div
                     key={release.id}
+                    draggable
+                    onDragStart={() => handleReleaseDragStart(release.id)}
+                    onDragOver={(e) => handleReleaseDragOver(e, release.id)}
+                    onDragEnd={handleReleaseDragEnd}
                     style={{
                       padding: '1rem',
                       background: 'white',
@@ -852,13 +923,27 @@ export default function Home() {
                       borderRadius: '8px',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      cursor: draggedReleaseId === release.id ? 'grabbing' : 'grab',
+                      opacity: draggedReleaseId === release.id ? 0.5 : 1,
+                      transition: 'opacity 0.2s'
                     }}
                   >
-                    <div>
-                      <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem' }}>
-                        {release.name}
-                      </strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
+                        cursor: 'grab'
+                      }}>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#999' }}></div>
+                      </div>
+                      <div>
+                        <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem' }}>
+                          {release.name}
+                        </strong>
                       <div style={{ fontSize: '0.9rem', color: '#666' }}>
                         <span>Start: {(() => {
                           const [y, m, d] = release.startDate.split('-').map(Number);
@@ -874,6 +959,7 @@ export default function Home() {
                           const [y, m, d] = release.lateFinishDate.split('-').map(Number);
                           return new Date(y, m - 1, d).toLocaleDateString();
                         })()}</span>
+                      </div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -947,19 +1033,22 @@ export default function Home() {
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data</h3>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data & Security</h3>
               <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
-                <li>Stored securely in <strong>Firebase</strong> (cloud database)</li>
-                <li>Private to your browser session</li>
-                <li>Use <strong>Export</strong> to backup your data anytime</li>
-                <li>Use <strong>Import</strong> to restore from a backup</li>
+                <li>Stored locally in your <strong>browser</strong> (not in any cloud database)</li>
+                <li><strong>Your data never leaves your device</strong></li>
+                <li>No external servers, no third-party access, no data governance concerns</li>
+                <li>Safe for corporate/organizational data - all data stays within your network</li>
+                <li>Use <strong>Export</strong> to backup your data to your file system anytime</li>
+                <li>Use <strong>Import</strong> to restore from a backup or share with colleagues</li>
+                <li><strong>Note:</strong> If you clear your browser cache/data, you will lose all stored projects and releases unless you've exported a backup</li>
               </ul>
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
               <p style={{ lineHeight: '1.6', color: '#555' }}>
-                When new versions are released, your data remains safe in Firebase. I recommend
+                When new versions are released, your data remains safe in localStorage. I recommend
                 exporting a backup before major updates as a precaution.
               </p>
             </section>
@@ -1002,6 +1091,19 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 3.6 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 3.6
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 19, 2026
+                  </span>
+                </h3>
+                <p style={{ lineHeight: '1.6', color: '#555' }}>
+                  Revert from Firebase to localStorage for better data persistence. While Firebase provided cloud storage, anonymous authentication sessions expired unpredictably, causing data to appear lost. localStorage puts users in control - data persists until they choose to clear their browser cache. Export/Import feature provides reliable backup mechanism.
+                </p>
+              </div>
+
               {/* Version 3.5 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1011,7 +1113,7 @@ export default function Home() {
                   </span>
                 </h3>
                 <p style={{ lineHeight: '1.6', color: '#555' }}>
-                  Add configurable chart colors with custom color pickers and preset themes. Active preset is visually indicated and automatically clears when custom colors are selected. Chart color settings persist to Firebase.
+                  Add configurable chart colors with custom color pickers and preset themes. Active preset is visually indicated and automatically clears when custom colors are selected. Chart color settings persist to localStorage.
                 </p>
               </div>
 
@@ -1138,7 +1240,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 3.5</span> | Licensed under GNU GPL v3
+        >Version 3.6</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );

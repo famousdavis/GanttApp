@@ -1523,8 +1523,9 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
   };
 
   return (
-    <div ref={chartRef}>
-      {/* Header with project name, toggle, and date */}
+    <>
+      <div ref={chartRef}>
+        {/* Header with project name, toggle, and date */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -1792,6 +1793,7 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
           )}
         </div>
       </div>
+      </div>
 
       {/* Chart Color Settings - Outside chartRef so not included in copy-to-image */}
       <div style={{
@@ -1876,6 +1878,6 @@ function GanttChart({ releases, projectName, chartColors, onColorsChange, active
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

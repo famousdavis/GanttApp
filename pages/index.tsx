@@ -751,7 +751,10 @@ export default function Home() {
                         <strong style={{ fontSize: '1.1rem' }}>{project.name}</strong>
                         <span style={{ marginLeft: '1rem', color: '#999', fontSize: '0.9rem' }}>
                           ({data.releases.filter(r => r.projectId === project.id).length} releases
-                          {project.finishDate && `, finish: ${project.finishDate}`})
+                          {project.finishDate && `, finish: ${(() => {
+                            const [year, month, day] = project.finishDate.split('-');
+                            return `${month}/${day}/${year}`;
+                          })()}`})
                         </span>
                       </div>
                     </div>

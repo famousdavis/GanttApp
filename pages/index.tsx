@@ -5,6 +5,7 @@ import Head from 'next/head';
 interface Project {
   id: string;
   name: string;
+  finishDate?: string;
 }
 
 interface Release {
@@ -20,6 +21,7 @@ interface ChartColors {
   solidBar: string;
   hatchedBar: string;
   todayLine: string;
+  finishDateLine: string;
 }
 
 interface AppData {
@@ -30,14 +32,17 @@ interface AppData {
   legendLabels?: {
     solidBar: string;
     hatchedBar: string;
+    finishDateLine?: string;
   };
+  showFinishDateLine?: boolean;
 }
 
 // Default color scheme
 const DEFAULT_CHART_COLORS: ChartColors = {
   solidBar: '#0070f3',
   hatchedBar: '#0070f3',
-  todayLine: '#dc3545'
+  todayLine: '#dc3545',
+  finishDateLine: '#00ff00'
 };
 
 export default function Home() {
@@ -49,6 +54,7 @@ export default function Home() {
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
 
   const [projectName, setProjectName] = useState('');
+  const [projectFinishDate, setProjectFinishDate] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const [releaseName, setReleaseName] = useState('');
@@ -70,8 +76,13 @@ export default function Home() {
   // Legend label editing state
   const [solidBarLabel, setSolidBarLabel] = useState('Design, Code, Test');
   const [hatchedBarLabel, setHatchedBarLabel] = useState('Delivery Uncertainty');
-  const [editingLegendLabel, setEditingLegendLabel] = useState<'solid' | 'hatched' | null>(null);
+  const [finishDateLabel, setFinishDateLabel] = useState('Project Finish Date');
+  const [editingLegendLabel, setEditingLegendLabel] = useState<'solid' | 'hatched' | 'finishDate' | null>(null);
   const [tempLabelValue, setTempLabelValue] = useState('');
+
+  // Project finish date line toggle
+  const [showFinishDateLine, setShowFinishDateLine] = useState(true);
+  const [showTodayLine, setShowTodayLine] = useState(true);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -96,6 +107,13 @@ export default function Home() {
           if (loadedData.legendLabels) {
             setSolidBarLabel(loadedData.legendLabels.solidBar);
             setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
+            if (loadedData.legendLabels.finishDateLine) {
+              setFinishDateLabel(loadedData.legendLabels.finishDateLine);
+            }
+          }
+          // Load finish date line toggle if it exists
+          if (loadedData.showFinishDateLine !== undefined) {
+            setShowFinishDateLine(loadedData.showFinishDateLine);
           }
         }
       } catch (error) {
@@ -164,12 +182,13 @@ export default function Home() {
         ...data,
         legendLabels: {
           solidBar: solidBarLabel,
-          hatchedBar: hatchedBarLabel
+          hatchedBar: hatchedBarLabel,
+          finishDateLine: finishDateLabel
         }
       };
       saveData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel]);
 
   // Export/Import functions
   const exportData = () => {
@@ -218,11 +237,13 @@ export default function Home() {
     if (!projectName.trim()) return;
     const newProject: Project = {
       id: Date.now().toString(),
-      name: projectName.trim()
+      name: projectName.trim(),
+      ...(projectFinishDate && { finishDate: projectFinishDate })
     };
     const newData = { ...data, projects: [...data.projects, newProject] };
     updateData(newData);
     setProjectName('');
+    setProjectFinishDate('');
     if (!selectedProjectId) {
       setSelectedProjectId(newProject.id);
     }
@@ -233,11 +254,16 @@ export default function Home() {
     const newData = {
       ...data,
       projects: data.projects.map(p =>
-        p.id === editingProjectId ? { ...p, name: projectName.trim() } : p
+        p.id === editingProjectId ? {
+          ...p,
+          name: projectName.trim(),
+          ...(projectFinishDate ? { finishDate: projectFinishDate } : { finishDate: undefined })
+        } : p
       )
     };
     updateData(newData);
     setProjectName('');
+    setProjectFinishDate('');
     setEditingProjectId(null);
   };
 
@@ -255,11 +281,13 @@ export default function Home() {
 
   const startEditProject = (project: Project) => {
     setProjectName(project.name);
+    setProjectFinishDate(project.finishDate || '');
     setEditingProjectId(project.id);
   };
 
   const cancelEditProject = () => {
     setProjectName('');
+    setProjectFinishDate('');
     setEditingProjectId(null);
   };
 
@@ -590,73 +618,98 @@ export default function Home() {
             </div>
 
             <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
-              <input
-                type="text"
-                placeholder="Project name"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (editingProjectId ? updateProject() : addProject())}
-                style={{
-                  padding: '0.75rem',
-                  fontSize: '1rem',
-                  border: '2px solid #ddd',
-                  borderRadius: '4px',
-                  width: '300px',
-                  marginRight: '0.5rem'
-                }}
-              />
-              {editingProjectId ? (
-                <>
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1' }}>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Project name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (editingProjectId ? updateProject() : addProject())}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: '1' }}>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+                    Project Finish Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={projectFinishDate}
+                    onChange={(e) => setProjectFinishDate(e.target.value)}
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                {editingProjectId ? (
+                  <>
+                    <button
+                      onClick={updateProject}
+                      disabled={!isProjectNameValid()}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: isProjectNameValid() ? '#00c9a7' : '#ccc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: isProjectNameValid() ? 'pointer' : 'not-allowed',
+                        fontWeight: '600',
+                        marginRight: '0.5rem',
+                        opacity: isProjectNameValid() ? 1 : 0.6
+                      }}
+                    >
+                      Update
+                    </button>
+                    <button
+                      onClick={cancelEditProject}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#999',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
                   <button
-                    onClick={updateProject}
+                    onClick={addProject}
                     disabled={!isProjectNameValid()}
                     style={{
                       padding: '0.75rem 1.5rem',
-                      background: isProjectNameValid() ? '#00c9a7' : '#ccc',
+                      background: isProjectNameValid() ? '#0070f3' : '#ccc',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: isProjectNameValid() ? 'pointer' : 'not-allowed',
                       fontWeight: '600',
-                      marginRight: '0.5rem',
                       opacity: isProjectNameValid() ? 1 : 0.6
                     }}
                   >
-                    Update
+                    Add Project
                   </button>
-                  <button
-                    onClick={cancelEditProject}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      background: '#999',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontWeight: '600'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={addProject}
-                  disabled={!isProjectNameValid()}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: isProjectNameValid() ? '#0070f3' : '#ccc',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: isProjectNameValid() ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    opacity: isProjectNameValid() ? 1 : 0.6
-                  }}
-                >
-                  Add Project
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
             {data.projects.length === 0 ? (
@@ -1039,24 +1092,32 @@ export default function Home() {
             <GanttChart
               releases={currentReleases}
               projectName={selectedProject?.name || ''}
+              projectFinishDate={selectedProject?.finishDate}
               chartColors={chartColors}
               onColorsChange={updateChartColors}
               activePreset={activePreset}
               showColorSettings={showColorSettings}
               setShowColorSettings={setShowColorSettings}
+              showTodayLine={showTodayLine}
+              setShowTodayLine={setShowTodayLine}
+              showFinishDateLine={showFinishDateLine}
+              setShowFinishDateLine={setShowFinishDateLine}
               solidBarLabel={solidBarLabel}
               hatchedBarLabel={hatchedBarLabel}
+              finishDateLabel={finishDateLabel}
               editingLegendLabel={editingLegendLabel}
               tempLabelValue={tempLabelValue}
-              onStartEditLabel={(type: 'solid' | 'hatched') => {
+              onStartEditLabel={(type: 'solid' | 'hatched' | 'finishDate') => {
                 setEditingLegendLabel(type);
-                setTempLabelValue(type === 'solid' ? solidBarLabel : hatchedBarLabel);
+                setTempLabelValue(type === 'solid' ? solidBarLabel : type === 'hatched' ? hatchedBarLabel : finishDateLabel);
               }}
               onSaveLabelEdit={() => {
                 if (editingLegendLabel === 'solid') {
                   setSolidBarLabel(tempLabelValue);
                 } else if (editingLegendLabel === 'hatched') {
                   setHatchedBarLabel(tempLabelValue);
+                } else if (editingLegendLabel === 'finishDate') {
+                  setFinishDateLabel(tempLabelValue);
                 }
                 setEditingLegendLabel(null);
               }}
@@ -1146,6 +1207,24 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 4.2 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 4.2
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 20, 2026
+                  </span>
+                </h3>
+                <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+                  <li>Added optional project finish date field (Projects tab)</li>
+                  <li>Renamed "Chart Color Settings" to "Chart Settings"</li>
+                  <li>Moved chart display toggles to Chart Settings section (cleaner exported images)</li>
+                  <li>Added project finish date vertical line visualization (bright green by default)</li>
+                  <li>Added quarter labels (Q2, Q3, Q4) to timeline above vertical gridlines</li>
+                  <li>Enhanced Chart Settings with toggle controls and finish date color picker</li>
+                </ul>
+              </div>
+
               {/* Version 4.1 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1311,7 +1390,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 4.1</span> | Licensed under GNU GPL v3
+        >Version 4.2</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
@@ -1343,15 +1422,15 @@ const STANDARD_COLORS = [
 // Color preset themes
 const COLOR_PRESETS: { [key: string]: ChartColors } = {
   'Default': DEFAULT_CHART_COLORS,
-  'Professional': { solidBar: '#2c3e50', hatchedBar: '#34495e', todayLine: '#e74c3c' },
-  'Colorful': { solidBar: '#9b59b6', hatchedBar: '#3498db', todayLine: '#e67e22' },
-  'Grayscale': { solidBar: '#555555', hatchedBar: '#777777', todayLine: '#333333' },
-  'High Contrast': { solidBar: '#000000', hatchedBar: '#0066cc', todayLine: '#ff0000' },
-  'Forest': { solidBar: '#2d5016', hatchedBar: '#56ab2f', todayLine: '#ff6b6b' },
-  'Ocean': { solidBar: '#1e3a8a', hatchedBar: '#3b82f6', todayLine: '#f59e0b' },
-  'Sunset': { solidBar: '#dc2626', hatchedBar: '#f97316', todayLine: '#7c2d12' },
-  'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899' },
-  'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d' }
+  'Professional': { solidBar: '#2c3e50', hatchedBar: '#34495e', todayLine: '#e74c3c', finishDateLine: '#27ae60' },
+  'Colorful': { solidBar: '#9b59b6', hatchedBar: '#3498db', todayLine: '#e67e22', finishDateLine: '#2ecc71' },
+  'Grayscale': { solidBar: '#555555', hatchedBar: '#777777', todayLine: '#333333', finishDateLine: '#999999' },
+  'High Contrast': { solidBar: '#000000', hatchedBar: '#0066cc', todayLine: '#ff0000', finishDateLine: '#00ff00' },
+  'Forest': { solidBar: '#2d5016', hatchedBar: '#56ab2f', todayLine: '#ff6b6b', finishDateLine: '#a3e635' },
+  'Ocean': { solidBar: '#1e3a8a', hatchedBar: '#3b82f6', todayLine: '#f59e0b', finishDateLine: '#10b981' },
+  'Sunset': { solidBar: '#dc2626', hatchedBar: '#f97316', todayLine: '#7c2d12', finishDateLine: '#84cc16' },
+  'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899', finishDateLine: '#86efac' },
+  'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d', finishDateLine: '#4ade80' }
 };
 
 // Color Swatch Picker Component
@@ -1472,13 +1551,19 @@ function ColorSwatchPicker({ value, onChange, label }: { value: string, onChange
 function GanttChart({
   releases,
   projectName,
+  projectFinishDate,
   chartColors,
   onColorsChange,
   activePreset,
   showColorSettings,
   setShowColorSettings,
+  showTodayLine,
+  setShowTodayLine,
+  showFinishDateLine,
+  setShowFinishDateLine,
   solidBarLabel,
   hatchedBarLabel,
+  finishDateLabel,
   editingLegendLabel,
   tempLabelValue,
   onStartEditLabel,
@@ -1488,23 +1573,28 @@ function GanttChart({
 }: {
   releases: Release[],
   projectName: string,
+  projectFinishDate?: string,
   chartColors: ChartColors,
   onColorsChange: (colors: ChartColors, presetName?: string) => void,
   activePreset?: string,
   showColorSettings: boolean,
   setShowColorSettings: (show: boolean) => void,
+  showTodayLine: boolean,
+  setShowTodayLine: (show: boolean) => void,
+  showFinishDateLine: boolean,
+  setShowFinishDateLine: (show: boolean) => void,
   solidBarLabel: string,
   hatchedBarLabel: string,
-  editingLegendLabel: 'solid' | 'hatched' | null,
+  finishDateLabel: string,
+  editingLegendLabel: 'solid' | 'hatched' | 'finishDate' | null,
   tempLabelValue: string,
-  onStartEditLabel: (type: 'solid' | 'hatched') => void,
+  onStartEditLabel: (type: 'solid' | 'hatched' | 'finishDate') => void,
   onSaveLabelEdit: () => void,
   onCancelLabelEdit: () => void,
   onTempLabelChange: (value: string) => void
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
-  const [showTodayLine, setShowTodayLine] = useState(true);
 
   if (releases.length === 0) {
     return <p style={{ color: '#999', fontStyle: 'italic' }}>No releases to display.</p>;
@@ -1579,6 +1669,17 @@ function GanttChart({
   // Check if today is within the chart range
   const todayInRange = todayTime >= minDate && todayTime <= maxDate;
   const todayX = todayInRange ? dateToX(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`) : null;
+
+  // Calculate project finish date line position
+  let finishDateInRange = false;
+  let finishDateX: number | null = null;
+  if (projectFinishDate) {
+    const [fy, fm, fd] = projectFinishDate.split('-').map(Number);
+    const finishDateTime = new Date(fy, fm - 1, fd).getTime();
+    finishDateInRange = finishDateTime >= minDate && finishDateTime <= maxDate;
+    finishDateX = finishDateInRange ? dateToX(projectFinishDate) : null;
+  }
+
   // Copy chart as image
   const copyChartAsImage = async () => {
     if (!chartRef.current) return;
@@ -1633,22 +1734,6 @@ function GanttChart({
           {projectName}
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.9rem',
-            color: '#666',
-            cursor: 'pointer'
-          }}>
-            <input
-              type="checkbox"
-              checked={showTodayLine}
-              onChange={(e) => setShowTodayLine(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Today's Date
-          </label>
           <span style={{ fontSize: '0.9rem', color: '#666' }}>
             Date Prepared: {todayFormatted}
           </span>
@@ -1681,6 +1766,15 @@ function GanttChart({
           {/* Quarterly gridlines */}
           {quarterBoundaries.map((date, i) => {
             const x = dateToX(date.toISOString().split('T')[0]);
+            // Determine which quarter this boundary represents
+            // Quarter boundaries are at the START of each quarter (Jan 1, Apr 1, Jul 1, Oct 1)
+            const month = date.getMonth();
+            let quarterLabel = '';
+            if (month === 3) quarterLabel = 'Q2';  // April 1 = start of Q2
+            else if (month === 6) quarterLabel = 'Q3';  // July 1 = start of Q3
+            else if (month === 9) quarterLabel = 'Q4';  // October 1 = start of Q4
+            // Skip Q1 (January 1) because year label is already there
+
             return (
               <g key={i}>
                 <line
@@ -1692,6 +1786,18 @@ function GanttChart({
                   strokeWidth="1"
                   strokeDasharray="5,5"
                 />
+                {quarterLabel && (
+                  <text
+                    x={x + 5}
+                    y={topMargin - 20}
+                    fontSize="14"
+                    fill="#999"
+                    fontWeight="600"
+                    textAnchor="start"
+                  >
+                    {quarterLabel}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -1704,6 +1810,18 @@ function GanttChart({
               x2={todayX}
               y2={chartHeight - 20}
               stroke={chartColors.todayLine}
+              strokeWidth="2"
+            />
+          )}
+
+          {/* Project finish date line */}
+          {showFinishDateLine && finishDateInRange && finishDateX && (
+            <line
+              x1={finishDateX}
+              y1={topMargin - 10}
+              x2={finishDateX}
+              y2={chartHeight - 20}
+              stroke={chartColors.finishDateLine}
               strokeWidth="2"
             />
           )}
@@ -1974,6 +2092,55 @@ function GanttChart({
               <span>Today</span>
             </div>
           )}
+          {showFinishDateLine && finishDateInRange && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '30px', height: '2px', background: chartColors.finishDateLine }}></div>
+              {editingLegendLabel === 'finishDate' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <input
+                    type="text"
+                    value={tempLabelValue}
+                    onChange={(e) => onTempLabelChange(e.target.value)}
+                    onBlur={onCancelLabelEdit}
+                    autoFocus
+                    style={{
+                      fontSize: '0.9rem',
+                      padding: '2px 4px',
+                      border: '1px solid #0070f3',
+                      borderRadius: '3px',
+                      outline: 'none',
+                      minWidth: '120px'
+                    }}
+                  />
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onSaveLabelEdit();
+                    }}
+                    style={{
+                      background: '#10a37f',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '3px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✓
+                  </button>
+                </div>
+              ) : (
+                <span
+                  onClick={() => onStartEditLabel('finishDate')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {finishDateLabel}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       </div>
@@ -1999,11 +2166,55 @@ function GanttChart({
             gap: '0.5rem'
           }}
         >
-          Chart Color Settings {showColorSettings ? '▲' : '▼'}
+          Chart Settings {showColorSettings ? '▲' : '▼'}
         </h3>
 
         {showColorSettings && (
           <>
+            {/* Toggle Section */}
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              background: 'white',
+              borderRadius: '4px',
+              border: '1px solid #ddd'
+            }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '0.75rem',
+                fontSize: '0.9rem',
+                color: '#333',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={showTodayLine}
+                  onChange={(e) => setShowTodayLine(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Show Today's Date
+              </label>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.9rem',
+                color: projectFinishDate ? '#333' : '#999',
+                cursor: projectFinishDate ? 'pointer' : 'not-allowed'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={showFinishDateLine}
+                  onChange={(e) => setShowFinishDateLine(e.target.checked)}
+                  disabled={!projectFinishDate}
+                  style={{ cursor: projectFinishDate ? 'pointer' : 'not-allowed' }}
+                />
+                Show Project Finish Date {!projectFinishDate && '(No finish date set)'}
+              </label>
+            </div>
+
             {/* Color Pickers */}
             <div style={{
               display: 'grid',
@@ -2026,6 +2237,13 @@ function GanttChart({
                 value={chartColors.todayLine}
                 onChange={(color) => onColorsChange({ ...chartColors, todayLine: color }, undefined)}
               />
+              {showFinishDateLine && (
+                <ColorSwatchPicker
+                  label="Project Finish Date Line"
+                  value={chartColors.finishDateLine}
+                  onChange={(color) => onColorsChange({ ...chartColors, finishDateLine: color }, undefined)}
+                />
+              )}
             </div>
 
             {/* Preset Themes */}

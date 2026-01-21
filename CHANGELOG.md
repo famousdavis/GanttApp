@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 4.3 (2026-01-21)
+- Added release visibility toggle: hide releases from chart while keeping them in the list
+- Added completion status: mark releases as done to render them in green
+- Enhanced Releases tab with "Show" checkbox and "Mark Done" button for each release
+- Completed releases display in light green (solid) and forest green (hatched)
+
+## Version 4.2 (2026-01-20)
+- Added optional project finish date field (Projects tab)
+- Renamed "Chart Color Settings" to "Chart Settings"
+- Moved chart display toggles to Chart Settings section (cleaner exported images)
+- Added project finish date vertical line visualization (bright green by default)
+- Added quarter labels (Q2, Q3, Q4) to timeline above vertical gridlines
+- Enhanced Chart Settings with toggle controls and finish date color picker
+
 ## Version 4.1 (2026-01-20)
 - Removed "Gantt Chart:" label prefix from chart display (project name only)
 - Added collapsible color settings section (collapsed by default)

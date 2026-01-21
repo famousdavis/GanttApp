@@ -15,6 +15,8 @@ interface Release {
   startDate: string;
   earlyFinishDate: string;
   lateFinishDate: string;
+  hidden?: boolean;
+  completed?: boolean;
 }
 
 interface ChartColors {
@@ -352,6 +354,26 @@ export default function Home() {
     setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
   };
 
+  const toggleReleaseHidden = (id: string) => {
+    const newData = {
+      ...data,
+      releases: data.releases.map(r =>
+        r.id === id ? { ...r, hidden: !r.hidden } : r
+      )
+    };
+    updateData(newData);
+  };
+
+  const toggleReleaseCompleted = (id: string) => {
+    const newData = {
+      ...data,
+      releases: data.releases.map(r =>
+        r.id === id ? { ...r, completed: !r.completed } : r
+      )
+    };
+    updateData(newData);
+  };
+
   // Drag and drop handlers for projects
   const handleProjectDragStart = (projectId: string) => {
     setDraggedProjectId(projectId);
@@ -469,6 +491,7 @@ export default function Home() {
   };
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
+  const visibleReleases = currentReleases.filter(r => !r.hidden);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
 
   if (loading) {
@@ -1051,7 +1074,39 @@ export default function Home() {
                       </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontSize: '0.9rem',
+                        cursor: 'pointer',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        background: release.hidden ? '#f0f0f0' : 'transparent'
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={!release.hidden}
+                          onChange={() => toggleReleaseHidden(release.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span>Show</span>
+                      </label>
+                      <button
+                        onClick={() => toggleReleaseCompleted(release.id)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: release.completed ? '#d4edda' : '#fff',
+                          border: release.completed ? '1px solid #28a745' : '1px solid #ddd',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: release.completed ? '600' : 'normal'
+                        }}
+                      >
+                        {release.completed ? '✓ Done' : 'Mark Done'}
+                      </button>
                       <button
                         onClick={() => startEditRelease(release)}
                         style={{
@@ -1094,7 +1149,7 @@ export default function Home() {
         {activeTab === 'chart' && (
           <div>
             <GanttChart
-              releases={currentReleases}
+              releases={visibleReleases}
               projectName={selectedProject?.name || ''}
               projectFinishDate={selectedProject?.finishDate}
               chartColors={chartColors}
@@ -1211,6 +1266,22 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 4.3 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 4.3
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 21, 2026
+                  </span>
+                </h3>
+                <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+                  <li>Added release visibility toggle: hide releases from chart while keeping them in the list</li>
+                  <li>Added completion status: mark releases as done to render them in green</li>
+                  <li>Enhanced Releases tab with "Show" checkbox and "Mark Done" button for each release</li>
+                  <li>Completed releases display in light green (solid) and forest green (hatched)</li>
+                </ul>
+              </div>
+
               {/* Version 4.2 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1394,7 +1465,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 4.2</span> | Licensed under GNU GPL v3
+        >Version 4.3</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
@@ -1643,6 +1714,20 @@ function GanttChart({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Get colors for a release based on its completion status
+  const getReleaseColors = (release: Release) => {
+    if (release.completed) {
+      return {
+        solidBar: '#90EE90',  // Light green for completed
+        hatchedBar: '#228B22'  // Forest green for completed
+      };
+    }
+    return {
+      solidBar: chartColors.solidBar,
+      hatchedBar: chartColors.hatchedBar
+    };
+  };
+
   // Calculate quarter boundaries for gridlines
   const getQuarterBoundaries = () => {
     const start = new Date(minDate);
@@ -1883,6 +1968,7 @@ function GanttChart({
             const startX = dateToX(release.startDate);
             const earlyX = dateToX(release.earlyFinishDate);
             const lateX = dateToX(release.lateFinishDate);
+            const colors = getReleaseColors(release);
 
             // Label collision detection - minimum 40px spacing
             const MIN_LABEL_SPACING = 40;
@@ -1907,7 +1993,7 @@ function GanttChart({
                   y={y}
                   width={earlyX - startX}
                   height={barHeight}
-                  fill={chartColors.solidBar}
+                  fill={colors.solidBar}
                   rx="4"
                 />
 
@@ -1925,7 +2011,7 @@ function GanttChart({
                       y1="0"
                       x2="0"
                       y2="8"
-                      stroke={chartColors.hatchedBar}
+                      stroke={colors.hatchedBar}
                       strokeWidth="3"
                     />
                   </pattern>
@@ -1936,7 +2022,7 @@ function GanttChart({
                   width={lateX - earlyX}
                   height={barHeight}
                   fill={`url(#hatch-${release.id})`}
-                  stroke={chartColors.hatchedBar}
+                  stroke={colors.hatchedBar}
                   strokeWidth="2"
                   rx="4"
                 />

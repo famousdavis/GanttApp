@@ -26,6 +26,13 @@ interface ChartColors {
   finishDateLine: string;
 }
 
+interface ChartDisplaySettings {
+  releaseNameFontSize: '14' | '16' | '18';  // Small, Medium, Large
+  dateLabelFontSize: '9' | '11' | '13';  // Small, Medium, Large
+  dateLabelColor: '#999' | '#666' | '#333' | '#000';  // Light to Black
+  verticalLineWidth: '2' | '3' | '4';  // Thin, Medium, Thick
+}
+
 interface AppData {
   projects: Project[];
   releases: Release[];
@@ -37,6 +44,7 @@ interface AppData {
     finishDateLine?: string;
   };
   showFinishDateLine?: boolean;
+  chartDisplaySettings?: ChartDisplaySettings;
 }
 
 // Default color scheme
@@ -47,6 +55,14 @@ const DEFAULT_CHART_COLORS: ChartColors = {
   finishDateLine: '#00ff00'
 };
 
+// Default display settings
+const DEFAULT_DISPLAY_SETTINGS: ChartDisplaySettings = {
+  releaseNameFontSize: '16',    // Medium (updated sizes: 14/16/18)
+  dateLabelFontSize: '11',      // Medium (current)
+  dateLabelColor: '#666',        // Current gray
+  verticalLineWidth: '2'         // Thin (current)
+};
+
 export default function Home() {
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
   const [activeTab, setActiveTab] = useState<'projects' | 'releases' | 'chart' | 'about' | 'changelog'>('projects');
@@ -54,6 +70,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
+  const [displaySettings, setDisplaySettings] = useState<ChartDisplaySettings>(DEFAULT_DISPLAY_SETTINGS);
 
   const [projectName, setProjectName] = useState('');
   const [projectFinishDate, setProjectFinishDate] = useState('');
@@ -116,6 +133,10 @@ export default function Home() {
           // Load finish date line toggle if it exists
           if (loadedData.showFinishDateLine !== undefined) {
             setShowFinishDateLine(loadedData.showFinishDateLine);
+          }
+          // Load display settings if they exist
+          if (loadedData.chartDisplaySettings) {
+            setDisplaySettings(loadedData.chartDisplaySettings);
           }
         }
       } catch (error) {
@@ -191,6 +212,14 @@ export default function Home() {
       saveData(newData);
     }
   }, [solidBarLabel, hatchedBarLabel, finishDateLabel]);
+
+  // Save display settings to localStorage whenever they change
+  useEffect(() => {
+    if (!loading) {
+      const newData = { ...data, chartDisplaySettings: displaySettings };
+      saveData(newData);
+    }
+  }, [displaySettings]);
 
   // Export/Import functions
   const exportData = () => {
@@ -1185,6 +1214,8 @@ export default function Home() {
                 setTempLabelValue('');
               }}
               onTempLabelChange={setTempLabelValue}
+              displaySettings={displaySettings}
+              setDisplaySettings={setDisplaySettings}
             />
           </div>
         )}
@@ -1266,6 +1297,25 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Version 4.4 */}
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+                  Version 4.4
+                  <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+                    January 21, 2026
+                  </span>
+                </h3>
+                <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+                  <li>Enhanced Chart Settings with configurable display options</li>
+                  <li>Added Release Name Font Size control: Small (14px), Medium (16px), or Large (18px)</li>
+                  <li>Added Date Label Font Size control: Small (9px), Medium (11px), or Large (13px)</li>
+                  <li>Added Date Label Color control: grayscale swatches from light gray to black for better contrast</li>
+                  <li>Added Vertical Line Width control: Thin (2px), Medium (3px), or Thick (4px) for Today's Date and Project Finish Date lines</li>
+                  <li>Increased left margin space for release names and optimized chart layout</li>
+                  <li>All display settings persist to localStorage and survive export/import</li>
+                </ul>
+              </div>
+
               {/* Version 4.3 */}
               <div>
                 <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
@@ -1465,7 +1515,7 @@ export default function Home() {
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
-        >Version 4.3</span> | Licensed under GNU GPL v3
+        >Version 4.4</span> | Licensed under GNU GPL v3
       </footer>
     </>
   );
@@ -1507,6 +1557,106 @@ const COLOR_PRESETS: { [key: string]: ChartColors } = {
   'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899', finishDateLine: '#86efac' },
   'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d', finishDateLine: '#4ade80' }
 };
+
+// Preset Button Group Component
+interface PresetButtonGroupProps {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}
+
+function PresetButtonGroup({ label, value, options, onChange }: PresetButtonGroupProps) {
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>
+        {label}
+      </label>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {options.map(option => {
+          const isActive = value === option.value;
+          return (
+            <button
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              style={{
+                padding: '0.5rem 1rem',
+                background: isActive ? '#e6f2ff' : 'white',
+                border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: isActive ? '600' : '500',
+                boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.2)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = '#999';
+                  e.currentTarget.style.background = '#f8f8f8';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = '#ddd';
+                  e.currentTarget.style.background = 'white';
+                }
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Grayscale Swatch Picker Component
+interface GrayscaleSwatchPickerProps {
+  label: string;
+  value: string;
+  onChange: (color: string) => void;
+}
+
+function GrayscaleSwatchPicker({ label, value, onChange }: GrayscaleSwatchPickerProps) {
+  const grayscaleColors = [
+    { color: '#999', name: 'Light Gray' },
+    { color: '#666', name: 'Gray' },
+    { color: '#333', name: 'Dark Gray' },
+    { color: '#000', name: 'Black' }
+  ];
+
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>
+        {label}
+      </label>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        {grayscaleColors.map(({ color, name }) => {
+          const isActive = value === color;
+          return (
+            <div
+              key={color}
+              onClick={() => onChange(color)}
+              style={{
+                width: '50px',
+                height: '50px',
+                background: color,
+                borderRadius: '4px',
+                cursor: 'pointer',
+                border: isActive ? '3px solid #0070f3' : '2px solid #ddd',
+                boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              title={name}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // Color Swatch Picker Component
 function ColorSwatchPicker({ value, onChange, label }: { value: string, onChange: (color: string) => void, label: string }) {
@@ -1644,7 +1794,9 @@ function GanttChart({
   onStartEditLabel,
   onSaveLabelEdit,
   onCancelLabelEdit,
-  onTempLabelChange
+  onTempLabelChange,
+  displaySettings,
+  setDisplaySettings
 }: {
   releases: Release[],
   projectName: string,
@@ -1666,7 +1818,9 @@ function GanttChart({
   onStartEditLabel: (type: 'solid' | 'hatched' | 'finishDate') => void,
   onSaveLabelEdit: () => void,
   onCancelLabelEdit: () => void,
-  onTempLabelChange: (value: string) => void
+  onTempLabelChange: (value: string) => void,
+  displaySettings: ChartDisplaySettings,
+  setDisplaySettings: (settings: ChartDisplaySettings) => void
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -1695,8 +1849,8 @@ function GanttChart({
   // Chart dimensions
   const chartWidth = 900;
   const chartHeight = releases.length * 60 + 80;
-  const leftMargin = 200;
-  const rightMargin = 50;
+  const leftMargin = 230;  // Increased from 200 to give more space for release names
+  const rightMargin = 30;  // Reduced from 50 to shift chart content right
   const topMargin = 50;
   const barHeight = 30;
   const rowHeight = 60;
@@ -1899,7 +2053,7 @@ function GanttChart({
               x2={todayX}
               y2={chartHeight - 20}
               stroke={chartColors.todayLine}
-              strokeWidth="2"
+              strokeWidth={displaySettings.verticalLineWidth}
             />
           )}
 
@@ -1911,7 +2065,7 @@ function GanttChart({
               x2={finishDateX}
               y2={chartHeight - 20}
               stroke={chartColors.finishDateLine}
-              strokeWidth="2"
+              strokeWidth={displaySettings.verticalLineWidth}
             />
           )}
 
@@ -1980,7 +2134,7 @@ function GanttChart({
                 <text
                   x={10}
                   y={y + barHeight / 2 + 5}
-                  fontSize="14"
+                  fontSize={displaySettings.releaseNameFontSize}
                   fill="#333"
                   fontWeight="600"
                 >
@@ -2032,8 +2186,8 @@ function GanttChart({
                 <text
                   x={startX}
                   y={y + barHeight + 15}
-                  fontSize="11"
-                  fill="#666"
+                  fontSize={displaySettings.dateLabelFontSize}
+                  fill={displaySettings.dateLabelColor}
                   textAnchor="middle"
                 >
                   {formatDate(release.startDate)}
@@ -2044,8 +2198,8 @@ function GanttChart({
                   <text
                     x={earlyX}
                     y={y + barHeight + 15}
-                    fontSize="11"
-                    fill="#666"
+                    fontSize={displaySettings.dateLabelFontSize}
+                    fill={displaySettings.dateLabelColor}
                     textAnchor="middle"
                   >
                     {formatDate(release.earlyFinishDate)}
@@ -2056,8 +2210,8 @@ function GanttChart({
                 <text
                   x={lateX}
                   y={y + barHeight + 15}
-                  fontSize="11"
-                  fill="#666"
+                  fontSize={displaySettings.dateLabelFontSize}
+                  fill={displaySettings.dateLabelColor}
                   textAnchor="middle"
                 >
                   {formatDate(release.lateFinishDate)}
@@ -2178,13 +2332,13 @@ function GanttChart({
           </div>
           {showTodayLine && todayInRange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '30px', height: '2px', background: chartColors.todayLine }}></div>
+              <div style={{ width: '30px', height: `${displaySettings.verticalLineWidth}px`, background: chartColors.todayLine }}></div>
               <span>Today</span>
             </div>
           )}
           {showFinishDateLine && finishDateInRange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '30px', height: '2px', background: chartColors.finishDateLine }}></div>
+              <div style={{ width: '30px', height: `${displaySettings.verticalLineWidth}px`, background: chartColors.finishDateLine }}></div>
               {editingLegendLabel === 'finishDate' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <input
@@ -2303,6 +2457,77 @@ function GanttChart({
                 />
                 Show Project Finish Date {!projectFinishDate && '(No finish date set)'}
               </label>
+            </div>
+
+            {/* Display Settings Section */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{
+                fontSize: '1rem',
+                fontWeight: '600',
+                marginBottom: '1rem',
+                color: '#333',
+                borderBottom: '1px solid #e0e0e0',
+                paddingBottom: '0.5rem'
+              }}>
+                Chart Display Options
+              </h4>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1.5rem'
+              }}>
+                <PresetButtonGroup
+                  label="Release Name Font Size"
+                  value={displaySettings.releaseNameFontSize}
+                  options={[
+                    { value: '14', label: 'Small' },
+                    { value: '16', label: 'Medium' },
+                    { value: '18', label: 'Large' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({
+                    ...displaySettings,
+                    releaseNameFontSize: value as '14' | '16' | '18'
+                  })}
+                />
+
+                <PresetButtonGroup
+                  label="Date Label Font Size"
+                  value={displaySettings.dateLabelFontSize}
+                  options={[
+                    { value: '9', label: 'Small' },
+                    { value: '11', label: 'Medium' },
+                    { value: '13', label: 'Large' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({
+                    ...displaySettings,
+                    dateLabelFontSize: value as '9' | '11' | '13'
+                  })}
+                />
+
+                <GrayscaleSwatchPicker
+                  label="Date Label Color"
+                  value={displaySettings.dateLabelColor}
+                  onChange={(color) => setDisplaySettings({
+                    ...displaySettings,
+                    dateLabelColor: color as '#999' | '#666' | '#333' | '#000'
+                  })}
+                />
+
+                <PresetButtonGroup
+                  label="Vertical Line Width"
+                  value={displaySettings.verticalLineWidth}
+                  options={[
+                    { value: '2', label: 'Thin' },
+                    { value: '3', label: 'Medium' },
+                    { value: '4', label: 'Thick' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({
+                    ...displaySettings,
+                    verticalLineWidth: value as '2' | '3' | '4'
+                  })}
+                />
+              </div>
             </div>
 
             {/* Color Pickers */}

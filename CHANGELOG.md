@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 4.4 (2026-01-21)
+- Enhanced Chart Settings with configurable display options
+- Added Release Name Font Size control: Small (14px), Medium (16px), or Large (18px)
+- Added Date Label Font Size control: Small (9px), Medium (11px), or Large (13px)
+- Added Date Label Color control: grayscale swatches from light gray to black for better contrast
+- Added Vertical Line Width control: Thin (2px), Medium (3px), or Thick (4px) for Today's Date and Project Finish Date lines
+- Display controls positioned horizontally for better visibility
+- Increased left margin space for release names and optimized chart layout
+- Legend line segments now match vertical line width setting
+- All display settings persist to localStorage and survive export/import
+
 ## Version 4.3 (2026-01-21)
 - Added release visibility toggle: hide releases from chart while keeping them in the list
 - Added completion status: mark releases as done to render them in green

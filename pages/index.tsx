@@ -722,7 +722,7 @@ function AppContent() {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>GanttApp</h1>
-          <p style={{ color: '#666', fontSize: '0.875rem', fontStyle: 'italic' }}>Visualize release uncertainty in your project timeline</p>
+          <p style={{ color: '#666', fontSize: '0.875rem', fontStyle: 'italic' }}>Visualize delivery date uncertainty in your project timeline</p>
         </header>
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />

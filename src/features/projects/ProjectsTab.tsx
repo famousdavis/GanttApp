@@ -137,7 +137,7 @@ export function ProjectsTab({
       </div>
 
       <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div style={{ flex: '0 0 auto' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
               Project Name
@@ -179,11 +179,13 @@ export function ProjectsTab({
                 width: '180px'
               }}
             />
-            {finishDateError && (
-              <div style={{ color: '#dc3545', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                {finishDateError}
-              </div>
-            )}
+            <div style={{ height: '1rem', marginTop: '0.25rem' }}>
+              {finishDateError && (
+                <div style={{ color: '#dc3545', fontSize: '0.75rem' }}>
+                  {finishDateError}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div>

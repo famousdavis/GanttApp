@@ -22,3 +22,20 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Style date input placeholders to match text input placeholders */
+/* When date input is empty (invalid), show mm/dd/yyyy in light gray */
+input[type="date"]:invalid::-webkit-datetime-edit-text,
+input[type="date"]:invalid::-webkit-datetime-edit-month-field,
+input[type="date"]:invalid::-webkit-datetime-edit-day-field,
+input[type="date"]:invalid::-webkit-datetime-edit-year-field {
+  color: #999;
+}
+
+/* When date input has a value (valid), show it in dark color */
+input[type="date"]:valid::-webkit-datetime-edit-text,
+input[type="date"]:valid::-webkit-datetime-edit-month-field,
+input[type="date"]:valid::-webkit-datetime-edit-day-field,
+input[type="date"]:valid::-webkit-datetime-edit-year-field {
+  color: #333;
+}

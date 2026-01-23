@@ -111,6 +111,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={startDate}
+              className={startDate ? 'has-value' : ''}
               onChange={(e) => setStartDate(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"
@@ -130,6 +131,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={earlyFinish}
+              className={earlyFinish ? 'has-value' : ''}
               onChange={(e) => setEarlyFinish(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"
@@ -149,6 +151,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={lateFinish}
+              className={lateFinish ? 'has-value' : ''}
               onChange={(e) => setLateFinish(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"

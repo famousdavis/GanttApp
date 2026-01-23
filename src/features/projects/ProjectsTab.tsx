@@ -164,6 +164,7 @@ export function ProjectsTab({
             <input
               type="date"
               value={projectFinishDate}
+              className={projectFinishDate ? 'has-value' : ''}
               onChange={(e) => {
                 setProjectFinishDate(e.target.value);
                 setFinishDateError(''); // Clear error while typing

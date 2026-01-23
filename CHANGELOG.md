@@ -45,16 +45,25 @@
 - localStorage puts users in control - data persists until they choose to clear their browser cache
 - Export/Import feature provides reliable backup mechanism
 
-## Version 3.6
+## Version 3.6 (2026-01-19)
 - Revert to localStorage
 - Add drag-and-drop reordering for projects and releases
 
-## Version 3.5
+## Version 3.5 (2026-01-19)
 - Add configurable chart colors with preset themes
 - Users can now customize solid bar, hatched bar, and today's line colors
 - Includes preset color themes: Classic Blue, Ocean Green, Purple Haze, Sunset Orange, Ruby Red
 
-## Version 3.0
+## Version 3.0 (2026-01-18)
 - Initial release with Firebase integration
 - Project and release management
 - Gantt chart visualization with uncertainty ranges
+
+## Version 2.1 (2026-01-17)
+- Add copyright footer and GNU GPL v3 license
+
+## Version 2.0 (2026-01-17)
+- Add Export/Import functionality and copy chart as image
+
+## Version 1.0 (2026-01-17)
+- Initial release with localStorage, Projects, Releases, and Gantt chart

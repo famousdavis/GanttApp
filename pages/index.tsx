@@ -38,7 +38,13 @@ function GanttChart({
   onCancelLabelEdit,
   onTempLabelChange,
   displaySettings,
-  setDisplaySettings
+  setDisplaySettings,
+  editingReleaseId,
+  tempReleaseName,
+  onStartEditReleaseName,
+  onSaveReleaseNameEdit,
+  onCancelReleaseNameEdit,
+  onTempReleaseNameChange
 }: {
   releases: Release[],
   projectName: string,
@@ -65,7 +71,13 @@ function GanttChart({
   onCancelLabelEdit: () => void,
   onTempLabelChange: (value: string) => void,
   displaySettings: ChartDisplaySettings,
-  setDisplaySettings: (settings: ChartDisplaySettings) => void
+  setDisplaySettings: (settings: ChartDisplaySettings) => void,
+  editingReleaseId: string | null,
+  tempReleaseName: string,
+  onStartEditReleaseName: (releaseId: string, currentName: string) => void,
+  onSaveReleaseNameEdit: () => void,
+  onCancelReleaseNameEdit: () => void,
+  onTempReleaseNameChange: (value: string) => void
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -294,17 +306,70 @@ function GanttChart({
               return (
                 <g key={release.id}>
                   {/* Release name */}
-                  <text
-                    x={10}
-                    y={y + barHeight / 2}
-                    fontSize={displaySettings.releaseNameFontSize}
-                    fill="#333"
-                    fontWeight="600"
-                    textAnchor="start"
-                    dominantBaseline="middle"
-                  >
-                    {release.name}
-                  </text>
+                  {editingReleaseId === release.id ? (
+                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={200} height={24}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input
+                          type="text"
+                          value={tempReleaseName}
+                          onChange={(e) => onTempReleaseNameChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') onSaveReleaseNameEdit();
+                            if (e.key === 'Escape') onCancelReleaseNameEdit();
+                          }}
+                          autoFocus
+                          style={{
+                            fontSize: displaySettings.releaseNameFontSize + 'px',
+                            fontWeight: 600,
+                            border: '1px solid #0070f3',
+                            padding: '2px 4px',
+                            width: '140px',
+                            fontFamily: 'inherit'
+                          }}
+                        />
+                        <button
+                          onClick={onSaveReleaseNameEdit}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            padding: '2px'
+                          }}
+                          title="Save"
+                        >
+                          ✅
+                        </button>
+                        <button
+                          onClick={onCancelReleaseNameEdit}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            padding: '2px'
+                          }}
+                          title="Cancel"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </foreignObject>
+                  ) : (
+                    <text
+                      x={10}
+                      y={y + barHeight / 2}
+                      fontSize={displaySettings.releaseNameFontSize}
+                      fill="#333"
+                      fontWeight="600"
+                      textAnchor="start"
+                      dominantBaseline="middle"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onStartEditReleaseName(release.id, release.name)}
+                    >
+                      {release.name}
+                    </text>
+                  )}
 
                   {/* Solid bar (start to early) */}
                   <rect
@@ -630,6 +695,10 @@ function AppContent() {
   const [editingLegendLabel, setEditingLegendLabel] = useState<'solid' | 'hatched' | 'finishDate' | null>(null);
   const [tempLabelValue, setTempLabelValue] = useState('');
 
+  // Release name editing state
+  const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
+  const [tempReleaseName, setTempReleaseName] = useState('');
+
   // Select first project on mount or when projects change
   useEffect(() => {
     if (data.projects.length > 0 && !selectedProjectId) {
@@ -716,6 +785,28 @@ function AppContent() {
   const cancelLabelEdit = () => {
     setEditingLegendLabel(null);
     setTempLabelValue('');
+  };
+
+  // Release name editing
+  const startEditReleaseName = (releaseId: string, currentName: string) => {
+    setEditingReleaseId(releaseId);
+    setTempReleaseName(currentName);
+  };
+
+  const saveReleaseNameEdit = () => {
+    if (editingReleaseId && tempReleaseName.trim()) {
+      const updatedReleases = data.releases.map(r =>
+        r.id === editingReleaseId ? { ...r, name: tempReleaseName.trim() } : r
+      );
+      updateData({ ...data, releases: updatedReleases });
+    }
+    setEditingReleaseId(null);
+    setTempReleaseName('');
+  };
+
+  const cancelReleaseNameEdit = () => {
+    setEditingReleaseId(null);
+    setTempReleaseName('');
   };
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
@@ -806,6 +897,12 @@ function AppContent() {
               onTempLabelChange={setTempLabelValue}
               displaySettings={displaySettings}
               setDisplaySettings={setDisplaySettings}
+              editingReleaseId={editingReleaseId}
+              tempReleaseName={tempReleaseName}
+              onStartEditReleaseName={startEditReleaseName}
+              onSaveReleaseNameEdit={saveReleaseNameEdit}
+              onCancelReleaseNameEdit={cancelReleaseNameEdit}
+              onTempReleaseNameChange={setTempReleaseName}
             />
           )}
 

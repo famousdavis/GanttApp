@@ -147,7 +147,11 @@ function GanttChart({
     setCopyStatus('copying');
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(chartRef.current);
+      const canvas = await html2canvas(chartRef.current, {
+        ignoreElements: (element) => {
+          return element.classList.contains('copy-image-button');
+        }
+      });
       canvas.toBlob((blob) => {
         if (blob) {
           navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(() => {
@@ -198,6 +202,7 @@ function GanttChart({
               Date Prepared: {getTodayFormatted()}
             </div>
             <button
+              className="copy-image-button"
               onClick={copyChartAsImage}
               disabled={copyStatus === 'copying'}
               style={{

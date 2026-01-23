@@ -118,7 +118,7 @@ export function ProjectsTab({
 
       <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
-          <div style={{ flex: '1' }}>
+          <div style={{ flex: '0 0 auto' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
               Project Name
             </label>
@@ -133,7 +133,7 @@ export function ProjectsTab({
                 fontSize: '1rem',
                 border: '2px solid #ddd',
                 borderRadius: '4px',
-                width: '100%'
+                width: '400px'
               }}
             />
           </div>

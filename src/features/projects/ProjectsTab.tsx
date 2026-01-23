@@ -145,6 +145,8 @@ export function ProjectsTab({
               type="date"
               value={projectFinishDate}
               onChange={(e) => setProjectFinishDate(e.target.value)}
+              min="2000-01-01"
+              max="2050-12-31"
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',

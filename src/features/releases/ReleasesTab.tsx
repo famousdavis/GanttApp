@@ -109,6 +109,8 @@ export function ReleasesTab({
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               onBlur={() => setTouchedFields(prev => ({ ...prev, startDate: true }))}
+              min="2000-01-01"
+              max="2050-12-31"
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
@@ -130,6 +132,8 @@ export function ReleasesTab({
                 setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
               }}
               onBlur={() => setTouchedFields(prev => ({ ...prev, earlyFinish: true }))}
+              min="2000-01-01"
+              max="2050-12-31"
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
@@ -151,6 +155,8 @@ export function ReleasesTab({
                 setTouchedFields(prev => ({ ...prev, lateFinish: false }));
               }}
               onBlur={() => setTouchedFields(prev => ({ ...prev, lateFinish: true }))}
+              min="2000-01-01"
+              max="2050-12-31"
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',

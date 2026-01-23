@@ -27,13 +27,15 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           style={{
-            padding: '0.75rem 1.5rem',
+            padding: '0.5rem 1.25rem',
             background: activeTab === tab.id ? '#0070f3' : 'transparent',
             color: activeTab === tab.id ? 'white' : '#666',
             border: 'none',
             borderBottom: activeTab === tab.id ? '3px solid #0070f3' : '3px solid transparent',
+            borderTopLeftRadius: '8px',
+            borderTopRightRadius: '8px',
             cursor: 'pointer',
-            fontWeight: activeTab === tab.id ? '600' : '500',
+            fontWeight: '600',
             fontSize: '1rem',
             transition: 'all 0.2s'
           }}

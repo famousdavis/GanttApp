@@ -26,7 +26,7 @@ export interface ChartColors {
 
 export interface ChartDisplaySettings {
   releaseNameFontSize: '14' | '16' | '18';  // Small, Medium, Large
-  dateLabelFontSize: '9' | '11' | '13';  // Small, Medium, Large
+  dateLabelFontSize: '11' | '13' | '15';  // Small, Medium, Large
   dateLabelColor: '#999' | '#666' | '#333' | '#000';  // Light to Black
   verticalLineWidth: '2' | '3' | '4';  // Thin, Medium, Thick
 }

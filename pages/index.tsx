@@ -82,10 +82,10 @@ function GanttChart({
   const todayTime = today.getTime();
 
   // Chart dimensions
-  const chartWidth = 900;
+  const chartWidth = 1100;
   const chartHeight = releases.length * 60 + 80;
-  const leftMargin = 230;
-  const rightMargin = 30;
+  const leftMargin = 280;
+  const rightMargin = 50;
   const topMargin = 50;
   const barHeight = 30;
   const rowHeight = 60;
@@ -151,171 +151,32 @@ function GanttChart({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.5rem', color: '#333' }}>{projectName}</h2>
-        <button
-          onClick={() => setShowColorSettings(!showColorSettings)}
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#0070f3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }}
-        >
-          {showColorSettings ? 'Hide' : 'Show'} Chart Settings
-        </button>
-      </div>
-
-      {showColorSettings && (
-        <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
-          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#333' }}>Chart Settings</h3>
-
-          {/* Color Settings */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#555' }}>Colors</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-              <ColorSwatchPicker
-                label="Solid Bar Color"
-                value={chartColors.solidBar}
-                onChange={(color) => onColorsChange({ ...chartColors, solidBar: color })}
-              />
-              <ColorSwatchPicker
-                label="Hatched Bar Color"
-                value={chartColors.hatchedBar}
-                onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color })}
-              />
-              <ColorSwatchPicker
-                label="Today's Date Line"
-                value={chartColors.todayLine}
-                onChange={(color) => onColorsChange({ ...chartColors, todayLine: color })}
-              />
-              <ColorSwatchPicker
-                label="Project Finish Date Line"
-                value={chartColors.finishDateLine}
-                onChange={(color) => onColorsChange({ ...chartColors, finishDateLine: color })}
-              />
-            </div>
-
-            <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#555' }}>Color Presets</h4>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {Object.keys(COLOR_PRESETS).map(presetName => {
-                const isActive = activePreset === presetName;
-                return (
-                  <button
-                    key={presetName}
-                    onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: isActive ? '#e6f2ff' : 'white',
-                      border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: isActive ? '600' : 'normal'
-                    }}
-                  >
-                    {presetName}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Display Settings */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#555' }}>Display</h4>
-            <PresetButtonGroup
-              label="Release Name Font Size"
-              value={displaySettings.releaseNameFontSize}
-              options={[
-                { value: '14', label: 'Small' },
-                { value: '16', label: 'Medium' },
-                { value: '18', label: 'Large' }
-              ]}
-              onChange={(value) => setDisplaySettings({ ...displaySettings, releaseNameFontSize: value as any })}
-            />
-            <PresetButtonGroup
-              label="Date Label Font Size"
-              value={displaySettings.dateLabelFontSize}
-              options={[
-                { value: '9', label: 'Small' },
-                { value: '11', label: 'Medium' },
-                { value: '13', label: 'Large' }
-              ]}
-              onChange={(value) => setDisplaySettings({ ...displaySettings, dateLabelFontSize: value as any })}
-            />
-            <GrayscaleSwatchPicker
-              label="Date Label Color"
-              value={displaySettings.dateLabelColor}
-              onChange={(color) => setDisplaySettings({ ...displaySettings, dateLabelColor: color as any })}
-            />
-            <PresetButtonGroup
-              label="Vertical Line Width"
-              value={displaySettings.verticalLineWidth}
-              options={[
-                { value: '2', label: 'Thin' },
-                { value: '3', label: 'Medium' },
-                { value: '4', label: 'Thick' }
-              ]}
-              onChange={(value) => setDisplaySettings({ ...displaySettings, verticalLineWidth: value as any })}
-            />
-          </div>
-
-          {/* Toggle Settings */}
-          <div>
-            <h4 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#555' }}>Show/Hide</h4>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showTodayLine}
-                  onChange={(e) => setShowTodayLine(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span>Show Today's Date</span>
-              </label>
-              {projectFinishDate && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={showFinishDateLine}
-                    onChange={(e) => setShowFinishDateLine(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span>Show Finish Date</span>
-                </label>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div ref={chartRef}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <div style={{ fontSize: '0.9rem', color: '#666' }}>
-            Today: {getTodayFormatted()}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.5rem', color: '#333', margin: 0 }}>{projectName}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ fontSize: '0.9rem', color: '#666' }}>
+              Date Prepared: {getTodayFormatted()}
+            </div>
+            <button
+              onClick={copyChartAsImage}
+              disabled={copyStatus === 'copying'}
+              style={{
+                padding: '0.25rem 0.5rem',
+                background: 'transparent',
+                color: '#0070f3',
+                border: 'none',
+                cursor: copyStatus === 'copying' ? 'wait' : 'pointer',
+                fontSize: '1.25rem'
+              }}
+              title="Copy Chart as Image"
+            >
+              {copyStatus === 'copying' && '⏳'}
+              {copyStatus === 'success' && '✅'}
+              {copyStatus === 'error' && '❌'}
+              {copyStatus === 'idle' && '📋'}
+            </button>
           </div>
-          <button
-            onClick={copyChartAsImage}
-            disabled={copyStatus === 'copying'}
-            style={{
-              padding: '0.5rem 1rem',
-              background: copyStatus === 'success' ? '#28a745' : '#0070f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: copyStatus === 'copying' ? 'wait' : 'pointer',
-              fontWeight: '600'
-            }}
-          >
-            {copyStatus === 'copying' && '⏳ Copying...'}
-            {copyStatus === 'success' && '✓ Copied'}
-            {copyStatus === 'error' && '❌'}
-            {copyStatus === 'idle' && '📋 Copy Chart as Image'}
-          </button>
         </div>
 
         <div style={{ overflowX: 'auto', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
@@ -336,12 +197,12 @@ function GanttChart({
                     y1={topMargin}
                     x2={x}
                     y2={chartHeight}
-                    stroke="#e0e0e0"
+                    stroke="#c0c0c0"
                     strokeWidth="1"
                     strokeDasharray="4"
                   />
                   {quarterLabel && (
-                    <text x={x} y={topMargin - 5} fontSize="11" fill="#999" textAnchor="middle">
+                    <text x={x + 5} y={topMargin - 15} fontSize="14" fill="#999" fontWeight="600" textAnchor="start">
                       {quarterLabel}
                     </text>
                   )}
@@ -353,7 +214,7 @@ function GanttChart({
             {showTodayLine && todayX && (
               <line
                 x1={todayX}
-                y1={topMargin}
+                y1={topMargin - 10}
                 x2={todayX}
                 y2={chartHeight}
                 stroke={chartColors.todayLine}
@@ -365,7 +226,7 @@ function GanttChart({
             {showFinishDateLine && finishDateX && (
               <line
                 x1={finishDateX}
-                y1={topMargin}
+                y1={topMargin - 10}
                 x2={finishDateX}
                 y2={chartHeight}
                 stroke={chartColors.finishDateLine}
@@ -385,7 +246,7 @@ function GanttChart({
               }
 
               return (
-                <text key={year} x={x} y={topMargin - 20} fontSize="14" fill="#333" fontWeight="600" textAnchor="middle">
+                <text key={year} x={x} y={topMargin - 15} fontSize="16" fill="#333" fontWeight="600" textAnchor="middle">
                   {year}
                 </text>
               );
@@ -407,11 +268,12 @@ function GanttChart({
                 <g key={release.id}>
                   {/* Release name */}
                   <text
-                    x={leftMargin - 10}
+                    x={10}
                     y={y + barHeight / 2}
                     fontSize={displaySettings.releaseNameFontSize}
                     fill="#333"
-                    textAnchor="end"
+                    fontWeight="600"
+                    textAnchor="start"
                     dominantBaseline="middle"
                   >
                     {release.name}
@@ -424,6 +286,8 @@ function GanttChart({
                     width={earlyX - startX}
                     height={barHeight}
                     fill={colors.solidBar}
+                    stroke={colors.solidBar}
+                    strokeWidth="2"
                     rx="4"
                   />
 
@@ -439,6 +303,8 @@ function GanttChart({
                     width={lateX - earlyX}
                     height={barHeight}
                     fill={`url(#hatch-${release.id})`}
+                    stroke={colors.hatchedBar}
+                    strokeWidth="2"
                     rx="4"
                   />
 
@@ -490,10 +356,11 @@ function GanttChart({
                   type="text"
                   value={tempLabelValue}
                   onChange={(e) => onTempLabelChange(e.target.value)}
+                  onBlur={onCancelLabelEdit}
+                  autoFocus
                   style={{ padding: '0.25rem', fontSize: '0.9rem', border: '1px solid #ddd', borderRadius: '4px' }}
                 />
-                <button onClick={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
-                <button onClick={onCancelLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <button onMouseDown={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
               </div>
             ) : (
               <span onClick={() => onStartEditLabel('solid')} style={{ cursor: 'pointer' }} title="Click to edit">{solidBarLabel}</span>
@@ -507,7 +374,7 @@ function GanttChart({
                   <line x1="0" y1="0" x2="0" y2="8" stroke={chartColors.hatchedBar} strokeWidth="4" />
                 </pattern>
               </defs>
-              <rect width="30" height="20" fill="url(#legend-hatch)" rx="4" />
+              <rect width="30" height="20" fill="url(#legend-hatch)" stroke={chartColors.hatchedBar} strokeWidth="2" rx="4" />
             </svg>
             {editingLegendLabel === 'hatched' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -515,10 +382,11 @@ function GanttChart({
                   type="text"
                   value={tempLabelValue}
                   onChange={(e) => onTempLabelChange(e.target.value)}
+                  onBlur={onCancelLabelEdit}
+                  autoFocus
                   style={{ padding: '0.25rem', fontSize: '0.9rem', border: '1px solid #ddd', borderRadius: '4px' }}
                 />
-                <button onClick={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
-                <button onClick={onCancelLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <button onMouseDown={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
               </div>
             ) : (
               <span onClick={() => onStartEditLabel('hatched')} style={{ cursor: 'pointer' }} title="Click to edit">{hatchedBarLabel}</span>
@@ -541,10 +409,11 @@ function GanttChart({
                     type="text"
                     value={tempLabelValue}
                     onChange={(e) => onTempLabelChange(e.target.value)}
+                    onBlur={onCancelLabelEdit}
+                    autoFocus
                     style={{ padding: '0.25rem', fontSize: '0.9rem', border: '1px solid #ddd', borderRadius: '4px' }}
                   />
-                  <button onClick={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
-                  <button onClick={onCancelLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                  <button onMouseDown={onSaveLabelEdit} style={{ padding: '0.25rem 0.5rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
                 </div>
               ) : (
                 <span onClick={() => onStartEditLabel('finishDate')} style={{ cursor: 'pointer' }} title="Click to edit">{finishDateLabel}</span>
@@ -552,6 +421,146 @@ function GanttChart({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Chart Settings - Below the chart */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3
+          onClick={() => setShowColorSettings(!showColorSettings)}
+          style={{
+            fontSize: '1.2rem',
+            marginBottom: '1rem',
+            color: '#333',
+            cursor: 'pointer',
+            userSelect: 'none'
+          }}
+        >
+          Chart Settings {showColorSettings ? '▲' : '▼'}
+        </h3>
+
+        {showColorSettings && (
+          <div style={{ padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #ddd' }}>
+            {/* Toggle Settings - First line */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '2rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={showTodayLine}
+                    onChange={(e) => setShowTodayLine(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Show Today's Date</span>
+                </label>
+                {projectFinishDate && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={showFinishDateLine}
+                      onChange={(e) => setShowFinishDateLine(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span>Show Project Finish Date</span>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Display Settings - Second horizontal row */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                <PresetButtonGroup
+                  label="Release Name Font Size"
+                  value={displaySettings.releaseNameFontSize}
+                  options={[
+                    { value: '14', label: 'Small' },
+                    { value: '16', label: 'Medium' },
+                    { value: '18', label: 'Large' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({ ...displaySettings, releaseNameFontSize: value as any })}
+                />
+                <PresetButtonGroup
+                  label="Date Label Font Size"
+                  value={displaySettings.dateLabelFontSize}
+                  options={[
+                    { value: '11', label: 'Small' },
+                    { value: '13', label: 'Medium' },
+                    { value: '15', label: 'Large' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({ ...displaySettings, dateLabelFontSize: value as any })}
+                />
+                <GrayscaleSwatchPicker
+                  label="Date Label Color"
+                  value={displaySettings.dateLabelColor}
+                  onChange={(color) => setDisplaySettings({ ...displaySettings, dateLabelColor: color as any })}
+                />
+                <PresetButtonGroup
+                  label="Vertical Line Width"
+                  value={displaySettings.verticalLineWidth}
+                  options={[
+                    { value: '2', label: 'Thin' },
+                    { value: '3', label: 'Medium' },
+                    { value: '4', label: 'Thick' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({ ...displaySettings, verticalLineWidth: value as any })}
+                />
+              </div>
+            </div>
+
+            {/* Color Settings - Third horizontal row */}
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                <ColorSwatchPicker
+                  label="Solid Bar Color"
+                  value={chartColors.solidBar}
+                  onChange={(color) => onColorsChange({ ...chartColors, solidBar: color })}
+                />
+                <ColorSwatchPicker
+                  label="Hatched Bar Color"
+                  value={chartColors.hatchedBar}
+                  onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color })}
+                />
+                <ColorSwatchPicker
+                  label="Today's Date Line"
+                  value={chartColors.todayLine}
+                  onChange={(color) => onColorsChange({ ...chartColors, todayLine: color })}
+                />
+                <ColorSwatchPicker
+                  label="Project Finish Date Line"
+                  value={chartColors.finishDateLine}
+                  onChange={(color) => onColorsChange({ ...chartColors, finishDateLine: color })}
+                />
+              </div>
+            </div>
+
+            {/* Color Presets */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#555' }}>Color Presets</h4>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {Object.keys(COLOR_PRESETS).map(presetName => {
+                  const isActive = activePreset === presetName;
+                  return (
+                    <button
+                      key={presetName}
+                      onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: isActive ? '#e6f2ff' : 'white',
+                        border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: isActive ? '600' : 'normal'
+                      }}
+                    >
+                      {presetName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -695,7 +704,7 @@ function AppContent() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5', padding: '2rem' }}>
+    <div style={{ minHeight: '100vh', background: 'white', padding: '2rem' }}>
       <Head>
         <title>GanttApp - Version 4.5</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
@@ -703,10 +712,17 @@ function AppContent() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <header style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: '#0070f3' }}>GanttApp</h1>
-          <p style={{ color: '#666' }}>Visualize release uncertainty in your project timeline</p>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
+        <header style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{
+            fontSize: '2.1rem',
+            marginBottom: '0.25rem',
+            background: 'linear-gradient(90deg, #0099ff 0%, #0051cc 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}>GanttApp</h1>
+          <p style={{ color: '#666', fontSize: '0.875rem', fontStyle: 'italic' }}>Visualize release uncertainty in your project timeline</p>
         </header>
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -772,25 +788,25 @@ function AppContent() {
           paddingTop: '2rem',
           borderTop: '2px solid #eee',
           textAlign: 'center',
-          color: '#999',
+          color: '#666',
           fontSize: '0.875rem'
         }}>
-          <div>GanttApp v4.5 | Created by William W. Davis, MSPM, PMP</div>
-          <div style={{ marginTop: '0.5rem' }}>
-            <button
-              onClick={() => setActiveTab('changelog')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#0070f3',
-                textDecoration: 'underline',
-                cursor: 'pointer',
-                fontSize: '0.875rem'
-              }}
-            >
-              View Changelog
-            </button>
-          </div>
+          © 2026 William W. Davis, MSPM, PMP |{' '}
+          <button
+            onClick={() => setActiveTab('changelog')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#0070f3',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              padding: 0
+            }}
+          >
+            Version 4.5
+          </button>
+          {' '}| Licensed under GNU GPL v3
         </footer>
       </div>
     </div>

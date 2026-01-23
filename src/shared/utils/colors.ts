@@ -12,10 +12,10 @@ export const DEFAULT_CHART_COLORS: ChartColors = {
 
 // Default display settings
 export const DEFAULT_DISPLAY_SETTINGS: ChartDisplaySettings = {
-  releaseNameFontSize: '16',    // Medium (updated sizes: 14/16/18)
-  dateLabelFontSize: '11',      // Medium (current)
-  dateLabelColor: '#666',        // Current gray
-  verticalLineWidth: '2'         // Thin (current)
+  releaseNameFontSize: '16',    // Medium (sizes: 14/16/18)
+  dateLabelFontSize: '13',      // Medium (sizes: 11/13/15)
+  dateLabelColor: '#666',        // Medium gray
+  verticalLineWidth: '2'         // Thin
 };
 
 // Standard color palette (20 colors)

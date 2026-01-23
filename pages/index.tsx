@@ -798,7 +798,7 @@ function AppContent() {
               background: 'none',
               border: 'none',
               color: '#0070f3',
-              textDecoration: 'underline',
+              textDecoration: 'none',
               cursor: 'pointer',
               fontSize: '0.875rem',
               padding: 0

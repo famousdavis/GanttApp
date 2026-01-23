@@ -79,11 +79,89 @@ export function ChangelogTab() {
         </ul>
       </div>
 
-      {/* Earlier versions note */}
-      <div style={{ marginTop: '2rem', padding: '1rem', background: '#f9f9f9', borderRadius: '8px' }}>
-        <p style={{ color: '#666', fontStyle: 'italic' }}>
-          For complete version history (v1.0 - v4.1), see the full changelog in the original application code.
-        </p>
+      {/* Version 4.2 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 4.2
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 20, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Added optional project finish date field (Projects tab)</li>
+          <li>Renamed "Chart Color Settings" to "Chart Settings"</li>
+          <li>Moved chart display toggles to Chart Settings section (cleaner exported images)</li>
+          <li>Added project finish date vertical line visualization (bright green by default)</li>
+          <li>Added quarter labels (Q2, Q3, Q4) to timeline above vertical gridlines</li>
+          <li>Enhanced Chart Settings with toggle controls and finish date color picker</li>
+        </ul>
+      </div>
+
+      {/* Version 4.1 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 4.1
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 20, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Removed "Gantt Chart:" label prefix from chart display (project name only)</li>
+          <li>Added collapsible color settings section (collapsed by default)</li>
+          <li>Made legend labels editable with localStorage persistence</li>
+          <li>Enhanced About page formatting (bolded "GanttApp" in description)</li>
+        </ul>
+      </div>
+
+      {/* Version 4.0 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 4.0
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 19, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Revert from Firebase to localStorage for better data persistence</li>
+          <li>While Firebase provided cloud storage, anonymous authentication sessions expired unpredictably</li>
+          <li>localStorage puts users in control - data persists until they choose to clear their browser cache</li>
+          <li>Export/Import feature provides reliable backup mechanism</li>
+        </ul>
+      </div>
+
+      {/* Version 3.6 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.6
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Revert to localStorage</li>
+          <li>Add drag-and-drop reordering for projects and releases</li>
+        </ul>
+      </div>
+
+      {/* Version 3.5 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.5
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add configurable chart colors with preset themes</li>
+          <li>Users can now customize solid bar, hatched bar, and today's line colors</li>
+          <li>Includes preset color themes: Classic Blue, Ocean Green, Purple Haze, Sunset Orange, Ruby Red</li>
+        </ul>
+      </div>
+
+      {/* Version 3.0 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.0
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Initial release with Firebase integration</li>
+          <li>Project and release management</li>
+          <li>Gantt chart visualization with uncertainty ranges</li>
+        </ul>
       </div>
     </div>
   );

@@ -60,8 +60,8 @@ export function ReleasesTab({
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-        <span>Releases for</span>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333', display: 'flex', alignItems: 'baseline' }}>
+        <span style={{ fontWeight: 'normal' }}>Releases for </span>
         <select
           value={selectedProjectId}
           onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -74,7 +74,8 @@ export function ReleasesTab({
             fontFamily: 'inherit',
             fontWeight: 600,
             padding: 0,
-            outline: 'none'
+            outline: 'none',
+            marginLeft: '0'
           }}
         >
           {data.projects.map(p => (

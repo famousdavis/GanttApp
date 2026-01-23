@@ -150,7 +150,7 @@ export function ProjectsTab({
                 fontSize: '1rem',
                 border: '2px solid #ddd',
                 borderRadius: '4px',
-                width: '200px'
+                width: '180px'
               }}
             />
           </div>

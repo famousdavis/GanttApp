@@ -307,7 +307,7 @@ function GanttChart({
                 <g key={release.id}>
                   {/* Release name */}
                   {editingReleaseId === release.id ? (
-                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={480} height={24}>
+                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={270} height={24}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <input
                           type="text"
@@ -324,7 +324,7 @@ function GanttChart({
                             fontWeight: 600,
                             border: '1px solid #0070f3',
                             padding: '2px 4px',
-                            width: '420px',
+                            width: '240px',
                             fontFamily: 'inherit'
                           }}
                         />

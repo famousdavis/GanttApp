@@ -137,7 +137,7 @@ export function ProjectsTab({
               }}
             />
           </div>
-          <div style={{ flex: '1' }}>
+          <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
               Project Finish Date (Optional)
             </label>
@@ -150,7 +150,7 @@ export function ProjectsTab({
                 fontSize: '1rem',
                 border: '2px solid #ddd',
                 borderRadius: '4px',
-                width: '100%'
+                width: '200px'
               }}
             />
           </div>

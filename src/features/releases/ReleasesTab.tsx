@@ -107,13 +107,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={startDate}
-              onChange={(e) => {
-                const date = e.target.value;
-                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
-                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
-                  setStartDate(date);
-                }
-              }}
+              onChange={(e) => setStartDate(e.target.value)}
               onBlur={() => setTouchedFields(prev => ({ ...prev, startDate: true }))}
               min="2000-01-01"
               max="2050-12-31"
@@ -134,12 +128,8 @@ export function ReleasesTab({
               type="date"
               value={earlyFinish}
               onChange={(e) => {
-                const date = e.target.value;
-                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
-                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
-                  setEarlyFinish(date);
-                  setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
-                }
+                setEarlyFinish(e.target.value);
+                setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
               }}
               onBlur={() => setTouchedFields(prev => ({ ...prev, earlyFinish: true }))}
               min="2000-01-01"
@@ -161,12 +151,8 @@ export function ReleasesTab({
               type="date"
               value={lateFinish}
               onChange={(e) => {
-                const date = e.target.value;
-                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
-                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
-                  setLateFinish(date);
-                  setTouchedFields(prev => ({ ...prev, lateFinish: false }));
-                }
+                setLateFinish(e.target.value);
+                setTouchedFields(prev => ({ ...prev, lateFinish: false }));
               }}
               onBlur={() => setTouchedFields(prev => ({ ...prev, lateFinish: true }))}
               min="2000-01-01"

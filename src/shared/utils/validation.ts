@@ -1,11 +1,16 @@
 // Validation utilities for GanttApp
 
 /**
- * Check if a date string is in valid YYYY-MM-DD format
+ * Check if a date string is in valid YYYY-MM-DD format and within allowed year range (2000-2050)
  */
 export function isValidDateFormat(dateStr: string): boolean {
   if (!dateStr || dateStr.length !== 10) return false;
-  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+
+  // Check year range
+  if (dateStr < '2000-01-01' || dateStr > '2050-12-31') return false;
+
+  return true;
 }
 
 /**
@@ -54,6 +59,25 @@ export function getDateErrorMessage(
   lateFinish: string,
   touchedFields: { startDate: boolean; earlyFinish: boolean; lateFinish: boolean }
 ): string {
+  // Check individual date ranges
+  if (touchedFields.startDate && startDate && startDate.length === 10) {
+    if (startDate < '2000-01-01' || startDate > '2050-12-31') {
+      return 'Date must be between 2000 and 2050';
+    }
+  }
+
+  if (touchedFields.earlyFinish && earlyFinish && earlyFinish.length === 10) {
+    if (earlyFinish < '2000-01-01' || earlyFinish > '2050-12-31') {
+      return 'Date must be between 2000 and 2050';
+    }
+  }
+
+  if (touchedFields.lateFinish && lateFinish && lateFinish.length === 10) {
+    if (lateFinish < '2000-01-01' || lateFinish > '2050-12-31') {
+      return 'Date must be between 2000 and 2050';
+    }
+  }
+
   // Check start vs early only when earlyFinish field has been touched AND both dates are complete
   if (touchedFields.earlyFinish && isValidDateFormat(startDate) && isValidDateFormat(earlyFinish)) {
     const start = new Date(startDate);

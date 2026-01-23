@@ -1,5 +1,6 @@
 // Projects Tab component with form and list
 
+import { useState } from 'react';
 import { useProjects } from './useProjects';
 import { useAppData } from '../../context/AppDataContext';
 import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
@@ -73,6 +74,25 @@ export function ProjectsTab({
 
   const isValid = isProjectNameValid(projectName);
 
+  const [finishDateError, setFinishDateError] = useState('');
+
+  const validateFinishDate = (date: string) => {
+    if (date === '') {
+      setFinishDateError('');
+      return true;
+    }
+    if (date.length !== 10) {
+      setFinishDateError('Please enter a complete date');
+      return false;
+    }
+    if (date < '2000-01-01' || date > '2050-12-31') {
+      setFinishDateError('Date must be between 2000 and 2050');
+      return false;
+    }
+    setFinishDateError('');
+    return true;
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -145,22 +165,25 @@ export function ProjectsTab({
               type="date"
               value={projectFinishDate}
               onChange={(e) => {
-                const date = e.target.value;
-                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
-                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
-                  setProjectFinishDate(date);
-                }
+                setProjectFinishDate(e.target.value);
+                setFinishDateError(''); // Clear error while typing
               }}
+              onBlur={(e) => validateFinishDate(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: finishDateError ? '2px solid #dc3545' : '2px solid #ddd',
                 borderRadius: '4px',
                 width: '180px'
               }}
             />
+            {finishDateError && (
+              <div style={{ color: '#dc3545', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                {finishDateError}
+              </div>
+            )}
           </div>
         </div>
         <div>

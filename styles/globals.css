@@ -24,12 +24,29 @@ a {
 }
 
 /* Style date input placeholders to match text input placeholders */
-/* Make empty date inputs show mm/dd/yyyy in light gray */
-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+/* Default: show placeholder parts in light gray */
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
   color: #999;
 }
 
-/* For inputs with values, show in dark color */
-input[type="date"].has-value::-webkit-datetime-edit-fields-wrapper {
+/* When user starts typing (focus) or has a value, show in dark color */
+input[type="date"]:focus::-webkit-datetime-edit-month-field,
+input[type="date"]:focus::-webkit-datetime-edit-day-field,
+input[type="date"]:focus::-webkit-datetime-edit-year-field,
+input[type="date"].has-value::-webkit-datetime-edit-month-field,
+input[type="date"].has-value::-webkit-datetime-edit-day-field,
+input[type="date"].has-value::-webkit-datetime-edit-year-field {
+  color: #333;
+}
+
+/* Keep the separators (slashes) visible */
+input[type="date"]::-webkit-datetime-edit-text {
+  color: #999;
+}
+
+input[type="date"]:focus::-webkit-datetime-edit-text,
+input[type="date"].has-value::-webkit-datetime-edit-text {
   color: #333;
 }

@@ -144,7 +144,12 @@ export function ProjectsTab({
             <input
               type="date"
               value={projectFinishDate}
-              onChange={(e) => setProjectFinishDate(e.target.value)}
+              onChange={(e) => {
+                const date = e.target.value;
+                if (date === '' || (date >= '2000-01-01' && date <= '2050-12-31')) {
+                  setProjectFinishDate(date);
+                }
+              }}
               min="2000-01-01"
               max="2050-12-31"
               style={{

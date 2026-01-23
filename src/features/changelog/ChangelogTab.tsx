@@ -8,10 +8,10 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 4.5 */}
+      {/* Version 5.0 */}
       <div>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
-          Version 4.5
+          Version 5.0
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
             January 22, 2026
           </span>

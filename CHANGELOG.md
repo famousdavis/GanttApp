@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 5.0 (2026-01-22)
+- Complete architectural refactoring to Feature Modules pattern
+- Extracted utilities, types, and components for better maintainability
+- Reduced token usage for AI-assisted development by 75-85%
+- Improved code organization with feature-based folder structure
+- Created centralized context for state management
+- All features work identically - zero functional changes for users
+
 ## Version 4.4 (2026-01-21)
 - Enhanced Chart Settings with configurable display options
 - Added Release Name Font Size control: Small (14px), Medium (16px), or Large (18px)

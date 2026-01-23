@@ -706,7 +706,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: 'white', padding: '2rem' }}>
       <Head>
-        <title>GanttApp - Version 4.5</title>
+        <title>GanttApp - Version 5.0</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -804,7 +804,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 4.5
+            Version 5.0
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

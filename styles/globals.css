@@ -22,3 +22,21 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Style date input placeholders to match text input placeholders */
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  color: #999;
+}
+
+input[type="date"]::-moz-placeholder {
+  color: #999;
+  opacity: 1;
+}
+
+input[type="date"]::placeholder {
+  color: #999;
+  opacity: 1;
+}

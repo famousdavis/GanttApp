@@ -67,7 +67,7 @@ export function ReleasesTab({
             fontSize: '1rem',
             border: '2px solid #ddd',
             borderRadius: '4px',
-            minWidth: '200px'
+            minWidth: '300px'
           }}
         >
           {data.projects.map(p => (

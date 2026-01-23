@@ -72,8 +72,6 @@ export function ProjectsTab({
     event.target.value = '';
   };
 
-  const isValid = isProjectNameValid(projectName);
-
   const [finishDateError, setFinishDateError] = useState('');
 
   const validateFinishDate = (date: string) => {
@@ -92,6 +90,8 @@ export function ProjectsTab({
     setFinishDateError('');
     return true;
   };
+
+  const isValid = isProjectNameValid(projectName) && !finishDateError;
 
   return (
     <div>

@@ -109,7 +109,8 @@ export function ReleasesTab({
               value={startDate}
               onChange={(e) => {
                 const date = e.target.value;
-                if (date === '' || (date >= '2000-01-01' && date <= '2050-12-31')) {
+                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
+                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
                   setStartDate(date);
                 }
               }}
@@ -134,7 +135,8 @@ export function ReleasesTab({
               value={earlyFinish}
               onChange={(e) => {
                 const date = e.target.value;
-                if (date === '' || (date >= '2000-01-01' && date <= '2050-12-31')) {
+                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
+                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
                   setEarlyFinish(date);
                   setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
                 }
@@ -160,7 +162,8 @@ export function ReleasesTab({
               value={lateFinish}
               onChange={(e) => {
                 const date = e.target.value;
-                if (date === '' || (date >= '2000-01-01' && date <= '2050-12-31')) {
+                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
+                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
                   setLateFinish(date);
                   setTouchedFields(prev => ({ ...prev, lateFinish: false }));
                 }

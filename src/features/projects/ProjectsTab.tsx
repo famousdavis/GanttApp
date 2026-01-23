@@ -146,7 +146,8 @@ export function ProjectsTab({
               value={projectFinishDate}
               onChange={(e) => {
                 const date = e.target.value;
-                if (date === '' || (date >= '2000-01-01' && date <= '2050-12-31')) {
+                // Only validate if it's empty or a complete date (length 10: YYYY-MM-DD)
+                if (date === '' || date.length !== 10 || (date >= '2000-01-01' && date <= '2050-12-31')) {
                   setProjectFinishDate(date);
                 }
               }}

@@ -49,6 +49,11 @@ export function ReleasesTab({
   const errorMessage = getDateErrorMessage(startDate, earlyFinish, lateFinish, touchedFields);
   const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage;
 
+  // Determine which fields have errors for highlighting
+  const startDateInvalid = touchedFields.startDate && startDate.length === 10 && (startDate < '2000-01-01' || startDate > '2050-12-31');
+  const earlyFinishInvalid = touchedFields.earlyFinish && earlyFinish.length === 10 && (earlyFinish < '2000-01-01' || earlyFinish > '2050-12-31');
+  const lateFinishInvalid = touchedFields.lateFinish && lateFinish.length === 10 && (lateFinish < '2000-01-01' || lateFinish > '2050-12-31');
+
   if (data.projects.length === 0) {
     return <p style={{ color: '#999', fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
   }
@@ -113,7 +118,7 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: startDateInvalid ? '2px solid #dc3545' : '2px solid #ddd',
                 borderRadius: '4px',
                 width: '100%'
               }}
@@ -132,7 +137,7 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: earlyFinishInvalid ? '2px solid #dc3545' : '2px solid #ddd',
                 borderRadius: '4px',
                 width: '100%'
               }}
@@ -151,7 +156,7 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: lateFinishInvalid ? '2px solid #dc3545' : '2px solid #ddd',
                 borderRadius: '4px',
                 width: '100%'
               }}

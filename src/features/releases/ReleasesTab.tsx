@@ -46,8 +46,8 @@ export function ReleasesTab({
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
-  const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish);
   const errorMessage = getDateErrorMessage(startDate, earlyFinish, lateFinish, touchedFields);
+  const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage;
 
   if (data.projects.length === 0) {
     return <p style={{ color: '#999', fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;

@@ -156,11 +156,53 @@ export function ChangelogTab() {
       <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 3.0
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 18, 2026
+          </span>
         </h3>
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Initial release with Firebase integration</li>
           <li>Project and release management</li>
           <li>Gantt chart visualization with uncertainty ranges</li>
+        </ul>
+      </div>
+
+      {/* Version 2.1 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 2.1
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 17, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add copyright footer and GNU GPL v3 license</li>
+        </ul>
+      </div>
+
+      {/* Version 2.0 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 2.0
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 17, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add Export/Import functionality and copy chart as image</li>
+        </ul>
+      </div>
+
+      {/* Version 1.0 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 1.0
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 17, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Initial release with localStorage, Projects, Releases, and Gantt chart</li>
         </ul>
       </div>
     </div>

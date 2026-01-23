@@ -129,17 +129,6 @@ export function ChangelogTab() {
         </ul>
       </div>
 
-      {/* Version 3.6 */}
-      <div style={{ marginTop: '2rem' }}>
-        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
-          Version 3.6
-        </h3>
-        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
-          <li>Revert to localStorage</li>
-          <li>Add drag-and-drop reordering for projects and releases</li>
-        </ul>
-      </div>
-
       {/* Version 3.5 */}
       <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>

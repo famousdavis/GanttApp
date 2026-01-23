@@ -307,7 +307,7 @@ function GanttChart({
                 <g key={release.id}>
                   {/* Release name */}
                   {editingReleaseId === release.id ? (
-                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={200} height={24}>
+                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={480} height={24}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <input
                           type="text"
@@ -317,18 +317,22 @@ function GanttChart({
                             if (e.key === 'Enter') onSaveReleaseNameEdit();
                             if (e.key === 'Escape') onCancelReleaseNameEdit();
                           }}
+                          onBlur={onCancelReleaseNameEdit}
                           autoFocus
                           style={{
                             fontSize: displaySettings.releaseNameFontSize + 'px',
                             fontWeight: 600,
                             border: '1px solid #0070f3',
                             padding: '2px 4px',
-                            width: '140px',
+                            width: '420px',
                             fontFamily: 'inherit'
                           }}
                         />
                         <button
-                          onClick={onSaveReleaseNameEdit}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onSaveReleaseNameEdit();
+                          }}
                           style={{
                             background: 'none',
                             border: 'none',
@@ -339,19 +343,6 @@ function GanttChart({
                           title="Save"
                         >
                           ✅
-                        </button>
-                        <button
-                          onClick={onCancelReleaseNameEdit}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            padding: '2px'
-                          }}
-                          title="Cancel"
-                        >
-                          ❌
                         </button>
                       </div>
                     </foreignObject>

@@ -16,6 +16,9 @@ function GanttChart({
   releases,
   projectName,
   projectFinishDate,
+  projects,
+  selectedProjectId,
+  setSelectedProjectId,
   chartColors,
   onColorsChange,
   activePreset,
@@ -40,6 +43,9 @@ function GanttChart({
   releases: Release[],
   projectName: string,
   projectFinishDate?: string,
+  projects: Project[],
+  selectedProjectId: string,
+  setSelectedProjectId: (id: string) => void,
   chartColors: ChartColors,
   onColorsChange: (colors: ChartColors, presetName?: string) => void,
   activePreset?: string,
@@ -153,7 +159,28 @@ function GanttChart({
     <div>
       <div ref={chartRef}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.5rem', color: '#333', margin: 0 }}>{projectName}</h2>
+          <select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            style={{
+              fontSize: '1.5rem',
+              color: '#333',
+              margin: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              fontWeight: 600,
+              padding: 0,
+              outline: 'none'
+            }}
+          >
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ fontSize: '0.9rem', color: '#666' }}>
               Date Prepared: {getTodayFormatted()}
@@ -756,6 +783,9 @@ function AppContent() {
               releases={visibleReleases}
               projectName={selectedProject.name}
               projectFinishDate={selectedProject.finishDate}
+              projects={data.projects}
+              selectedProjectId={selectedProjectId}
+              setSelectedProjectId={setSelectedProjectId}
               chartColors={chartColors}
               onColorsChange={updateChartColors}
               activePreset={activePreset}

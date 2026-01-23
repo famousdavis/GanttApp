@@ -14,6 +14,9 @@ export function useReleases() {
   const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false });
 
   const addRelease = (selectedProjectId: string) => {
+    // Mark all fields as touched to trigger validation
+    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true });
+
     if (!releaseName.trim() || !selectedProjectId || !startDate || !earlyFinish || !lateFinish) return;
 
     const newRelease: Release = {
@@ -30,6 +33,9 @@ export function useReleases() {
   };
 
   const updateRelease = () => {
+    // Mark all fields as touched to trigger validation
+    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true });
+
     if (!releaseName.trim() || !editingReleaseId || !startDate || !earlyFinish || !lateFinish) return;
 
     const newData = {

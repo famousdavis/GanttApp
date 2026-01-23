@@ -108,7 +108,6 @@ export function ReleasesTab({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              onBlur={() => setTouchedFields(prev => ({ ...prev, startDate: true }))}
               min="2000-01-01"
               max="2050-12-31"
               style={{
@@ -127,11 +126,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={earlyFinish}
-              onChange={(e) => {
-                setEarlyFinish(e.target.value);
-                setTouchedFields(prev => ({ ...prev, earlyFinish: false }));
-              }}
-              onBlur={() => setTouchedFields(prev => ({ ...prev, earlyFinish: true }))}
+              onChange={(e) => setEarlyFinish(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"
               style={{
@@ -150,11 +145,7 @@ export function ReleasesTab({
             <input
               type="date"
               value={lateFinish}
-              onChange={(e) => {
-                setLateFinish(e.target.value);
-                setTouchedFields(prev => ({ ...prev, lateFinish: false }));
-              }}
-              onBlur={() => setTouchedFields(prev => ({ ...prev, lateFinish: true }))}
+              onChange={(e) => setLateFinish(e.target.value)}
               min="2000-01-01"
               max="2050-12-31"
               style={{

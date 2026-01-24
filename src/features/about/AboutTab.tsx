@@ -23,7 +23,7 @@ export function AboutTab() {
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Stored locally in your <strong>browser</strong> (not in any cloud database)</li>
           <li><strong>Your data never leaves your device</strong></li>
-          <li>No external servers, no third-party access, no data governance concerns</li>
+          <li>No external database servers, no third-party access, no data governance concerns</li>
           <li>Safe for corporate/organizational data - all data stays within your network</li>
           <li>Use <strong>Export</strong> to backup your data to your file system anytime</li>
           <li>Use <strong>Import</strong> to restore from a backup or share with colleagues</li>

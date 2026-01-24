@@ -133,11 +133,66 @@ export function ChangelogTab() {
       <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 3.5
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 19, 2026
+          </span>
         </h3>
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Add configurable chart colors with preset themes</li>
           <li>Users can now customize solid bar, hatched bar, and today's line colors</li>
           <li>Includes preset color themes: Classic Blue, Ocean Green, Purple Haze, Sunset Orange, Ruby Red</li>
+        </ul>
+      </div>
+
+      {/* Version 3.4 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.4
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 19, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add intelligent label hiding on Gantt chart to prevent overlapping date labels</li>
+        </ul>
+      </div>
+
+      {/* Version 3.3 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.3
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 19, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add real-time validation for project names, release names, and date logic</li>
+        </ul>
+      </div>
+
+      {/* Version 3.2 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.2
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 19, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Add Change Log accessible via footer link</li>
+        </ul>
+      </div>
+
+      {/* Version 3.1 */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 3.1
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 18, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Fix timezone bug in date display</li>
         </ul>
       </div>
 

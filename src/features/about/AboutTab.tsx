@@ -13,8 +13,8 @@ export function AboutTab() {
           GanttApp visualizes this by showing:
         </p>
         <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
-          <li><strong>Solid blue bars:</strong> Design, Code, Test phase (predictable work)</li>
-          <li><strong>Hatched blue bars:</strong> Delivery uncertainty window (the "maybe" zone)</li>
+          <li><strong>Solid bars:</strong> Design, Code, Test phase (predictable work)</li>
+          <li><strong>Hatched bars:</strong> Delivery uncertainty window (the "maybe" zone)</li>
         </ul>
       </section>
 

@@ -103,6 +103,10 @@ export function useChartCalculations(releases: Release[], projectFinishDate?: st
 
 // Convert date string to X coordinate
 function dateToX(date: string, minDate: number, dateRange: number, dimensions: ChartDimensions): number {
+  if (dateRange === 0) {
+    // All dates are the same; place bar at the center of the drawable area
+    return dimensions.leftMargin + (dimensions.chartWidth - dimensions.leftMargin - dimensions.rightMargin) / 2;
+  }
   const timestamp = parseDateLocal(date);
   const ratio = (timestamp - minDate) / dateRange;
   return dimensions.leftMargin + ratio * (dimensions.chartWidth - dimensions.leftMargin - dimensions.rightMargin);

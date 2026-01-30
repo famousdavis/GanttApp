@@ -1,7 +1,10 @@
 // Validation utilities for GanttApp
 
+import { parseDateLocal } from './dates';
+
 /**
- * Check if a date string is in valid YYYY-MM-DD format and within allowed year range (2000-2050)
+ * Check if a date string is in valid YYYY-MM-DD format, represents a real calendar date,
+ * and is within the allowed year range (2000-2050)
  */
 export function isValidDateFormat(dateStr: string): boolean {
   if (!dateStr || dateStr.length !== 10) return false;
@@ -9,6 +12,13 @@ export function isValidDateFormat(dateStr: string): boolean {
 
   // Check year range
   if (dateStr < '2000-01-01' || dateStr > '2050-12-31') return false;
+
+  // Validate actual calendar date (e.g., reject Feb 30, Month 13, Day 32)
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return false;
+  }
 
   return true;
 }
@@ -35,10 +45,10 @@ export function isReleaseValid(
   // Check all dates filled
   if (!startDate || !earlyFinish || !lateFinish) return false;
 
-  // Check date logic
-  const start = new Date(startDate);
-  const early = new Date(earlyFinish);
-  const late = new Date(lateFinish);
+  // Check date logic (using local timezone parsing for consistency)
+  const start = parseDateLocal(startDate);
+  const early = parseDateLocal(earlyFinish);
+  const late = parseDateLocal(lateFinish);
 
   // Start must be before early
   if (start >= early) return false;
@@ -80,8 +90,8 @@ export function getDateErrorMessage(
 
   // Check start vs early only when earlyFinish field has been touched AND both dates are complete
   if (touchedFields.earlyFinish && isValidDateFormat(startDate) && isValidDateFormat(earlyFinish)) {
-    const start = new Date(startDate);
-    const early = new Date(earlyFinish);
+    const start = parseDateLocal(startDate);
+    const early = parseDateLocal(earlyFinish);
 
     if (start >= early) {
       return 'Start date must be before the Early finish date';
@@ -90,8 +100,8 @@ export function getDateErrorMessage(
 
   // Check early vs late only when lateFinish field has been touched AND both dates are complete
   if (touchedFields.lateFinish && isValidDateFormat(earlyFinish) && isValidDateFormat(lateFinish)) {
-    const early = new Date(earlyFinish);
-    const late = new Date(lateFinish);
+    const early = parseDateLocal(earlyFinish);
+    const late = parseDateLocal(lateFinish);
 
     if (early > late) {
       return 'Early finish date must be before or equal to the Late finish date';

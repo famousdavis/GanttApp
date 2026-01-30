@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Project } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
+import { generateId } from '../../shared/utils';
 
 export function useProjects() {
   const { data, updateData } = useAppData();
@@ -13,7 +14,7 @@ export function useProjects() {
   const addProject = (selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
     if (!projectName.trim()) return;
     const newProject: Project = {
-      id: Date.now().toString(),
+      id: generateId(),
       name: projectName.trim(),
       ...(projectFinishDate && { finishDate: projectFinishDate })
     };

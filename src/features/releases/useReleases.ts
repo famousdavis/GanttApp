@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Release } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
-import { isValidDateFormat } from '../../shared/utils';
+import { isValidDateFormat, generateId } from '../../shared/utils';
 
 export function useReleases() {
   const { data, updateData } = useAppData();
@@ -24,7 +24,7 @@ export function useReleases() {
     if (!isValidDateFormat(startDate) || !isValidDateFormat(earlyFinish) || !isValidDateFormat(lateFinish)) return;
 
     const newRelease: Release = {
-      id: Date.now().toString(),
+      id: generateId(),
       projectId: selectedProjectId,
       name: releaseName.trim(),
       startDate,

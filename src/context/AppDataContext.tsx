@@ -104,7 +104,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     loadDataFromStorage();
   }, []);
 
-  // Save legend labels to localStorage whenever they change
+  // Save legend labels and display settings to localStorage whenever they change
   useEffect(() => {
     if (!loading) {
       const newData = {
@@ -113,19 +113,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           solidBar: solidBarLabel,
           hatchedBar: hatchedBarLabel,
           finishDateLine: finishDateLabel
-        }
+        },
+        chartDisplaySettings: displaySettings
       };
       saveData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, loading]);
-
-  // Save display settings to localStorage whenever they change
-  useEffect(() => {
-    if (!loading) {
-      const newData = { ...data, chartDisplaySettings: displaySettings };
-      saveData(newData);
-    }
-  }, [displaySettings, loading]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, displaySettings, data, loading]);
 
   // Update data and save to localStorage
   const updateData = (newData: AppData) => {

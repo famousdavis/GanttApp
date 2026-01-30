@@ -55,6 +55,15 @@ export function getTodayFormatted(): string {
 }
 
 /**
+ * Generate a unique ID using timestamp + random suffix to prevent collisions
+ */
+let idCounter = 0;
+export function generateId(): string {
+  idCounter += 1;
+  return `${Date.now()}-${idCounter}-${Math.random().toString(36).substring(2, 7)}`;
+}
+
+/**
  * Calculate quarter boundaries for a date range
  * Returns array of Date objects representing quarter starts (Jan 1, Apr 1, Jul 1, Oct 1)
  */

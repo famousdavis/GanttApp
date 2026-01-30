@@ -1,0 +1,205 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { saveData, loadData, clearData } from '../storage';
+import { AppData } from '../../types/app';
+
+describe('storage utilities', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  function makeTestData(overrides: Partial<AppData> = {}): AppData {
+    return {
+      projects: [{ id: '1', name: 'Test Project' }],
+      releases: [
+        {
+          id: 'r1',
+          projectId: '1',
+          name: 'Release 1',
+          startDate: '2026-01-01',
+          earlyFinishDate: '2026-02-01',
+          lateFinishDate: '2026-03-01',
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  describe('saveData', () => {
+    it('saves data to localStorage under the correct key', () => {
+      const data = makeTestData();
+      saveData(data);
+
+      const stored = localStorage.getItem('ganttAppData');
+      expect(stored).not.toBeNull();
+      expect(JSON.parse(stored!)).toEqual(data);
+    });
+
+    it('saves empty data structures', () => {
+      const data: AppData = { projects: [], releases: [] };
+      saveData(data);
+
+      const stored = localStorage.getItem('ganttAppData');
+      expect(JSON.parse(stored!)).toEqual(data);
+    });
+
+    it('overwrites previously saved data', () => {
+      const data1 = makeTestData({ projects: [{ id: '1', name: 'First' }] });
+      const data2 = makeTestData({ projects: [{ id: '2', name: 'Second' }] });
+
+      saveData(data1);
+      saveData(data2);
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].name).toBe('Second');
+    });
+
+    it('handles localStorage errors gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+      // Should not throw
+      expect(() => saveData(makeTestData())).not.toThrow();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+
+    it('preserves optional fields like chartColors', () => {
+      const data = makeTestData({
+        chartColors: {
+          solidBar: '#000000',
+          hatchedBar: '#111111',
+          todayLine: '#222222',
+          finishDateLine: '#333333',
+        },
+        activePreset: 'Professional',
+      });
+
+      saveData(data);
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.chartColors).toEqual(data.chartColors);
+      expect(stored.activePreset).toBe('Professional');
+    });
+  });
+
+  describe('loadData', () => {
+    it('returns null when no data is stored', () => {
+      expect(loadData()).toBeNull();
+    });
+
+    it('returns parsed data when valid JSON is stored', () => {
+      const data = makeTestData();
+      localStorage.setItem('ganttAppData', JSON.stringify(data));
+
+      const loaded = loadData();
+      expect(loaded).toEqual(data);
+    });
+
+    it('returns null for corrupted JSON data', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      localStorage.setItem('ganttAppData', 'not valid json {{{');
+
+      const loaded = loadData();
+      expect(loaded).toBeNull();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+
+    it('handles localStorage read errors gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+
+      expect(loadData()).toBeNull();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('clearData', () => {
+    it('removes data from localStorage', () => {
+      saveData(makeTestData());
+      expect(localStorage.getItem('ganttAppData')).not.toBeNull();
+
+      clearData();
+      expect(localStorage.getItem('ganttAppData')).toBeNull();
+    });
+
+    it('does not throw when no data exists', () => {
+      expect(() => clearData()).not.toThrow();
+    });
+
+    it('handles localStorage removal errors gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+
+      expect(() => clearData()).not.toThrow();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('round-trip tests', () => {
+    it('data survives save and load cycle', () => {
+      const data = makeTestData({
+        chartColors: {
+          solidBar: '#ff0000',
+          hatchedBar: '#00ff00',
+          todayLine: '#0000ff',
+          finishDateLine: '#ffff00',
+        },
+        legendLabels: {
+          solidBar: 'Custom Solid',
+          hatchedBar: 'Custom Hatched',
+          finishDateLine: 'Custom Finish',
+        },
+        showFinishDateLine: false,
+        chartDisplaySettings: {
+          releaseNameFontSize: '18',
+          dateLabelFontSize: '15',
+          dateLabelColor: '#333',
+          verticalLineWidth: '4',
+        },
+      });
+
+      saveData(data);
+      const loaded = loadData();
+      expect(loaded).toEqual(data);
+    });
+
+    it('preserves release hidden and completed flags', () => {
+      const data = makeTestData({
+        releases: [
+          {
+            id: 'r1',
+            projectId: '1',
+            name: 'Hidden Release',
+            startDate: '2026-01-01',
+            earlyFinishDate: '2026-02-01',
+            lateFinishDate: '2026-03-01',
+            hidden: true,
+            completed: false,
+          },
+          {
+            id: 'r2',
+            projectId: '1',
+            name: 'Completed Release',
+            startDate: '2026-01-01',
+            earlyFinishDate: '2026-02-01',
+            lateFinishDate: '2026-03-01',
+            hidden: false,
+            completed: true,
+          },
+        ],
+      });
+
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.releases[0].hidden).toBe(true);
+      expect(loaded.releases[0].completed).toBe(false);
+      expect(loaded.releases[1].hidden).toBe(false);
+      expect(loaded.releases[1].completed).toBe(true);
+    });
+  });
+});

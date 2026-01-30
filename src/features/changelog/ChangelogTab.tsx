@@ -8,8 +8,28 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.0 */}
+      {/* Version 5.1 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.1
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            January 29, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Added automated test suite with 157 tests across 8 test files (Vitest + React Testing Library)</li>
+          <li>Fixed date validation bug: invalid calendar dates (e.g., Feb 30, Month 13) are now rejected</li>
+          <li>Fixed timezone inconsistency: date comparisons now use local timezone consistently</li>
+          <li>Fixed potential ID collision by replacing Date.now() with unique ID generator</li>
+          <li>Improved data import validation: projects and releases are now schema-validated on import</li>
+          <li>Fixed chart rendering edge case when all release dates are identical</li>
+          <li>Consolidated duplicate localStorage save effects in state management</li>
+          <li>Removed unused useLocalStorage hook (dead code cleanup)</li>
+        </ul>
+      </div>
+
+      {/* Version 5.0 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.0
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
@@ -58,24 +78,6 @@ export function ChangelogTab() {
           <li>Added completion status: mark releases as done to render them in green</li>
           <li>Enhanced Releases tab with "Show" checkbox and "Mark Done" button for each release</li>
           <li>Completed releases display in light green (solid) and forest green (hatched)</li>
-        </ul>
-      </div>
-
-      {/* Version 4.2 */}
-      <div style={{ marginTop: '2rem' }}>
-        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
-          Version 4.2
-          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
-            January 20, 2026
-          </span>
-        </h3>
-        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
-          <li>Added optional project finish date field (Projects tab)</li>
-          <li>Renamed "Chart Color Settings" to "Chart Settings"</li>
-          <li>Moved chart display toggles to Chart Settings section (cleaner exported images)</li>
-          <li>Added project finish date vertical line visualization (bright green by default)</li>
-          <li>Added quarter labels (Q2, Q3, Q4) to timeline above vertical gridlines</li>
-          <li>Enhanced Chart Settings with toggle controls and finish date color picker</li>
         </ul>
       </div>
 

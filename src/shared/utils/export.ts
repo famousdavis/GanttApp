@@ -26,17 +26,38 @@ export function parseImportedData(fileContent: string): AppData | null {
   try {
     const imported = JSON.parse(fileContent);
 
-    // Validate structure
+    // Validate top-level structure
     if (
-      imported.projects &&
-      imported.releases &&
-      Array.isArray(imported.projects) &&
-      Array.isArray(imported.releases)
+      !imported.projects ||
+      !imported.releases ||
+      !Array.isArray(imported.projects) ||
+      !Array.isArray(imported.releases)
     ) {
-      return imported as AppData;
+      return null;
     }
 
-    return null;
+    // Validate each project has required fields
+    for (const project of imported.projects) {
+      if (typeof project.id !== 'string' || typeof project.name !== 'string') {
+        return null;
+      }
+    }
+
+    // Validate each release has required fields
+    for (const release of imported.releases) {
+      if (
+        typeof release.id !== 'string' ||
+        typeof release.projectId !== 'string' ||
+        typeof release.name !== 'string' ||
+        typeof release.startDate !== 'string' ||
+        typeof release.earlyFinishDate !== 'string' ||
+        typeof release.lateFinishDate !== 'string'
+      ) {
+        return null;
+      }
+    }
+
+    return imported as AppData;
   } catch (error) {
     console.error('Error parsing imported data:', error);
     return null;

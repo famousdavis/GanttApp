@@ -25,9 +25,11 @@ export function ChangelogTab() {
           <li>Fixed chart rendering edge case when all release dates are identical</li>
           <li>Consolidated duplicate localStorage save effects in state management</li>
           <li>Removed unused useLocalStorage hook (dead code cleanup)</li>
+          <li>Fixed date input placeholder styling: empty inputs show mm/dd/yyyy in light gray, entered values in dark color</li>
+          <li>Copy chart as image button now excluded from captured images</li>
+          <li>Improved inline "Releases for" dropdown styling on Releases tab</li>
         </ul>
       </div>
-
       {/* Version 5.0 */}
       <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>

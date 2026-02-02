@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 5.3 (2026-02-02)
+- Upgraded ESLint from v8 to v9 to resolve moderate security vulnerability (GHSA-p5wg)
+- Upgraded eslint-config-next from 14.0.4 to 15.1.7 for ESLint 9 compatibility
+- Migrated to ESLint flat config format (eslint.config.mjs) for forward compatibility
+- Added ESLint bridge packages (@eslint/js, @eslint/eslintrc, @eslint/compat)
+- Fixed 21 unescaped entity lint errors across JSX components
+- Changed lint command from "next lint" to "eslint ." for ESLint 9 support
+- Reduced npm audit vulnerabilities from 5 to 1 (remaining: Next.js CVE that does not apply to Pages Router)
+
 ## Version 5.2 (2026-02-01)
 - Expanded automated test suite from 157 to 288 tests across 19 test files
 - Added tests for useProjects hook: CRUD operations, form state, cascade delete (23 tests)

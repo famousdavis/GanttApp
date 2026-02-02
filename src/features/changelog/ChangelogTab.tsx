@@ -8,8 +8,29 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.4 */}
+      {/* Version 5.5 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.5
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            February 2, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Upgraded Next.js from 15.5.11 to 16.1.6 (major version upgrade)</li>
+          <li>Turbopack is now the default bundler (faster builds)</li>
+          <li>Removed ESLint bridge packages (@eslint/compat, @eslint/eslintrc, @eslint/js) — eslint-config-next@16 exports native flat config</li>
+          <li>Simplified eslint.config.mjs to use native Next.js 16 flat config directly</li>
+          <li>Removed obsolete eslint config block from next.config.js</li>
+          <li>Refactored project auto-selection from useEffect to computed value (fixes react-hooks/set-state-in-effect lint rule)</li>
+          <li>Removed unused useEffect import from main page</li>
+          <li>npm audit: 0 vulnerabilities — fully JFrog scan ready</li>
+          <li>All 288 tests pass, build succeeds, lint clean</li>
+        </ul>
+      </div>
+
+      {/* Version 5.4 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.4
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>

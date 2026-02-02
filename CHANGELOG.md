@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 5.5 (2026-02-02)
+- Upgraded Next.js from 15.5.11 to 16.1.6 (major version upgrade)
+- Turbopack is now the default bundler (faster builds)
+- Removed ESLint bridge packages (@eslint/compat, @eslint/eslintrc, @eslint/js) — eslint-config-next@16 exports native flat config
+- Simplified eslint.config.mjs to use native Next.js 16 flat config directly
+- Removed obsolete eslint config block from next.config.js
+- Refactored project auto-selection from useEffect to computed value (fixes react-hooks/set-state-in-effect)
+- Removed unused useEffect import from main page
+- npm audit: 0 vulnerabilities — fully JFrog scan ready
+- All 288 tests pass, build succeeds, lint clean
+
 ## Version 5.4 (2026-02-02)
 - Upgraded Next.js from 14.2.35 to 15.5.11 (major version upgrade)
 - Upgraded React from 18 to 19 and React DOM from 18 to 19

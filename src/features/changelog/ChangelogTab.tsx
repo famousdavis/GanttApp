@@ -8,8 +8,27 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.1 */}
+      {/* Version 5.2 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.2
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            February 1, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Expanded automated test suite from 157 to 288 tests across 19 test files</li>
+          <li>Added tests for useProjects hook: CRUD operations, form state, cascade delete (23 tests)</li>
+          <li>Added tests for useReleases hook: CRUD operations, validation, toggle operations (27 tests)</li>
+          <li>Added tests for ProjectsTab component: rendering, form, edit/delete, navigation, validation (20 tests)</li>
+          <li>Added tests for ReleasesTab component: rendering, project selection, form, toggles (18 tests)</li>
+          <li>Added tests for UI components: Tabs, DragHandle, ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup (34 tests)</li>
+          <li>Added tests for static pages: AboutTab and ChangelogTab (9 tests)</li>
+        </ul>
+      </div>
+
+      {/* Version 5.1 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.1
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Head from 'next/head';
 import { AppDataProvider, useAppData } from '../src/context/AppDataContext';
 import { Project, Release, ChartColors, ChartDisplaySettings, TabType } from '../src/shared/types';
@@ -681,7 +681,12 @@ function AppContent() {
   } = useAppData();
 
   const [activeTab, setActiveTab] = useState<TabType>('projects');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectIdRaw, setSelectedProjectId] = useState<string>('');
+
+  // Auto-select first project when none is selected (computed during render, not via effect)
+  const selectedProjectId = (selectedProjectIdRaw && data.projects.some(p => p.id === selectedProjectIdRaw))
+    ? selectedProjectIdRaw
+    : (data.projects.length > 0 ? data.projects[0].id : '');
 
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
@@ -694,18 +699,6 @@ function AppContent() {
   // Release name editing state
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
   const [tempReleaseName, setTempReleaseName] = useState('');
-
-  // Select first project on mount or when projects change
-  useEffect(() => {
-    if (data.projects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(data.projects[0].id);
-    }
-  }, [data.projects, selectedProjectId]);
-
-  // Clear releases form when switching projects
-  useEffect(() => {
-    // Form clearing handled by useReleases hook
-  }, [selectedProjectId]);
 
   // Update chart colors and preset
   const updateChartColors = (colors: ChartColors, presetName?: string) => {
@@ -927,7 +920,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 5.4
+            Version 5.5
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

@@ -8,8 +8,27 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.3 */}
+      {/* Version 5.4 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.4
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            February 2, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Upgraded Next.js from 14.2.35 to 15.5.11 (major version upgrade)</li>
+          <li>Upgraded React from 18 to 19 and React DOM from 18 to 19</li>
+          <li>Updated @types/react and @types/react-dom to v19</li>
+          <li>Migrated Context.Provider to React 19 direct Context syntax</li>
+          <li>Aligned eslint-config-next to 15.5.11 to match Next.js version</li>
+          <li>Resolved all Next.js 14 CVEs (GHSA-h25m, GHSA-9g9p) by upgrading to 15.x</li>
+          <li>All 288 tests pass on React 19 with zero code changes required</li>
+        </ul>
+      </div>
+
+      {/* Version 5.3 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.3
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>

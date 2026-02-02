@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 5.4 (2026-02-02)
+- Upgraded Next.js from 14.2.35 to 15.5.11 (major version upgrade)
+- Upgraded React from 18 to 19 and React DOM from 18 to 19
+- Updated @types/react and @types/react-dom to v19
+- Migrated Context.Provider to React 19 direct Context syntax
+- Aligned eslint-config-next to 15.5.11 to match Next.js version
+- Resolved all Next.js 14 CVEs (GHSA-h25m, GHSA-9g9p) by upgrading to 15.x
+- All 288 tests pass on React 19 with zero code changes required
+
 ## Version 5.3 (2026-02-02)
 - Upgraded ESLint from v8 to v9 to resolve moderate security vulnerability (GHSA-p5wg)
 - Upgraded eslint-config-next from 14.0.4 to 15.1.7 for ESLint 9 compatibility

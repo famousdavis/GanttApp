@@ -484,7 +484,7 @@ function GanttChart({
           {showTodayLine && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: `${displaySettings.verticalLineWidth}px`, height: '20px', background: chartColors.todayLine, borderRadius: '2px' }}></div>
-              <span>Today's Date</span>
+              <span>Today&apos;s Date</span>
             </div>
           )}
 
@@ -538,7 +538,7 @@ function GanttChart({
                     onChange={(e) => setShowTodayLine(e.target.checked)}
                     style={{ cursor: 'pointer' }}
                   />
-                  <span>Show Today's Date</span>
+                  <span>Show Today&apos;s Date</span>
                 </label>
                 {projectFinishDate && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
@@ -927,7 +927,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 5.2
+            Version 5.3
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

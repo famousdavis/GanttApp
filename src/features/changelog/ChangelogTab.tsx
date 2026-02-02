@@ -8,8 +8,27 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.2 */}
+      {/* Version 5.3 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.3
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            February 2, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li>Upgraded ESLint from v8 to v9 to resolve moderate security vulnerability (GHSA-p5wg)</li>
+          <li>Upgraded eslint-config-next from 14.0.4 to 15.1.7 for ESLint 9 compatibility</li>
+          <li>Migrated to ESLint flat config format (eslint.config.mjs) for forward compatibility</li>
+          <li>Added ESLint bridge packages (@eslint/js, @eslint/eslintrc, @eslint/compat)</li>
+          <li>Fixed 21 unescaped entity lint errors across JSX components</li>
+          <li>Changed lint command from &ldquo;next lint&rdquo; to &ldquo;eslint .&rdquo; for ESLint 9 support</li>
+          <li>Reduced npm audit vulnerabilities from 5 to 1 (remaining: Next.js CVE that does not apply to Pages Router)</li>
+        </ul>
+      </div>
+
+      {/* Version 5.2 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.2
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
@@ -46,7 +65,7 @@ export function ChangelogTab() {
           <li>Removed unused useLocalStorage hook (dead code cleanup)</li>
           <li>Fixed date input placeholder styling: empty inputs show mm/dd/yyyy in light gray, entered values in dark color</li>
           <li>Copy chart as image button now excluded from captured images</li>
-          <li>Improved inline "Releases for" dropdown styling on Releases tab</li>
+          <li>Improved inline &ldquo;Releases for&rdquo; dropdown styling on Releases tab</li>
         </ul>
       </div>
       {/* Version 5.0 */}
@@ -80,7 +99,7 @@ export function ChangelogTab() {
           <li>Added Release Name Font Size control: Small (14px), Medium (16px), or Large (18px)</li>
           <li>Added Date Label Font Size control: Small (9px), Medium (11px), or Large (13px)</li>
           <li>Added Date Label Color control: grayscale swatches from light gray to black for better contrast</li>
-          <li>Added Vertical Line Width control: Thin (2px), Medium (3px), or Thick (4px) for Today's Date and Project Finish Date lines</li>
+          <li>Added Vertical Line Width control: Thin (2px), Medium (3px), or Thick (4px) for Today&apos;s Date and Project Finish Date lines</li>
           <li>Increased left margin space for release names and optimized chart layout</li>
           <li>All display settings persist to localStorage and survive export/import</li>
         </ul>
@@ -97,7 +116,7 @@ export function ChangelogTab() {
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Added release visibility toggle: hide releases from chart while keeping them in the list</li>
           <li>Added completion status: mark releases as done to render them in green</li>
-          <li>Enhanced Releases tab with "Show" checkbox and "Mark Done" button for each release</li>
+          <li>Enhanced Releases tab with &ldquo;Show&rdquo; checkbox and &ldquo;Mark Done&rdquo; button for each release</li>
           <li>Completed releases display in light green (solid) and forest green (hatched)</li>
         </ul>
       </div>
@@ -112,7 +131,7 @@ export function ChangelogTab() {
         </h3>
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Added optional project finish date field (Projects tab)</li>
-          <li>Renamed "Chart Color Settings" to "Chart Settings"</li>
+          <li>Renamed &ldquo;Chart Color Settings&rdquo; to &ldquo;Chart Settings&rdquo;</li>
           <li>Moved chart display toggles to Chart Settings section (cleaner exported images)</li>
           <li>Added project finish date vertical line visualization (bright green by default)</li>
           <li>Added quarter labels (Q2, Q3, Q4) to timeline above vertical gridlines</li>
@@ -129,10 +148,10 @@ export function ChangelogTab() {
           </span>
         </h3>
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
-          <li>Removed "Gantt Chart:" label prefix from chart display (project name only)</li>
+          <li>Removed &ldquo;Gantt Chart:&rdquo; label prefix from chart display (project name only)</li>
           <li>Added collapsible color settings section (collapsed by default)</li>
           <li>Made legend labels editable with localStorage persistence</li>
-          <li>Enhanced About page formatting (bolded "GanttApp" in description)</li>
+          <li>Enhanced About page formatting (bolded &ldquo;GanttApp&rdquo; in description)</li>
         </ul>
       </div>
 
@@ -162,7 +181,7 @@ export function ChangelogTab() {
         </h3>
         <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
           <li>Add configurable chart colors with preset themes</li>
-          <li>Users can now customize solid bar, hatched bar, and today's line colors</li>
+          <li>Users can now customize solid bar, hatched bar, and today&apos;s line colors</li>
           <li>Includes preset color themes: Classic Blue, Ocean Green, Purple Haze, Sunset Orange, Ruby Red</li>
         </ul>
       </div>

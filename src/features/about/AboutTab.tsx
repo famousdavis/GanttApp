@@ -14,7 +14,7 @@ export function AboutTab() {
         </p>
         <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
           <li><strong>Solid bars:</strong> Design, Code, Test phase (predictable work)</li>
-          <li><strong>Hatched bars:</strong> Delivery uncertainty window (the "maybe" zone)</li>
+          <li><strong>Hatched bars:</strong> Delivery uncertainty window (the &ldquo;maybe&rdquo; zone)</li>
         </ul>
       </section>
 
@@ -27,7 +27,7 @@ export function AboutTab() {
           <li>Safe for corporate/organizational data - all data stays within your network</li>
           <li>Use <strong>Export</strong> to backup your data to your file system anytime</li>
           <li>Use <strong>Import</strong> to restore from a backup or share with colleagues</li>
-          <li><strong>Note:</strong> If you clear your browser cache/data, you will lose all stored projects and releases unless you've exported a backup</li>
+          <li><strong>Note:</strong> If you clear your browser cache/data, you will lose all stored projects and releases unless you&apos;ve exported a backup</li>
         </ul>
       </section>
 

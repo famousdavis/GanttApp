@@ -13,14 +13,14 @@ describe('ChangelogTab', () => {
     expect(screen.getByText('Changelog')).toBeTruthy();
   });
 
+  it('renders Version 5.3 entry', () => {
+    render(<ChangelogTab />);
+    expect(screen.getByText(/Version 5\.3/)).toBeTruthy();
+  });
+
   it('renders Version 5.2 entry', () => {
     render(<ChangelogTab />);
     expect(screen.getByText(/Version 5\.2/)).toBeTruthy();
-  });
-
-  it('renders Version 5.1 entry', () => {
-    render(<ChangelogTab />);
-    expect(screen.getByText(/Version 5\.1/)).toBeTruthy();
   });
 
   it('renders versions in reverse chronological order', () => {
@@ -28,9 +28,9 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 5.2, second 5.1, etc.
-    expect(versionTexts[0]).toContain('5.2');
-    expect(versionTexts[1]).toContain('5.1');
+    // First version heading should be 5.3, second 5.2, etc.
+    expect(versionTexts[0]).toContain('5.3');
+    expect(versionTexts[1]).toContain('5.2');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });

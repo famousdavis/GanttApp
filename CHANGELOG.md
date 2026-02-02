@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 5.1 (2026-01-29)
+- Added automated test suite with 157 tests across 8 test files (Vitest + React Testing Library)
+- Fixed date validation bug: invalid calendar dates (e.g., Feb 30, Month 13) are now rejected
+- Fixed timezone inconsistency: date comparisons now use local timezone consistently
+- Fixed potential ID collision by replacing Date.now() with unique ID generator
+- Improved data import validation: projects and releases are now schema-validated on import
+- Fixed chart rendering edge case when all release dates are identical
+- Consolidated duplicate localStorage save effects in state management
+- Removed unused useLocalStorage hook (dead code cleanup)
+- Fixed date input placeholder styling: empty inputs show mm/dd/yyyy in light gray, entered values in dark color
+- Copy chart as image button now excluded from captured images
+- Improved inline "Releases for" dropdown styling on Releases tab
+
 ## Version 5.0 (2026-01-22)
 - Complete architectural refactoring to Feature Modules pattern
 - Extracted utilities, types, and components for better maintainability

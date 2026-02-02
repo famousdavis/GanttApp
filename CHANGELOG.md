@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 5.2 (2026-02-01)
+- Expanded automated test suite from 157 to 288 tests across 19 test files
+- Added tests for useProjects hook: CRUD operations, form state, cascade delete (23 tests)
+- Added tests for useReleases hook: CRUD operations, validation, toggle operations (27 tests)
+- Added tests for ProjectsTab component: rendering, form, edit/delete, navigation, validation (20 tests)
+- Added tests for ReleasesTab component: rendering, project selection, form, toggles (18 tests)
+- Added tests for UI components: Tabs, DragHandle, ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup (34 tests)
+- Added tests for static pages: AboutTab and ChangelogTab (9 tests)
+
 ## Version 5.1 (2026-01-29)
 - Added automated test suite with 157 tests across 8 test files (Vitest + React Testing Library)
 - Fixed date validation bug: invalid calendar dates (e.g., Feb 30, Month 13) are now rejected

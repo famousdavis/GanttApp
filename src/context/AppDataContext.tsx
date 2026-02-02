@@ -151,7 +151,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setShowColorSettings
   };
 
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  return <AppDataContext value={value}>{children}</AppDataContext>;
 }
 
 export function useAppData() {

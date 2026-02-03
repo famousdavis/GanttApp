@@ -8,8 +8,31 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.5 */}
+      {/* Version 5.6 */}
       <div>
+        <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
+          Version 5.6
+          <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>
+            February 3, 2026
+          </span>
+        </h3>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+          <li><strong>Security Hardening Release</strong> — comprehensive input validation and sanitization</li>
+          <li>Added sanitizeString() and sanitizeId() functions to remove control characters and limit lengths</li>
+          <li>Added isValidHexColor() and sanitizeColor() for strict color input validation</li>
+          <li>Enhanced data import with full sanitization of all string fields (projects, releases, labels)</li>
+          <li>Added file size limit (1MB) and array limits (50 projects, 500 releases) to prevent DoS via imports</li>
+          <li>Added date format validation on imported release dates (rejects invalid calendar dates)</li>
+          <li>Added whitelist validation for display settings (font sizes, colors, line widths)</li>
+          <li>Added whitelist validation for color preset names</li>
+          <li>Enhanced localStorage loading with full data validation (defense-in-depth)</li>
+          <li>All imported/loaded IDs now sanitized to alphanumeric + hyphens only (safe for SVG pattern IDs)</li>
+          <li>npm audit: 0 vulnerabilities maintained</li>
+        </ul>
+      </div>
+
+      {/* Version 5.5 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', color: '#0070f3', marginBottom: '0.5rem' }}>
           Version 5.5
           <span style={{ fontSize: '0.9rem', color: '#999', marginLeft: '1rem', fontWeight: 'normal' }}>

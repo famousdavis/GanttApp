@@ -2,6 +2,50 @@
 
 import { parseDateLocal } from './dates';
 
+// Security constants
+const MAX_NAME_LENGTH = 100;
+const MAX_ID_LENGTH = 50;
+
+/**
+ * Sanitize a string by removing potentially dangerous characters
+ * Allows alphanumeric, spaces, common punctuation, and unicode letters
+ */
+export function sanitizeString(str: string, maxLength: number = MAX_NAME_LENGTH): string {
+  if (typeof str !== 'string') return '';
+  // Remove control characters and null bytes, trim, and limit length
+  return str
+    .replace(/[\x00-\x1f\x7f]/g, '') // Remove control characters
+    .trim()
+    .slice(0, maxLength);
+}
+
+/**
+ * Validate and sanitize an ID string
+ * IDs should only contain safe characters for use in SVG pattern IDs and DOM
+ */
+export function sanitizeId(id: string): string {
+  if (typeof id !== 'string') return '';
+  // Allow only alphanumeric, hyphens, and underscores
+  return id.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, MAX_ID_LENGTH);
+}
+
+/**
+ * Validate a hex color string
+ * Returns true if the color is a valid 3, 4, 6, or 8 character hex color
+ */
+export function isValidHexColor(color: string): boolean {
+  if (typeof color !== 'string') return false;
+  return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(color);
+}
+
+/**
+ * Sanitize a color value - returns default if invalid
+ */
+export function sanitizeColor(color: string, defaultColor: string = '#0070f3'): string {
+  if (isValidHexColor(color)) return color.toLowerCase();
+  return defaultColor;
+}
+
 /**
  * Check if a date string is in valid YYYY-MM-DD format, represents a real calendar date,
  * and is within the allowed year range (2000-2050)

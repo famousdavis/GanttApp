@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { STANDARD_COLORS } from '../../utils/colors';
+import { useTheme } from '../../../context/ThemeContext';
 
 interface ColorSwatchPickerProps {
   value: string;
@@ -12,6 +13,7 @@ interface ColorSwatchPickerProps {
 export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const { colors } = useTheme();
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -34,7 +36,7 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
         marginBottom: '0.5rem',
         fontSize: '0.9rem',
         fontWeight: '600',
-        color: '#555'
+        color: colors.textSecondary
       }}>
         {label}
       </label>
@@ -44,7 +46,7 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
           width: '100%',
           height: '40px',
           background: value,
-          border: '2px solid #ddd',
+          border: `2px solid ${colors.border}`,
           borderRadius: '4px',
           cursor: 'pointer'
         }}
@@ -56,8 +58,8 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
           top: '100%',
           left: 0,
           marginTop: '0.5rem',
-          background: 'white',
-          border: '2px solid #ddd',
+          background: colors.surface,
+          border: `2px solid ${colors.border}`,
           borderRadius: '8px',
           padding: '1rem',
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
@@ -82,7 +84,7 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
                   width: '40px',
                   height: '40px',
                   background: color.value,
-                  border: value === color.value ? '3px solid #0070f3' : '2px solid #ddd',
+                  border: value === color.value ? '3px solid #0070f3' : `2px solid ${colors.border}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
                   transition: 'transform 0.1s',
@@ -93,12 +95,12 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
               />
             ))}
           </div>
-          <div style={{ borderTop: '1px solid #ddd', paddingTop: '0.75rem' }}>
+          <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '0.75rem' }}>
             <label style={{
               display: 'block',
               fontSize: '0.8rem',
               fontWeight: '600',
-              color: '#555',
+              color: colors.textSecondary,
               marginBottom: '0.5rem'
             }}>
               Custom Color
@@ -110,7 +112,7 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
               style={{
                 width: '100%',
                 height: '36px',
-                border: '2px solid #ddd',
+                border: `2px solid ${colors.border}`,
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}

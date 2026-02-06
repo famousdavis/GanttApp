@@ -1,6 +1,7 @@
 // Tab navigation component
 
 import { TabType } from '../types';
+import { useTheme } from '../../context/ThemeContext';
 
 interface TabsProps {
   activeTab: TabType;
@@ -8,6 +9,8 @@ interface TabsProps {
 }
 
 export function Tabs({ activeTab, onTabChange }: TabsProps) {
+  const { colors } = useTheme();
+
   const tabs: { id: TabType; label: string }[] = [
     { id: 'projects', label: 'Projects' },
     { id: 'releases', label: 'Releases' },
@@ -19,7 +22,7 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
     <div style={{
       display: 'flex',
       gap: '0.5rem',
-      borderBottom: '2px solid #eee',
+      borderBottom: `2px solid ${colors.border}`,
       marginBottom: '2rem'
     }}>
       {tabs.map(tab => (
@@ -28,10 +31,10 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
           onClick={() => onTabChange(tab.id)}
           style={{
             padding: '0.5rem 1.25rem',
-            background: activeTab === tab.id ? '#0070f3' : 'transparent',
-            color: activeTab === tab.id ? 'white' : '#666',
+            background: activeTab === tab.id ? colors.accent : 'transparent',
+            color: activeTab === tab.id ? colors.accentText : colors.textSecondary,
             border: 'none',
-            borderBottom: activeTab === tab.id ? '3px solid #0070f3' : '3px solid transparent',
+            borderBottom: activeTab === tab.id ? `3px solid ${colors.accent}` : '3px solid transparent',
             borderTopLeftRadius: '8px',
             borderTopRightRadius: '8px',
             cursor: 'pointer',
@@ -41,7 +44,7 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
           }}
           onMouseEnter={(e) => {
             if (activeTab !== tab.id) {
-              e.currentTarget.style.background = '#f5f5f5';
+              e.currentTarget.style.background = colors.hoverBg;
             }
           }}
           onMouseLeave={(e) => {

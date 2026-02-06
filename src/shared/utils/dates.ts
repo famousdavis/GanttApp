@@ -64,6 +64,14 @@ export function generateId(): string {
 }
 
 /**
+ * Format a timestamp (milliseconds) to ISO date string (YYYY-MM-DD)
+ */
+export function formatDateISO(timestamp: number): string {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
  * Calculate quarter boundaries for a date range
  * Returns array of Date objects representing quarter starts (Jan 1, Apr 1, Jul 1, Oct 1)
  */

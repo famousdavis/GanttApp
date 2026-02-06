@@ -1,3 +1,28 @@
+/* CSS Custom Properties for theming */
+:root {
+  --bg: #ffffff;
+  --surface: #f9f9f9;
+  --text: #333;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --border: #eee;
+  --border-light: #ddd;
+  --input-bg: #fff;
+  --input-border: #ddd;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --text: #e2e8f0;
+  --text-secondary: #a0aec0;
+  --text-muted: #718096;
+  --border: #2d3748;
+  --border-light: #4a5568;
+  --input-bg: #2d3748;
+  --input-border: #4a5568;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -16,6 +41,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a {
@@ -24,29 +52,61 @@ a {
 }
 
 /* Style date input placeholders to match text input placeholders */
-/* Default: show placeholder parts in light gray */
+/* Default: show placeholder parts in muted color */
 input[type="date"]::-webkit-datetime-edit-month-field,
 input[type="date"]::-webkit-datetime-edit-day-field,
 input[type="date"]::-webkit-datetime-edit-year-field {
-  color: #999;
+  color: var(--text-muted);
 }
 
-/* When user starts typing (focus) or has a value, show in dark color */
+/* When user starts typing (focus) or has a value, show in text color */
 input[type="date"]:focus::-webkit-datetime-edit-month-field,
 input[type="date"]:focus::-webkit-datetime-edit-day-field,
 input[type="date"]:focus::-webkit-datetime-edit-year-field,
 input[type="date"].has-value::-webkit-datetime-edit-month-field,
 input[type="date"].has-value::-webkit-datetime-edit-day-field,
 input[type="date"].has-value::-webkit-datetime-edit-year-field {
-  color: #333;
+  color: var(--text);
 }
 
 /* Keep the separators (slashes) visible */
 input[type="date"]::-webkit-datetime-edit-text {
-  color: #999;
+  color: var(--text-muted);
 }
 
 input[type="date"]:focus::-webkit-datetime-edit-text,
 input[type="date"].has-value::-webkit-datetime-edit-text {
-  color: #333;
+  color: var(--text);
+}
+
+/* Dark mode form inputs */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: var(--input-bg);
+  color: var(--text);
+  border-color: var(--input-border);
+}
+
+[data-theme="dark"] input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 5px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #5a6577;
 }

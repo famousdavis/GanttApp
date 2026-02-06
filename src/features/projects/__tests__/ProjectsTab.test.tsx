@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { ThemeProvider } from '../../../context/ThemeContext';
 import { ProjectsTab } from '../ProjectsTab';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
@@ -30,6 +31,16 @@ function seedData(data: AppData) {
   localStorage.setItem('ganttAppData', JSON.stringify(data));
 }
 
+function TestWrapper({ children }: { children: ReactNode }) {
+  return (
+    <ThemeProvider>
+      <AppDataProvider>
+        {children}
+      </AppDataProvider>
+    </ThemeProvider>
+  );
+}
+
 function renderProjectsTab(props: Partial<React.ComponentProps<typeof ProjectsTab>> = {}) {
   const defaultProps = {
     selectedProjectId: 'p1',
@@ -44,9 +55,9 @@ function renderProjectsTab(props: Partial<React.ComponentProps<typeof ProjectsTa
 
   return {
     ...render(
-      <AppDataProvider>
+      <TestWrapper>
         <ProjectsTab {...defaultProps} />
-      </AppDataProvider>
+      </TestWrapper>
     ),
     props: defaultProps,
   };
@@ -100,8 +111,8 @@ describe('ProjectsTab', () => {
 
     it('renders Export and Import buttons', () => {
       renderProjectsTab();
-      expect(screen.getByText(/Export Data/)).toBeTruthy();
-      expect(screen.getByText(/Import Data/)).toBeTruthy();
+      expect(screen.getByText(/Export/)).toBeTruthy();
+      expect(screen.getByText(/Import/)).toBeTruthy();
     });
   });
 
@@ -272,7 +283,7 @@ describe('ProjectsTab', () => {
   describe('export', () => {
     it('disables Export button when no projects exist', () => {
       renderProjectsTab();
-      const exportButton = screen.getByText(/Export Data/);
+      const exportButton = screen.getByText(/Export/);
       expect(exportButton.closest('button')?.disabled).toBe(true);
     });
 
@@ -283,7 +294,7 @@ describe('ProjectsTab', () => {
       });
 
       renderProjectsTab();
-      const exportButton = screen.getByText(/Export Data/);
+      const exportButton = screen.getByText(/Export/);
       expect(exportButton.closest('button')?.disabled).toBe(false);
     });
   });

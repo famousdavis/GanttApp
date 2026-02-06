@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { ThemeProvider } from '../../../context/ThemeContext';
 import { ReleasesTab } from '../ReleasesTab';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
@@ -30,6 +31,16 @@ function seedData(data: AppData) {
   localStorage.setItem('ganttAppData', JSON.stringify(data));
 }
 
+function TestWrapper({ children }: { children: ReactNode }) {
+  return (
+    <ThemeProvider>
+      <AppDataProvider>
+        {children}
+      </AppDataProvider>
+    </ThemeProvider>
+  );
+}
+
 function renderReleasesTab(props: Partial<React.ComponentProps<typeof ReleasesTab>> = {}) {
   const defaultProps = {
     selectedProjectId: 'p1',
@@ -43,9 +54,9 @@ function renderReleasesTab(props: Partial<React.ComponentProps<typeof ReleasesTa
 
   return {
     ...render(
-      <AppDataProvider>
+      <TestWrapper>
         <ReleasesTab {...defaultProps} />
-      </AppDataProvider>
+      </TestWrapper>
     ),
     props: defaultProps,
   };

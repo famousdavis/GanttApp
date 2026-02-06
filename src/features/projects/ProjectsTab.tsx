@@ -1,13 +1,15 @@
 // Projects Tab component with form and list
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useProjects } from './useProjects';
 import { useAppData } from '../../context/AppDataContext';
+import { useTheme } from '../../context/ThemeContext';
 import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
 import { isProjectNameValid } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { TabType } from '../../shared/types';
+import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
 interface ProjectsTabProps {
   selectedProjectId: string;
@@ -29,6 +31,7 @@ export function ProjectsTab({
   onProjectDragEnd
 }: ProjectsTabProps) {
   const { data, updateData } = useAppData();
+  const { colors } = useTheme();
   const {
     projectName,
     setProjectName,
@@ -93,10 +96,28 @@ export function ProjectsTab({
 
   const isValid = isProjectNameValid(projectName) && !finishDateError;
 
+  // Keyboard shortcuts for Projects tab
+  const shortcuts = useMemo(() => ({
+    'escape': () => {
+      if (editingProjectId) {
+        cancelEditProject();
+      }
+    },
+    'ctrl+s': () => {
+      if (editingProjectId) {
+        if (isValid) updateProject();
+      } else {
+        if (isValid) addProject(selectedProjectId, setSelectedProjectId);
+      }
+    }
+  }), [editingProjectId, isValid, selectedProjectId, setSelectedProjectId, cancelEditProject, updateProject, addProject]);
+
+  useKeyboardShortcuts(shortcuts);
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.5rem', color: '#333' }}>Projects</h2>
+        <h2 style={{ fontSize: '1.5rem', color: colors.text }}>Projects</h2>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -104,28 +125,29 @@ export function ProjectsTab({
             disabled={data.projects.length === 0}
             style={{
               padding: '0.5rem 1rem',
-              background: data.projects.length === 0 ? '#ccc' : '#00c9a7',
-              color: 'white',
-              border: 'none',
+              background: data.projects.length === 0 ? colors.buttonBg : colors.buttonBg,
+              color: data.projects.length === 0 ? colors.textMuted : colors.text,
+              border: `1px solid ${colors.buttonBorder}`,
               borderRadius: '4px',
               cursor: data.projects.length === 0 ? 'not-allowed' : 'pointer',
               fontWeight: '600',
-              fontSize: '0.9rem'
+              fontSize: '0.9rem',
+              opacity: data.projects.length === 0 ? 0.5 : 1
             }}
           >
-            📥 Export Data
+            📥 Export
           </button>
           <label style={{
             padding: '0.5rem 1rem',
-            background: '#0070f3',
-            color: 'white',
-            border: 'none',
+            background: colors.buttonBg,
+            color: colors.text,
+            border: `1px solid ${colors.buttonBorder}`,
             borderRadius: '4px',
             cursor: 'pointer',
             fontWeight: '600',
             fontSize: '0.9rem'
           }}>
-            📤 Import Data
+            📤 Import
             <input
               type="file"
               accept=".json"
@@ -136,10 +158,10 @@ export function ProjectsTab({
         </div>
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
+      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div style={{ flex: '0 0 auto' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Project Name
             </label>
             <input
@@ -151,14 +173,16 @@ export function ProjectsTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: `2px solid ${colors.borderLight}`,
                 borderRadius: '4px',
-                width: '400px'
+                width: '400px',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Project Finish Date (Optional)
             </label>
             <input
@@ -175,9 +199,11 @@ export function ProjectsTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: finishDateError ? '2px solid #dc3545' : '2px solid #ddd',
+                border: finishDateError ? '2px solid #dc3545' : `2px solid ${colors.borderLight}`,
                 borderRadius: '4px',
-                width: '180px'
+                width: '180px',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
             <div style={{ height: '1rem', marginTop: '0.25rem' }}>
@@ -246,7 +272,7 @@ export function ProjectsTab({
       </div>
 
       {data.projects.length === 0 ? (
-        <p style={{ color: '#999', fontStyle: 'italic' }}>No projects yet. Add one to get started!</p>
+        <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Add one to get started!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {data.projects.map(project => (
@@ -258,8 +284,8 @@ export function ProjectsTab({
               onDragEnd={onProjectDragEnd}
               style={{
                 padding: '1rem',
-                background: 'white',
-                border: '2px solid #eee',
+                background: colors.surface,
+                border: `2px solid ${colors.border}`,
                 borderRadius: '8px',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -272,8 +298,8 @@ export function ProjectsTab({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <DragHandle />
                 <div>
-                  <strong style={{ fontSize: '1.1rem' }}>{project.name}</strong>
-                  <span style={{ marginLeft: '1rem', color: '#999', fontSize: '0.9rem' }}>
+                  <strong style={{ fontSize: '1.1rem', color: colors.text }}>{project.name}</strong>
+                  <span style={{ marginLeft: '1rem', color: colors.textMuted, fontSize: '0.9rem' }}>
                     ({data.releases.filter(r => r.projectId === project.id).length} releases
                     {project.finishDate && `, finish: ${formatDateMDY(project.finishDate)}`})
                   </span>
@@ -287,11 +313,12 @@ export function ProjectsTab({
                   }}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#f0f0f0',
-                    border: '1px solid #ddd',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    color: colors.text
                   }}
                 >
                   View Releases
@@ -300,11 +327,12 @@ export function ProjectsTab({
                   onClick={() => startEditProject(project)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#fff3cd',
-                    border: '1px solid #ffc107',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    color: colors.text
                   }}
                 >
                   Edit
@@ -317,11 +345,12 @@ export function ProjectsTab({
                   }}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#f8d7da',
-                    border: '1px solid #dc3545',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    color: '#dc3545'
                   }}
                 >
                   Delete

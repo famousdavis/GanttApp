@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Release } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
-import { isValidDateFormat, generateId } from '../../shared/utils';
+import { isValidDateFormat, generateId, parseDateLocal, formatDateISO } from '../../shared/utils';
 
 export function useReleases() {
   const { data, updateData } = useAppData();
@@ -106,6 +106,36 @@ export function useReleases() {
     updateData(newData);
   };
 
+  const duplicateRelease = (releaseId: string) => {
+    const original = data.releases.find(r => r.id === releaseId);
+    if (!original) return;
+
+    // Calculate timestamps for date arithmetic
+    const startMs = parseDateLocal(original.startDate);
+    const earlyMs = parseDateLocal(original.earlyFinishDate);
+    const lateMs = parseDateLocal(original.lateFinishDate);
+
+    // Calculate offsets from start date
+    const earlyOffsetMs = earlyMs - startMs;
+    const lateOffsetMs = lateMs - startMs;
+
+    // New release starts where the original's late finish date was
+    const newStartMs = lateMs;
+
+    const newRelease: Release = {
+      id: generateId(),
+      projectId: original.projectId,
+      name: `${original.name} (copy)`,
+      startDate: formatDateISO(newStartMs),
+      earlyFinishDate: formatDateISO(newStartMs + earlyOffsetMs),
+      lateFinishDate: formatDateISO(newStartMs + lateOffsetMs),
+      // Do NOT copy hidden or completed - new release starts fresh
+    };
+
+    const newData = { ...data, releases: [...data.releases, newRelease] };
+    updateData(newData);
+  };
+
   return {
     releaseName,
     setReleaseName,
@@ -124,6 +154,7 @@ export function useReleases() {
     startEditRelease,
     clearReleaseForm,
     toggleReleaseHidden,
-    toggleReleaseCompleted
+    toggleReleaseCompleted,
+    duplicateRelease
   };
 }

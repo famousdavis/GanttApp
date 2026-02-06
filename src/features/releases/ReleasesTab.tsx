@@ -1,9 +1,12 @@
 // Releases Tab component with form and list
 
+import { useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { useAppData } from '../../context/AppDataContext';
+import { useTheme } from '../../context/ThemeContext';
 import { isReleaseValid, getDateErrorMessage } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
+import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
 interface ReleasesTabProps {
   selectedProjectId: string;
@@ -23,6 +26,7 @@ export function ReleasesTab({
   onReleaseDragEnd
 }: ReleasesTabProps) {
   const { data } = useAppData();
+  const { colors } = useTheme();
   const {
     releaseName,
     setReleaseName,
@@ -41,7 +45,8 @@ export function ReleasesTab({
     startEditRelease,
     clearReleaseForm,
     toggleReleaseHidden,
-    toggleReleaseCompleted
+    toggleReleaseCompleted,
+    duplicateRelease
   } = useReleases();
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
@@ -54,20 +59,38 @@ export function ReleasesTab({
   const earlyFinishInvalid = touchedFields.earlyFinish && earlyFinish.length === 10 && (earlyFinish < '2000-01-01' || earlyFinish > '2050-12-31');
   const lateFinishInvalid = touchedFields.lateFinish && lateFinish.length === 10 && (lateFinish < '2000-01-01' || lateFinish > '2050-12-31');
 
+  // Keyboard shortcuts for Releases tab
+  const shortcuts = useMemo(() => ({
+    'escape': () => {
+      if (editingReleaseId) {
+        clearReleaseForm();
+      }
+    },
+    'ctrl+s': () => {
+      if (editingReleaseId) {
+        if (isValid) updateRelease();
+      } else {
+        if (isValid) addRelease(selectedProjectId);
+      }
+    }
+  }), [editingReleaseId, isValid, selectedProjectId, clearReleaseForm, updateRelease, addRelease]);
+
+  useKeyboardShortcuts(shortcuts);
+
   if (data.projects.length === 0) {
-    return <p style={{ color: '#999', fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
+    return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
   }
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333', display: 'flex', alignItems: 'baseline' }}>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text, display: 'flex', alignItems: 'baseline' }}>
         <span style={{ fontWeight: 'normal' }}>Releases for </span>
         <select
           value={selectedProjectId}
           onChange={(e) => setSelectedProjectId(e.target.value)}
           style={{
             fontSize: '1.5rem',
-            color: '#333',
+            color: colors.text,
             border: 'none',
             background: 'transparent',
             cursor: 'pointer',
@@ -84,10 +107,10 @@ export function ReleasesTab({
         </select>
       </h2>
 
-      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f9f9f9', borderRadius: '8px' }}>
+      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Release Name
             </label>
             <input
@@ -98,14 +121,16 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: '2px solid #ddd',
+                border: `2px solid ${colors.inputBorder}`,
                 borderRadius: '4px',
-                width: '100%'
+                width: '100%',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Start Date
             </label>
             <input
@@ -118,14 +143,16 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: startDateInvalid ? '2px solid #dc3545' : '2px solid #ddd',
+                border: startDateInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
                 borderRadius: '4px',
-                width: '100%'
+                width: '100%',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Early Finish Date
             </label>
             <input
@@ -138,14 +165,16 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: earlyFinishInvalid ? '2px solid #dc3545' : '2px solid #ddd',
+                border: earlyFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
                 borderRadius: '4px',
-                width: '100%'
+                width: '100%',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: '#555' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Late Finish Date
             </label>
             <input
@@ -158,9 +187,11 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: lateFinishInvalid ? '2px solid #dc3545' : '2px solid #ddd',
+                border: lateFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
                 borderRadius: '4px',
-                width: '100%'
+                width: '100%',
+                background: colors.inputBg,
+                color: colors.text
               }}
             />
           </div>
@@ -235,7 +266,7 @@ export function ReleasesTab({
       </div>
 
       {currentReleases.length === 0 ? (
-        <p style={{ color: '#999', fontStyle: 'italic' }}>No releases yet. Add one to get started!</p>
+        <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases yet. Add one to get started!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {currentReleases.map(release => (
@@ -247,8 +278,8 @@ export function ReleasesTab({
               onDragEnd={onReleaseDragEnd}
               style={{
                 padding: '1rem',
-                background: 'white',
-                border: '2px solid #eee',
+                background: colors.surface,
+                border: `2px solid ${colors.border}`,
                 borderRadius: '8px',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -261,10 +292,10 @@ export function ReleasesTab({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <DragHandle />
                 <div>
-                  <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem' }}>
+                  <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem', color: colors.text }}>
                     {release.name}
                   </strong>
-                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
                     <span>Start: {(() => {
                       const [y, m, d] = release.startDate.split('-').map(Number);
                       return new Date(y, m - 1, d).toLocaleDateString();
@@ -291,7 +322,8 @@ export function ReleasesTab({
                   cursor: 'pointer',
                   padding: '0.5rem',
                   borderRadius: '4px',
-                  background: release.hidden ? '#f0f0f0' : 'transparent'
+                  background: release.hidden ? colors.hoverBg : 'transparent',
+                  color: colors.textSecondary
                 }}>
                   <input
                     type="checkbox"
@@ -305,25 +337,42 @@ export function ReleasesTab({
                   onClick={() => toggleReleaseCompleted(release.id)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: release.completed ? '#d4edda' : '#fff',
-                    border: release.completed ? '1px solid #28a745' : '1px solid #ddd',
+                    minWidth: '90px',
+                    background: release.completed ? '#28a745' : colors.buttonBg,
+                    border: release.completed ? '1px solid #28a745' : `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    fontWeight: release.completed ? '600' : 'normal'
+                    fontWeight: '500',
+                    color: release.completed ? 'white' : colors.text
                   }}
                 >
                   {release.completed ? '✓ Done' : 'Mark Done'}
                 </button>
                 <button
+                  onClick={() => duplicateRelease(release.id)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    color: colors.text
+                  }}
+                >
+                  Duplicate
+                </button>
+                <button
                   onClick={() => startEditRelease(release)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#fff3cd',
-                    border: '1px solid #ffc107',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    color: colors.text
                   }}
                 >
                   Edit
@@ -336,11 +385,12 @@ export function ReleasesTab({
                   }}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#f8d7da',
-                    border: '1px solid #dc3545',
+                    background: colors.buttonBg,
+                    border: `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    color: '#dc3545'
                   }}
                 >
                   Delete

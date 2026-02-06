@@ -1,18 +1,22 @@
 // About Tab component
 
+import { useTheme } from '../../context/ThemeContext';
+
 export function AboutTab() {
+  const { colors } = useTheme();
+
   return (
     <div style={{ maxWidth: '800px' }}>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>About This App</h2>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text }}>About This App</h2>
 
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Purpose</h3>
-        <p style={{ lineHeight: '1.6', color: '#555' }}>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary }}>
           <strong>GanttApp</strong> helps project managers communicate release uncertainty to stakeholders.
           Traditional Gantt charts show single delivery dates, but real projects have uncertainty.
           GanttApp visualizes this by showing:
         </p>
-        <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
+        <ul style={{ marginTop: '0.5rem', paddingLeft: '2rem', lineHeight: '1.8', color: colors.textSecondary }}>
           <li><strong>Solid bars:</strong> Design, Code, Test phase (predictable work)</li>
           <li><strong>Hatched bars:</strong> Delivery uncertainty window (the &ldquo;maybe&rdquo; zone)</li>
         </ul>
@@ -20,7 +24,7 @@ export function AboutTab() {
 
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data & Security</h3>
-        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: '#555' }}>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: colors.textSecondary }}>
           <li>Stored locally in your <strong>browser</strong> (not in any cloud database)</li>
           <li><strong>Your data never leaves your device</strong></li>
           <li>No external database servers, no third-party access, no data governance concerns</li>
@@ -33,7 +37,7 @@ export function AboutTab() {
 
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
-        <p style={{ lineHeight: '1.6', color: '#555' }}>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary }}>
           When new versions are released, your data remains safe in localStorage. I recommend
           exporting a backup before major updates as a precaution.
         </p>
@@ -41,7 +45,7 @@ export function AboutTab() {
 
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Author & Source Code</h3>
-        <p style={{ lineHeight: '1.6', color: '#555', marginBottom: '0.5rem' }}>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary, marginBottom: '0.5rem' }}>
           Created by <strong>William W. Davis, MSPM, PMP</strong>
         </p>
         <a

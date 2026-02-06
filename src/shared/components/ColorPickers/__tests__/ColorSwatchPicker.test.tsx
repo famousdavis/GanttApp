@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ColorSwatchPicker } from '../ColorSwatchPicker';
+import { ThemeWrapper } from '../../../../test/ThemeWrapper';
 
 describe('ColorSwatchPicker', () => {
   const mockOnChange = vi.fn();
@@ -10,31 +11,31 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('renders label text', () => {
-    render(<ColorSwatchPicker label="Solid Bar Color" value="#0070f3" onChange={mockOnChange} />);
+    render(<ColorSwatchPicker label="Solid Bar Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     expect(screen.getByText('Solid Bar Color')).toBeTruthy();
   });
 
   it('renders color swatch button with current value as background', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#ff0000" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#ff0000" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     // jsdom converts hex to rgb
     expect(mainSwatch.style.background).toContain('255, 0, 0');
   });
 
   it('picker dropdown is hidden by default', () => {
-    render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     expect(screen.queryByText('Custom Color')).toBeNull();
   });
 
   it('shows picker dropdown when swatch is clicked', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
     expect(screen.getByText('Custom Color')).toBeTruthy();
   });
 
   it('hides picker when swatch is clicked again (toggle)', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
 
     fireEvent.click(mainSwatch);
@@ -45,7 +46,7 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('renders 20 standard color swatches when open', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
 
@@ -61,7 +62,7 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('calls onChange when a standard color swatch is clicked', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
 
@@ -70,7 +71,7 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('closes picker after selecting a standard color', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
 
@@ -79,7 +80,7 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('renders custom color input in the dropdown', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
 
@@ -88,7 +89,7 @@ describe('ColorSwatchPicker', () => {
   });
 
   it('calls onChange when custom color input changes', () => {
-    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />);
+    const { container } = render(<ColorSwatchPicker label="Color" value="#0070f3" onChange={mockOnChange} />, { wrapper: ThemeWrapper });
     const mainSwatch = container.querySelector('div[style*="height: 40px"]') as HTMLElement;
     fireEvent.click(mainSwatch);
 

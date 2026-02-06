@@ -4,4 +4,5 @@ export * from './colors';
 export * from './dates';
 export * from './export';
 export * from './storage';
+export * from './theme';
 export * from './validation';

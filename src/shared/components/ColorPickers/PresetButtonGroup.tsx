@@ -13,7 +13,7 @@ export function PresetButtonGroup({ label, value, options, onChange }: PresetBut
       <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>
         {label}
       </label>
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
         {options.map(option => {
           const isActive = value === option.value;
           return (
@@ -21,15 +21,16 @@ export function PresetButtonGroup({ label, value, options, onChange }: PresetBut
               key={option.value}
               onClick={() => onChange(option.value)}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.4rem 0.6rem',
                 background: isActive ? '#e6f2ff' : 'white',
                 border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
+                fontSize: '0.8rem',
                 fontWeight: isActive ? '600' : '500',
                 boxShadow: isActive ? '0 2px 4px rgba(0, 112, 243, 0.2)' : 'none',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {

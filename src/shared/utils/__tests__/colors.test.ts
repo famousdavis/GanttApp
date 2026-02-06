@@ -31,6 +31,7 @@ describe('DEFAULT_DISPLAY_SETTINGS', () => {
     expect(DEFAULT_DISPLAY_SETTINGS).toHaveProperty('dateLabelFontSize');
     expect(DEFAULT_DISPLAY_SETTINGS).toHaveProperty('dateLabelColor');
     expect(DEFAULT_DISPLAY_SETTINGS).toHaveProperty('verticalLineWidth');
+    expect(DEFAULT_DISPLAY_SETTINGS).toHaveProperty('barHeight');
   });
 
   it('has valid default values', () => {
@@ -38,6 +39,7 @@ describe('DEFAULT_DISPLAY_SETTINGS', () => {
     expect(['11', '13', '15']).toContain(DEFAULT_DISPLAY_SETTINGS.dateLabelFontSize);
     expect(['#999', '#666', '#333', '#000']).toContain(DEFAULT_DISPLAY_SETTINGS.dateLabelColor);
     expect(['2', '3', '4']).toContain(DEFAULT_DISPLAY_SETTINGS.verticalLineWidth);
+    expect(['30', '40', '50']).toContain(DEFAULT_DISPLAY_SETTINGS.barHeight);
   });
 });
 

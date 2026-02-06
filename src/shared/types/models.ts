@@ -29,4 +29,5 @@ export interface ChartDisplaySettings {
   dateLabelFontSize: '11' | '13' | '15';  // Small, Medium, Large
   dateLabelColor: '#999' | '#666' | '#333' | '#000';  // Light to Black
   verticalLineWidth: '2' | '3' | '4';  // Thin, Medium, Thick
+  barHeight: '30' | '40' | '50';  // Small, Medium, Large
 }

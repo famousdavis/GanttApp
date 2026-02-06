@@ -15,7 +15,8 @@ export const DEFAULT_DISPLAY_SETTINGS: ChartDisplaySettings = {
   releaseNameFontSize: '16',    // Medium (sizes: 14/16/18)
   dateLabelFontSize: '13',      // Medium (sizes: 11/13/15)
   dateLabelColor: '#666',        // Medium gray
-  verticalLineWidth: '2'         // Thin
+  verticalLineWidth: '2',        // Thin
+  barHeight: '30'                // Small (sizes: 30/40/50)
 };
 
 // Standard color palette (20 colors)

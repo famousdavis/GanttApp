@@ -134,6 +134,7 @@ function validateLoadedData(data: unknown): AppData | null {
     const validDateFontSizes = ['11', '13', '15'];
     const validLabelColors = ['#999', '#666', '#333', '#000'];
     const validLineWidths = ['2', '3', '4'];
+    const validBarHeights = ['30', '40', '50'];
 
     result.chartDisplaySettings = {
       releaseNameFontSize: validFontSizes.includes(settings.releaseNameFontSize as string)
@@ -143,7 +144,9 @@ function validateLoadedData(data: unknown): AppData | null {
       dateLabelColor: validLabelColors.includes(settings.dateLabelColor as string)
         ? settings.dateLabelColor as '#999' | '#666' | '#333' | '#000' : '#666',
       verticalLineWidth: validLineWidths.includes(settings.verticalLineWidth as string)
-        ? settings.verticalLineWidth as '2' | '3' | '4' : '2'
+        ? settings.verticalLineWidth as '2' | '3' | '4' : '2',
+      barHeight: validBarHeights.includes(settings.barHeight as string)
+        ? settings.barHeight as '30' | '40' | '50' : '30'
     };
   }
 

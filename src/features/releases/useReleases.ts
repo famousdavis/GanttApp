@@ -136,6 +136,50 @@ export function useReleases() {
     updateData(newData);
   };
 
+  /**
+   * Update a single date field on a release (for inline chart editing)
+   * Returns true if successful, false if validation fails
+   */
+  const updateReleaseDate = (
+    releaseId: string,
+    dateType: 'start' | 'early' | 'late',
+    newDate: string
+  ): boolean => {
+    const release = data.releases.find(r => r.id === releaseId);
+    if (!release) return false;
+
+    // Validate date format
+    if (!isValidDateFormat(newDate)) return false;
+
+    // Get the dates that would result from this change
+    const startDate = dateType === 'start' ? newDate : release.startDate;
+    const earlyFinishDate = dateType === 'early' ? newDate : release.earlyFinishDate;
+    const lateFinishDate = dateType === 'late' ? newDate : release.lateFinishDate;
+
+    // Validate date ordering
+    const startMs = parseDateLocal(startDate);
+    const earlyMs = parseDateLocal(earlyFinishDate);
+    const lateMs = parseDateLocal(lateFinishDate);
+
+    // Start must be before early
+    if (startMs >= earlyMs) return false;
+
+    // Early must be before or equal to late
+    if (earlyMs > lateMs) return false;
+
+    // Apply the update
+    const newData = {
+      ...data,
+      releases: data.releases.map(r =>
+        r.id === releaseId
+          ? { ...r, startDate, earlyFinishDate, lateFinishDate }
+          : r
+      )
+    };
+    updateData(newData);
+    return true;
+  };
+
   return {
     releaseName,
     setReleaseName,
@@ -155,6 +199,7 @@ export function useReleases() {
     clearReleaseForm,
     toggleReleaseHidden,
     toggleReleaseCompleted,
-    duplicateRelease
+    duplicateRelease,
+    updateReleaseDate
   };
 }

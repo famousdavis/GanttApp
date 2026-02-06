@@ -160,6 +160,7 @@ describe('storage utilities', () => {
           dateLabelFontSize: '15',
           dateLabelColor: '#333',
           verticalLineWidth: '4',
+          barHeight: '30',
         },
       });
 

@@ -46,7 +46,14 @@ function GanttChart({
   onStartEditReleaseName,
   onSaveReleaseNameEdit,
   onCancelReleaseNameEdit,
-  onTempReleaseNameChange
+  onTempReleaseNameChange,
+  editingDateInfo,
+  tempDateValue,
+  onStartEditDate,
+  onSaveDateEdit,
+  onCancelDateEdit,
+  onTempDateChange,
+  dateEditError
 }: {
   releases: Release[],
   projectName: string,
@@ -79,7 +86,14 @@ function GanttChart({
   onStartEditReleaseName: (releaseId: string, currentName: string) => void,
   onSaveReleaseNameEdit: () => void,
   onCancelReleaseNameEdit: () => void,
-  onTempReleaseNameChange: (value: string) => void
+  onTempReleaseNameChange: (value: string) => void,
+  editingDateInfo: { releaseId: string; dateType: 'start' | 'early' | 'late' } | null,
+  tempDateValue: string,
+  onStartEditDate: (releaseId: string, dateType: 'start' | 'early' | 'late', currentDate: string) => void,
+  onSaveDateEdit: () => void,
+  onCancelDateEdit: () => void,
+  onTempDateChange: (value: string) => void,
+  dateEditError: string
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -104,12 +118,12 @@ function GanttChart({
 
   // Chart dimensions
   const chartWidth = 1100;
-  const chartHeight = releases.length * 60 + 80;
+  const barHeight = parseInt(displaySettings.barHeight);
+  const rowHeight = barHeight * 2;  // Maintain 2:1 ratio for spacing
+  const chartHeight = releases.length * rowHeight + 80;
   const leftMargin = 280;
   const rightMargin = 50;
   const topMargin = 50;
-  const barHeight = 30;
-  const rowHeight = 60;
 
   const dateToX = (date: string) => {
     const timestamp = parseDateLocal(date);
@@ -399,38 +413,140 @@ function GanttChart({
                     rx="4"
                   />
 
-                  {/* Date labels */}
-                  <text
-                    x={startX}
-                    y={y + barHeight + 15}
-                    fontSize={displaySettings.dateLabelFontSize}
-                    fill={displaySettings.dateLabelColor}
-                    textAnchor="middle"
-                  >
-                    {formatDateShort(release.startDate)}
-                  </text>
-
-                  {showEarlyLabel && (
+                  {/* Date labels - clickable for inline editing */}
+                  {editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'start' ? (
+                    <foreignObject x={startX - 70} y={y + barHeight + 2} width={140} height={28}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <input
+                          type="date"
+                          value={tempDateValue}
+                          onChange={(e) => onTempDateChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') onSaveDateEdit();
+                            if (e.key === 'Escape') onCancelDateEdit();
+                          }}
+                          onBlur={onCancelDateEdit}
+                          autoFocus
+                          min="2000-01-01"
+                          max="2050-12-31"
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 4px',
+                            border: dateEditError ? '2px solid #dc3545' : '1px solid #0070f3',
+                            borderRadius: '3px',
+                            width: '110px'
+                          }}
+                        />
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); onSaveDateEdit(); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px' }}
+                          title="Save"
+                        >✅</button>
+                      </div>
+                    </foreignObject>
+                  ) : (
                     <text
-                      x={earlyX}
+                      x={startX}
                       y={y + barHeight + 15}
                       fontSize={displaySettings.dateLabelFontSize}
                       fill={displaySettings.dateLabelColor}
                       textAnchor="middle"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onStartEditDate(release.id, 'start', release.startDate)}
                     >
-                      {formatDateShort(release.earlyFinishDate)}
+                      {formatDateShort(release.startDate)}
                     </text>
                   )}
 
-                  <text
-                    x={lateX}
-                    y={y + barHeight + 15}
-                    fontSize={displaySettings.dateLabelFontSize}
-                    fill={displaySettings.dateLabelColor}
-                    textAnchor="middle"
-                  >
-                    {formatDateShort(release.lateFinishDate)}
-                  </text>
+                  {showEarlyLabel && (
+                    editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'early' ? (
+                      <foreignObject x={earlyX - 70} y={y + barHeight + 2} width={140} height={28}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <input
+                            type="date"
+                            value={tempDateValue}
+                            onChange={(e) => onTempDateChange(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') onSaveDateEdit();
+                              if (e.key === 'Escape') onCancelDateEdit();
+                            }}
+                            onBlur={onCancelDateEdit}
+                            autoFocus
+                            min="2000-01-01"
+                            max="2050-12-31"
+                            style={{
+                              fontSize: '11px',
+                              padding: '2px 4px',
+                              border: dateEditError ? '2px solid #dc3545' : '1px solid #0070f3',
+                              borderRadius: '3px',
+                              width: '110px'
+                            }}
+                          />
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); onSaveDateEdit(); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px' }}
+                            title="Save"
+                          >✅</button>
+                        </div>
+                      </foreignObject>
+                    ) : (
+                      <text
+                        x={earlyX}
+                        y={y + barHeight + 15}
+                        fontSize={displaySettings.dateLabelFontSize}
+                        fill={displaySettings.dateLabelColor}
+                        textAnchor="middle"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onStartEditDate(release.id, 'early', release.earlyFinishDate)}
+                      >
+                        {formatDateShort(release.earlyFinishDate)}
+                      </text>
+                    )
+                  )}
+
+                  {editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'late' ? (
+                    <foreignObject x={lateX - 70} y={y + barHeight + 2} width={140} height={28}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <input
+                          type="date"
+                          value={tempDateValue}
+                          onChange={(e) => onTempDateChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') onSaveDateEdit();
+                            if (e.key === 'Escape') onCancelDateEdit();
+                          }}
+                          onBlur={onCancelDateEdit}
+                          autoFocus
+                          min="2000-01-01"
+                          max="2050-12-31"
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 4px',
+                            border: dateEditError ? '2px solid #dc3545' : '1px solid #0070f3',
+                            borderRadius: '3px',
+                            width: '110px'
+                          }}
+                        />
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); onSaveDateEdit(); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px' }}
+                          title="Save"
+                        >✅</button>
+                      </div>
+                    </foreignObject>
+                  ) : (
+                    <text
+                      x={lateX}
+                      y={y + barHeight + 15}
+                      fontSize={displaySettings.dateLabelFontSize}
+                      fill={displaySettings.dateLabelColor}
+                      textAnchor="middle"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onStartEditDate(release.id, 'late', release.lateFinishDate)}
+                    >
+                      {formatDateShort(release.lateFinishDate)}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -559,7 +675,7 @@ function GanttChart({
 
             {/* Display Settings - Second horizontal row */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                 <PresetButtonGroup
                   label="Release Name Font Size"
                   value={displaySettings.releaseNameFontSize}
@@ -594,6 +710,16 @@ function GanttChart({
                     { value: '4', label: 'Thick' }
                   ]}
                   onChange={(value) => setDisplaySettings({ ...displaySettings, verticalLineWidth: value as any })}
+                />
+                <PresetButtonGroup
+                  label="Bar Height"
+                  value={displaySettings.barHeight}
+                  options={[
+                    { value: '30', label: 'Small' },
+                    { value: '40', label: 'Medium' },
+                    { value: '50', label: 'Large' }
+                  ]}
+                  onChange={(value) => setDisplaySettings({ ...displaySettings, barHeight: value as any })}
                 />
               </div>
             </div>
@@ -705,6 +831,11 @@ function AppContent() {
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
   const [tempReleaseName, setTempReleaseName] = useState('');
 
+  // Date editing state (for inline chart editing)
+  const [editingDateInfo, setEditingDateInfo] = useState<{ releaseId: string; dateType: 'start' | 'early' | 'late' } | null>(null);
+  const [tempDateValue, setTempDateValue] = useState('');
+  const [dateEditError, setDateEditError] = useState('');
+
   // Update chart colors and preset
   const updateChartColors = (colors: ChartColors, presetName?: string) => {
     setChartColors(colors);
@@ -803,6 +934,61 @@ function AppContent() {
     setTempReleaseName('');
   }, []);
 
+  // Date editing handlers (for inline chart editing)
+  const startEditDate = (releaseId: string, dateType: 'start' | 'early' | 'late', currentDate: string) => {
+    setEditingDateInfo({ releaseId, dateType });
+    setTempDateValue(currentDate);
+    setDateEditError('');
+  };
+
+  const saveDateEdit = () => {
+    if (!editingDateInfo || !tempDateValue) {
+      cancelDateEdit();
+      return;
+    }
+
+    const release = data.releases.find(r => r.id === editingDateInfo.releaseId);
+    if (!release) {
+      cancelDateEdit();
+      return;
+    }
+
+    // Get the dates that would result from this change
+    const { dateType } = editingDateInfo;
+    const startDate = dateType === 'start' ? tempDateValue : release.startDate;
+    const earlyFinishDate = dateType === 'early' ? tempDateValue : release.earlyFinishDate;
+    const lateFinishDate = dateType === 'late' ? tempDateValue : release.lateFinishDate;
+
+    // Validate date ordering
+    const startMs = parseDateLocal(startDate);
+    const earlyMs = parseDateLocal(earlyFinishDate);
+    const lateMs = parseDateLocal(lateFinishDate);
+
+    if (startMs >= earlyMs) {
+      setDateEditError('Start must be before Early Finish');
+      return;
+    }
+    if (earlyMs > lateMs) {
+      setDateEditError('Early Finish must be ≤ Late Finish');
+      return;
+    }
+
+    // Apply the update
+    const updatedReleases = data.releases.map(r =>
+      r.id === editingDateInfo.releaseId
+        ? { ...r, startDate, earlyFinishDate, lateFinishDate }
+        : r
+    );
+    updateData({ ...data, releases: updatedReleases });
+    cancelDateEdit();
+  };
+
+  const cancelDateEdit = useCallback(() => {
+    setEditingDateInfo(null);
+    setTempDateValue('');
+    setDateEditError('');
+  }, []);
+
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const visibleReleases = currentReleases.filter(r => !r.hidden);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
@@ -816,6 +1002,8 @@ function AppContent() {
         cancelLabelEdit();
       } else if (editingReleaseId) {
         cancelReleaseNameEdit();
+      } else if (editingDateInfo) {
+        cancelDateEdit();
       } else if (showColorSettings) {
         setShowColorSettings(false);
       }
@@ -828,7 +1016,7 @@ function AppContent() {
       const idx = tabOrder.indexOf(activeTab);
       if (idx < tabOrder.length - 1) setActiveTab(tabOrder[idx + 1]);
     }
-  }), [editingLegendLabel, editingReleaseId, showColorSettings, activeTab, tabOrder, setShowColorSettings, cancelLabelEdit, cancelReleaseNameEdit, setActiveTab]);
+  }), [editingLegendLabel, editingReleaseId, editingDateInfo, showColorSettings, activeTab, tabOrder, setShowColorSettings, cancelLabelEdit, cancelReleaseNameEdit, cancelDateEdit, setActiveTab]);
 
   useKeyboardShortcuts(shortcuts);
 
@@ -850,7 +1038,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 5.7</title>
+        <title>GanttApp - Version 6.0</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -946,6 +1134,13 @@ function AppContent() {
               onSaveReleaseNameEdit={saveReleaseNameEdit}
               onCancelReleaseNameEdit={cancelReleaseNameEdit}
               onTempReleaseNameChange={setTempReleaseName}
+              editingDateInfo={editingDateInfo}
+              tempDateValue={tempDateValue}
+              onStartEditDate={startEditDate}
+              onSaveDateEdit={saveDateEdit}
+              onCancelDateEdit={cancelDateEdit}
+              onTempDateChange={setTempDateValue}
+              dateEditError={dateEditError}
             />
           )}
 
@@ -974,7 +1169,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 5.7
+            Version 6.0
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

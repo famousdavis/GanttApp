@@ -55,6 +55,7 @@ function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
   const validDateFontSizes = ['11', '13', '15'];
   const validLabelColors = ['#999', '#666', '#333', '#000'];
   const validLineWidths = ['2', '3', '4'];
+  const validBarHeights = ['30', '40', '50'];
 
   return {
     releaseNameFontSize: validFontSizes.includes(s.releaseNameFontSize as string)
@@ -68,7 +69,10 @@ function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
       : DEFAULT_DISPLAY_SETTINGS.dateLabelColor,
     verticalLineWidth: validLineWidths.includes(s.verticalLineWidth as string)
       ? s.verticalLineWidth as '2' | '3' | '4'
-      : DEFAULT_DISPLAY_SETTINGS.verticalLineWidth
+      : DEFAULT_DISPLAY_SETTINGS.verticalLineWidth,
+    barHeight: validBarHeights.includes(s.barHeight as string)
+      ? s.barHeight as '30' | '40' | '50'
+      : DEFAULT_DISPLAY_SETTINGS.barHeight
   };
 }
 

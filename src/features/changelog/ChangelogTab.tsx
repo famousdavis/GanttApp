@@ -31,8 +31,25 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 5.7 */}
+      {/* Version 6.0 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 6.0
+          <span style={dateStyle}>February 6, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Click-to-Edit Dates on Chart</strong> — click any date label below a bar to edit it inline</li>
+          <li>Date picker appears directly on the chart for quick date adjustments</li>
+          <li>Validates date ordering in real-time (start &lt; early finish ≤ late finish)</li>
+          <li>Chart automatically rescales when dates change</li>
+          <li>Same intuitive pattern as release name editing</li>
+          <li><strong>Configurable Bar Height</strong> — Small/Medium/Large options in Chart Settings</li>
+          <li>Larger bars look better when displaying fewer releases</li>
+        </ul>
+      </div>
+
+      {/* Version 5.7 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 5.7
           <span style={dateStyle}>February 6, 2026</span>

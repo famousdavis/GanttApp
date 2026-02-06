@@ -71,6 +71,7 @@ describe('AppDataContext', () => {
         dateLabelFontSize: '13',
         dateLabelColor: '#666',
         verticalLineWidth: '2',
+        barHeight: '30',
       });
     });
   });

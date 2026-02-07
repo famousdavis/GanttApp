@@ -401,7 +401,7 @@ export function GanttChart({
 
                   {/* Late finish date label */}
                   {editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'late' ? (
-                    <foreignObject x={lateX - 70} y={y + barHeight + 2} width={140} height={28}>
+                    <foreignObject x={Math.min(lateX - 70, chartWidth - 145)} y={y + barHeight + 2} width={140} height={28}>
                       <InlineDateEditor
                         value={tempDateValue}
                         onChange={onTempDateChange}

@@ -318,7 +318,7 @@ export function ProjectsTab({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    color: colors.text
+                    color: colors.buttonText
                   }}
                 >
                   View Releases
@@ -332,7 +332,7 @@ export function ProjectsTab({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    color: colors.text
+                    color: colors.buttonText
                   }}
                 >
                   Edit
@@ -346,7 +346,7 @@ export function ProjectsTab({
                   style={{
                     padding: '0.5rem 1rem',
                     background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
+                    border: '1px solid #dc3545',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',

@@ -344,7 +344,7 @@ export function ReleasesTab({
                     cursor: 'pointer',
                     fontSize: '0.9rem',
                     fontWeight: '500',
-                    color: release.completed ? 'white' : colors.text
+                    color: release.completed ? 'white' : colors.buttonText
                   }}
                 >
                   {release.completed ? '✓ Done' : 'Mark Done'}
@@ -358,7 +358,7 @@ export function ReleasesTab({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    color: colors.text
+                    color: colors.buttonText
                   }}
                 >
                   Duplicate
@@ -372,7 +372,7 @@ export function ReleasesTab({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    color: colors.text
+                    color: colors.buttonText
                   }}
                 >
                   Edit
@@ -386,7 +386,7 @@ export function ReleasesTab({
                   style={{
                     padding: '0.5rem 1rem',
                     background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
+                    border: '1px solid #dc3545',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.9rem',

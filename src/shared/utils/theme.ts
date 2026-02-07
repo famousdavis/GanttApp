@@ -32,6 +32,7 @@ export interface ThemeColors {
   // Buttons
   buttonBg: string;
   buttonBorder: string;
+  buttonText: string;
 
   // Accent (active tabs, primary actions)
   accent: string;
@@ -53,8 +54,9 @@ export const LIGHT_THEME: ThemeColors = {
   chartBorder: '#eee',
   svgText: '#333',
   gridLine: '#c0c0c0',
-  buttonBg: '#f0f0f0',
-  buttonBorder: '#ddd',
+  buttonBg: '#ffffff',
+  buttonBorder: '#0070f3',
+  buttonText: '#0070f3',
   accent: '#0070f3',
   accentText: 'white',
 };
@@ -74,8 +76,9 @@ export const DARK_THEME: ThemeColors = {
   chartBorder: '#2d3748',
   svgText: '#e2e8f0',
   gridLine: '#4a5568',
-  buttonBg: '#2d3748',
-  buttonBorder: '#4a5568',
+  buttonBg: '#1a1a2e',
+  buttonBorder: '#3b82f6',
+  buttonText: '#3b82f6',
   accent: '#3b82f6',
   accentText: 'white',
 };

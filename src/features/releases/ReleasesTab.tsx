@@ -337,7 +337,7 @@ export function ReleasesTab({
                   onClick={() => toggleReleaseCompleted(release.id)}
                   style={{
                     padding: '0.5rem 1rem',
-                    minWidth: '90px',
+                    minWidth: '105px',
                     background: release.completed ? '#28a745' : colors.buttonBg,
                     border: release.completed ? '1px solid #28a745' : `1px solid ${colors.buttonBorder}`,
                     borderRadius: '4px',

@@ -30,4 +30,5 @@ export interface ChartDisplaySettings {
   dateLabelColor: '#999' | '#666' | '#333' | '#000';  // Light to Black
   verticalLineWidth: '2' | '3' | '4';  // Thin, Medium, Thick
   barHeight: '30' | '40' | '50';  // Small, Medium, Large
+  rowSpacing: '20' | '25' | '30';  // Small, Medium, Large
 }

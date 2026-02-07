@@ -85,6 +85,7 @@ describe('parseImportedData', () => {
         dateLabelColor: '#000',
         verticalLineWidth: '4',
         barHeight: '50',
+        rowSpacing: '30',
       },
     };
 

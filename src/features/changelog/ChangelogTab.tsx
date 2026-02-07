@@ -31,8 +31,22 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 6.0 */}
+      {/* Version 6.1 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 6.1
+          <span style={dateStyle}>February 7, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Row Spacing Control</strong> — new S/M/L setting to tighten or loosen space between release rows</li>
+          <li>Defaults to Medium; Small tightens rows, Large matches previous spacing</li>
+          <li>Bar Height now uses compact S/M/L labels to fit both controls on one row</li>
+          <li>Independent of bar height — adjust spacing without changing bar size</li>
+        </ul>
+      </div>
+
+      {/* Version 6.0 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 6.0
           <span style={dateStyle}>February 6, 2026</span>

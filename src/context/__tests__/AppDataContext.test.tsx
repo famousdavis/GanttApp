@@ -72,6 +72,7 @@ describe('AppDataContext', () => {
         dateLabelColor: '#666',
         verticalLineWidth: '2',
         barHeight: '30',
+        rowSpacing: '25',
       });
     });
   });

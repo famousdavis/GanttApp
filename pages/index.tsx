@@ -287,7 +287,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 6.0
+            Version 6.1
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

@@ -81,7 +81,7 @@ export function ChartSettings({
 
           {/* Display Settings */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem' }}>
               <PresetButtonGroup
                 label="Release Name Font Size"
                 value={displaySettings.releaseNameFontSize}
@@ -121,11 +121,21 @@ export function ChartSettings({
                 label="Bar Height"
                 value={displaySettings.barHeight}
                 options={[
-                  { value: '30', label: 'Small' },
-                  { value: '40', label: 'Medium' },
-                  { value: '50', label: 'Large' }
+                  { value: '30', label: 'S' },
+                  { value: '40', label: 'M' },
+                  { value: '50', label: 'L' }
                 ]}
                 onChange={(value) => setDisplaySettings({ ...displaySettings, barHeight: value as '30' | '40' | '50' })}
+              />
+              <PresetButtonGroup
+                label="Row Spacing"
+                value={displaySettings.rowSpacing}
+                options={[
+                  { value: '20', label: 'S' },
+                  { value: '25', label: 'M' },
+                  { value: '30', label: 'L' }
+                ]}
+                onChange={(value) => setDisplaySettings({ ...displaySettings, rowSpacing: value as '20' | '25' | '30' })}
               />
             </div>
           </div>

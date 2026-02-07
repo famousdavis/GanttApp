@@ -117,7 +117,8 @@ export function GanttChart({
   // Chart dimensions
   const chartWidth = 1100;
   const barHeight = parseInt(displaySettings.barHeight);
-  const rowHeight = barHeight * 2;
+  const rowSpacing = parseInt(displaySettings.rowSpacing);
+  const rowHeight = barHeight + rowSpacing;
   const chartHeight = releases.length * rowHeight + 80;
   const leftMargin = 280;
   const rightMargin = 50;

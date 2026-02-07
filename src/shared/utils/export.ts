@@ -56,6 +56,7 @@ function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
   const validLabelColors = ['#999', '#666', '#333', '#000'];
   const validLineWidths = ['2', '3', '4'];
   const validBarHeights = ['30', '40', '50'];
+  const validRowSpacings = ['20', '25', '30'];
 
   return {
     releaseNameFontSize: validFontSizes.includes(s.releaseNameFontSize as string)
@@ -72,7 +73,10 @@ function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
       : DEFAULT_DISPLAY_SETTINGS.verticalLineWidth,
     barHeight: validBarHeights.includes(s.barHeight as string)
       ? s.barHeight as '30' | '40' | '50'
-      : DEFAULT_DISPLAY_SETTINGS.barHeight
+      : DEFAULT_DISPLAY_SETTINGS.barHeight,
+    rowSpacing: validRowSpacings.includes(s.rowSpacing as string)
+      ? s.rowSpacing as '20' | '25' | '30'
+      : DEFAULT_DISPLAY_SETTINGS.rowSpacing
   };
 }
 

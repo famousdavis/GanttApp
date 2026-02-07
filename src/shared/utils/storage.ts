@@ -135,6 +135,7 @@ function validateLoadedData(data: unknown): AppData | null {
     const validLabelColors = ['#999', '#666', '#333', '#000'];
     const validLineWidths = ['2', '3', '4'];
     const validBarHeights = ['30', '40', '50'];
+    const validRowSpacings = ['20', '25', '30'];
 
     result.chartDisplaySettings = {
       releaseNameFontSize: validFontSizes.includes(settings.releaseNameFontSize as string)
@@ -146,7 +147,9 @@ function validateLoadedData(data: unknown): AppData | null {
       verticalLineWidth: validLineWidths.includes(settings.verticalLineWidth as string)
         ? settings.verticalLineWidth as '2' | '3' | '4' : '2',
       barHeight: validBarHeights.includes(settings.barHeight as string)
-        ? settings.barHeight as '30' | '40' | '50' : '30'
+        ? settings.barHeight as '30' | '40' | '50' : '30',
+      rowSpacing: validRowSpacings.includes(settings.rowSpacing as string)
+        ? settings.rowSpacing as '20' | '25' | '30' : '30'
     };
   }
 

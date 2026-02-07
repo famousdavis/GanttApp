@@ -66,6 +66,21 @@ export function AboutTab() {
           View Source Code on GitHub
         </a>
       </section>
+
+      <section style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>License</h3>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary }}>
+          This software is licensed under the <strong>GNU General Public License v3.0 (GPL-3.0)</strong>.
+          You are free to use, modify, and distribute this software under the terms of the GPL-3.0 license.
+        </p>
+      </section>
+
+      <section style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>No Warranty Disclaimer</h3>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary, fontSize: '0.85rem' }}>
+          THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM &ldquo;AS IS&rdquo; WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+        </p>
+      </section>
     </div>
   );
 }

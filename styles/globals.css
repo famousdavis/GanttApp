@@ -92,10 +92,10 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
   color: var(--text-muted);
 }
 
-/* Dark mode scrollbar */
+/* Dark mode scrollbar - vertical only */
 [data-theme="dark"] ::-webkit-scrollbar {
   width: 10px;
-  height: 10px;
+  height: 0px; /* Hide horizontal scrollbars */
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-track {

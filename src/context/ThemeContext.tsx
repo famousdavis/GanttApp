@@ -38,6 +38,9 @@ function subscribeToSystemPreference(callback: () => void) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Track if we've mounted (client-side)
+  const [mounted, setMounted] = useState(false);
+
   // Use lazy initializer to read from localStorage
   const [mode, setModeState] = useState<ThemeMode>(getInitialMode);
 
@@ -56,10 +59,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const resolvedTheme = mode === 'system' ? (systemDark ? 'dark' : 'light') : mode;
   const colors = resolvedTheme === 'dark' ? DARK_THEME : LIGHT_THEME;
 
+  // Mark as mounted after first render (client-side only)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Apply data-theme attribute to document (this is syncing with an external system, which is allowed)
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', resolvedTheme);
   }, [resolvedTheme]);
+
+  // Prevent flash by not rendering children until mounted
+  // The _document.tsx script sets data-theme, so CSS works, but we hide
+  // React content until it can render with correct theme colors
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <ThemeContext value={{ mode, setMode, resolvedTheme, colors }}>

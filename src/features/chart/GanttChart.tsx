@@ -242,7 +242,7 @@ export function GanttChart({
         </div>
 
         {/* SVG Chart */}
-        <div style={{ overflowX: 'auto', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
+        <div style={{ overflowX: 'hidden', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
           <svg width={chartWidth} height={chartHeight}>
             {/* Quarterly gridlines */}
             {quarterBoundaries.map((date, i) => {

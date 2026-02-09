@@ -27,7 +27,9 @@ describe('parseImportedData', () => {
     const json = JSON.stringify(data);
 
     const result = parseImportedData(json);
-    expect(result).toEqual(data);
+    expect(result).not.toBeNull();
+    expect(result!.appData).toEqual(data);
+    expect(result!.snapshots).toBeUndefined();
   });
 
   it('returns null for invalid JSON', () => {
@@ -59,7 +61,8 @@ describe('parseImportedData', () => {
   it('accepts empty projects and releases arrays', () => {
     const json = JSON.stringify({ projects: [], releases: [] });
     const result = parseImportedData(json);
-    expect(result).toEqual({ projects: [], releases: [] });
+    expect(result).not.toBeNull();
+    expect(result!.appData).toEqual({ projects: [], releases: [] });
   });
 
   it('preserves optional fields in imported data', () => {
@@ -91,7 +94,8 @@ describe('parseImportedData', () => {
 
     const json = JSON.stringify(data);
     const result = parseImportedData(json);
-    expect(result).toEqual(data);
+    expect(result).not.toBeNull();
+    expect(result!.appData).toEqual(data);
   });
 
   it('accepts data with extra unknown fields (forward compatibility)', () => {
@@ -104,7 +108,7 @@ describe('parseImportedData', () => {
 
     const result = parseImportedData(json);
     expect(result).not.toBeNull();
-    expect(result!.projects).toHaveLength(1);
+    expect(result!.appData.projects).toHaveLength(1);
   });
 
   it('returns null for empty string', () => {
@@ -117,7 +121,51 @@ describe('parseImportedData', () => {
     const original = makeValidExport();
     const json = JSON.stringify(original, null, 2);
     const parsed = parseImportedData(json);
-    expect(parsed).toEqual(original);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.appData).toEqual(original);
+  });
+
+  it('imports snapshots when present in the file', () => {
+    const data = {
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      snapshots: [{
+        id: 'snap1',
+        projectId: '1',
+        timestamp: '2026-01-15T10:00:00.000Z',
+        name: 'Sprint 1 Review',
+        releases: [{
+          id: 'r1',
+          projectId: '1',
+          name: 'Release 1.0',
+          startDate: '2026-01-01',
+          earlyFinishDate: '2026-02-01',
+          lateFinishDate: '2026-03-01',
+        }],
+      }],
+    };
+    const json = JSON.stringify(data);
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.snapshots).toHaveLength(1);
+    expect(result!.snapshots![0].name).toBe('Sprint 1 Review');
+  });
+
+  it('silently skips invalid snapshots without rejecting the import', () => {
+    const data = {
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      snapshots: [
+        { id: 'snap1', projectId: '1', timestamp: '2026-01-15T10:00:00.000Z', name: 'Valid', releases: [] },
+        { id: 123, name: 'Invalid — missing fields' },
+        'not an object',
+      ],
+    };
+    const json = JSON.stringify(data);
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.snapshots).toHaveLength(1);
+    expect(result!.snapshots![0].name).toBe('Valid');
   });
 
   it('rejects projects missing required id field', () => {

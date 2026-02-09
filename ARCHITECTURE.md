@@ -21,13 +21,14 @@ This document describes the technical architecture of GanttApp, a browser-based 
 ```
 GanttApp/
 ├── pages/
-│   ├── index.tsx              # Main app entry + GanttChart SVG component
+│   ├── index.tsx              # Main app entry + orchestration
 │   ├── _app.tsx               # Next.js app wrapper
 │   └── index-old.tsx          # Pre-refactor backup (reference only)
 │
 ├── src/
 │   ├── context/
-│   │   └── AppDataContext.tsx # Global state provider + localStorage sync
+│   │   ├── AppDataContext.tsx  # Global state provider + localStorage sync
+│   │   └── ThemeContext.tsx    # Dark mode theme provider
 │   │
 │   ├── features/              # Feature-based modules
 │   │   ├── about/
@@ -35,6 +36,12 @@ GanttApp/
 │   │   ├── changelog/
 │   │   │   └── ChangelogTab.tsx
 │   │   ├── chart/
+│   │   │   ├── GanttChart.tsx        # SVG chart component
+│   │   │   ├── ChartLegend.tsx       # Legend with editable labels
+│   │   │   ├── ChartSettings.tsx     # Display/color settings panel
+│   │   │   ├── SnapshotBar.tsx       # Snapshot chip navigation bar
+│   │   │   ├── useSnapshots.ts       # Snapshot state management hook
+│   │   │   ├── useChartEditing.ts    # Inline editing state hook
 │   │   │   └── useChartCalculations.ts
 │   │   ├── projects/
 │   │   │   ├── ProjectsTab.tsx
@@ -51,23 +58,30 @@ GanttApp/
 │   │   │   │   ├── PresetButtonGroup.tsx
 │   │   │   │   └── index.ts
 │   │   │   ├── DragHandle.tsx
+│   │   │   ├── InlineDateEditor.tsx
+│   │   │   ├── InlineTextEditor.tsx
 │   │   │   └── Tabs.tsx
 │   │   ├── hooks/
-│   │   │   └── useDragAndDrop.ts
+│   │   │   ├── useDragAndDrop.ts
+│   │   │   └── useKeyboardShortcuts.ts
 │   │   ├── types/
 │   │   │   ├── models.ts      # Core data models (Project, Release, etc.)
 │   │   │   ├── app.ts         # App-level types (AppData, TabType)
+│   │   │   ├── snapshots.ts   # Snapshot type definition
 │   │   │   └── index.ts       # Re-exports
 │   │   └── utils/
 │   │       ├── colors.ts      # Color constants, presets, defaults
 │   │       ├── dates.ts       # Date parsing, formatting, ID generation
 │   │       ├── export.ts      # JSON export/import with sanitization
+│   │       ├── snapshots.ts   # Snapshot CRUD, validation, localStorage
 │   │       ├── storage.ts     # localStorage wrapper with validation
+│   │       ├── theme.ts       # Theme color constants
 │   │       ├── validation.ts  # Input validation + security sanitization
 │   │       └── index.ts       # Re-exports
 │   │
 │   └── test/
-│       └── setup.ts           # Test configuration
+│       ├── setup.ts           # Test configuration
+│       └── ThemeWrapper.tsx    # Test utility for themed components
 │
 ├── styles/
 │   └── globals.css            # Global styles + date input styling
@@ -89,30 +103,31 @@ GanttApp/
 │                        Browser                                   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                   localStorage                            │   │
-│  │                   Key: "ganttAppData"                     │   │
-│  │                   Value: JSON (AppData)                   │   │
+│  │  Key: "ganttAppData"    → JSON (AppData)                 │   │
+│  │  Key: "ganttAppSnapshots" → JSON (Snapshot[])            │   │
+│  │  Key: "gantt-theme"     → "light" | "dark" | "system"   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │         ▲                                      │                 │
-│         │ saveData()                           │ loadData()      │
+│         │ save                                 │ load            │
 │         │                                      ▼                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │              AppDataContext (Provider)                    │   │
-│  │  ┌─────────────────────────────────────────────────┐    │   │
-│  │  │  State:                                          │    │   │
-│  │  │  - data: AppData (projects, releases)            │    │   │
-│  │  │  - chartColors, displaySettings                  │    │   │
-│  │  │  - legendLabels, toggles                         │    │   │
-│  │  └─────────────────────────────────────────────────┘    │   │
+│  │  State: data, chartColors, displaySettings,              │   │
+│  │         legendLabels, toggles, preparedBy                │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │         │                                                        │
 │         │ useAppData() hook                                      │
 │         ▼                                                        │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Feature Components                           │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │   │
-│  │  │ProjectsTab│ │ReleasesTab│ │GanttChart│ │ AboutTab │   │   │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │   │
+│  │  index.tsx (Orchestration)                                │   │
+│  │  - useSnapshots() → effective props (live vs snapshot)   │   │
+│  │  - useChartEditing() → inline edit state                 │   │
 │  └─────────────────────────────────────────────────────────┘   │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│  │ProjectsTab│ │ReleasesTab│ │GanttChart│ │ AboutTab │          │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -138,6 +153,19 @@ interface Release {
   completed?: boolean;         // Render in green
 }
 
+// Snapshot - frozen historical release plan record (v7.0)
+interface Snapshot {
+  id: string;                  // Unique ID
+  projectId: string;           // Which project this belongs to
+  timestamp: string;           // ISO 8601 — frozen as Date Prepared
+  name: string;                // User label or auto-generated date
+  releases: Release[];         // Deep copy of releases at snapshot time
+  projectFinishDate?: string;
+  chartColors?: ChartColors;
+  legendLabels?: { solidBar: string; hatchedBar: string; finishDateLine?: string };
+  preparedBy?: string;
+}
+
 // Chart color customization
 interface ChartColors {
   solidBar: string;      // Hex color for solid bar
@@ -152,6 +180,8 @@ interface ChartDisplaySettings {
   dateLabelFontSize: '11' | '13' | '15';
   dateLabelColor: '#999' | '#666' | '#333' | '#000';
   verticalLineWidth: '2' | '3' | '4';
+  barHeight: '30' | '40' | '50';
+  rowSpacing: '20' | '25' | '30';
 }
 
 // Top-level app data structure
@@ -167,7 +197,56 @@ interface AppData {
   };
   showFinishDateLine?: boolean;
   chartDisplaySettings?: ChartDisplaySettings;
+  preparedBy?: string;
+  showPreparedBy?: boolean;
 }
+```
+
+## Snapshot Architecture (v7.0)
+
+Snapshots provide read-only historical records of release plans, stored separately from live data.
+
+### Storage Isolation
+
+| Key | Content | Purpose |
+|-----|---------|---------|
+| `ganttAppData` | AppData (live) | Current projects, releases, settings |
+| `ganttAppSnapshots` | Snapshot[] | All historical snapshots across projects |
+| `gantt-theme` | Theme preference | Light/dark/system |
+
+### Effective Props Pattern
+
+`index.tsx` computes "effective" props depending on whether a snapshot is active:
+
+```
+effectiveReleases  = activeSnapshot?.releases         ?? visibleReleases
+effectiveColors    = activeSnapshot?.chartColors       ?? chartColors
+effectiveLabels    = activeSnapshot?.legendLabels      ?? currentLabels
+effectivePreparedBy = activeSnapshot?.preparedBy       ?? preparedBy
+effectiveFinishDate = activeSnapshot?.projectFinishDate ?? project.finishDate
+datePreparedOverride = activeSnapshot ? formatTimestamp(snapshot.timestamp) : undefined
+readOnly            = isViewingSnapshot
+```
+
+GanttChart receives the same props regardless of data source. It does not know whether data comes from live state or a snapshot.
+
+### Read-Only Mode
+
+When `readOnly=true`:
+- All inline editing disabled (release names, dates, legend labels)
+- Cursor changes from pointer to default on editable elements
+- Read-only banner displayed below the chart (not above, to prevent layout shift)
+- Chart Settings remain functional (display settings are view preferences, not data)
+
+### Snapshot Lifecycle
+
+```
+Save: Current view → window.prompt() → structuredClone(releases) → addSnapshot() → localStorage
+View: Click chip → setActiveSnapshotId → effective props swap → chart re-renders
+Delete: Click trash → window.confirm() → deleteSnapshot() → reset to Current
+Cascade: Delete project → deleteSnapshotsForProject() → all project snapshots removed
+Export: loadSnapshots() → included in JSON alongside AppData
+Import: parseImportedData() → validateSnapshot() each → saveSnapshots()
 ```
 
 ## Security Architecture
@@ -215,9 +294,17 @@ User Input / Import File
 
 | Limit | Value | Purpose |
 |-------|-------|---------|
-| MAX_FILE_SIZE | 1MB | Prevent DoS via large files |
+| MAX_FILE_SIZE | 2MB | Prevent DoS via large files |
 | MAX_PROJECTS | 50 | Prevent array exhaustion |
 | MAX_RELEASES | 500 | Prevent array exhaustion |
+| MAX_SNAPSHOTS | 100 | Prevent snapshot accumulation |
+
+### Snapshot Storage Limits (snapshots.ts)
+
+| Limit | Value | Purpose |
+|-------|-------|---------|
+| MAX_SNAPSHOTS_TOTAL | 100 | Cap total snapshots across all projects |
+| MAX_SNAPSHOTS_PER_PROJECT | 50 | Prevent per-project bloat |
 
 ## Component Architecture
 
@@ -227,11 +314,15 @@ User Input / Import File
 index.tsx (AppContent)
 ├── Tabs (navigation)
 ├── ProjectsTab
-│   └── useProjects (CRUD hook)
+│   └── useProjects (CRUD hook + cascade snapshot delete)
 ├── ReleasesTab
 │   └── useReleases (CRUD hook)
-├── GanttChart (inline)
-│   └── useChartCalculations
+├── GanttChart
+│   ├── SnapshotBar (chip navigation)
+│   ├── SVG chart (bars, gridlines, labels)
+│   ├── ChartLegend (editable labels)
+│   ├── Read-only banner (snapshot view)
+│   └── ChartSettings (display/color options)
 ├── AboutTab
 └── ChangelogTab
 ```
@@ -239,22 +330,24 @@ index.tsx (AppContent)
 ### State Management Pattern
 
 1. **Global State**: `AppDataContext` provides data and updaters
-2. **Feature Hooks**: `useProjects`, `useReleases` encapsulate CRUD logic
-3. **Local State**: Component-specific UI state (form fields, toggles)
-4. **Persistence**: Automatic localStorage sync on every `updateData()` call
+2. **Feature Hooks**: `useProjects`, `useReleases`, `useSnapshots` encapsulate CRUD logic
+3. **Editing Hook**: `useChartEditing` manages inline edit state for names, dates, labels
+4. **Local State**: Component-specific UI state (form fields, toggles)
+5. **Persistence**: Automatic localStorage sync on every `updateData()` call
+6. **Snapshot Storage**: Independent localStorage key managed by `useSnapshots` hook
 
 ## Chart Rendering
 
 The GanttChart component renders an SVG with:
 
 1. **Quarterly gridlines** - Dashed vertical lines at Q2, Q3, Q4 boundaries
-2. **Year labels** - Year numbers at top of chart
+2. **Year labels** - Year numbers at top of chart (quarter labels suppressed when too close)
 3. **Release bars** - For each visible release:
    - Solid bar: startDate → earlyFinishDate
    - Hatched bar: earlyFinishDate → lateFinishDate (SVG pattern fill)
    - Date labels below bars (with collision detection)
 4. **Vertical lines** - Today's date, project finish date (configurable)
-5. **Legend** - Editable labels for bar types
+5. **Legend** - Editable labels for bar types (disabled in read-only mode)
 
 ### SVG Pattern for Hatching
 
@@ -270,10 +363,10 @@ The GanttChart component renders an SVG with:
 
 ## Testing Strategy
 
-- **Unit Tests**: Utility functions (validation, dates, colors, export)
-- **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases)
+- **Unit Tests**: Utility functions (validation, dates, colors, export, snapshots)
+- **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases, useChartEditing)
 - **Component Tests**: UI components with React Testing Library
-- **288 total tests** across 19 test files
+- **322 total tests** across 22 test files
 
 ## Build & Deployment
 
@@ -293,3 +386,5 @@ npm test         # Vitest test runner
 3. **Inline SVG over chart library** - Full control, smaller bundle
 4. **Feature modules** - Scales well, reduces cognitive load
 5. **Defense-in-depth** - Validate on input, sanitize on load, whitelist settings
+6. **Separate snapshot storage** - Isolates historical data from live data, prevents corruption risk
+7. **Effective props pattern** - Chart component is data-source agnostic (live vs snapshot)

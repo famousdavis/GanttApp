@@ -31,8 +31,32 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 6.1 */}
+      {/* Version 7.0 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 7.0
+          <span style={dateStyle}>February 9, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Release Plan Snapshots</strong> — save read-only historical records of your release plan after each sprint review</li>
+          <li>Chip navigation bar above the chart to toggle between Current and saved snapshots</li>
+          <li>One-click snapshot creation with optional custom name (defaults to today&apos;s date)</li>
+          <li>Snapshots capture releases, chart colors, legend labels, project finish date, and Prepared By</li>
+          <li>Historical snapshots are fully read-only — inline editing of names, dates, and legend labels is disabled</li>
+          <li>Date Prepared is frozen to the snapshot timestamp for historical accuracy</li>
+          <li>Read-only banner appears below the chart to avoid layout shift when toggling</li>
+          <li>Delete old snapshots you no longer need (with confirmation)</li>
+          <li>Snapshots cascade-delete when their parent project is deleted</li>
+          <li>Export/Import now includes snapshots — share full history via JSON</li>
+          <li>Snapshots stored in separate localStorage key for data isolation</li>
+          <li>Added Prepared By field in Chart Settings with show/hide toggle</li>
+          <li>Security: full validation and sanitization for all snapshot data on load and import</li>
+          <li>Limits: 100 total snapshots, 50 per project, 2MB storage cap</li>
+        </ul>
+      </div>
+
+      {/* Version 6.1 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 6.1
           <span style={dateStyle}>February 7, 2026</span>

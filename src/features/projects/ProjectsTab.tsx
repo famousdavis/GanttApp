@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
 import { isProjectNameValid } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
+import { saveSnapshots as saveAllSnapshots, loadSnapshots } from '../../shared/utils/snapshots';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { TabType } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
@@ -46,7 +47,8 @@ export function ProjectsTab({
   } = useProjects();
 
   const handleExport = () => {
-    exportDataUtil(data);
+    const allSnapshots = loadSnapshots();
+    exportDataUtil(data, allSnapshots);
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,11 +60,16 @@ export function ProjectsTab({
       const imported = parseImportedData(content);
 
       if (imported) {
-        updateData(imported);
-        if (imported.projects.length > 0) {
-          setSelectedProjectId(imported.projects[0].id);
+        updateData(imported.appData);
+        // Import snapshots if present
+        if (imported.snapshots && imported.snapshots.length > 0) {
+          saveAllSnapshots(imported.snapshots);
         }
-        alert('Data imported successfully!');
+        if (imported.appData.projects.length > 0) {
+          setSelectedProjectId(imported.appData.projects[0].id);
+        }
+        const snapshotMsg = imported.snapshots ? ` (including ${imported.snapshots.length} snapshot${imported.snapshots.length !== 1 ? 's' : ''})` : '';
+        alert(`Data imported successfully!${snapshotMsg}`);
       } else {
         alert('Invalid file format');
       }

@@ -1,0 +1,120 @@
+// Hook for managing snapshot state in the Gantt chart
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Snapshot } from '../../shared/types';
+import {
+  loadSnapshots,
+  saveSnapshots as saveAllSnapshots,
+  addSnapshot as addSnapshotToStorage,
+  deleteSnapshot as deleteSnapshotFromStorage,
+  getSnapshotsForProject
+} from '../../shared/utils/snapshots';
+import { generateId, getTodayFormatted } from '../../shared/utils/dates';
+import { Release, ChartColors } from '../../shared/types';
+
+interface SaveSnapshotParams {
+  releases: Release[];
+  projectFinishDate?: string;
+  chartColors: ChartColors;
+  legendLabels: { solidBar: string; hatchedBar: string; finishDateLine?: string };
+  preparedBy: string;
+}
+
+export function useSnapshots(selectedProjectId: string) {
+  const [allSnapshots, setAllSnapshots] = useState<Snapshot[]>([]);
+  const [activeSnapshotId, setActiveSnapshotId] = useState<string | null>(null);
+
+  // Load snapshots on mount
+  useEffect(() => {
+    setAllSnapshots(loadSnapshots());
+  }, []);
+
+  // Reset to Current view when project changes
+  useEffect(() => {
+    setActiveSnapshotId(null);
+  }, [selectedProjectId]);
+
+  // Snapshots for the current project, sorted by timestamp ascending
+  const snapshots = useMemo(
+    () => getSnapshotsForProject(allSnapshots, selectedProjectId),
+    [allSnapshots, selectedProjectId]
+  );
+
+  // The active snapshot object (or null for Current view)
+  const activeSnapshot = useMemo(
+    () => activeSnapshotId ? snapshots.find(s => s.id === activeSnapshotId) ?? null : null,
+    [snapshots, activeSnapshotId]
+  );
+
+  const isViewingSnapshot = activeSnapshot !== null;
+
+  // If active snapshot was deleted externally, reset to Current
+  useEffect(() => {
+    if (activeSnapshotId && !snapshots.some(s => s.id === activeSnapshotId)) {
+      setActiveSnapshotId(null);
+    }
+  }, [snapshots, activeSnapshotId]);
+
+  // Save a new snapshot
+  const saveSnapshot = useCallback((params: SaveSnapshotParams) => {
+    const defaultName = getTodayFormatted();
+    const userInput = window.prompt('Enter a name for this snapshot (optional):', defaultName);
+
+    // User clicked Cancel
+    if (userInput === null) return;
+
+    const snapshot: Snapshot = {
+      id: generateId(),
+      projectId: selectedProjectId,
+      timestamp: new Date().toISOString(),
+      name: userInput.trim() || defaultName,
+      releases: structuredClone(params.releases),
+      projectFinishDate: params.projectFinishDate,
+      chartColors: structuredClone(params.chartColors),
+      legendLabels: { ...params.legendLabels },
+      preparedBy: params.preparedBy
+    };
+
+    const result = addSnapshotToStorage(snapshot);
+    if (result === null) {
+      alert('Snapshot limit reached. Delete old snapshots to save new ones.');
+    } else {
+      setAllSnapshots(result);
+    }
+  }, [selectedProjectId]);
+
+  // Delete a snapshot
+  const handleDeleteSnapshot = useCallback((snapshotId: string) => {
+    const snap = allSnapshots.find(s => s.id === snapshotId);
+    const label = snap ? `"${snap.name}"` : 'this snapshot';
+    const dateStr = snap ? new Date(snap.timestamp).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    }) : '';
+
+    if (!window.confirm(`Delete snapshot ${label}${dateStr ? ` (${dateStr})` : ''}?`)) {
+      return;
+    }
+
+    const updated = deleteSnapshotFromStorage(snapshotId);
+    setAllSnapshots(updated);
+    setActiveSnapshotId(null);
+  }, [allSnapshots]);
+
+  // For export: expose the raw setter so import can replace all snapshots
+  const replaceAllSnapshots = useCallback((snapshots: Snapshot[]) => {
+    saveAllSnapshots(snapshots);
+    setAllSnapshots(snapshots);
+  }, []);
+
+  return {
+    snapshots,
+    activeSnapshotId,
+    activeSnapshot,
+    isViewingSnapshot,
+    setActiveSnapshotId,
+    saveSnapshot,
+    deleteSnapshot: handleDeleteSnapshot,
+    allSnapshots,
+    replaceAllSnapshots
+  };
+}

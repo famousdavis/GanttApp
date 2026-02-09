@@ -11,6 +11,7 @@ import { AboutTab } from '../src/features/about/AboutTab';
 import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
 import { GanttChart } from '../src/features/chart/GanttChart';
 import { useChartEditing } from '../src/features/chart/useChartEditing';
+import { useSnapshots } from '../src/features/chart/useSnapshots';
 
 // Main App Component
 function AppContent() {
@@ -55,6 +56,9 @@ function AppContent() {
 
   // Chart editing state (legend labels, release names, dates)
   const chartEditing = useChartEditing();
+
+  // Snapshot state
+  const snapshotState = useSnapshots(selectedProjectId);
 
   // Update chart colors and preset
   const updateChartColors = (colors: ChartColors, presetName?: string) => {
@@ -116,6 +120,29 @@ function AppContent() {
   const visibleReleases = currentReleases.filter(r => !r.hidden);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
 
+  // Compute effective props: snapshot data takes precedence when viewing a snapshot
+  const { activeSnapshot, isViewingSnapshot } = snapshotState;
+
+  const effectiveReleases = activeSnapshot?.releases ?? visibleReleases;
+  const effectiveColors = activeSnapshot?.chartColors ?? chartColors;
+  const effectiveLabels = activeSnapshot?.legendLabels ?? { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel };
+  const effectivePreparedBy = activeSnapshot?.preparedBy ?? preparedBy;
+  const effectiveFinishDate = activeSnapshot?.projectFinishDate ?? selectedProject?.finishDate;
+  const datePreparedOverride = activeSnapshot
+    ? new Date(activeSnapshot.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : undefined;
+
+  // Save snapshot callback — passes current chart state to the hook
+  const handleSaveSnapshot = useCallback(() => {
+    snapshotState.saveSnapshot({
+      releases: visibleReleases,
+      projectFinishDate: selectedProject?.finishDate,
+      chartColors,
+      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel },
+      preparedBy
+    });
+  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, preparedBy]);
+
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'about'], []);
   const shortcuts = useMemo(() => ({
@@ -158,7 +185,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 6.0</title>
+        <title>GanttApp - Version 7.0</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -174,7 +201,7 @@ function AppContent() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
-            }}>GanttApp</h1>
+            }}>GanttApp<sup style={{ fontSize: '0.45em', color: '#aaa', WebkitTextFillColor: '#aaa', fontWeight: 400 }}>TM</sup></h1>
             <p style={{ color: colors.textSecondary, fontSize: '0.875rem', fontStyle: 'italic' }}>
               Visualize release date uncertainty in your project timeline
             </p>
@@ -224,13 +251,13 @@ function AppContent() {
 
           {activeTab === 'chart' && selectedProject && (
             <GanttChart
-              releases={visibleReleases}
+              releases={effectiveReleases}
               projectName={selectedProject.name}
-              projectFinishDate={selectedProject.finishDate}
+              projectFinishDate={effectiveFinishDate}
               projects={data.projects}
               selectedProjectId={selectedProjectId}
               setSelectedProjectId={setSelectedProjectId}
-              chartColors={chartColors}
+              chartColors={effectiveColors}
               onColorsChange={updateChartColors}
               activePreset={activePreset}
               showColorSettings={showColorSettings}
@@ -239,9 +266,9 @@ function AppContent() {
               setShowTodayLine={setShowTodayLine}
               showFinishDateLine={showFinishDateLine}
               setShowFinishDateLine={setShowFinishDateLine}
-              solidBarLabel={solidBarLabel}
-              hatchedBarLabel={hatchedBarLabel}
-              finishDateLabel={finishDateLabel}
+              solidBarLabel={effectiveLabels.solidBar}
+              hatchedBarLabel={effectiveLabels.hatchedBar}
+              finishDateLabel={effectiveLabels.finishDateLine ?? finishDateLabel}
               editingLegendLabel={chartEditing.editingLegendLabel}
               tempLabelValue={chartEditing.tempLabelValue}
               onStartEditLabel={chartEditing.startEditLabel}
@@ -263,10 +290,17 @@ function AppContent() {
               onCancelDateEdit={chartEditing.cancelDateEdit}
               onTempDateChange={chartEditing.setTempDateValue}
               dateEditError={chartEditing.dateEditError}
-              preparedBy={preparedBy}
+              preparedBy={effectivePreparedBy}
               setPreparedBy={setPreparedBy}
               showPreparedBy={showPreparedBy}
               setShowPreparedBy={setShowPreparedBy}
+              readOnly={isViewingSnapshot}
+              datePreparedOverride={datePreparedOverride}
+              snapshots={snapshotState.snapshots}
+              activeSnapshotId={snapshotState.activeSnapshotId}
+              onSelectSnapshot={snapshotState.setActiveSnapshotId}
+              onSaveSnapshot={handleSaveSnapshot}
+              onDeleteSnapshot={snapshotState.deleteSnapshot}
             />
           )}
 
@@ -295,7 +329,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 6.1
+            Version 7.0
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

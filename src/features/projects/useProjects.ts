@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Project } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
 import { generateId } from '../../shared/utils';
+import { deleteSnapshotsForProject } from '../../shared/utils/snapshots';
 
 export function useProjects() {
   const { data, updateData } = useAppData();
@@ -52,6 +53,8 @@ export function useProjects() {
       releases: data.releases.filter(r => r.projectId !== id)
     };
     updateData(newData);
+    // Cascade delete: remove all snapshots for this project
+    deleteSnapshotsForProject(id);
     if (selectedProjectId === id) {
       const remaining = data.projects.filter(p => p.id !== id);
       setSelectedProjectId(remaining.length > 0 ? remaining[0].id : '');

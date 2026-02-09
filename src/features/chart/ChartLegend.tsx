@@ -18,6 +18,7 @@ interface ChartLegendProps {
   onSaveLabelEdit: () => void;
   onCancelLabelEdit: () => void;
   onTempLabelChange: (value: string) => void;
+  readOnly?: boolean;
 }
 
 function EditableLabelInput({
@@ -73,7 +74,8 @@ export function ChartLegend({
   onStartEditLabel,
   onSaveLabelEdit,
   onCancelLabelEdit,
-  onTempLabelChange
+  onTempLabelChange,
+  readOnly = false
 }: ChartLegendProps) {
   return (
     <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
@@ -88,7 +90,11 @@ export function ChartLegend({
             onCancel={onCancelLabelEdit}
           />
         ) : (
-          <span onClick={() => onStartEditLabel('solid')} style={{ cursor: 'pointer' }} title="Click to edit">
+          <span
+            onClick={readOnly ? undefined : () => onStartEditLabel('solid')}
+            style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            title={readOnly ? undefined : 'Click to edit'}
+          >
             {solidBarLabel}
           </span>
         )}
@@ -112,7 +118,11 @@ export function ChartLegend({
             onCancel={onCancelLabelEdit}
           />
         ) : (
-          <span onClick={() => onStartEditLabel('hatched')} style={{ cursor: 'pointer' }} title="Click to edit">
+          <span
+            onClick={readOnly ? undefined : () => onStartEditLabel('hatched')}
+            style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            title={readOnly ? undefined : 'Click to edit'}
+          >
             {hatchedBarLabel}
           </span>
         )}
@@ -148,7 +158,11 @@ export function ChartLegend({
               onCancel={onCancelLabelEdit}
             />
           ) : (
-            <span onClick={() => onStartEditLabel('finishDate')} style={{ cursor: 'pointer' }} title="Click to edit">
+            <span
+              onClick={readOnly ? undefined : () => onStartEditLabel('finishDate')}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
+              title={readOnly ? undefined : 'Click to edit'}
+            >
               {finishDateLabel}
             </span>
           )}

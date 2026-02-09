@@ -1,7 +1,7 @@
 // Gantt Chart SVG component with inline editing support
 
 import { useState, useRef } from 'react';
-import { Project, Release, ChartColors, ChartDisplaySettings } from '../../shared/types';
+import { Project, Release, ChartColors, ChartDisplaySettings, Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { formatDateShort, getTodayString, getTodayFormatted, parseDateLocal, getQuarterBoundaries } from '../../shared/utils/dates';
 import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
@@ -9,6 +9,7 @@ import { InlineDateEditor } from '../../shared/components/InlineDateEditor';
 import { InlineTextEditor } from '../../shared/components/InlineTextEditor';
 import { ChartLegend } from './ChartLegend';
 import { ChartSettings } from './ChartSettings';
+import { SnapshotBar } from './SnapshotBar';
 import { DateType, LegendLabelType } from './useChartEditing';
 
 interface GanttChartProps {
@@ -55,6 +56,14 @@ interface GanttChartProps {
   setPreparedBy: (name: string) => void;
   showPreparedBy: boolean;
   setShowPreparedBy: (show: boolean) => void;
+  // Snapshot props
+  readOnly?: boolean;
+  datePreparedOverride?: string;
+  snapshots: Snapshot[];
+  activeSnapshotId: string | null;
+  onSelectSnapshot: (id: string | null) => void;
+  onSaveSnapshot: () => void;
+  onDeleteSnapshot: (id: string) => void;
 }
 
 export function GanttChart({
@@ -99,14 +108,32 @@ export function GanttChart({
   preparedBy,
   setPreparedBy,
   showPreparedBy,
-  setShowPreparedBy
+  setShowPreparedBy,
+  readOnly = false,
+  datePreparedOverride,
+  snapshots,
+  activeSnapshotId,
+  onSelectSnapshot,
+  onSaveSnapshot,
+  onDeleteSnapshot
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
   const { colors } = useTheme();
 
   if (releases.length === 0) {
-    return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases to display.</p>;
+    return (
+      <div>
+        <SnapshotBar
+          snapshots={snapshots}
+          activeSnapshotId={activeSnapshotId}
+          onSelectSnapshot={onSelectSnapshot}
+          onSaveSnapshot={onSaveSnapshot}
+          onDeleteSnapshot={onDeleteSnapshot}
+        />
+        <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases to display.</p>
+      </div>
+    );
   }
 
   // Calculate date range
@@ -198,6 +225,15 @@ export function GanttChart({
 
   return (
     <div>
+      {/* Snapshot navigation bar */}
+      <SnapshotBar
+        snapshots={snapshots}
+        activeSnapshotId={activeSnapshotId}
+        onSelectSnapshot={onSelectSnapshot}
+        onSaveSnapshot={onSaveSnapshot}
+        onDeleteSnapshot={onDeleteSnapshot}
+      />
+
       <div ref={chartRef}>
         {/* Chart header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
@@ -230,7 +266,7 @@ export function GanttChart({
               </div>
             )}
             <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
-              Date Prepared: {getTodayFormatted()}
+              Date Prepared: {datePreparedOverride || getTodayFormatted()}
             </div>
             <button
               className="copy-image-button"
@@ -340,7 +376,7 @@ export function GanttChart({
               return (
                 <g key={release.id}>
                   {/* Release name */}
-                  {editingReleaseId === release.id ? (
+                  {!readOnly && editingReleaseId === release.id ? (
                     <foreignObject x={10} y={y + barHeight / 2 - 12} width={270} height={24}>
                       <InlineTextEditor
                         value={tempReleaseName}
@@ -355,8 +391,8 @@ export function GanttChart({
                       x={10} y={y + barHeight / 2}
                       fontSize={displaySettings.releaseNameFontSize} fill="#333" fontWeight="600"
                       textAnchor="start" dominantBaseline="middle"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => onStartEditReleaseName(release.id, release.name)}
+                      style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                      onClick={readOnly ? undefined : () => onStartEditReleaseName(release.id, release.name)}
                     >
                       {release.name}
                     </text>
@@ -380,7 +416,7 @@ export function GanttChart({
                   />
 
                   {/* Start date label */}
-                  {editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'start' ? (
+                  {!readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'start' ? (
                     <foreignObject x={startX - 70} y={y + barHeight + 2} width={140} height={28}>
                       <InlineDateEditor
                         value={tempDateValue}
@@ -394,8 +430,8 @@ export function GanttChart({
                     <text
                       x={startX} y={y + barHeight + 15}
                       fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                      textAnchor="middle" style={{ cursor: 'pointer' }}
-                      onClick={() => onStartEditDate(release.id, 'start', release.startDate)}
+                      textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                      onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'start', release.startDate)}
                     >
                       {formatDateShort(release.startDate)}
                     </text>
@@ -403,7 +439,7 @@ export function GanttChart({
 
                   {/* Early finish date label */}
                   {showEarlyLabel && (
-                    editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'early' ? (
+                    !readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'early' ? (
                       <foreignObject x={earlyX - 70} y={y + barHeight + 2} width={140} height={28}>
                         <InlineDateEditor
                           value={tempDateValue}
@@ -417,8 +453,8 @@ export function GanttChart({
                       <text
                         x={earlyX} y={y + barHeight + 15}
                         fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                        textAnchor="middle" style={{ cursor: 'pointer' }}
-                        onClick={() => onStartEditDate(release.id, 'early', release.earlyFinishDate)}
+                        textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                        onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'early', release.earlyFinishDate)}
                       >
                         {formatDateShort(release.earlyFinishDate)}
                       </text>
@@ -426,7 +462,7 @@ export function GanttChart({
                   )}
 
                   {/* Late finish date label */}
-                  {editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'late' ? (
+                  {!readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'late' ? (
                     <foreignObject x={Math.min(lateX - 70, chartWidth - 145)} y={y + barHeight + 2} width={140} height={28}>
                       <InlineDateEditor
                         value={tempDateValue}
@@ -440,8 +476,8 @@ export function GanttChart({
                     <text
                       x={lateX} y={y + barHeight + 15}
                       fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                      textAnchor="middle" style={{ cursor: 'pointer' }}
-                      onClick={() => onStartEditDate(release.id, 'late', release.lateFinishDate)}
+                      textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                      onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'late', release.lateFinishDate)}
                     >
                       {formatDateShort(release.lateFinishDate)}
                     </text>
@@ -468,8 +504,29 @@ export function GanttChart({
           onSaveLabelEdit={onSaveLabelEdit}
           onCancelLabelEdit={onCancelLabelEdit}
           onTempLabelChange={onTempLabelChange}
+          readOnly={readOnly}
         />
       </div>
+
+      {/* Read-only banner when viewing a snapshot — placed below chart so toggling doesn't shift chart position */}
+      {readOnly && activeSnapshotId && (() => {
+        const snap = snapshots.find(s => s.id === activeSnapshotId);
+        if (!snap) return null;
+        const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        return (
+          <div className="copy-image-button" style={{
+            marginTop: '0.75rem',
+            padding: '0.4rem 0.75rem',
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            color: '#856404'
+          }}>
+            Viewing snapshot: {snap.name} ({formatDate(snap.timestamp)}) &mdash; Read Only
+          </div>
+        );
+      })()}
 
       {/* Chart Settings */}
       <ChartSettings

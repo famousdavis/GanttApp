@@ -2,19 +2,30 @@
 
 import { AppData } from '../types/app';
 import { Project, Release, ChartColors, ChartDisplaySettings } from '../types/models';
+import { Snapshot } from '../types/snapshots';
 import { sanitizeString, sanitizeId, sanitizeColor, isValidDateFormat } from './validation';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
+import { validateSnapshot } from './snapshots';
 
 // Maximum limits for imported data to prevent DoS via large files
 const MAX_PROJECTS = 50;
 const MAX_RELEASES = 500;
-const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+const MAX_SNAPSHOTS = 100;
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB (increased for snapshots)
+
+export interface ImportResult {
+  appData: AppData;
+  snapshots?: Snapshot[];
+}
 
 /**
- * Export app data as JSON file download
+ * Export app data as JSON file download, optionally including snapshots
  */
-export function exportData(data: AppData): void {
-  const dataStr = JSON.stringify(data, null, 2);
+export function exportData(data: AppData, snapshots?: Snapshot[]): void {
+  const exportObj = snapshots && snapshots.length > 0
+    ? { ...data, snapshots }
+    : data;
+  const dataStr = JSON.stringify(exportObj, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -85,7 +96,7 @@ function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
  * Returns the imported data if valid, null otherwise
  * Includes security sanitization for all imported values
  */
-export function parseImportedData(fileContent: string): AppData | null {
+export function parseImportedData(fileContent: string): ImportResult | null {
   try {
     // Check file size to prevent DoS
     if (fileContent.length > MAX_FILE_SIZE) {
@@ -233,7 +244,25 @@ export function parseImportedData(fileContent: string): AppData | null {
       sanitizedData.showPreparedBy = imported.showPreparedBy;
     }
 
-    return sanitizedData;
+    // Parse optional snapshots array
+    const result: ImportResult = { appData: sanitizedData };
+
+    if (Array.isArray(imported.snapshots)) {
+      const validatedSnapshots: Snapshot[] = [];
+      const snapshotsToProcess = imported.snapshots.slice(0, MAX_SNAPSHOTS);
+      for (const rawSnapshot of snapshotsToProcess) {
+        const validated = validateSnapshot(rawSnapshot);
+        if (validated) {
+          validatedSnapshots.push(validated);
+        }
+        // Invalid snapshots are silently skipped — don't reject the entire import
+      }
+      if (validatedSnapshots.length > 0) {
+        result.snapshots = validatedSnapshots;
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('Error parsing imported data:', error);
     return null;

@@ -201,7 +201,7 @@ function AppContent() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
-            }}>GanttApp<sup style={{ fontSize: '0.45em', color: '#aaa', WebkitTextFillColor: '#aaa', fontWeight: 400 }}>TM</sup></h1>
+            }}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
             <p style={{ color: colors.textSecondary, fontSize: '0.875rem', fontStyle: 'italic' }}>
               Visualize release date uncertainty in your project timeline
             </p>

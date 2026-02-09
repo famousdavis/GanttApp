@@ -12,7 +12,7 @@ export function AboutTab() {
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Purpose</h3>
         <p style={{ lineHeight: '1.6', color: colors.textSecondary }}>
-          <strong>GanttApp<sup style={{ fontSize: '0.55em', color: '#aaa', fontWeight: 400 }}>TM</sup></strong> helps project managers communicate release uncertainty to stakeholders.
+          <strong>GanttApp<sup style={{ fontSize: '0.2em', color: '#ccc', fontWeight: 300, letterSpacing: '0.05em' }}>TM</sup></strong> helps project managers communicate release uncertainty to stakeholders.
           Traditional Gantt charts show single delivery dates, but real projects have uncertainty.
           GanttApp visualizes this by showing:
         </p>

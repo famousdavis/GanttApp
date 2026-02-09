@@ -225,6 +225,14 @@ export function parseImportedData(fileContent: string): AppData | null {
       sanitizedData.chartDisplaySettings = sanitizeDisplaySettings(imported.chartDisplaySettings);
     }
 
+    // Sanitize optional prepared by
+    if (typeof imported.preparedBy === 'string') {
+      sanitizedData.preparedBy = sanitizeString(imported.preparedBy, 100);
+    }
+    if (typeof imported.showPreparedBy === 'boolean') {
+      sanitizedData.showPreparedBy = imported.showPreparedBy;
+    }
+
     return sanitizedData;
   } catch (error) {
     console.error('Error parsing imported data:', error);

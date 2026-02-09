@@ -127,6 +127,14 @@ function validateLoadedData(data: unknown): AppData | null {
     result.showFinishDateLine = d.showFinishDateLine;
   }
 
+  // Validate optional prepared by
+  if (typeof d.preparedBy === 'string') {
+    result.preparedBy = sanitizeString(d.preparedBy, 100);
+  }
+  if (typeof d.showPreparedBy === 'boolean') {
+    result.showPreparedBy = d.showPreparedBy;
+  }
+
   // Validate optional display settings
   if (d.chartDisplaySettings && typeof d.chartDisplaySettings === 'object') {
     const settings = d.chartDisplaySettings as Record<string, unknown>;

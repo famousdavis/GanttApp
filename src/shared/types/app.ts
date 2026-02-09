@@ -14,6 +14,8 @@ export interface AppData {
   };
   showFinishDateLine?: boolean;
   chartDisplaySettings?: ChartDisplaySettings;
+  preparedBy?: string;
+  showPreparedBy?: boolean;
 }
 
 export type TabType = 'projects' | 'releases' | 'chart' | 'about' | 'changelog';

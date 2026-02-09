@@ -32,6 +32,10 @@ function AppContent() {
     setShowFinishDateLine,
     showColorSettings,
     setShowColorSettings,
+    preparedBy,
+    setPreparedBy,
+    showPreparedBy,
+    setShowPreparedBy,
     updateData
   } = useAppData();
 
@@ -259,6 +263,10 @@ function AppContent() {
               onCancelDateEdit={chartEditing.cancelDateEdit}
               onTempDateChange={chartEditing.setTempDateValue}
               dateEditError={chartEditing.dateEditError}
+              preparedBy={preparedBy}
+              setPreparedBy={setPreparedBy}
+              showPreparedBy={showPreparedBy}
+              setShowPreparedBy={setShowPreparedBy}
             />
           )}
 

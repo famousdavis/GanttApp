@@ -34,6 +34,12 @@ interface AppDataContextType {
   setShowFinishDateLine: (show: boolean) => void;
   showColorSettings: boolean;
   setShowColorSettings: (show: boolean) => void;
+
+  // Prepared By
+  preparedBy: string;
+  setPreparedBy: (name: string) => void;
+  showPreparedBy: boolean;
+  setShowPreparedBy: (show: boolean) => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -56,6 +62,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [showTodayLine, setShowTodayLine] = useState(true);
   const [showFinishDateLine, setShowFinishDateLine] = useState(true);
   const [showColorSettings, setShowColorSettings] = useState(false);
+
+  // Prepared By
+  const [preparedBy, setPreparedBy] = useState('');
+  const [showPreparedBy, setShowPreparedBy] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -93,6 +103,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (loadedData.chartDisplaySettings) {
             setDisplaySettings(loadedData.chartDisplaySettings);
           }
+
+          // Load prepared by settings
+          if (typeof loadedData.preparedBy === 'string') {
+            setPreparedBy(loadedData.preparedBy);
+          }
+          if (loadedData.showPreparedBy !== undefined) {
+            setShowPreparedBy(loadedData.showPreparedBy);
+          }
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -104,7 +122,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     loadDataFromStorage();
   }, []);
 
-  // Save legend labels and display settings to localStorage whenever they change
+  // Save legend labels, display settings, and prepared by to localStorage whenever they change
   useEffect(() => {
     if (!loading) {
       const newData = {
@@ -114,11 +132,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           hatchedBar: hatchedBarLabel,
           finishDateLine: finishDateLabel
         },
-        chartDisplaySettings: displaySettings
+        chartDisplaySettings: displaySettings,
+        preparedBy,
+        showPreparedBy
       };
       saveData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, displaySettings, data, loading]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, displaySettings, preparedBy, showPreparedBy, data, loading]);
 
   // Update data and save to localStorage
   const updateData = (newData: AppData) => {
@@ -148,7 +168,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     showFinishDateLine,
     setShowFinishDateLine,
     showColorSettings,
-    setShowColorSettings
+    setShowColorSettings,
+    preparedBy,
+    setPreparedBy,
+    showPreparedBy,
+    setShowPreparedBy
   };
 
   return <AppDataContext value={value}>{children}</AppDataContext>;

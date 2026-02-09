@@ -18,6 +18,10 @@ interface ChartSettingsProps {
   chartColors: ChartColors;
   onColorsChange: (colors: ChartColors, presetName?: string) => void;
   activePreset?: string;
+  preparedBy: string;
+  setPreparedBy: (name: string) => void;
+  showPreparedBy: boolean;
+  setShowPreparedBy: (show: boolean) => void;
 }
 
 export function ChartSettings({
@@ -32,7 +36,11 @@ export function ChartSettings({
   setDisplaySettings,
   chartColors,
   onColorsChange,
-  activePreset
+  activePreset,
+  preparedBy,
+  setPreparedBy,
+  showPreparedBy,
+  setShowPreparedBy
 }: ChartSettingsProps) {
   const { colors } = useTheme();
 
@@ -76,6 +84,33 @@ export function ChartSettings({
                   <span>Show Project Finish Date</span>
                 </label>
               )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={showPreparedBy}
+                    onChange={(e) => setShowPreparedBy(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Show Prepared By</span>
+                </label>
+                <input
+                  type="text"
+                  value={preparedBy}
+                  onChange={(e) => setPreparedBy(e.target.value)}
+                  placeholder="Enter your name"
+                  maxLength={100}
+                  style={{
+                    padding: '0.3rem 0.5rem',
+                    border: `1px solid ${colors.inputBorder}`,
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    background: colors.inputBg,
+                    color: colors.text,
+                    width: '250px'
+                  }}
+                />
+              </div>
             </div>
           </div>
 

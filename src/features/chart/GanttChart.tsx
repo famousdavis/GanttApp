@@ -51,6 +51,10 @@ interface GanttChartProps {
   onCancelDateEdit: () => void;
   onTempDateChange: (value: string) => void;
   dateEditError: string;
+  preparedBy: string;
+  setPreparedBy: (name: string) => void;
+  showPreparedBy: boolean;
+  setShowPreparedBy: (show: boolean) => void;
 }
 
 export function GanttChart({
@@ -91,7 +95,11 @@ export function GanttChart({
   onSaveDateEdit,
   onCancelDateEdit,
   onTempDateChange,
-  dateEditError
+  dateEditError,
+  preparedBy,
+  setPreparedBy,
+  showPreparedBy,
+  setShowPreparedBy
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -216,6 +224,11 @@ export function GanttChart({
             ))}
           </select>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {showPreparedBy && preparedBy && (
+              <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
+                Prepared By: {preparedBy}
+              </div>
+            )}
             <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
               Date Prepared: {getTodayFormatted()}
             </div>
@@ -472,6 +485,10 @@ export function GanttChart({
         chartColors={chartColors}
         onColorsChange={onColorsChange}
         activePreset={activePreset}
+        preparedBy={preparedBy}
+        setPreparedBy={setPreparedBy}
+        showPreparedBy={showPreparedBy}
+        setShowPreparedBy={setShowPreparedBy}
       />
     </div>
   );

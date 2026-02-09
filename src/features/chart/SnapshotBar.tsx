@@ -41,7 +41,7 @@ export function SnapshotBar({
   };
 
   return (
-    <div className="copy-image-button" style={{ marginBottom: '0.75rem' }}>
+    <div className="copy-image-button" style={{ marginBottom: '0.75rem', height: '2.5rem' }}>
       {/* Navigation chips */}
       <div style={{
         display: 'flex',
@@ -49,8 +49,7 @@ export function SnapshotBar({
         gap: '0.5rem',
         overflowX: 'auto',
         whiteSpace: 'nowrap',
-        paddingBottom: '0.25rem',
-        minHeight: '2rem'
+        height: '2.5rem'
       }}>
         {/* Current chip */}
         <button

@@ -245,28 +245,41 @@ export function GanttChart({
         <div style={{ overflowX: 'hidden', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
           <svg width={chartWidth} height={chartHeight}>
             {/* Quarterly gridlines */}
-            {quarterBoundaries.map((date, i) => {
-              const x = dateToX(date.toISOString().split('T')[0]);
-              const month = date.getMonth();
-              let quarterLabel = '';
-              if (month === 3) quarterLabel = 'Q2';
-              else if (month === 6) quarterLabel = 'Q3';
-              else if (month === 9) quarterLabel = 'Q4';
+            {(() => {
+              // Pre-compute year label positions to avoid quarter/year label overlap
+              const yearLabelPositions = years.map((year, index) => {
+                if (index === 0) return leftMargin + 20;
+                const jan1 = new Date(year, 0, 1).getTime();
+                if (jan1 < minDate || jan1 > maxDate) return null;
+                return dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
+              }).filter((x): x is number => x !== null);
 
-              return (
-                <g key={i}>
-                  <line
-                    x1={x} y1={topMargin} x2={x} y2={chartHeight}
-                    stroke="#c0c0c0" strokeWidth="1" strokeDasharray="4"
-                  />
-                  {quarterLabel && (
-                    <text x={x + 5} y={topMargin - 15} fontSize="14" fill="#999" fontWeight="600" textAnchor="start">
-                      {quarterLabel}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+              return quarterBoundaries.map((date, i) => {
+                const x = dateToX(date.toISOString().split('T')[0]);
+                const month = date.getMonth();
+                let quarterLabel = '';
+                if (month === 3) quarterLabel = 'Q2';
+                else if (month === 6) quarterLabel = 'Q3';
+                else if (month === 9) quarterLabel = 'Q4';
+
+                // Skip quarter label if too close to a year label
+                const tooCloseToYear = quarterLabel && yearLabelPositions.some(yx => Math.abs(x - yx) < 50);
+
+                return (
+                  <g key={i}>
+                    <line
+                      x1={x} y1={topMargin} x2={x} y2={chartHeight}
+                      stroke="#c0c0c0" strokeWidth="1" strokeDasharray="4"
+                    />
+                    {quarterLabel && !tooCloseToYear && (
+                      <text x={x + 5} y={topMargin - 15} fontSize="14" fill="#999" fontWeight="600" textAnchor="start">
+                        {quarterLabel}
+                      </text>
+                    )}
+                  </g>
+                );
+              });
+            })()}
 
             {/* Today's date line */}
             {showTodayLine && todayX && (

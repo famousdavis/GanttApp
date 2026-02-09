@@ -23,7 +23,7 @@ export function SnapshotBar({
 
   const chipStyle = (isActive: boolean) => ({
     padding: '0.35rem 0.75rem',
-    border: isActive ? '2px solid #0070f3' : `1px solid ${colors.borderLight}`,
+    border: `2px solid ${isActive ? '#0070f3' : colors.borderLight}`,
     borderRadius: '20px',
     background: isActive ? '#0070f3' : colors.surface,
     color: isActive ? '#ffffff' : colors.text,
@@ -49,7 +49,8 @@ export function SnapshotBar({
         gap: '0.5rem',
         overflowX: 'auto',
         whiteSpace: 'nowrap',
-        paddingBottom: '0.25rem'
+        paddingBottom: '0.25rem',
+        minHeight: '2rem'
       }}>
         {/* Current chip */}
         <button
@@ -106,14 +107,17 @@ export function SnapshotBar({
           <button
             onClick={() => onDeleteSnapshot(activeSnapshotId)}
             style={{
-              padding: '0.35rem 0.5rem',
+              padding: '0.35rem 0.75rem',
               border: `1px solid ${colors.borderLight}`,
               borderRadius: '20px',
               background: colors.surface,
               color: '#dc3545',
               cursor: 'pointer',
               fontSize: '0.8rem',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: '1.6rem'
             }}
             title="Delete this snapshot"
           >

@@ -1,8 +1,7 @@
 // Snapshot storage utilities for GanttApp
 
 import { Snapshot } from '../types/snapshots';
-import { sanitizeString, sanitizeId, sanitizeColor, isValidDateFormat } from './validation';
-import { DEFAULT_CHART_COLORS } from './colors';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeRelease, sanitizeLegendLabels } from './validation';
 
 const SNAPSHOTS_KEY = 'ganttAppSnapshots';
 const MAX_SNAPSHOTS_TOTAL = 100;
@@ -40,33 +39,9 @@ export function validateSnapshot(data: unknown): Snapshot | null {
   // Sanitize and validate each release
   const validReleases = [];
   for (const r of s.releases) {
-    if (r && typeof r === 'object') {
-      const rel = r as Record<string, unknown>;
-      if (
-        typeof rel.id === 'string' &&
-        typeof rel.projectId === 'string' &&
-        typeof rel.name === 'string' &&
-        typeof rel.startDate === 'string' &&
-        typeof rel.earlyFinishDate === 'string' &&
-        typeof rel.lateFinishDate === 'string' &&
-        isValidDateFormat(rel.startDate) &&
-        isValidDateFormat(rel.earlyFinishDate) &&
-        isValidDateFormat(rel.lateFinishDate)
-      ) {
-        const sanitized = {
-          id: sanitizeId(rel.id),
-          projectId: sanitizeId(rel.projectId),
-          name: sanitizeString(rel.name),
-          startDate: rel.startDate,
-          earlyFinishDate: rel.earlyFinishDate,
-          lateFinishDate: rel.lateFinishDate,
-          ...(typeof rel.hidden === 'boolean' ? { hidden: rel.hidden } : {}),
-          ...(typeof rel.completed === 'boolean' ? { completed: rel.completed } : {})
-        };
-        if (sanitized.id && sanitized.projectId && sanitized.name) {
-          validReleases.push(sanitized);
-        }
-      }
+    const sanitized = sanitizeRelease(r);
+    if (sanitized) {
+      validReleases.push(sanitized);
     }
   }
 
@@ -91,25 +66,12 @@ export function validateSnapshot(data: unknown): Snapshot | null {
 
   // Validate optional chart colors
   if (s.chartColors && typeof s.chartColors === 'object') {
-    const colors = s.chartColors as Record<string, unknown>;
-    snapshot.chartColors = {
-      solidBar: sanitizeColor(colors.solidBar as string, DEFAULT_CHART_COLORS.solidBar),
-      hatchedBar: sanitizeColor(colors.hatchedBar as string, DEFAULT_CHART_COLORS.hatchedBar),
-      todayLine: sanitizeColor(colors.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
-      finishDateLine: sanitizeColor(colors.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine)
-    };
+    snapshot.chartColors = sanitizeChartColors(s.chartColors);
   }
 
   // Validate optional legend labels
   if (s.legendLabels && typeof s.legendLabels === 'object') {
-    const labels = s.legendLabels as Record<string, unknown>;
-    snapshot.legendLabels = {
-      solidBar: typeof labels.solidBar === 'string' ? sanitizeString(labels.solidBar, 50) : 'Design, Code, Test',
-      hatchedBar: typeof labels.hatchedBar === 'string' ? sanitizeString(labels.hatchedBar, 50) : 'Delivery Uncertainty'
-    };
-    if (typeof labels.finishDateLine === 'string') {
-      snapshot.legendLabels.finishDateLine = sanitizeString(labels.finishDateLine, 50);
-    }
+    snapshot.legendLabels = sanitizeLegendLabels(s.legendLabels);
   }
 
   // Validate optional preparedBy

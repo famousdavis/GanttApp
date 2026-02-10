@@ -1,8 +1,9 @@
 // Chart calculation hook for date range, coordinates, and dimensions
 
 import { useMemo } from 'react';
-import { Release } from '../../shared/types';
+import { Release, ChartDisplaySettings } from '../../shared/types';
 import { parseDateLocal, getQuarterBoundaries, getTodayString } from '../../shared/utils';
+import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
 
 export interface ChartDimensions {
   chartWidth: number;
@@ -25,24 +26,35 @@ export interface ChartDateInfo {
   quarterBoundaries: Date[];
 }
 
-const CHART_DIMENSIONS: ChartDimensions = {
-  chartWidth: 900,
-  chartHeight: 0, // Calculated based on releases
-  leftMargin: 230,
-  rightMargin: 30,
-  topMargin: 50,
-  barHeight: 30,
-  rowHeight: 60
-};
+// Fixed chart layout constants
+const CHART_WIDTH = 1100;
+const LEFT_MARGIN = 280;
+const RIGHT_MARGIN = 50;
+const TOP_MARGIN = 50;
+const MIN_LABEL_SPACING = 40;
 
-export function useChartCalculations(releases: Release[], projectFinishDate?: string) {
-  const dimensions: ChartDimensions = useMemo(() => ({
-    ...CHART_DIMENSIONS,
-    chartHeight: releases.length * CHART_DIMENSIONS.rowHeight + 80
-  }), [releases.length]);
+export function useChartCalculations(
+  releases: Release[],
+  displaySettings: ChartDisplaySettings,
+  projectFinishDate?: string
+) {
+  const barHeight = parseInt(displaySettings.barHeight);
+  const rowSpacing = parseInt(displaySettings.rowSpacing);
+
+  const dimensions: ChartDimensions = useMemo(() => {
+    const rowHeight = barHeight + rowSpacing;
+    return {
+      chartWidth: CHART_WIDTH,
+      chartHeight: releases.length * rowHeight + 80,
+      leftMargin: LEFT_MARGIN,
+      rightMargin: RIGHT_MARGIN,
+      topMargin: TOP_MARGIN,
+      barHeight,
+      rowHeight
+    };
+  }, [releases.length, barHeight, rowSpacing]);
 
   const dateInfo: ChartDateInfo = useMemo(() => {
-    // Calculate date range
     const allDates = releases.flatMap(r => [
       parseDateLocal(r.startDate),
       parseDateLocal(r.lateFinishDate)
@@ -56,12 +68,10 @@ export function useChartCalculations(releases: Release[], projectFinishDate?: st
     today.setHours(0, 0, 0, 0);
     const todayTime = today.getTime();
 
-    // Check if today is within the chart range
     const todayInRange = todayTime >= minDate && todayTime <= maxDate;
     const todayString = getTodayString();
     const todayX = todayInRange ? dateToX(todayString, minDate, dateRange, dimensions) : null;
 
-    // Calculate quarter boundaries
     const quarterBoundaries = getQuarterBoundaries(minDate, maxDate);
 
     return {
@@ -88,23 +98,39 @@ export function useChartCalculations(releases: Release[], projectFinishDate?: st
     return { finishDateInRange, finishDateX };
   }, [projectFinishDate, dateInfo.minDate, dateInfo.maxDate, dateInfo.dateRange, dimensions]);
 
-  // Helper function to convert date to X coordinate
   const dateToXHelper = (date: string) => {
     return dateToX(date, dateInfo.minDate, dateInfo.dateRange, dimensions);
+  };
+
+  // Get years spanning the date range
+  const years = useMemo(() => {
+    const startYear = new Date(dateInfo.minDate).getFullYear();
+    const endYear = new Date(dateInfo.maxDate).getFullYear();
+    return Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
+  }, [dateInfo.minDate, dateInfo.maxDate]);
+
+  // Get release colors (completed = green, otherwise chart colors)
+  const getReleaseColors = (release: Release, chartColors: { solidBar: string; hatchedBar: string }) => {
+    if (release.completed) {
+      return COMPLETED_RELEASE_COLORS;
+    }
+    return { solidBar: chartColors.solidBar, hatchedBar: chartColors.hatchedBar };
   };
 
   return {
     dimensions,
     dateInfo,
     finishDateInfo,
-    dateToX: dateToXHelper
+    dateToX: dateToXHelper,
+    years,
+    getReleaseColors,
+    minLabelSpacing: MIN_LABEL_SPACING
   };
 }
 
 // Convert date string to X coordinate
 function dateToX(date: string, minDate: number, dateRange: number, dimensions: ChartDimensions): number {
   if (dateRange === 0) {
-    // All dates are the same; place bar at the center of the drawable area
     return dimensions.leftMargin + (dimensions.chartWidth - dimensions.leftMargin - dimensions.rightMargin) / 2;
   }
   const timestamp = parseDateLocal(date);

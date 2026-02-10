@@ -1,0 +1,154 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ChartLegend } from '../ChartLegend';
+import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../../../shared/utils/colors';
+
+describe('ChartLegend', () => {
+  const defaultProps = {
+    chartColors: DEFAULT_CHART_COLORS,
+    displaySettings: DEFAULT_DISPLAY_SETTINGS,
+    solidBarLabel: 'Design, Code, Test',
+    hatchedBarLabel: 'Delivery Uncertainty',
+    finishDateLabel: 'Project Finish Date',
+    showTodayLine: false,
+    showFinishDateLine: false,
+    hasProjectFinishDate: false,
+    editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | null,
+    tempLabelValue: '',
+    onStartEditLabel: vi.fn(),
+    onSaveLabelEdit: vi.fn(),
+    onCancelLabelEdit: vi.fn(),
+    onTempLabelChange: vi.fn(),
+    readOnly: false
+  };
+
+  it('renders solid bar label', () => {
+    render(<ChartLegend {...defaultProps} />);
+
+    expect(screen.getByText('Design, Code, Test')).toBeInTheDocument();
+  });
+
+  it('renders hatched bar label', () => {
+    render(<ChartLegend {...defaultProps} />);
+
+    expect(screen.getByText('Delivery Uncertainty')).toBeInTheDocument();
+  });
+
+  it('shows Today line legend when showTodayLine is true', () => {
+    render(<ChartLegend {...defaultProps} showTodayLine={true} />);
+
+    expect(screen.getByText(/Today.*Date/)).toBeInTheDocument();
+  });
+
+  it('hides Today line legend when showTodayLine is false', () => {
+    render(<ChartLegend {...defaultProps} showTodayLine={false} />);
+
+    expect(screen.queryByText(/Today.*Date/)).not.toBeInTheDocument();
+  });
+
+  it('shows finish date legend when both toggle and project finish date exist', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showFinishDateLine={true}
+        hasProjectFinishDate={true}
+      />
+    );
+
+    expect(screen.getByText('Project Finish Date')).toBeInTheDocument();
+  });
+
+  it('hides finish date legend when toggle is off', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showFinishDateLine={false}
+        hasProjectFinishDate={true}
+      />
+    );
+
+    expect(screen.queryByText('Project Finish Date')).not.toBeInTheDocument();
+  });
+
+  it('hides finish date legend when no project finish date', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showFinishDateLine={true}
+        hasProjectFinishDate={false}
+      />
+    );
+
+    expect(screen.queryByText('Project Finish Date')).not.toBeInTheDocument();
+  });
+
+  it('calls onStartEditLabel when solid label is clicked', () => {
+    const onStart = vi.fn();
+    render(<ChartLegend {...defaultProps} onStartEditLabel={onStart} />);
+
+    fireEvent.click(screen.getByText('Design, Code, Test'));
+    expect(onStart).toHaveBeenCalledWith('solid');
+  });
+
+  it('calls onStartEditLabel when hatched label is clicked', () => {
+    const onStart = vi.fn();
+    render(<ChartLegend {...defaultProps} onStartEditLabel={onStart} />);
+
+    fireEvent.click(screen.getByText('Delivery Uncertainty'));
+    expect(onStart).toHaveBeenCalledWith('hatched');
+  });
+
+  it('shows edit input when editing solid label', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        editingLegendLabel="solid"
+        tempLabelValue="New Label"
+      />
+    );
+
+    const input = screen.getByDisplayValue('New Label');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('shows edit input when editing hatched label', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        editingLegendLabel="hatched"
+        tempLabelValue="New Hatched"
+      />
+    );
+
+    const input = screen.getByDisplayValue('New Hatched');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('does not allow editing in readOnly mode', () => {
+    const onStart = vi.fn();
+    render(
+      <ChartLegend
+        {...defaultProps}
+        readOnly={true}
+        onStartEditLabel={onStart}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Design, Code, Test'));
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('shows edit input for finish date label when editing', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showFinishDateLine={true}
+        hasProjectFinishDate={true}
+        editingLegendLabel="finishDate"
+        tempLabelValue="Custom Finish"
+      />
+    );
+
+    expect(screen.getByDisplayValue('Custom Finish')).toBeInTheDocument();
+  });
+});

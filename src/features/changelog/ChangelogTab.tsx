@@ -31,8 +31,28 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 7.0 */}
+      {/* Version 7.1 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 7.1
+          <span style={dateStyle}>February 9, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Codebase Refactoring</strong> — improved maintainability, readability, and test coverage with zero functional changes</li>
+          <li>Eliminated ~140 lines of duplicated validation code across storage, export, and snapshot utilities (DRY)</li>
+          <li>Wired up useChartCalculations hook as single source of truth for chart math (fixed stale constants)</li>
+          <li>Reduced GanttChart props from 52 individual to 9 grouped props for cleaner component API</li>
+          <li>Extracted ChartReleaseBar component from GanttChart (120 lines → self-contained, testable component)</li>
+          <li>Extracted useEffectiveChartProps hook for snapshot vs live data resolution</li>
+          <li>Fixed barrel export gap for useKeyboardShortcuts hook</li>
+          <li>Added 66 new tests across 6 new test files: useSnapshots, SnapshotBar, ChartLegend, ChartSettings, ChartReleaseBar, useEffectiveChartProps</li>
+          <li>Test suite expanded from 327 to 393 tests (28 test files)</li>
+          <li>All 393 tests pass, production build succeeds, type-check clean</li>
+        </ul>
+      </div>
+
+      {/* Version 7.0 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 7.0
           <span style={dateStyle}>February 9, 2026</span>

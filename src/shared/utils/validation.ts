@@ -1,6 +1,8 @@
 // Validation utilities for GanttApp
 
+import { Release, ChartColors, ChartDisplaySettings } from '../types/models';
 import { parseDateLocal } from './dates';
+import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
 
 // Security constants
 const MAX_NAME_LENGTH = 100;
@@ -153,4 +155,126 @@ export function getDateErrorMessage(
   }
 
   return '';
+}
+
+// --- Shared sanitization helpers (used by storage.ts, export.ts, snapshots.ts) ---
+
+/**
+ * Valid preset theme names
+ */
+export const VALID_PRESET_NAMES = [
+  'Default', 'Professional', 'Colorful', 'Grayscale', 'High Contrast',
+  'Forest', 'Ocean', 'Sunset', 'Lavender', 'Earth'
+];
+
+/**
+ * Sanitize chart colors from untrusted data
+ */
+export function sanitizeChartColors(colors: unknown): ChartColors {
+  if (!colors || typeof colors !== 'object') {
+    return DEFAULT_CHART_COLORS;
+  }
+  const c = colors as Record<string, unknown>;
+  return {
+    solidBar: sanitizeColor(c.solidBar as string, DEFAULT_CHART_COLORS.solidBar),
+    hatchedBar: sanitizeColor(c.hatchedBar as string, DEFAULT_CHART_COLORS.hatchedBar),
+    todayLine: sanitizeColor(c.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
+    finishDateLine: sanitizeColor(c.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine)
+  };
+}
+
+/**
+ * Sanitize display settings from untrusted data
+ */
+export function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings {
+  if (!settings || typeof settings !== 'object') {
+    return DEFAULT_DISPLAY_SETTINGS;
+  }
+  const s = settings as Record<string, unknown>;
+
+  const validFontSizes = ['14', '16', '18'];
+  const validDateFontSizes = ['11', '13', '15'];
+  const validLabelColors = ['#999', '#666', '#333', '#000'];
+  const validLineWidths = ['2', '3', '4'];
+  const validBarHeights = ['30', '40', '50'];
+  const validRowSpacings = ['20', '25', '30'];
+
+  return {
+    releaseNameFontSize: validFontSizes.includes(s.releaseNameFontSize as string)
+      ? s.releaseNameFontSize as '14' | '16' | '18'
+      : DEFAULT_DISPLAY_SETTINGS.releaseNameFontSize,
+    dateLabelFontSize: validDateFontSizes.includes(s.dateLabelFontSize as string)
+      ? s.dateLabelFontSize as '11' | '13' | '15'
+      : DEFAULT_DISPLAY_SETTINGS.dateLabelFontSize,
+    dateLabelColor: validLabelColors.includes(s.dateLabelColor as string)
+      ? s.dateLabelColor as '#999' | '#666' | '#333' | '#000'
+      : DEFAULT_DISPLAY_SETTINGS.dateLabelColor,
+    verticalLineWidth: validLineWidths.includes(s.verticalLineWidth as string)
+      ? s.verticalLineWidth as '2' | '3' | '4'
+      : DEFAULT_DISPLAY_SETTINGS.verticalLineWidth,
+    barHeight: validBarHeights.includes(s.barHeight as string)
+      ? s.barHeight as '30' | '40' | '50'
+      : DEFAULT_DISPLAY_SETTINGS.barHeight,
+    rowSpacing: validRowSpacings.includes(s.rowSpacing as string)
+      ? s.rowSpacing as '20' | '25' | '30'
+      : DEFAULT_DISPLAY_SETTINGS.rowSpacing
+  };
+}
+
+/**
+ * Sanitize a single release from untrusted data
+ * Returns null if the release is invalid
+ */
+export function sanitizeRelease(rel: unknown): Release | null {
+  if (!rel || typeof rel !== 'object') return null;
+
+  const r = rel as Record<string, unknown>;
+  if (
+    typeof r.id !== 'string' ||
+    typeof r.projectId !== 'string' ||
+    typeof r.name !== 'string' ||
+    typeof r.startDate !== 'string' ||
+    typeof r.earlyFinishDate !== 'string' ||
+    typeof r.lateFinishDate !== 'string' ||
+    !isValidDateFormat(r.startDate) ||
+    !isValidDateFormat(r.earlyFinishDate) ||
+    !isValidDateFormat(r.lateFinishDate)
+  ) {
+    return null;
+  }
+
+  const sanitized: Release = {
+    id: sanitizeId(r.id),
+    projectId: sanitizeId(r.projectId),
+    name: sanitizeString(r.name),
+    startDate: r.startDate,
+    earlyFinishDate: r.earlyFinishDate,
+    lateFinishDate: r.lateFinishDate,
+    ...(typeof r.hidden === 'boolean' ? { hidden: r.hidden } : {}),
+    ...(typeof r.completed === 'boolean' ? { completed: r.completed } : {})
+  };
+
+  if (!sanitized.id || !sanitized.projectId || !sanitized.name) {
+    return null;
+  }
+
+  return sanitized;
+}
+
+/**
+ * Sanitize legend labels from untrusted data
+ */
+export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string } {
+  if (!labels || typeof labels !== 'object') {
+    return { solidBar: 'Design, Code, Test', hatchedBar: 'Delivery Uncertainty' };
+  }
+  const l = labels as Record<string, unknown>;
+  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string } = {
+    solidBar: typeof l.solidBar === 'string' ? sanitizeString(l.solidBar, 50) : 'Design, Code, Test',
+    hatchedBar: typeof l.hatchedBar === 'string' ? sanitizeString(l.hatchedBar, 50) : 'Delivery Uncertainty'
+  };
+  if (typeof l.finishDateLine === 'string') {
+    result.finishDateLine = sanitizeString(l.finishDateLine, 50);
+  }
+  return result;
 }

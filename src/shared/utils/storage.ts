@@ -1,8 +1,7 @@
 // localStorage utilities for GanttApp
 
 import { AppData } from '../types/app';
-import { sanitizeString, sanitizeId, sanitizeColor, isValidDateFormat } from './validation';
-import { DEFAULT_CHART_COLORS } from './colors';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, VALID_PRESET_NAMES } from './validation';
 
 const STORAGE_KEY = 'ganttAppData';
 
@@ -54,33 +53,9 @@ function validateLoadedData(data: unknown): AppData | null {
   // Validate and sanitize releases
   const validReleases = [];
   for (const r of d.releases) {
-    if (r && typeof r === 'object') {
-      const rel = r as Record<string, unknown>;
-      if (
-        typeof rel.id === 'string' &&
-        typeof rel.projectId === 'string' &&
-        typeof rel.name === 'string' &&
-        typeof rel.startDate === 'string' &&
-        typeof rel.earlyFinishDate === 'string' &&
-        typeof rel.lateFinishDate === 'string' &&
-        isValidDateFormat(rel.startDate) &&
-        isValidDateFormat(rel.earlyFinishDate) &&
-        isValidDateFormat(rel.lateFinishDate)
-      ) {
-        const sanitized = {
-          id: sanitizeId(rel.id),
-          projectId: sanitizeId(rel.projectId),
-          name: sanitizeString(rel.name),
-          startDate: rel.startDate,
-          earlyFinishDate: rel.earlyFinishDate,
-          lateFinishDate: rel.lateFinishDate,
-          ...(typeof rel.hidden === 'boolean' ? { hidden: rel.hidden } : {}),
-          ...(typeof rel.completed === 'boolean' ? { completed: rel.completed } : {})
-        };
-        if (sanitized.id && sanitized.projectId && sanitized.name) {
-          validReleases.push(sanitized);
-        }
-      }
+    const sanitized = sanitizeRelease(r);
+    if (sanitized) {
+      validReleases.push(sanitized);
     }
   }
 
@@ -92,34 +67,17 @@ function validateLoadedData(data: unknown): AppData | null {
 
   // Validate optional chart colors
   if (d.chartColors && typeof d.chartColors === 'object') {
-    const colors = d.chartColors as Record<string, unknown>;
-    result.chartColors = {
-      solidBar: sanitizeColor(colors.solidBar as string, DEFAULT_CHART_COLORS.solidBar),
-      hatchedBar: sanitizeColor(colors.hatchedBar as string, DEFAULT_CHART_COLORS.hatchedBar),
-      todayLine: sanitizeColor(colors.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
-      finishDateLine: sanitizeColor(colors.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine)
-    };
+    result.chartColors = sanitizeChartColors(d.chartColors);
   }
 
   // Validate optional preset name
-  if (typeof d.activePreset === 'string') {
-    const validPresets = ['Default', 'Professional', 'Colorful', 'Grayscale', 'High Contrast',
-                         'Forest', 'Ocean', 'Sunset', 'Lavender', 'Earth'];
-    if (validPresets.includes(d.activePreset)) {
-      result.activePreset = d.activePreset;
-    }
+  if (typeof d.activePreset === 'string' && VALID_PRESET_NAMES.includes(d.activePreset)) {
+    result.activePreset = d.activePreset;
   }
 
   // Validate optional legend labels
   if (d.legendLabels && typeof d.legendLabels === 'object') {
-    const labels = d.legendLabels as Record<string, unknown>;
-    result.legendLabels = {
-      solidBar: typeof labels.solidBar === 'string' ? sanitizeString(labels.solidBar, 50) : 'Design, Code, Test',
-      hatchedBar: typeof labels.hatchedBar === 'string' ? sanitizeString(labels.hatchedBar, 50) : 'Delivery Uncertainty'
-    };
-    if (typeof labels.finishDateLine === 'string') {
-      result.legendLabels.finishDateLine = sanitizeString(labels.finishDateLine, 50);
-    }
+    result.legendLabels = sanitizeLegendLabels(d.legendLabels);
   }
 
   // Validate optional boolean
@@ -137,28 +95,7 @@ function validateLoadedData(data: unknown): AppData | null {
 
   // Validate optional display settings
   if (d.chartDisplaySettings && typeof d.chartDisplaySettings === 'object') {
-    const settings = d.chartDisplaySettings as Record<string, unknown>;
-    const validFontSizes = ['14', '16', '18'];
-    const validDateFontSizes = ['11', '13', '15'];
-    const validLabelColors = ['#999', '#666', '#333', '#000'];
-    const validLineWidths = ['2', '3', '4'];
-    const validBarHeights = ['30', '40', '50'];
-    const validRowSpacings = ['20', '25', '30'];
-
-    result.chartDisplaySettings = {
-      releaseNameFontSize: validFontSizes.includes(settings.releaseNameFontSize as string)
-        ? settings.releaseNameFontSize as '14' | '16' | '18' : '16',
-      dateLabelFontSize: validDateFontSizes.includes(settings.dateLabelFontSize as string)
-        ? settings.dateLabelFontSize as '11' | '13' | '15' : '13',
-      dateLabelColor: validLabelColors.includes(settings.dateLabelColor as string)
-        ? settings.dateLabelColor as '#999' | '#666' | '#333' | '#000' : '#666',
-      verticalLineWidth: validLineWidths.includes(settings.verticalLineWidth as string)
-        ? settings.verticalLineWidth as '2' | '3' | '4' : '2',
-      barHeight: validBarHeights.includes(settings.barHeight as string)
-        ? settings.barHeight as '30' | '40' | '50' : '30',
-      rowSpacing: validRowSpacings.includes(settings.rowSpacing as string)
-        ? settings.rowSpacing as '20' | '25' | '30' : '30'
-    };
+    result.chartDisplaySettings = sanitizeDisplaySettings(d.chartDisplaySettings);
   }
 
   return result;

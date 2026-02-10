@@ -3,22 +3,57 @@
 import { useState, useRef } from 'react';
 import { Project, Release, ChartColors, ChartDisplaySettings, Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
-import { formatDateShort, getTodayString, getTodayFormatted, parseDateLocal, getQuarterBoundaries } from '../../shared/utils/dates';
-import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
-import { InlineDateEditor } from '../../shared/components/InlineDateEditor';
-import { InlineTextEditor } from '../../shared/components/InlineTextEditor';
+import { getTodayFormatted } from '../../shared/utils/dates';
 import { ChartLegend } from './ChartLegend';
 import { ChartSettings } from './ChartSettings';
+import { ChartReleaseBar } from './ChartReleaseBar';
 import { SnapshotBar } from './SnapshotBar';
+import { useChartCalculations } from './useChartCalculations';
 import { DateType, LegendLabelType } from './useChartEditing';
 
-interface GanttChartProps {
-  releases: Release[];
-  projectName: string;
-  projectFinishDate?: string;
-  projects: Project[];
-  selectedProjectId: string;
-  setSelectedProjectId: (id: string) => void;
+// --- Prop group interfaces ---
+
+export interface ChartEditingProps {
+  editingLegendLabel: LegendLabelType | null;
+  tempLabelValue: string;
+  setTempLabelValue: (value: string) => void;
+  startEditLabel: (type: LegendLabelType) => void;
+  saveLabelEdit: () => void;
+  cancelLabelEdit: () => void;
+  editingReleaseId: string | null;
+  tempReleaseName: string;
+  setTempReleaseName: (value: string) => void;
+  startEditReleaseName: (releaseId: string, currentName: string) => void;
+  saveReleaseNameEdit: () => void;
+  cancelReleaseNameEdit: () => void;
+  editingDateInfo: { releaseId: string; dateType: DateType } | null;
+  tempDateValue: string;
+  setTempDateValue: (value: string) => void;
+  startEditDate: (releaseId: string, dateType: DateType, currentDate: string) => void;
+  saveDateEdit: () => void;
+  cancelDateEdit: () => void;
+  dateEditError: string;
+}
+
+export interface ChartSnapshotProps {
+  snapshots: Snapshot[];
+  activeSnapshotId: string | null;
+  onSelectSnapshot: (id: string | null) => void;
+  onSaveSnapshot: () => void;
+  onDeleteSnapshot: (id: string) => void;
+  readOnly: boolean;
+  datePreparedOverride?: string;
+}
+
+export interface ChartLabelProps {
+  solidBarLabel: string;
+  hatchedBarLabel: string;
+  finishDateLabel: string;
+}
+
+export interface ChartSettingsGroupProps {
+  displaySettings: ChartDisplaySettings;
+  setDisplaySettings: (settings: ChartDisplaySettings) => void;
   chartColors: ChartColors;
   onColorsChange: (colors: ChartColors, presetName?: string) => void;
   activePreset?: string;
@@ -28,42 +63,24 @@ interface GanttChartProps {
   setShowTodayLine: (show: boolean) => void;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
-  solidBarLabel: string;
-  hatchedBarLabel: string;
-  finishDateLabel: string;
-  editingLegendLabel: LegendLabelType | null;
-  tempLabelValue: string;
-  onStartEditLabel: (type: LegendLabelType) => void;
-  onSaveLabelEdit: () => void;
-  onCancelLabelEdit: () => void;
-  onTempLabelChange: (value: string) => void;
-  displaySettings: ChartDisplaySettings;
-  setDisplaySettings: (settings: ChartDisplaySettings) => void;
-  editingReleaseId: string | null;
-  tempReleaseName: string;
-  onStartEditReleaseName: (releaseId: string, currentName: string) => void;
-  onSaveReleaseNameEdit: () => void;
-  onCancelReleaseNameEdit: () => void;
-  onTempReleaseNameChange: (value: string) => void;
-  editingDateInfo: { releaseId: string; dateType: DateType } | null;
-  tempDateValue: string;
-  onStartEditDate: (releaseId: string, dateType: DateType, currentDate: string) => void;
-  onSaveDateEdit: () => void;
-  onCancelDateEdit: () => void;
-  onTempDateChange: (value: string) => void;
-  dateEditError: string;
   preparedBy: string;
   setPreparedBy: (name: string) => void;
   showPreparedBy: boolean;
   setShowPreparedBy: (show: boolean) => void;
-  // Snapshot props
-  readOnly?: boolean;
-  datePreparedOverride?: string;
-  snapshots: Snapshot[];
-  activeSnapshotId: string | null;
-  onSelectSnapshot: (id: string | null) => void;
-  onSaveSnapshot: () => void;
-  onDeleteSnapshot: (id: string) => void;
+}
+
+// --- Main component props ---
+
+interface GanttChartProps {
+  releases: Release[];
+  projectFinishDate?: string;
+  projects: Project[];
+  selectedProjectId: string;
+  setSelectedProjectId: (id: string) => void;
+  editing: ChartEditingProps;
+  snapshot: ChartSnapshotProps;
+  labels: ChartLabelProps;
+  settings: ChartSettingsGroupProps;
 }
 
 export function GanttChart({
@@ -72,124 +89,40 @@ export function GanttChart({
   projects,
   selectedProjectId,
   setSelectedProjectId,
-  chartColors,
-  onColorsChange,
-  activePreset,
-  showColorSettings,
-  setShowColorSettings,
-  showTodayLine,
-  setShowTodayLine,
-  showFinishDateLine,
-  setShowFinishDateLine,
-  solidBarLabel,
-  hatchedBarLabel,
-  finishDateLabel,
-  editingLegendLabel,
-  tempLabelValue,
-  onStartEditLabel,
-  onSaveLabelEdit,
-  onCancelLabelEdit,
-  onTempLabelChange,
-  displaySettings,
-  setDisplaySettings,
-  editingReleaseId,
-  tempReleaseName,
-  onStartEditReleaseName,
-  onSaveReleaseNameEdit,
-  onCancelReleaseNameEdit,
-  onTempReleaseNameChange,
-  editingDateInfo,
-  tempDateValue,
-  onStartEditDate,
-  onSaveDateEdit,
-  onCancelDateEdit,
-  onTempDateChange,
-  dateEditError,
-  preparedBy,
-  setPreparedBy,
-  showPreparedBy,
-  setShowPreparedBy,
-  readOnly = false,
-  datePreparedOverride,
-  snapshots,
-  activeSnapshotId,
-  onSelectSnapshot,
-  onSaveSnapshot,
-  onDeleteSnapshot
+  editing,
+  snapshot,
+  labels,
+  settings,
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
   const { colors } = useTheme();
 
+  // Destructure grouped props for convenient access
+  const { readOnly, datePreparedOverride } = snapshot;
+  const { displaySettings, chartColors, showTodayLine, showFinishDateLine, showPreparedBy } = settings;
+  const { preparedBy } = settings;
+
+  // Chart calculations (dimensions, date math, coordinate mapping)
+  const { dimensions, dateInfo, finishDateInfo, dateToX, years, getReleaseColors, minLabelSpacing } =
+    useChartCalculations(releases, displaySettings, projectFinishDate);
+  const { chartWidth, chartHeight, leftMargin, topMargin, barHeight, rowHeight } = dimensions;
+  const { todayX, quarterBoundaries } = dateInfo;
+  const { finishDateX } = finishDateInfo;
+
   if (releases.length === 0) {
     return (
       <div>
         <SnapshotBar
-          snapshots={snapshots}
-          activeSnapshotId={activeSnapshotId}
-          onSelectSnapshot={onSelectSnapshot}
-          onSaveSnapshot={onSaveSnapshot}
-          onDeleteSnapshot={onDeleteSnapshot}
+          snapshots={snapshot.snapshots}
+          activeSnapshotId={snapshot.activeSnapshotId}
+          onSelectSnapshot={snapshot.onSelectSnapshot}
+          onSaveSnapshot={snapshot.onSaveSnapshot}
+          onDeleteSnapshot={snapshot.onDeleteSnapshot}
         />
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases to display.</p>
       </div>
     );
-  }
-
-  // Calculate date range
-  const allDates = releases.flatMap(r => [
-    parseDateLocal(r.startDate),
-    parseDateLocal(r.lateFinishDate)
-  ]);
-
-  const minDate = Math.min(...allDates);
-  const maxDate = Math.max(...allDates);
-  const dateRange = maxDate - minDate;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayTime = today.getTime();
-
-  // Chart dimensions
-  const chartWidth = 1100;
-  const barHeight = parseInt(displaySettings.barHeight);
-  const rowSpacing = parseInt(displaySettings.rowSpacing);
-  const rowHeight = barHeight + rowSpacing;
-  const chartHeight = releases.length * rowHeight + 80;
-  const leftMargin = 280;
-  const rightMargin = 50;
-  const topMargin = 50;
-
-  const dateToX = (date: string) => {
-    const timestamp = parseDateLocal(date);
-    const ratio = dateRange > 0 ? (timestamp - minDate) / dateRange : 0.5;
-    return leftMargin + ratio * (chartWidth - leftMargin - rightMargin);
-  };
-
-  // Get colors for a release
-  const getReleaseColors = (release: Release) => {
-    if (release.completed) {
-      return COMPLETED_RELEASE_COLORS;
-    }
-    return {
-      solidBar: chartColors.solidBar,
-      hatchedBar: chartColors.hatchedBar
-    };
-  };
-
-  // Quarter boundaries
-  const quarterBoundaries = getQuarterBoundaries(minDate, maxDate);
-
-  // Today's date line
-  const todayInRange = todayTime >= minDate && todayTime <= maxDate;
-  const todayX = todayInRange ? dateToX(getTodayString()) : null;
-
-  // Project finish date line
-  let finishDateInRange = false;
-  let finishDateX: number | null = null;
-  if (projectFinishDate) {
-    const finishDateTime = parseDateLocal(projectFinishDate);
-    finishDateInRange = finishDateTime >= minDate && finishDateTime <= maxDate;
-    finishDateX = finishDateInRange ? dateToX(projectFinishDate) : null;
   }
 
   // Copy chart as image
@@ -215,23 +148,15 @@ export function GanttChart({
     }
   };
 
-  // Get years to display
-  const startYear = new Date(minDate).getFullYear();
-  const endYear = new Date(maxDate).getFullYear();
-  const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
-
-  // Minimum label spacing for collision detection
-  const MIN_LABEL_SPACING = 40;
-
   return (
     <div>
       {/* Snapshot navigation bar */}
       <SnapshotBar
-        snapshots={snapshots}
-        activeSnapshotId={activeSnapshotId}
-        onSelectSnapshot={onSelectSnapshot}
-        onSaveSnapshot={onSaveSnapshot}
-        onDeleteSnapshot={onDeleteSnapshot}
+        snapshots={snapshot.snapshots}
+        activeSnapshotId={snapshot.activeSnapshotId}
+        onSelectSnapshot={snapshot.onSelectSnapshot}
+        onSaveSnapshot={snapshot.onSaveSnapshot}
+        onDeleteSnapshot={snapshot.onDeleteSnapshot}
       />
 
       <div ref={chartRef}>
@@ -299,7 +224,7 @@ export function GanttChart({
               const yearLabelPositions = years.map((year, index) => {
                 if (index === 0) return leftMargin + 20;
                 const jan1 = new Date(year, 0, 1).getTime();
-                if (jan1 < minDate || jan1 > maxDate) return null;
+                if (jan1 < dateInfo.minDate || jan1 > dateInfo.maxDate) return null;
                 return dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
               }).filter((x): x is number => x !== null);
 
@@ -353,7 +278,7 @@ export function GanttChart({
                 x = leftMargin + 20;
               } else {
                 const jan1 = new Date(year, 0, 1).getTime();
-                if (jan1 < minDate || jan1 > maxDate) return null;
+                if (jan1 < dateInfo.minDate || jan1 > dateInfo.maxDate) return null;
                 x = dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
               }
 
@@ -365,126 +290,21 @@ export function GanttChart({
             })}
 
             {/* Releases */}
-            {releases.map((release, i) => {
-              const y = topMargin + i * rowHeight;
-              const startX = dateToX(release.startDate);
-              const earlyX = dateToX(release.earlyFinishDate);
-              const lateX = dateToX(release.lateFinishDate);
-              const releaseColors = getReleaseColors(release);
-              const showEarlyLabel = (earlyX - startX) >= MIN_LABEL_SPACING && (lateX - earlyX) >= MIN_LABEL_SPACING;
-
-              return (
-                <g key={release.id}>
-                  {/* Release name */}
-                  {!readOnly && editingReleaseId === release.id ? (
-                    <foreignObject x={10} y={y + barHeight / 2 - 12} width={270} height={24}>
-                      <InlineTextEditor
-                        value={tempReleaseName}
-                        onChange={onTempReleaseNameChange}
-                        onSave={onSaveReleaseNameEdit}
-                        onCancel={onCancelReleaseNameEdit}
-                        fontSize={displaySettings.releaseNameFontSize + 'px'}
-                      />
-                    </foreignObject>
-                  ) : (
-                    <text
-                      x={10} y={y + barHeight / 2}
-                      fontSize={displaySettings.releaseNameFontSize} fill="#333" fontWeight="600"
-                      textAnchor="start" dominantBaseline="middle"
-                      style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                      onClick={readOnly ? undefined : () => onStartEditReleaseName(release.id, release.name)}
-                    >
-                      {release.name}
-                    </text>
-                  )}
-
-                  {/* Solid bar (start to early) */}
-                  <rect
-                    x={startX} y={y} width={earlyX - startX} height={barHeight}
-                    fill={releaseColors.solidBar} stroke={releaseColors.solidBar} strokeWidth="2" rx="4"
-                  />
-
-                  {/* Hatched bar (early to late) */}
-                  <defs>
-                    <pattern id={`hatch-${release.id}`} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                      <line x1="0" y1="0" x2="0" y2="8" stroke={releaseColors.hatchedBar} strokeWidth="4" />
-                    </pattern>
-                  </defs>
-                  <rect
-                    x={earlyX} y={y} width={lateX - earlyX} height={barHeight}
-                    fill={`url(#hatch-${release.id})`} stroke={releaseColors.hatchedBar} strokeWidth="2" rx="4"
-                  />
-
-                  {/* Start date label */}
-                  {!readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'start' ? (
-                    <foreignObject x={startX - 70} y={y + barHeight + 2} width={140} height={28}>
-                      <InlineDateEditor
-                        value={tempDateValue}
-                        onChange={onTempDateChange}
-                        onSave={onSaveDateEdit}
-                        onCancel={onCancelDateEdit}
-                        hasError={!!dateEditError}
-                      />
-                    </foreignObject>
-                  ) : (
-                    <text
-                      x={startX} y={y + barHeight + 15}
-                      fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                      textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                      onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'start', release.startDate)}
-                    >
-                      {formatDateShort(release.startDate)}
-                    </text>
-                  )}
-
-                  {/* Early finish date label */}
-                  {showEarlyLabel && (
-                    !readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'early' ? (
-                      <foreignObject x={earlyX - 70} y={y + barHeight + 2} width={140} height={28}>
-                        <InlineDateEditor
-                          value={tempDateValue}
-                          onChange={onTempDateChange}
-                          onSave={onSaveDateEdit}
-                          onCancel={onCancelDateEdit}
-                          hasError={!!dateEditError}
-                        />
-                      </foreignObject>
-                    ) : (
-                      <text
-                        x={earlyX} y={y + barHeight + 15}
-                        fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                        textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                        onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'early', release.earlyFinishDate)}
-                      >
-                        {formatDateShort(release.earlyFinishDate)}
-                      </text>
-                    )
-                  )}
-
-                  {/* Late finish date label */}
-                  {!readOnly && editingDateInfo?.releaseId === release.id && editingDateInfo?.dateType === 'late' ? (
-                    <foreignObject x={Math.min(lateX - 70, chartWidth - 145)} y={y + barHeight + 2} width={140} height={28}>
-                      <InlineDateEditor
-                        value={tempDateValue}
-                        onChange={onTempDateChange}
-                        onSave={onSaveDateEdit}
-                        onCancel={onCancelDateEdit}
-                        hasError={!!dateEditError}
-                      />
-                    </foreignObject>
-                  ) : (
-                    <text
-                      x={lateX} y={y + barHeight + 15}
-                      fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
-                      textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                      onClick={readOnly ? undefined : () => onStartEditDate(release.id, 'late', release.lateFinishDate)}
-                    >
-                      {formatDateShort(release.lateFinishDate)}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+            {releases.map((release, i) => (
+              <ChartReleaseBar
+                key={release.id}
+                release={release}
+                y={topMargin + i * rowHeight}
+                barHeight={barHeight}
+                chartWidth={chartWidth}
+                dateToX={dateToX}
+                releaseColors={getReleaseColors(release, chartColors)}
+                displaySettings={displaySettings}
+                readOnly={readOnly}
+                editing={editing}
+                minLabelSpacing={minLabelSpacing}
+              />
+            ))}
           </svg>
         </div>
 
@@ -492,25 +312,25 @@ export function GanttChart({
         <ChartLegend
           chartColors={chartColors}
           displaySettings={displaySettings}
-          solidBarLabel={solidBarLabel}
-          hatchedBarLabel={hatchedBarLabel}
-          finishDateLabel={finishDateLabel}
+          solidBarLabel={labels.solidBarLabel}
+          hatchedBarLabel={labels.hatchedBarLabel}
+          finishDateLabel={labels.finishDateLabel}
           showTodayLine={showTodayLine}
           showFinishDateLine={showFinishDateLine}
           hasProjectFinishDate={!!projectFinishDate}
-          editingLegendLabel={editingLegendLabel}
-          tempLabelValue={tempLabelValue}
-          onStartEditLabel={onStartEditLabel}
-          onSaveLabelEdit={onSaveLabelEdit}
-          onCancelLabelEdit={onCancelLabelEdit}
-          onTempLabelChange={onTempLabelChange}
+          editingLegendLabel={editing.editingLegendLabel}
+          tempLabelValue={editing.tempLabelValue}
+          onStartEditLabel={editing.startEditLabel}
+          onSaveLabelEdit={editing.saveLabelEdit}
+          onCancelLabelEdit={editing.cancelLabelEdit}
+          onTempLabelChange={editing.setTempLabelValue}
           readOnly={readOnly}
         />
       </div>
 
       {/* Read-only banner when viewing a snapshot — placed below chart so toggling doesn't shift chart position */}
-      {readOnly && activeSnapshotId && (() => {
-        const snap = snapshots.find(s => s.id === activeSnapshotId);
+      {readOnly && snapshot.activeSnapshotId && (() => {
+        const snap = snapshot.snapshots.find(s => s.id === snapshot.activeSnapshotId);
         if (!snap) return null;
         const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         return (
@@ -530,22 +350,22 @@ export function GanttChart({
 
       {/* Chart Settings */}
       <ChartSettings
-        showColorSettings={showColorSettings}
-        setShowColorSettings={setShowColorSettings}
+        showColorSettings={settings.showColorSettings}
+        setShowColorSettings={settings.setShowColorSettings}
         showTodayLine={showTodayLine}
-        setShowTodayLine={setShowTodayLine}
+        setShowTodayLine={settings.setShowTodayLine}
         showFinishDateLine={showFinishDateLine}
-        setShowFinishDateLine={setShowFinishDateLine}
+        setShowFinishDateLine={settings.setShowFinishDateLine}
         hasProjectFinishDate={!!projectFinishDate}
         displaySettings={displaySettings}
-        setDisplaySettings={setDisplaySettings}
+        setDisplaySettings={settings.setDisplaySettings}
         chartColors={chartColors}
-        onColorsChange={onColorsChange}
-        activePreset={activePreset}
+        onColorsChange={settings.onColorsChange}
+        activePreset={settings.activePreset}
         preparedBy={preparedBy}
-        setPreparedBy={setPreparedBy}
+        setPreparedBy={settings.setPreparedBy}
         showPreparedBy={showPreparedBy}
-        setShowPreparedBy={setShowPreparedBy}
+        setShowPreparedBy={settings.setShowPreparedBy}
       />
     </div>
   );

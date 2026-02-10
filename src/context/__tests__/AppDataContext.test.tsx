@@ -133,6 +133,8 @@ describe('AppDataContext', () => {
           dateLabelFontSize: '15',
           dateLabelColor: '#000',
           verticalLineWidth: '4',
+          barHeight: '40',
+          rowSpacing: '25',
         });
       });
 
@@ -190,6 +192,8 @@ describe('AppDataContext', () => {
           dateLabelFontSize: '15',
           dateLabelColor: '#000',
           verticalLineWidth: '4',
+          barHeight: '40',
+          rowSpacing: '25',
         },
       };
 

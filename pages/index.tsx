@@ -12,6 +12,7 @@ import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
 import { GanttChart } from '../src/features/chart/GanttChart';
 import { useChartEditing } from '../src/features/chart/useChartEditing';
 import { useSnapshots } from '../src/features/chart/useSnapshots';
+import { useEffectiveChartProps } from '../src/features/chart/useEffectiveChartProps';
 
 // Main App Component
 function AppContent() {
@@ -123,14 +124,13 @@ function AppContent() {
   // Compute effective props: snapshot data takes precedence when viewing a snapshot
   const { activeSnapshot, isViewingSnapshot } = snapshotState;
 
-  const effectiveReleases = activeSnapshot?.releases ?? visibleReleases;
-  const effectiveColors = activeSnapshot?.chartColors ?? chartColors;
-  const effectiveLabels = activeSnapshot?.legendLabels ?? { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel };
-  const effectivePreparedBy = activeSnapshot?.preparedBy ?? preparedBy;
-  const effectiveFinishDate = activeSnapshot?.projectFinishDate ?? selectedProject?.finishDate;
-  const datePreparedOverride = activeSnapshot
-    ? new Date(activeSnapshot.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : undefined;
+  const effective = useEffectiveChartProps(activeSnapshot, {
+    releases: visibleReleases,
+    chartColors,
+    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel },
+    preparedBy,
+    finishDate: selectedProject?.finishDate
+  });
 
   // Save snapshot callback — passes current chart state to the hook
   const handleSaveSnapshot = useCallback(() => {
@@ -185,7 +185,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 7.0</title>
+        <title>GanttApp - Version 7.1</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -251,56 +251,43 @@ function AppContent() {
 
           {activeTab === 'chart' && selectedProject && (
             <GanttChart
-              releases={effectiveReleases}
-              projectName={selectedProject.name}
-              projectFinishDate={effectiveFinishDate}
+              releases={effective.releases}
+              projectFinishDate={effective.finishDate}
               projects={data.projects}
               selectedProjectId={selectedProjectId}
               setSelectedProjectId={setSelectedProjectId}
-              chartColors={effectiveColors}
-              onColorsChange={updateChartColors}
-              activePreset={activePreset}
-              showColorSettings={showColorSettings}
-              setShowColorSettings={setShowColorSettings}
-              showTodayLine={showTodayLine}
-              setShowTodayLine={setShowTodayLine}
-              showFinishDateLine={showFinishDateLine}
-              setShowFinishDateLine={setShowFinishDateLine}
-              solidBarLabel={effectiveLabels.solidBar}
-              hatchedBarLabel={effectiveLabels.hatchedBar}
-              finishDateLabel={effectiveLabels.finishDateLine ?? finishDateLabel}
-              editingLegendLabel={chartEditing.editingLegendLabel}
-              tempLabelValue={chartEditing.tempLabelValue}
-              onStartEditLabel={chartEditing.startEditLabel}
-              onSaveLabelEdit={chartEditing.saveLabelEdit}
-              onCancelLabelEdit={chartEditing.cancelLabelEdit}
-              onTempLabelChange={chartEditing.setTempLabelValue}
-              displaySettings={displaySettings}
-              setDisplaySettings={setDisplaySettings}
-              editingReleaseId={chartEditing.editingReleaseId}
-              tempReleaseName={chartEditing.tempReleaseName}
-              onStartEditReleaseName={chartEditing.startEditReleaseName}
-              onSaveReleaseNameEdit={chartEditing.saveReleaseNameEdit}
-              onCancelReleaseNameEdit={chartEditing.cancelReleaseNameEdit}
-              onTempReleaseNameChange={chartEditing.setTempReleaseName}
-              editingDateInfo={chartEditing.editingDateInfo}
-              tempDateValue={chartEditing.tempDateValue}
-              onStartEditDate={chartEditing.startEditDate}
-              onSaveDateEdit={chartEditing.saveDateEdit}
-              onCancelDateEdit={chartEditing.cancelDateEdit}
-              onTempDateChange={chartEditing.setTempDateValue}
-              dateEditError={chartEditing.dateEditError}
-              preparedBy={effectivePreparedBy}
-              setPreparedBy={setPreparedBy}
-              showPreparedBy={showPreparedBy}
-              setShowPreparedBy={setShowPreparedBy}
-              readOnly={isViewingSnapshot}
-              datePreparedOverride={datePreparedOverride}
-              snapshots={snapshotState.snapshots}
-              activeSnapshotId={snapshotState.activeSnapshotId}
-              onSelectSnapshot={snapshotState.setActiveSnapshotId}
-              onSaveSnapshot={handleSaveSnapshot}
-              onDeleteSnapshot={snapshotState.deleteSnapshot}
+              editing={chartEditing}
+              snapshot={{
+                snapshots: snapshotState.snapshots,
+                activeSnapshotId: snapshotState.activeSnapshotId,
+                onSelectSnapshot: snapshotState.setActiveSnapshotId,
+                onSaveSnapshot: handleSaveSnapshot,
+                onDeleteSnapshot: snapshotState.deleteSnapshot,
+                readOnly: isViewingSnapshot,
+                datePreparedOverride: effective.datePreparedOverride
+              }}
+              labels={{
+                solidBarLabel: effective.labels.solidBar,
+                hatchedBarLabel: effective.labels.hatchedBar,
+                finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel
+              }}
+              settings={{
+                displaySettings,
+                setDisplaySettings,
+                chartColors: effective.colors,
+                onColorsChange: updateChartColors,
+                activePreset,
+                showColorSettings,
+                setShowColorSettings,
+                showTodayLine,
+                setShowTodayLine,
+                showFinishDateLine,
+                setShowFinishDateLine,
+                preparedBy: effective.preparedBy,
+                setPreparedBy,
+                showPreparedBy,
+                setShowPreparedBy
+              }}
             />
           )}
 
@@ -329,7 +316,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 7.0
+            Version 7.1
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

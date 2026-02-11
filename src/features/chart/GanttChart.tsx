@@ -318,6 +318,7 @@ export function GanttChart({
           showTodayLine={showTodayLine}
           showFinishDateLine={showFinishDateLine}
           hasProjectFinishDate={!!projectFinishDate}
+          hasCompletedReleases={releases.some(r => r.completed)}
           editingLegendLabel={editing.editingLegendLabel}
           tempLabelValue={editing.tempLabelValue}
           onStartEditLabel={editing.startEditLabel}

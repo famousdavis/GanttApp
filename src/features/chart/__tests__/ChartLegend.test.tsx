@@ -13,6 +13,7 @@ describe('ChartLegend', () => {
     showTodayLine: false,
     showFinishDateLine: false,
     hasProjectFinishDate: false,
+    hasCompletedReleases: false,
     editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | null,
     tempLabelValue: '',
     onStartEditLabel: vi.fn(),
@@ -136,6 +137,18 @@ describe('ChartLegend', () => {
 
     fireEvent.click(screen.getByText('Design, Code, Test'));
     expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('shows Completed legend when hasCompletedReleases is true', () => {
+    render(<ChartLegend {...defaultProps} hasCompletedReleases={true} />);
+
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
+  it('hides Completed legend when hasCompletedReleases is false', () => {
+    render(<ChartLegend {...defaultProps} hasCompletedReleases={false} />);
+
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 
   it('shows edit input for finish date label when editing', () => {

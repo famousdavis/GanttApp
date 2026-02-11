@@ -1,6 +1,7 @@
 // Chart legend component with editable labels
 
 import { ChartColors, ChartDisplaySettings } from '../../shared/types';
+import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
 import { LegendLabelType } from './useChartEditing';
 
 interface ChartLegendProps {
@@ -12,6 +13,7 @@ interface ChartLegendProps {
   showTodayLine: boolean;
   showFinishDateLine: boolean;
   hasProjectFinishDate: boolean;
+  hasCompletedReleases: boolean;
   editingLegendLabel: LegendLabelType | null;
   tempLabelValue: string;
   onStartEditLabel: (type: LegendLabelType) => void;
@@ -69,6 +71,7 @@ export function ChartLegend({
   showTodayLine,
   showFinishDateLine,
   hasProjectFinishDate,
+  hasCompletedReleases,
   editingLegendLabel,
   tempLabelValue,
   onStartEditLabel,
@@ -127,6 +130,14 @@ export function ChartLegend({
           </span>
         )}
       </div>
+
+      {/* Completed legend — shown only when completed releases exist */}
+      {hasCompletedReleases && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '30px', height: '20px', background: COMPLETED_RELEASE_COLORS.solidBar, borderRadius: '4px' }}></div>
+          <span>Completed</span>
+        </div>
+      )}
 
       {/* Today line legend */}
       {showTodayLine && (

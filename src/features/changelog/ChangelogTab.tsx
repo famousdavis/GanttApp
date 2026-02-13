@@ -50,8 +50,9 @@ export function ChangelogTab() {
           <li>All 10 color presets updated with Most Likely Line color (defaults to hatched bar color per preset; red for Grayscale for visibility)</li>
           <li>Snapshots capture Most Likely data per-release, line color, and legend label</li>
           <li>Export/Import fully supports the new field with sanitization and validation</li>
-          <li>33 new tests added (428 total, up from 395) — all passing</li>
+          <li>35 new tests added (428 total, up from 393) — all passing</li>
           <li>Backwards compatible: all new fields are optional with defaults, no migration needed</li>
+          <li><strong>Post-release refactoring:</strong> 7 bug fixes (showTodayLine persistence, deprecated onKeyPress, dark mode preset buttons, empty label rejection, ML cross-validation), DRY improvements (shared validateReleaseDateChange, formatDateLocale utility), 19 additional tests (447 total)</li>
         </ul>
       </div>
 

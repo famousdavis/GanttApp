@@ -37,12 +37,14 @@ GanttApp/
 │   │   │   └── ChangelogTab.tsx
 │   │   ├── chart/
 │   │   │   ├── GanttChart.tsx        # SVG chart component
+│   │   │   ├── ChartReleaseBar.tsx   # Per-release bar rendering (v7.1)
 │   │   │   ├── ChartLegend.tsx       # Legend with editable labels
 │   │   │   ├── ChartSettings.tsx     # Display/color settings panel
 │   │   │   ├── SnapshotBar.tsx       # Snapshot chip navigation bar
 │   │   │   ├── useSnapshots.ts       # Snapshot state management hook
 │   │   │   ├── useChartEditing.ts    # Inline editing state hook
-│   │   │   └── useChartCalculations.ts
+│   │   │   ├── useChartCalculations.ts
+│   │   │   └── useEffectiveChartProps.ts # Snapshot vs live data resolver (v7.1)
 │   │   ├── projects/
 │   │   │   ├── ProjectsTab.tsx
 │   │   │   └── useProjects.ts
@@ -151,6 +153,7 @@ interface Release {
   lateFinishDate: string;      // YYYY-MM-DD (pessimistic)
   hidden?: boolean;            // Hide from chart
   completed?: boolean;         // Render in green
+  mostLikelyFinishDate?: string; // Optional YYYY-MM-DD, >= early and <= late (v8.0)
 }
 
 // Snapshot - frozen historical release plan record (v7.0)
@@ -162,16 +165,17 @@ interface Snapshot {
   releases: Release[];         // Deep copy of releases at snapshot time
   projectFinishDate?: string;
   chartColors?: ChartColors;
-  legendLabels?: { solidBar: string; hatchedBar: string; finishDateLine?: string };
+  legendLabels?: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string };
   preparedBy?: string;
 }
 
 // Chart color customization
 interface ChartColors {
-  solidBar: string;      // Hex color for solid bar
-  hatchedBar: string;    // Hex color for hatched bar
-  todayLine: string;     // Hex color for today line
+  solidBar: string;       // Hex color for solid bar
+  hatchedBar: string;     // Hex color for hatched bar
+  todayLine: string;      // Hex color for today line
   finishDateLine: string; // Hex color for finish date line
+  mostLikelyLine: string; // Hex color for most likely line (v8.0)
 }
 
 // Display settings
@@ -194,8 +198,11 @@ interface AppData {
     solidBar: string;
     hatchedBar: string;
     finishDateLine?: string;
+    mostLikelyLine?: string;     // v8.0
   };
+  showTodayLine?: boolean;        // v8.0 (persisted, was transient)
   showFinishDateLine?: boolean;
+  showMostLikelyLine?: boolean;   // v8.0
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;
@@ -216,16 +223,16 @@ Snapshots provide read-only historical records of release plans, stored separate
 
 ### Effective Props Pattern
 
-`index.tsx` computes "effective" props depending on whether a snapshot is active:
+`useEffectiveChartProps` computes "effective" props depending on whether a snapshot is active:
 
 ```
-effectiveReleases  = activeSnapshot?.releases         ?? visibleReleases
-effectiveColors    = activeSnapshot?.chartColors       ?? chartColors
-effectiveLabels    = activeSnapshot?.legendLabels      ?? currentLabels
-effectivePreparedBy = activeSnapshot?.preparedBy       ?? preparedBy
-effectiveFinishDate = activeSnapshot?.projectFinishDate ?? project.finishDate
+effectiveReleases   = activeSnapshot?.releases          ?? visibleReleases
+effectiveColors     = activeSnapshot?.chartColors        ?? chartColors
+effectiveLabels     = activeSnapshot?.legendLabels       ?? currentLabels (incl. mostLikelyLine)
+effectivePreparedBy = activeSnapshot?.preparedBy         ?? preparedBy
+effectiveFinishDate = activeSnapshot?.projectFinishDate  ?? project.finishDate
 datePreparedOverride = activeSnapshot ? formatTimestamp(snapshot.timestamp) : undefined
-readOnly            = isViewingSnapshot
+readOnly             = isViewingSnapshot
 ```
 
 GanttChart receives the same props regardless of data source. It does not know whether data comes from live state or a snapshot.
@@ -289,6 +296,11 @@ User Input / Import File
 | `isValidHexColor(color)` | Validate hex color format |
 | `sanitizeColor(color, default)` | Return valid color or default |
 | `isValidDateFormat(date)` | Validate YYYY-MM-DD in 2000-2050 range |
+| `validateReleaseDateChange(release, dateType, newDate)` | Shared date cross-validation (v8.0) |
+| `getMostLikelyDateError(early, late, ml)` | Most Likely date form validation (v8.0) |
+| `sanitizeRelease(rel)` | Full release sanitization incl. ML date (v7.1) |
+| `sanitizeChartColors(colors)` | Chart colors sanitization with defaults (v7.1) |
+| `sanitizeLegendLabels(labels)` | Legend labels sanitization (v7.1) |
 
 ### Import Limits (export.ts)
 
@@ -319,10 +331,11 @@ index.tsx (AppContent)
 │   └── useReleases (CRUD hook)
 ├── GanttChart
 │   ├── SnapshotBar (chip navigation)
-│   ├── SVG chart (bars, gridlines, labels)
-│   ├── ChartLegend (editable labels)
+│   ├── SVG chart (gridlines, labels)
+│   │   └── ChartReleaseBar (per-release: bars, ML line, date labels, inline editors)
+│   ├── ChartLegend (editable labels incl. Most Likely)
 │   ├── Read-only banner (snapshot view)
-│   └── ChartSettings (display/color options)
+│   └── ChartSettings (display/color/toggle options)
 ├── AboutTab
 └── ChangelogTab
 ```
@@ -332,9 +345,10 @@ index.tsx (AppContent)
 1. **Global State**: `AppDataContext` provides data and updaters
 2. **Feature Hooks**: `useProjects`, `useReleases`, `useSnapshots` encapsulate CRUD logic
 3. **Editing Hook**: `useChartEditing` manages inline edit state for names, dates, labels
-4. **Local State**: Component-specific UI state (form fields, toggles)
-5. **Persistence**: Automatic localStorage sync on every `updateData()` call
-6. **Snapshot Storage**: Independent localStorage key managed by `useSnapshots` hook
+4. **Effective Props**: `useEffectiveChartProps` resolves snapshot vs live data for chart rendering
+5. **Local State**: Component-specific UI state (form fields, toggles)
+6. **Persistence**: Automatic localStorage sync on every `updateData()` call
+7. **Snapshot Storage**: Independent localStorage key managed by `useSnapshots` hook
 
 ## Chart Rendering
 
@@ -342,12 +356,13 @@ The GanttChart component renders an SVG with:
 
 1. **Quarterly gridlines** - Dashed vertical lines at Q2, Q3, Q4 boundaries
 2. **Year labels** - Year numbers at top of chart (quarter labels suppressed when too close)
-3. **Release bars** - For each visible release:
+3. **Release bars** - Rendered by ChartReleaseBar for each visible release:
    - Solid bar: startDate → earlyFinishDate
    - Hatched bar: earlyFinishDate → lateFinishDate (SVG pattern fill)
-   - Date labels below bars (with collision detection)
+   - Most Likely line: optional vertical line within hatched bar (v8.0)
+   - Date labels below bars (with collision detection, 40px minimum spacing)
 4. **Vertical lines** - Today's date, project finish date (configurable)
-5. **Legend** - Editable labels for bar types (disabled in read-only mode)
+5. **Legend** - Editable labels for bar types and Most Likely line (disabled in read-only mode)
 
 ### SVG Pattern for Hatching
 
@@ -366,7 +381,7 @@ The GanttChart component renders an SVG with:
 - **Unit Tests**: Utility functions (validation, dates, colors, export, snapshots)
 - **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases, useChartEditing)
 - **Component Tests**: UI components with React Testing Library
-- **322 total tests** across 22 test files
+- **447 total tests** across 28 test files
 
 ## Build & Deployment
 

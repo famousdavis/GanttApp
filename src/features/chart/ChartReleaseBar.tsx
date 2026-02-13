@@ -17,6 +17,8 @@ interface ChartReleaseBarProps {
   readOnly: boolean;
   editing: ChartEditingProps;
   minLabelSpacing: number;
+  showMostLikelyLine: boolean;
+  mostLikelyLineColor: string;
 }
 
 export function ChartReleaseBar({
@@ -29,12 +31,24 @@ export function ChartReleaseBar({
   displaySettings,
   readOnly,
   editing,
-  minLabelSpacing
+  minLabelSpacing,
+  showMostLikelyLine,
+  mostLikelyLineColor
 }: ChartReleaseBarProps) {
   const startX = dateToX(release.startDate);
   const earlyX = dateToX(release.earlyFinishDate);
   const lateX = dateToX(release.lateFinishDate);
   const showEarlyLabel = (earlyX - startX) >= minLabelSpacing && (lateX - earlyX) >= minLabelSpacing;
+
+  // Most Likely Finish Date calculations
+  const mlDate = release.mostLikelyFinishDate;
+  const mlX = mlDate ? dateToX(mlDate) : null;
+
+  // Most Likely label suppression: hide if too close to Early, Late, or Start labels
+  const showMlLabel = mlX !== null && showMostLikelyLine
+    && Math.abs(mlX - startX) >= minLabelSpacing
+    && Math.abs(mlX - lateX) >= minLabelSpacing
+    && (!showEarlyLabel || Math.abs(mlX - earlyX) >= minLabelSpacing);
 
   return (
     <g>
@@ -77,6 +91,16 @@ export function ChartReleaseBar({
         x={earlyX} y={y} width={lateX - earlyX} height={barHeight}
         fill={`url(#hatch-${release.id})`} stroke={releaseColors.hatchedBar} strokeWidth="2" rx="4"
       />
+
+      {/* Most Likely Finish Date vertical line (within hatched bar) */}
+      {showMostLikelyLine && mlX !== null && (
+        <line
+          x1={mlX} y1={y}
+          x2={mlX} y2={y + barHeight}
+          stroke={mostLikelyLineColor}
+          strokeWidth={displaySettings.verticalLineWidth}
+        />
+      )}
 
       {/* Start date label */}
       {!readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'start' ? (
@@ -144,6 +168,30 @@ export function ChartReleaseBar({
         >
           {formatDateShort(release.lateFinishDate)}
         </text>
+      )}
+
+      {/* Most Likely Finish date label */}
+      {showMostLikelyLine && showMlLabel && mlDate && (
+        !readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'mostLikely' ? (
+          <foreignObject x={mlX! - 70} y={y + barHeight + 2} width={140} height={28}>
+            <InlineDateEditor
+              value={editing.tempDateValue}
+              onChange={editing.setTempDateValue}
+              onSave={editing.saveDateEdit}
+              onCancel={editing.cancelDateEdit}
+              hasError={!!editing.dateEditError}
+            />
+          </foreignObject>
+        ) : (
+          <text
+            x={mlX!} y={y + barHeight + 15}
+            fontSize={displaySettings.dateLabelFontSize} fill={displaySettings.dateLabelColor}
+            textAnchor="middle" style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            onClick={readOnly ? undefined : () => editing.startEditDate(release.id, 'mostLikely', mlDate)}
+          >
+            {formatDateShort(mlDate)}
+          </text>
+        )
       )}
     </g>
   );

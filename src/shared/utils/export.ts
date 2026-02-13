@@ -130,6 +130,11 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       sanitizedData.showFinishDateLine = imported.showFinishDateLine;
     }
 
+    // Sanitize optional show most likely line toggle
+    if (typeof imported.showMostLikelyLine === 'boolean') {
+      sanitizedData.showMostLikelyLine = imported.showMostLikelyLine;
+    }
+
     // Sanitize optional display settings
     if (imported.chartDisplaySettings) {
       sanitizedData.chartDisplaySettings = sanitizeDisplaySettings(imported.chartDisplaySettings);

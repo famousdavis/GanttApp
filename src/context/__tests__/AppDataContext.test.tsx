@@ -44,6 +44,7 @@ describe('AppDataContext', () => {
         hatchedBar: '#0070f3',
         todayLine: '#dc3545',
         finishDateLine: '#00ff00',
+        mostLikelyLine: '#0070f3',
       });
     });
 
@@ -105,6 +106,7 @@ describe('AppDataContext', () => {
         hatchedBar: '#00ff00',
         todayLine: '#0000ff',
         finishDateLine: '#ffff00',
+        mostLikelyLine: '#000000',
       };
 
       act(() => {
@@ -180,6 +182,7 @@ describe('AppDataContext', () => {
           hatchedBar: '#222222',
           todayLine: '#333333',
           finishDateLine: '#444444',
+          mostLikelyLine: '#555555',
         },
         legendLabels: {
           solidBar: 'Saved Solid',
@@ -240,6 +243,7 @@ describe('AppDataContext', () => {
         hatchedBar: '#0070f3',
         todayLine: '#dc3545',
         finishDateLine: '#00ff00',
+        mostLikelyLine: '#0070f3',
       });
       expect(result.current.solidBarLabel).toBe('Design, Code, Test');
       expect(result.current.showFinishDateLine).toBe(true);

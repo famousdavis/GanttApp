@@ -49,6 +49,7 @@ export interface ChartLabelProps {
   solidBarLabel: string;
   hatchedBarLabel: string;
   finishDateLabel: string;
+  mostLikelyLineLabel: string;
 }
 
 export interface ChartSettingsGroupProps {
@@ -67,6 +68,8 @@ export interface ChartSettingsGroupProps {
   setPreparedBy: (name: string) => void;
   showPreparedBy: boolean;
   setShowPreparedBy: (show: boolean) => void;
+  showMostLikelyLine: boolean;
+  setShowMostLikelyLine: (show: boolean) => void;
 }
 
 // --- Main component props ---
@@ -100,7 +103,7 @@ export function GanttChart({
 
   // Destructure grouped props for convenient access
   const { readOnly, datePreparedOverride } = snapshot;
-  const { displaySettings, chartColors, showTodayLine, showFinishDateLine, showPreparedBy } = settings;
+  const { displaySettings, chartColors, showTodayLine, showFinishDateLine, showPreparedBy, showMostLikelyLine } = settings;
   const { preparedBy } = settings;
 
   // Chart calculations (dimensions, date math, coordinate mapping)
@@ -303,6 +306,8 @@ export function GanttChart({
                 readOnly={readOnly}
                 editing={editing}
                 minLabelSpacing={minLabelSpacing}
+                showMostLikelyLine={showMostLikelyLine}
+                mostLikelyLineColor={chartColors.mostLikelyLine}
               />
             ))}
           </svg>
@@ -315,9 +320,12 @@ export function GanttChart({
           solidBarLabel={labels.solidBarLabel}
           hatchedBarLabel={labels.hatchedBarLabel}
           finishDateLabel={labels.finishDateLabel}
+          mostLikelyLineLabel={labels.mostLikelyLineLabel}
           showTodayLine={showTodayLine}
           showFinishDateLine={showFinishDateLine}
+          showMostLikelyLine={showMostLikelyLine}
           hasProjectFinishDate={!!projectFinishDate}
+          hasMostLikelyReleases={releases.some(r => !!r.mostLikelyFinishDate)}
           hasCompletedReleases={releases.some(r => r.completed)}
           editingLegendLabel={editing.editingLegendLabel}
           tempLabelValue={editing.tempLabelValue}
@@ -357,7 +365,10 @@ export function GanttChart({
         setShowTodayLine={settings.setShowTodayLine}
         showFinishDateLine={showFinishDateLine}
         setShowFinishDateLine={settings.setShowFinishDateLine}
+        showMostLikelyLine={showMostLikelyLine}
+        setShowMostLikelyLine={settings.setShowMostLikelyLine}
         hasProjectFinishDate={!!projectFinishDate}
+        hasMostLikelyReleases={releases.some(r => !!r.mostLikelyFinishDate)}
         displaySettings={displaySettings}
         setDisplaySettings={settings.setDisplaySettings}
         chartColors={chartColors}

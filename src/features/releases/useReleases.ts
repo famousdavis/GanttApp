@@ -11,6 +11,7 @@ export function useReleases() {
   const [startDate, setStartDate] = useState('');
   const [earlyFinish, setEarlyFinish] = useState('');
   const [lateFinish, setLateFinish] = useState('');
+  const [mostLikelyFinish, setMostLikelyFinish] = useState('');
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false });
 
@@ -29,7 +30,10 @@ export function useReleases() {
       name: releaseName.trim(),
       startDate,
       earlyFinishDate: earlyFinish,
-      lateFinishDate: lateFinish
+      lateFinishDate: lateFinish,
+      ...(mostLikelyFinish && isValidDateFormat(mostLikelyFinish)
+        ? { mostLikelyFinishDate: mostLikelyFinish }
+        : {})
     };
     const newData = { ...data, releases: [...data.releases, newRelease] };
     updateData(newData);
@@ -53,7 +57,9 @@ export function useReleases() {
           name: releaseName.trim(),
           startDate,
           earlyFinishDate: earlyFinish,
-          lateFinishDate: lateFinish
+          lateFinishDate: lateFinish,
+          mostLikelyFinishDate: (mostLikelyFinish && isValidDateFormat(mostLikelyFinish))
+            ? mostLikelyFinish : undefined
         } : r
       )
     };
@@ -74,6 +80,7 @@ export function useReleases() {
     setStartDate(release.startDate);
     setEarlyFinish(release.earlyFinishDate);
     setLateFinish(release.lateFinishDate);
+    setMostLikelyFinish(release.mostLikelyFinishDate || '');
     setEditingReleaseId(release.id);
   };
 
@@ -82,6 +89,7 @@ export function useReleases() {
     setStartDate('');
     setEarlyFinish('');
     setLateFinish('');
+    setMostLikelyFinish('');
     setEditingReleaseId(null);
     setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
   };
@@ -129,7 +137,7 @@ export function useReleases() {
       startDate: formatDateISO(newStartMs),
       earlyFinishDate: formatDateISO(newStartMs + earlyOffsetMs),
       lateFinishDate: formatDateISO(newStartMs + lateOffsetMs),
-      // Do NOT copy hidden or completed - new release starts fresh
+      // Do NOT copy hidden, completed, or mostLikelyFinishDate - new release starts fresh
     };
 
     const newData = { ...data, releases: [...data.releases, newRelease] };
@@ -142,7 +150,7 @@ export function useReleases() {
    */
   const updateReleaseDate = (
     releaseId: string,
-    dateType: 'start' | 'early' | 'late',
+    dateType: 'start' | 'early' | 'late' | 'mostLikely',
     newDate: string
   ): boolean => {
     const release = data.releases.find(r => r.id === releaseId);
@@ -150,6 +158,23 @@ export function useReleases() {
 
     // Validate date format
     if (!isValidDateFormat(newDate)) return false;
+
+    // Handle most likely finish date separately
+    if (dateType === 'mostLikely') {
+      const earlyMs = parseDateLocal(release.earlyFinishDate);
+      const lateMs = parseDateLocal(release.lateFinishDate);
+      const mlMs = parseDateLocal(newDate);
+      if (mlMs < earlyMs || mlMs > lateMs) return false;
+
+      const newData = {
+        ...data,
+        releases: data.releases.map(r =>
+          r.id === releaseId ? { ...r, mostLikelyFinishDate: newDate } : r
+        )
+      };
+      updateData(newData);
+      return true;
+    }
 
     // Get the dates that would result from this change
     const startDate = dateType === 'start' ? newDate : release.startDate;
@@ -189,6 +214,8 @@ export function useReleases() {
     setEarlyFinish,
     lateFinish,
     setLateFinish,
+    mostLikelyFinish,
+    setMostLikelyFinish,
     editingReleaseId,
     touchedFields,
     setTouchedFields,

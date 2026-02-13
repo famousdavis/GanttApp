@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels } from '../validation';
 
 describe('isValidDateFormat', () => {
   it('accepts valid dates within 2000-2050 range', () => {
@@ -195,5 +195,116 @@ describe('getDateErrorMessage', () => {
     // Start date out of range should be caught before start vs early check
     const msg = getDateErrorMessage('1999-01-01', '2026-02-01', '2026-03-01', allTouched);
     expect(msg).toBe('Date must be between 2000 and 2050');
+  });
+});
+
+describe('getMostLikelyDateError', () => {
+  it('returns empty string when mostLikely is empty (optional field)', () => {
+    expect(getMostLikelyDateError('2026-01-01', '2026-03-01', '')).toBe('');
+  });
+
+  it('returns empty string when mostLikely is valid and within range', () => {
+    expect(getMostLikelyDateError('2026-01-01', '2026-03-01', '2026-02-01')).toBe('');
+  });
+
+  it('returns error when mostLikely is before early finish', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '2026-01-15')).toBe('Must be on or after the Early Finish Date');
+  });
+
+  it('returns error when mostLikely is after late finish', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '2026-05-01')).toBe('Must be on or before the Late Finish Date');
+  });
+
+  it('accepts mostLikely equal to early finish', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '2026-02-01')).toBe('');
+  });
+
+  it('accepts mostLikely equal to late finish', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '2026-04-01')).toBe('');
+  });
+
+  it('returns range error for out-of-range date', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '1999-01-01')).toBe('Date must be between 2000 and 2050');
+  });
+
+  it('returns empty for partial input (still typing)', () => {
+    expect(getMostLikelyDateError('2026-02-01', '2026-04-01', '2026-02')).toBe('');
+  });
+});
+
+describe('sanitizeRelease - mostLikelyFinishDate', () => {
+  const validRelease = {
+    id: 'r1',
+    projectId: 'p1',
+    name: 'Release 1',
+    startDate: '2026-01-01',
+    earlyFinishDate: '2026-02-01',
+    lateFinishDate: '2026-04-01'
+  };
+
+  it('includes valid mostLikelyFinishDate in result', () => {
+    const result = sanitizeRelease({ ...validRelease, mostLikelyFinishDate: '2026-03-01' });
+    expect(result).not.toBeNull();
+    expect(result!.mostLikelyFinishDate).toBe('2026-03-01');
+  });
+
+  it('drops mostLikelyFinishDate that is before earlyFinishDate', () => {
+    const result = sanitizeRelease({ ...validRelease, mostLikelyFinishDate: '2026-01-15' });
+    expect(result).not.toBeNull();
+    expect(result!.mostLikelyFinishDate).toBeUndefined();
+  });
+
+  it('drops mostLikelyFinishDate that is after lateFinishDate', () => {
+    const result = sanitizeRelease({ ...validRelease, mostLikelyFinishDate: '2026-05-01' });
+    expect(result).not.toBeNull();
+    expect(result!.mostLikelyFinishDate).toBeUndefined();
+  });
+
+  it('omits mostLikelyFinishDate when not provided', () => {
+    const result = sanitizeRelease(validRelease);
+    expect(result).not.toBeNull();
+    expect(result!.mostLikelyFinishDate).toBeUndefined();
+  });
+});
+
+describe('sanitizeChartColors - mostLikelyLine', () => {
+  it('includes mostLikelyLine from valid input', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000',
+      hatchedBar: '#00ff00',
+      todayLine: '#0000ff',
+      finishDateLine: '#ffff00',
+      mostLikelyLine: '#dc2626'
+    });
+    expect(result.mostLikelyLine).toBe('#dc2626');
+  });
+
+  it('falls back to default when mostLikelyLine is missing', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000',
+      hatchedBar: '#00ff00',
+      todayLine: '#0000ff',
+      finishDateLine: '#ffff00'
+    });
+    expect(result.mostLikelyLine).toBe('#0070f3');
+  });
+});
+
+describe('sanitizeLegendLabels - mostLikelyLine', () => {
+  it('includes mostLikelyLine label from valid input', () => {
+    const result = sanitizeLegendLabels({
+      solidBar: 'Solid',
+      hatchedBar: 'Hatched',
+      mostLikelyLine: 'Best Estimate'
+    });
+    expect(result.mostLikelyLine).toBe('Best Estimate');
+  });
+
+  it('omits mostLikelyLine when not provided', () => {
+    const result = sanitizeLegendLabels({
+      solidBar: 'Solid',
+      hatchedBar: 'Hatched'
+    });
+    expect(result.mostLikelyLine).toBeUndefined();
   });
 });

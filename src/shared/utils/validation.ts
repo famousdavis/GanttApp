@@ -179,7 +179,8 @@ export function sanitizeChartColors(colors: unknown): ChartColors {
     solidBar: sanitizeColor(c.solidBar as string, DEFAULT_CHART_COLORS.solidBar),
     hatchedBar: sanitizeColor(c.hatchedBar as string, DEFAULT_CHART_COLORS.hatchedBar),
     todayLine: sanitizeColor(c.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
-    finishDateLine: sanitizeColor(c.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine)
+    finishDateLine: sanitizeColor(c.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine),
+    mostLikelyLine: sanitizeColor(c.mostLikelyLine as string, DEFAULT_CHART_COLORS.mostLikelyLine)
   };
 }
 
@@ -251,11 +252,24 @@ export function sanitizeRelease(rel: unknown): Release | null {
     earlyFinishDate: r.earlyFinishDate,
     lateFinishDate: r.lateFinishDate,
     ...(typeof r.hidden === 'boolean' ? { hidden: r.hidden } : {}),
-    ...(typeof r.completed === 'boolean' ? { completed: r.completed } : {})
+    ...(typeof r.completed === 'boolean' ? { completed: r.completed } : {}),
+    ...(typeof r.mostLikelyFinishDate === 'string' && isValidDateFormat(r.mostLikelyFinishDate)
+      ? { mostLikelyFinishDate: r.mostLikelyFinishDate }
+      : {})
   };
 
   if (!sanitized.id || !sanitized.projectId || !sanitized.name) {
     return null;
+  }
+
+  // Cross-field validation: mostLikelyFinishDate must be between early and late
+  if (sanitized.mostLikelyFinishDate) {
+    const earlyMs = parseDateLocal(sanitized.earlyFinishDate);
+    const lateMs = parseDateLocal(sanitized.lateFinishDate);
+    const mlMs = parseDateLocal(sanitized.mostLikelyFinishDate);
+    if (mlMs < earlyMs || mlMs > lateMs) {
+      delete sanitized.mostLikelyFinishDate;
+    }
   }
 
   return sanitized;
@@ -264,17 +278,49 @@ export function sanitizeRelease(rel: unknown): Release | null {
 /**
  * Sanitize legend labels from untrusted data
  */
-export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string } {
+export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string } {
   if (!labels || typeof labels !== 'object') {
     return { solidBar: 'Design, Code, Test', hatchedBar: 'Delivery Uncertainty' };
   }
   const l = labels as Record<string, unknown>;
-  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string } = {
+  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string } = {
     solidBar: typeof l.solidBar === 'string' ? sanitizeString(l.solidBar, 50) : 'Design, Code, Test',
     hatchedBar: typeof l.hatchedBar === 'string' ? sanitizeString(l.hatchedBar, 50) : 'Delivery Uncertainty'
   };
   if (typeof l.finishDateLine === 'string') {
     result.finishDateLine = sanitizeString(l.finishDateLine, 50);
   }
+  if (typeof l.mostLikelyLine === 'string') {
+    result.mostLikelyLine = sanitizeString(l.mostLikelyLine, 50);
+  }
   return result;
+}
+
+/**
+ * Get user-friendly error message for Most Likely Finish Date validation
+ * Returns empty string if valid or if the field is empty (optional field)
+ */
+export function getMostLikelyDateError(
+  earlyFinish: string,
+  lateFinish: string,
+  mostLikely: string
+): string {
+  if (!mostLikely) return '';  // Optional field, empty is OK
+
+  if (!isValidDateFormat(mostLikely)) {
+    if (mostLikely.length === 10) {
+      return 'Date must be between 2000 and 2050';
+    }
+    return '';  // Still typing
+  }
+
+  if (isValidDateFormat(earlyFinish) && isValidDateFormat(lateFinish)) {
+    const earlyMs = parseDateLocal(earlyFinish);
+    const lateMs = parseDateLocal(lateFinish);
+    const mlMs = parseDateLocal(mostLikely);
+    if (mlMs < earlyMs) return 'Must be on or after the Early Finish Date';
+    if (mlMs > lateMs) return 'Must be on or before the Late Finish Date';
+  }
+
+  return '';
 }

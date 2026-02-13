@@ -17,6 +17,9 @@ describe('ChartSettings', () => {
     showFinishDateLine: false,
     setShowFinishDateLine: vi.fn(),
     hasProjectFinishDate: false,
+    hasMostLikelyReleases: false,
+    showMostLikelyLine: false,
+    setShowMostLikelyLine: vi.fn(),
     displaySettings: DEFAULT_DISPLAY_SETTINGS,
     setDisplaySettings: vi.fn(),
     chartColors: DEFAULT_CHART_COLORS,
@@ -140,5 +143,64 @@ describe('ChartSettings', () => {
 
     expect(screen.queryByText('Color Presets')).not.toBeInTheDocument();
     expect(screen.queryByText(/Show Today.*Date/)).not.toBeInTheDocument();
+  });
+
+  it('shows Show Most Likely Finish checkbox when releases have ML dates', () => {
+    renderWithTheme(
+      <ChartSettings {...defaultProps} showColorSettings={true} hasMostLikelyReleases={true} />
+    );
+
+    expect(screen.getByText('Show Most Likely Finish')).toBeInTheDocument();
+  });
+
+  it('hides Show Most Likely Finish checkbox when no releases have ML dates', () => {
+    renderWithTheme(
+      <ChartSettings {...defaultProps} showColorSettings={true} hasMostLikelyReleases={false} />
+    );
+
+    expect(screen.queryByText('Show Most Likely Finish')).not.toBeInTheDocument();
+  });
+
+  it('calls setShowMostLikelyLine when ML checkbox is toggled', () => {
+    const setMl = vi.fn();
+    renderWithTheme(
+      <ChartSettings
+        {...defaultProps}
+        showColorSettings={true}
+        hasMostLikelyReleases={true}
+        setShowMostLikelyLine={setMl}
+      />
+    );
+
+    const label = screen.getByText('Show Most Likely Finish').closest('label');
+    const checkbox = label?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
+    expect(setMl).toHaveBeenCalled();
+  });
+
+  it('shows Most Likely Finish Line color picker when toggle is on', () => {
+    renderWithTheme(
+      <ChartSettings
+        {...defaultProps}
+        showColorSettings={true}
+        showMostLikelyLine={true}
+        hasMostLikelyReleases={true}
+      />
+    );
+
+    expect(screen.getByText('Most Likely Finish Line')).toBeInTheDocument();
+  });
+
+  it('hides Most Likely Finish Line color picker when toggle is off', () => {
+    renderWithTheme(
+      <ChartSettings
+        {...defaultProps}
+        showColorSettings={true}
+        showMostLikelyLine={false}
+        hasMostLikelyReleases={true}
+      />
+    );
+
+    expect(screen.queryByText('Most Likely Finish Line')).not.toBeInTheDocument();
   });
 });

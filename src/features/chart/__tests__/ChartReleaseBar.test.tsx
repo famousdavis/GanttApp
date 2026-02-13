@@ -54,7 +54,9 @@ describe('ChartReleaseBar', () => {
     displaySettings: DEFAULT_DISPLAY_SETTINGS,
     readOnly: false,
     editing: noopEditing,
-    minLabelSpacing: 40
+    minLabelSpacing: 40,
+    showMostLikelyLine: false,
+    mostLikelyLineColor: '#000000'
   };
 
   it('renders the release name', () => {
@@ -175,5 +177,116 @@ describe('ChartReleaseBar', () => {
     // (early finish is hidden due to spacing)
     const dateTexts = texts.filter(t => t !== 'Release Alpha');
     expect(dateTexts.length).toBe(2); // start + late only
+  });
+
+  it('renders most likely finish line when showMostLikelyLine is true and release has date', () => {
+    const releaseWithMl = {
+      ...mockRelease,
+      mostLikelyFinishDate: '2026-04-01'
+    };
+
+    const { container } = render(
+      <svg>
+        <ChartReleaseBar
+          {...defaultProps}
+          release={releaseWithMl}
+          showMostLikelyLine={true}
+          mostLikelyLineColor="#dc2626"
+        />
+      </svg>
+    );
+
+    // Should render a line for most likely finish date
+    const lines = container.querySelectorAll('line');
+    const mlLine = Array.from(lines).find(l => l.getAttribute('stroke') === '#dc2626');
+    expect(mlLine).toBeTruthy();
+  });
+
+  it('does not render most likely finish line when showMostLikelyLine is false', () => {
+    const releaseWithMl = {
+      ...mockRelease,
+      mostLikelyFinishDate: '2026-04-01'
+    };
+
+    const { container } = render(
+      <svg>
+        <ChartReleaseBar
+          {...defaultProps}
+          release={releaseWithMl}
+          showMostLikelyLine={false}
+          mostLikelyLineColor="#dc2626"
+        />
+      </svg>
+    );
+
+    const lines = container.querySelectorAll('line');
+    const mlLine = Array.from(lines).find(l => l.getAttribute('stroke') === '#dc2626');
+    expect(mlLine).toBeFalsy();
+  });
+
+  it('does not render most likely finish line when release has no ML date', () => {
+    const { container } = render(
+      <svg>
+        <ChartReleaseBar
+          {...defaultProps}
+          showMostLikelyLine={true}
+          mostLikelyLineColor="#dc2626"
+        />
+      </svg>
+    );
+
+    const lines = container.querySelectorAll('line');
+    const mlLine = Array.from(lines).find(l => l.getAttribute('stroke') === '#dc2626');
+    expect(mlLine).toBeFalsy();
+  });
+
+  it('renders most likely date label when visible and sufficiently spaced', () => {
+    const releaseWithMl = {
+      ...mockRelease,
+      mostLikelyFinishDate: '2026-04-01'
+    };
+
+    const { container } = render(
+      <svg>
+        <ChartReleaseBar
+          {...defaultProps}
+          release={releaseWithMl}
+          showMostLikelyLine={true}
+          mostLikelyLineColor="#000000"
+        />
+      </svg>
+    );
+
+    const textEls = container.querySelectorAll('text');
+    const texts = Array.from(textEls).map(t => t.textContent);
+    // Should have a date label containing "Apr" for the ML date
+    expect(texts.some(t => t?.includes('Apr'))).toBe(true);
+  });
+
+  it('renders inline date editor for mostLikely date when editing', () => {
+    const releaseWithMl = {
+      ...mockRelease,
+      mostLikelyFinishDate: '2026-04-01'
+    };
+
+    const { container } = render(
+      <svg>
+        <ChartReleaseBar
+          {...defaultProps}
+          release={releaseWithMl}
+          showMostLikelyLine={true}
+          mostLikelyLineColor="#000000"
+          editing={{
+            ...noopEditing,
+            editingDateInfo: { releaseId: 'r1', dateType: 'mostLikely' },
+            tempDateValue: '2026-04-01'
+          }}
+        />
+      </svg>
+    );
+
+    // foreignObject should be present for inline date editing
+    const foreignObjects = container.querySelectorAll('foreignObject');
+    expect(foreignObjects.length).toBeGreaterThanOrEqual(1);
   });
 });

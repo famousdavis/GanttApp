@@ -15,6 +15,7 @@ export interface Release {
   lateFinishDate: string;
   hidden?: boolean;
   completed?: boolean;
+  mostLikelyFinishDate?: string;  // Optional YYYY-MM-DD, must be >= earlyFinishDate and <= lateFinishDate
 }
 
 export interface ChartColors {
@@ -22,6 +23,7 @@ export interface ChartColors {
   hatchedBar: string;
   todayLine: string;
   finishDateLine: string;
+  mostLikelyLine: string;
 }
 
 export interface ChartDisplaySettings {

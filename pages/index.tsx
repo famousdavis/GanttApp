@@ -38,6 +38,10 @@ function AppContent() {
     setPreparedBy,
     showPreparedBy,
     setShowPreparedBy,
+    mostLikelyLineLabel,
+    setMostLikelyLineLabel,
+    showMostLikelyLine,
+    setShowMostLikelyLine,
     updateData
   } = useAppData();
 
@@ -127,7 +131,7 @@ function AppContent() {
   const effective = useEffectiveChartProps(activeSnapshot, {
     releases: visibleReleases,
     chartColors,
-    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel },
+    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel },
     preparedBy,
     finishDate: selectedProject?.finishDate
   });
@@ -138,10 +142,10 @@ function AppContent() {
       releases: visibleReleases,
       projectFinishDate: selectedProject?.finishDate,
       chartColors,
-      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel },
+      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel },
       preparedBy
     });
-  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, preparedBy]);
+  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, preparedBy]);
 
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'about'], []);
@@ -185,7 +189,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 7.1</title>
+        <title>GanttApp - Version 8.0</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -269,7 +273,8 @@ function AppContent() {
               labels={{
                 solidBarLabel: effective.labels.solidBar,
                 hatchedBarLabel: effective.labels.hatchedBar,
-                finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel
+                finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel,
+                mostLikelyLineLabel: effective.labels.mostLikelyLine ?? mostLikelyLineLabel
               }}
               settings={{
                 displaySettings,
@@ -286,7 +291,9 @@ function AppContent() {
                 preparedBy: effective.preparedBy,
                 setPreparedBy,
                 showPreparedBy,
-                setShowPreparedBy
+                setShowPreparedBy,
+                showMostLikelyLine,
+                setShowMostLikelyLine
               }}
             />
           )}
@@ -316,7 +323,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 7.1
+            Version 8.0
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

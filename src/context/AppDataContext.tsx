@@ -26,12 +26,16 @@ interface AppDataContextType {
   setHatchedBarLabel: (label: string) => void;
   finishDateLabel: string;
   setFinishDateLabel: (label: string) => void;
+  mostLikelyLineLabel: string;
+  setMostLikelyLineLabel: (label: string) => void;
 
   // Toggles
   showTodayLine: boolean;
   setShowTodayLine: (show: boolean) => void;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
+  showMostLikelyLine: boolean;
+  setShowMostLikelyLine: (show: boolean) => void;
   showColorSettings: boolean;
   setShowColorSettings: (show: boolean) => void;
 
@@ -57,10 +61,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [solidBarLabel, setSolidBarLabel] = useState('Design, Code, Test');
   const [hatchedBarLabel, setHatchedBarLabel] = useState('Delivery Uncertainty');
   const [finishDateLabel, setFinishDateLabel] = useState('Project Finish Date');
+  const [mostLikelyLineLabel, setMostLikelyLineLabel] = useState('Most Likely Finish');
 
   // Toggles
   const [showTodayLine, setShowTodayLine] = useState(true);
   const [showFinishDateLine, setShowFinishDateLine] = useState(true);
+  const [showMostLikelyLine, setShowMostLikelyLine] = useState(false);
   const [showColorSettings, setShowColorSettings] = useState(false);
 
   // Prepared By
@@ -92,11 +98,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             if (loadedData.legendLabels.finishDateLine) {
               setFinishDateLabel(loadedData.legendLabels.finishDateLine);
             }
+            if (loadedData.legendLabels.mostLikelyLine) {
+              setMostLikelyLineLabel(loadedData.legendLabels.mostLikelyLine);
+            }
           }
 
           // Load finish date line toggle if it exists
           if (loadedData.showFinishDateLine !== undefined) {
             setShowFinishDateLine(loadedData.showFinishDateLine);
+          }
+
+          // Load most likely line toggle if it exists
+          if (loadedData.showMostLikelyLine !== undefined) {
+            setShowMostLikelyLine(loadedData.showMostLikelyLine);
           }
 
           // Load display settings if they exist
@@ -130,15 +144,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         legendLabels: {
           solidBar: solidBarLabel,
           hatchedBar: hatchedBarLabel,
-          finishDateLine: finishDateLabel
+          finishDateLine: finishDateLabel,
+          mostLikelyLine: mostLikelyLineLabel
         },
         chartDisplaySettings: displaySettings,
         preparedBy,
-        showPreparedBy
+        showPreparedBy,
+        showMostLikelyLine
       };
       saveData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, displaySettings, preparedBy, showPreparedBy, data, loading]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showMostLikelyLine, data, loading]);
 
   // Update data and save to localStorage
   const updateData = (newData: AppData) => {
@@ -163,10 +179,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setHatchedBarLabel,
     finishDateLabel,
     setFinishDateLabel,
+    mostLikelyLineLabel,
+    setMostLikelyLineLabel,
     showTodayLine,
     setShowTodayLine,
     showFinishDateLine,
     setShowFinishDateLine,
+    showMostLikelyLine,
+    setShowMostLikelyLine,
     showColorSettings,
     setShowColorSettings,
     preparedBy,

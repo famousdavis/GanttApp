@@ -31,8 +31,32 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 7.1 */}
+      {/* Version 8.0 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 8.0
+          <span style={dateStyle}>February 13, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Most Likely Finish Date</strong> — optional per-release date field rendered as a vertical line within the hatched bar</li>
+          <li>New optional date input on the Releases tab: &ldquo;Most Likely Finish Date (Optional)&rdquo;</li>
+          <li>Validation ensures the Most Likely date falls between the Early and Late Finish dates</li>
+          <li>Toggle in Chart Settings: &ldquo;Show Most Likely Finish&rdquo; controls visibility for all releases</li>
+          <li>Configurable line color via new color picker (only shown when toggle is on)</li>
+          <li>Click-to-edit inline on the chart — same UX pattern as Start, Early, and Late dates</li>
+          <li>Editable legend entry: &ldquo;Most Likely Finish&rdquo; (shown when toggle on and at least one release has the date)</li>
+          <li>Smart label suppression: ML date label hidden when too close to Start, Early, or Late labels (40px threshold)</li>
+          <li>Line uses the existing Vertical Line Width setting for consistent appearance</li>
+          <li>All 10 color presets updated with Most Likely Line color (defaults to hatched bar color per preset; red for Grayscale for visibility)</li>
+          <li>Snapshots capture Most Likely data per-release, line color, and legend label</li>
+          <li>Export/Import fully supports the new field with sanitization and validation</li>
+          <li>33 new tests added (428 total, up from 395) — all passing</li>
+          <li>Backwards compatible: all new fields are optional with defaults, no migration needed</li>
+        </ul>
+      </div>
+
+      {/* Version 7.1 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 7.1
           <span style={dateStyle}>February 9, 2026</span>

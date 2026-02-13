@@ -10,11 +10,14 @@ describe('ChartLegend', () => {
     solidBarLabel: 'Design, Code, Test',
     hatchedBarLabel: 'Delivery Uncertainty',
     finishDateLabel: 'Project Finish Date',
+    mostLikelyLineLabel: 'Most Likely Finish',
     showTodayLine: false,
     showFinishDateLine: false,
+    showMostLikelyLine: false,
     hasProjectFinishDate: false,
+    hasMostLikelyReleases: false,
     hasCompletedReleases: false,
-    editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | null,
+    editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | null,
     tempLabelValue: '',
     onStartEditLabel: vi.fn(),
     onSaveLabelEdit: vi.fn(),
@@ -163,5 +166,70 @@ describe('ChartLegend', () => {
     );
 
     expect(screen.getByDisplayValue('Custom Finish')).toBeInTheDocument();
+  });
+
+  it('shows Most Likely Finish legend when toggle on and releases have ML dates', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showMostLikelyLine={true}
+        hasMostLikelyReleases={true}
+      />
+    );
+
+    expect(screen.getByText('Most Likely Finish')).toBeInTheDocument();
+  });
+
+  it('hides Most Likely Finish legend when toggle is off', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showMostLikelyLine={false}
+        hasMostLikelyReleases={true}
+      />
+    );
+
+    expect(screen.queryByText('Most Likely Finish')).not.toBeInTheDocument();
+  });
+
+  it('hides Most Likely Finish legend when no releases have ML dates', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showMostLikelyLine={true}
+        hasMostLikelyReleases={false}
+      />
+    );
+
+    expect(screen.queryByText('Most Likely Finish')).not.toBeInTheDocument();
+  });
+
+  it('shows edit input for Most Likely Finish label when editing', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showMostLikelyLine={true}
+        hasMostLikelyReleases={true}
+        editingLegendLabel="mostLikelyLine"
+        tempLabelValue="Best Estimate"
+      />
+    );
+
+    expect(screen.getByDisplayValue('Best Estimate')).toBeInTheDocument();
+  });
+
+  it('calls onStartEditLabel with mostLikelyLine when ML label is clicked', () => {
+    const onStart = vi.fn();
+    render(
+      <ChartLegend
+        {...defaultProps}
+        showMostLikelyLine={true}
+        hasMostLikelyReleases={true}
+        onStartEditLabel={onStart}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Most Likely Finish'));
+    expect(onStart).toHaveBeenCalledWith('mostLikelyLine');
   });
 });

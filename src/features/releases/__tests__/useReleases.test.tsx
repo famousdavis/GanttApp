@@ -60,6 +60,7 @@ describe('useReleases', () => {
         startDate: false,
         earlyFinish: false,
         lateFinish: false,
+        mostLikelyFinish: false,
       });
     });
   });
@@ -127,6 +128,7 @@ describe('useReleases', () => {
         startDate: true,
         earlyFinish: true,
         lateFinish: true,
+        mostLikelyFinish: true,
       });
     });
 
@@ -268,6 +270,7 @@ describe('useReleases', () => {
         startDate: false,
         earlyFinish: false,
         lateFinish: false,
+        mostLikelyFinish: false,
       });
     });
 
@@ -349,6 +352,7 @@ describe('useReleases', () => {
         startDate: true,
         earlyFinish: true,
         lateFinish: true,
+        mostLikelyFinish: true,
       });
     });
 
@@ -543,6 +547,7 @@ describe('useReleases', () => {
         startDate: false,
         earlyFinish: false,
         lateFinish: false,
+        mostLikelyFinish: false,
       });
     });
   });

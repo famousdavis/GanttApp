@@ -55,6 +55,7 @@ export function ReleasesTab({
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
   const errorMessage = getDateErrorMessage(startDate, earlyFinish, lateFinish, touchedFields);
   const mostLikelyError = mostLikelyFinish ? getMostLikelyDateError(earlyFinish, lateFinish, mostLikelyFinish) : '';
+  const mostLikelyErrorVisible = touchedFields.mostLikelyFinish ? mostLikelyError : '';
   const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage && !mostLikelyError;
 
   // Determine which fields have errors for highlighting
@@ -212,7 +213,7 @@ export function ReleasesTab({
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',
-                border: mostLikelyError ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+                border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
                 borderRadius: '4px',
                 width: '100%',
                 background: colors.inputBg,
@@ -222,7 +223,7 @@ export function ReleasesTab({
           </div>
         </div>
 
-        {(errorMessage || mostLikelyError) && (
+        {(errorMessage || mostLikelyErrorVisible) && (
           <div style={{
             color: '#dc3545',
             fontSize: '0.9rem',
@@ -233,7 +234,7 @@ export function ReleasesTab({
             borderRadius: '4px',
             border: '1px solid #f5c6cb'
           }}>
-            {errorMessage || mostLikelyError}
+            {errorMessage || mostLikelyErrorVisible}
           </div>
         )}
 

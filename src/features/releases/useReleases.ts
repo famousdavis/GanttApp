@@ -13,11 +13,11 @@ export function useReleases() {
   const [lateFinish, setLateFinish] = useState('');
   const [mostLikelyFinish, setMostLikelyFinish] = useState('');
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
-  const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false });
+  const [touchedFields, setTouchedFields] = useState({ startDate: false, earlyFinish: false, lateFinish: false, mostLikelyFinish: false });
 
   const addRelease = (selectedProjectId: string) => {
     // Mark all fields as touched to trigger validation
-    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true });
+    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true, mostLikelyFinish: true });
 
     if (!releaseName.trim() || !selectedProjectId || !startDate || !earlyFinish || !lateFinish) return;
 
@@ -44,7 +44,7 @@ export function useReleases() {
 
   const updateRelease = () => {
     // Mark all fields as touched to trigger validation
-    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true });
+    setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true, mostLikelyFinish: true });
 
     if (!releaseName.trim() || !editingReleaseId || !startDate || !earlyFinish || !lateFinish) return;
 
@@ -96,7 +96,7 @@ export function useReleases() {
     setLateFinish('');
     setMostLikelyFinish('');
     setEditingReleaseId(null);
-    setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false });
+    setTouchedFields({ startDate: false, earlyFinish: false, lateFinish: false, mostLikelyFinish: false });
   };
 
   const toggleReleaseHidden = (id: string) => {

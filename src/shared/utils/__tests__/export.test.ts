@@ -215,4 +215,37 @@ describe('parseImportedData', () => {
     });
     expect(parseImportedData(json)).toBeNull();
   });
+
+  it('preserves showTodayLine boolean in imported data', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      showTodayLine: false,
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.showTodayLine).toBe(false);
+  });
+
+  it('preserves showMostLikelyLine boolean in imported data', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      showMostLikelyLine: true,
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.showMostLikelyLine).toBe(true);
+  });
+
+  it('ignores non-boolean showTodayLine values', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      showTodayLine: 'yes',
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.showTodayLine).toBeUndefined();
+  });
 });

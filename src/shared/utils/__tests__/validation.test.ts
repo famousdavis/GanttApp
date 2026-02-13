@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange } from '../validation';
 
 describe('isValidDateFormat', () => {
   it('accepts valid dates within 2000-2050 range', () => {
@@ -306,5 +306,59 @@ describe('sanitizeLegendLabels - mostLikelyLine', () => {
       hatchedBar: 'Hatched'
     });
     expect(result.mostLikelyLine).toBeUndefined();
+  });
+});
+
+describe('validateReleaseDateChange', () => {
+  const baseRelease = {
+    startDate: '2026-01-01',
+    earlyFinishDate: '2026-02-01',
+    lateFinishDate: '2026-03-01'
+  };
+
+  it('returns empty string for valid start date change', () => {
+    expect(validateReleaseDateChange(baseRelease, 'start', '2025-12-15')).toBe('');
+  });
+
+  it('returns error when start >= early', () => {
+    expect(validateReleaseDateChange(baseRelease, 'start', '2026-02-01')).toBe('Start must be before Early Finish');
+    expect(validateReleaseDateChange(baseRelease, 'start', '2026-03-01')).toBe('Start must be before Early Finish');
+  });
+
+  it('returns empty string for valid early date change', () => {
+    expect(validateReleaseDateChange(baseRelease, 'early', '2026-01-15')).toBe('');
+  });
+
+  it('returns error when early > late', () => {
+    expect(validateReleaseDateChange(baseRelease, 'early', '2026-04-01')).toBe('Early Finish must be <= Late Finish');
+  });
+
+  it('returns empty string for valid late date change', () => {
+    expect(validateReleaseDateChange(baseRelease, 'late', '2026-04-01')).toBe('');
+  });
+
+  it('returns error when late < early', () => {
+    expect(validateReleaseDateChange(baseRelease, 'late', '2026-01-15')).toBe('Early Finish must be <= Late Finish');
+  });
+
+  it('returns empty string for valid mostLikely date', () => {
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2026-02-15')).toBe('');
+    // Boundary: equal to early
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2026-02-01')).toBe('');
+    // Boundary: equal to late
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2026-03-01')).toBe('');
+  });
+
+  it('returns error when mostLikely < early', () => {
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2026-01-15')).toBe('Must be >= Early Finish');
+  });
+
+  it('returns error when mostLikely > late', () => {
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2026-04-01')).toBe('Must be <= Late Finish');
+  });
+
+  it('returns error for invalid date format', () => {
+    expect(validateReleaseDateChange(baseRelease, 'start', 'not-a-date')).toBe('Invalid date format');
+    expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2099-01-01')).toBe('Invalid date format');
   });
 });

@@ -185,6 +185,46 @@ describe('useChartEditing', () => {
     });
   });
 
+  describe('saveLabelEdit', () => {
+    it('rejects empty label and cancels instead', () => {
+      const { result } = renderHook(() => useChartEditing(), { wrapper });
+
+      act(() => {
+        result.current.startEditLabel('solid');
+      });
+
+      // Set to empty string
+      act(() => {
+        result.current.setTempLabelValue('');
+      });
+
+      act(() => {
+        result.current.saveLabelEdit();
+      });
+
+      // Should have cancelled (editingLegendLabel is null)
+      expect(result.current.editingLegendLabel).toBeNull();
+    });
+
+    it('rejects whitespace-only label and cancels instead', () => {
+      const { result } = renderHook(() => useChartEditing(), { wrapper });
+
+      act(() => {
+        result.current.startEditLabel('hatched');
+      });
+
+      act(() => {
+        result.current.setTempLabelValue('   ');
+      });
+
+      act(() => {
+        result.current.saveLabelEdit();
+      });
+
+      expect(result.current.editingLegendLabel).toBeNull();
+    });
+  });
+
   describe('hasActiveEditor', () => {
     it('is false when no editors are open', () => {
       const { result } = renderHook(() => useChartEditing(), { wrapper });

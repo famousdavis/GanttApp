@@ -125,12 +125,13 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       sanitizedData.legendLabels = sanitizeLegendLabels(imported.legendLabels);
     }
 
-    // Sanitize optional show finish date line toggle
+    // Sanitize optional toggle booleans
+    if (typeof imported.showTodayLine === 'boolean') {
+      sanitizedData.showTodayLine = imported.showTodayLine;
+    }
     if (typeof imported.showFinishDateLine === 'boolean') {
       sanitizedData.showFinishDateLine = imported.showFinishDateLine;
     }
-
-    // Sanitize optional show most likely line toggle
     if (typeof imported.showMostLikelyLine === 'boolean') {
       sanitizedData.showMostLikelyLine = imported.showMostLikelyLine;
     }

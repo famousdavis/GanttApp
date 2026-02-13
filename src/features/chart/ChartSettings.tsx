@@ -227,7 +227,7 @@ export function ChartSettings({
 
           {/* Color Presets */}
           <div>
-            <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#555' }}>Color Presets</h4>
+            <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: colors.textSecondary }}>Color Presets</h4>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {Object.keys(COLOR_PRESETS).map(presetName => {
                 const isActive = activePreset === presetName;
@@ -237,12 +237,13 @@ export function ChartSettings({
                     onClick={() => onColorsChange(COLOR_PRESETS[presetName], presetName)}
                     style={{
                       padding: '0.5rem 1rem',
-                      background: isActive ? '#e6f2ff' : 'white',
-                      border: isActive ? '2px solid #0070f3' : '2px solid #ddd',
+                      background: isActive ? colors.activePresetBg : colors.buttonBg,
+                      border: isActive ? '2px solid #0070f3' : `2px solid ${colors.borderLight}`,
                       borderRadius: '4px',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
-                      fontWeight: isActive ? '600' : 'normal'
+                      fontWeight: isActive ? '600' : 'normal',
+                      color: colors.text
                     }}
                   >
                     {presetName}

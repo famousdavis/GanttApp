@@ -36,6 +36,15 @@ export function formatDateMDY(dateStr: string): string {
 }
 
 /**
+ * Format a date string (YYYY-MM-DD) to browser's default locale format
+ * e.g., "1/15/2026" in en-US locale
+ */
+export function formatDateLocale(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
+/**
  * Get today's date as YYYY-MM-DD string
  */
 export function getTodayString(): string {

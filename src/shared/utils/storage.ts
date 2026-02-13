@@ -81,6 +81,9 @@ function validateLoadedData(data: unknown): AppData | null {
   }
 
   // Validate optional booleans
+  if (typeof d.showTodayLine === 'boolean') {
+    result.showTodayLine = d.showTodayLine;
+  }
   if (typeof d.showFinishDateLine === 'boolean') {
     result.showFinishDateLine = d.showFinishDateLine;
   }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Release } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
-import { isValidDateFormat, generateId, parseDateLocal, formatDateISO } from '../../shared/utils';
+import { isValidDateFormat, generateId, parseDateLocal, formatDateISO, validateReleaseDateChange } from '../../shared/utils';
 
 export function useReleases() {
   const { data, updateData } = useAppData();
@@ -24,6 +24,10 @@ export function useReleases() {
     // Validate date formats and ranges
     if (!isValidDateFormat(startDate) || !isValidDateFormat(earlyFinish) || !isValidDateFormat(lateFinish)) return;
 
+    // Validate mostLikelyFinish against early/late bounds using shared validator
+    const mlValid = mostLikelyFinish
+      && !validateReleaseDateChange({ startDate, earlyFinishDate: earlyFinish, lateFinishDate: lateFinish }, 'mostLikely', mostLikelyFinish);
+
     const newRelease: Release = {
       id: generateId(),
       projectId: selectedProjectId,
@@ -31,9 +35,7 @@ export function useReleases() {
       startDate,
       earlyFinishDate: earlyFinish,
       lateFinishDate: lateFinish,
-      ...(mostLikelyFinish && isValidDateFormat(mostLikelyFinish)
-        ? { mostLikelyFinishDate: mostLikelyFinish }
-        : {})
+      ...(mlValid ? { mostLikelyFinishDate: mostLikelyFinish } : {})
     };
     const newData = { ...data, releases: [...data.releases, newRelease] };
     updateData(newData);
@@ -49,6 +51,10 @@ export function useReleases() {
     // Validate date formats and ranges
     if (!isValidDateFormat(startDate) || !isValidDateFormat(earlyFinish) || !isValidDateFormat(lateFinish)) return;
 
+    // Validate mostLikelyFinish against early/late bounds using shared validator
+    const mlValid = mostLikelyFinish
+      && !validateReleaseDateChange({ startDate, earlyFinishDate: earlyFinish, lateFinishDate: lateFinish }, 'mostLikely', mostLikelyFinish);
+
     const newData = {
       ...data,
       releases: data.releases.map(r =>
@@ -58,8 +64,7 @@ export function useReleases() {
           startDate,
           earlyFinishDate: earlyFinish,
           lateFinishDate: lateFinish,
-          mostLikelyFinishDate: (mostLikelyFinish && isValidDateFormat(mostLikelyFinish))
-            ? mostLikelyFinish : undefined
+          mostLikelyFinishDate: mlValid ? mostLikelyFinish : undefined
         } : r
       )
     };
@@ -156,49 +161,23 @@ export function useReleases() {
     const release = data.releases.find(r => r.id === releaseId);
     if (!release) return false;
 
-    // Validate date format
-    if (!isValidDateFormat(newDate)) return false;
+    // Use shared validation
+    const error = validateReleaseDateChange(release, dateType, newDate);
+    if (error) return false;
 
-    // Handle most likely finish date separately
-    if (dateType === 'mostLikely') {
-      const earlyMs = parseDateLocal(release.earlyFinishDate);
-      const lateMs = parseDateLocal(release.lateFinishDate);
-      const mlMs = parseDateLocal(newDate);
-      if (mlMs < earlyMs || mlMs > lateMs) return false;
+    // Build updated release fields based on date type
+    const updatedFields = dateType === 'mostLikely'
+      ? { mostLikelyFinishDate: newDate }
+      : {
+          startDate: dateType === 'start' ? newDate : release.startDate,
+          earlyFinishDate: dateType === 'early' ? newDate : release.earlyFinishDate,
+          lateFinishDate: dateType === 'late' ? newDate : release.lateFinishDate
+        };
 
-      const newData = {
-        ...data,
-        releases: data.releases.map(r =>
-          r.id === releaseId ? { ...r, mostLikelyFinishDate: newDate } : r
-        )
-      };
-      updateData(newData);
-      return true;
-    }
-
-    // Get the dates that would result from this change
-    const startDate = dateType === 'start' ? newDate : release.startDate;
-    const earlyFinishDate = dateType === 'early' ? newDate : release.earlyFinishDate;
-    const lateFinishDate = dateType === 'late' ? newDate : release.lateFinishDate;
-
-    // Validate date ordering
-    const startMs = parseDateLocal(startDate);
-    const earlyMs = parseDateLocal(earlyFinishDate);
-    const lateMs = parseDateLocal(lateFinishDate);
-
-    // Start must be before early
-    if (startMs >= earlyMs) return false;
-
-    // Early must be before or equal to late
-    if (earlyMs > lateMs) return false;
-
-    // Apply the update
     const newData = {
       ...data,
       releases: data.releases.map(r =>
-        r.id === releaseId
-          ? { ...r, startDate, earlyFinishDate, lateFinishDate }
-          : r
+        r.id === releaseId ? { ...r, ...updatedFields } : r
       )
     };
     updateData(newData);

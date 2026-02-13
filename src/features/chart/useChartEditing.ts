@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAppData } from '../../context/AppDataContext';
-import { parseDateLocal } from '../../shared/utils/dates';
+import { validateReleaseDateChange } from '../../shared/utils/validation';
 
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
 export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine';
@@ -38,10 +38,16 @@ export function useChartEditing() {
   };
 
   const saveLabelEdit = () => {
-    if (editingLegendLabel === 'solid') setSolidBarLabel(tempLabelValue);
-    else if (editingLegendLabel === 'hatched') setHatchedBarLabel(tempLabelValue);
-    else if (editingLegendLabel === 'finishDate') setFinishDateLabel(tempLabelValue);
-    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(tempLabelValue);
+    const trimmed = tempLabelValue.trim();
+    if (!trimmed) {
+      // Reject empty/whitespace-only labels — cancel instead
+      cancelLabelEdit();
+      return;
+    }
+    if (editingLegendLabel === 'solid') setSolidBarLabel(trimmed);
+    else if (editingLegendLabel === 'hatched') setHatchedBarLabel(trimmed);
+    else if (editingLegendLabel === 'finishDate') setFinishDateLabel(trimmed);
+    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(trimmed);
     setEditingLegendLabel(null);
   };
 
@@ -93,53 +99,24 @@ export function useChartEditing() {
 
     const { dateType } = editingDateInfo;
 
-    // Handle most likely finish date separately
-    if (dateType === 'mostLikely') {
-      const earlyMs = parseDateLocal(release.earlyFinishDate);
-      const lateMs = parseDateLocal(release.lateFinishDate);
-      const mlMs = parseDateLocal(tempDateValue);
-      if (mlMs < earlyMs) {
-        setDateEditError('Must be >= Early Finish');
-        return;
-      }
-      if (mlMs > lateMs) {
-        setDateEditError('Must be <= Late Finish');
-        return;
-      }
-      const updatedReleases = data.releases.map(r =>
-        r.id === editingDateInfo.releaseId
-          ? { ...r, mostLikelyFinishDate: tempDateValue }
-          : r
-      );
-      updateData({ ...data, releases: updatedReleases });
-      cancelDateEdit();
+    // Validate using shared function
+    const error = validateReleaseDateChange(release, dateType, tempDateValue);
+    if (error) {
+      setDateEditError(error);
       return;
     }
 
-    // Get the dates that would result from this change
-    const startDate = dateType === 'start' ? tempDateValue : release.startDate;
-    const earlyFinishDate = dateType === 'early' ? tempDateValue : release.earlyFinishDate;
-    const lateFinishDate = dateType === 'late' ? tempDateValue : release.lateFinishDate;
+    // Build updated release fields based on date type
+    const updatedFields = dateType === 'mostLikely'
+      ? { mostLikelyFinishDate: tempDateValue }
+      : {
+          startDate: dateType === 'start' ? tempDateValue : release.startDate,
+          earlyFinishDate: dateType === 'early' ? tempDateValue : release.earlyFinishDate,
+          lateFinishDate: dateType === 'late' ? tempDateValue : release.lateFinishDate
+        };
 
-    // Validate date ordering
-    const startMs = parseDateLocal(startDate);
-    const earlyMs = parseDateLocal(earlyFinishDate);
-    const lateMs = parseDateLocal(lateFinishDate);
-
-    if (startMs >= earlyMs) {
-      setDateEditError('Start must be before Early Finish');
-      return;
-    }
-    if (earlyMs > lateMs) {
-      setDateEditError('Early Finish must be <= Late Finish');
-      return;
-    }
-
-    // Apply the update
     const updatedReleases = data.releases.map(r =>
-      r.id === editingDateInfo.releaseId
-        ? { ...r, startDate, earlyFinishDate, lateFinishDate }
-        : r
+      r.id === editingDateInfo.releaseId ? { ...r, ...updatedFields } : r
     );
     updateData({ ...data, releases: updatedReleases });
     cancelDateEdit();

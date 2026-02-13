@@ -205,5 +205,19 @@ describe('storage utilities', () => {
       expect(loaded.releases[1].hidden).toBe(false);
       expect(loaded.releases[1].completed).toBe(true);
     });
+
+    it('preserves showTodayLine toggle state', () => {
+      const data = makeTestData({ showTodayLine: false });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.showTodayLine).toBe(false);
+    });
+
+    it('preserves showMostLikelyLine toggle state', () => {
+      const data = makeTestData({ showMostLikelyLine: true });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.showMostLikelyLine).toBe(true);
+    });
   });
 });

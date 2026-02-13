@@ -37,6 +37,7 @@ export interface ThemeColors {
   // Accent (active tabs, primary actions)
   accent: string;
   accentText: string;
+  activePresetBg: string;
 }
 
 export const LIGHT_THEME: ThemeColors = {
@@ -59,6 +60,7 @@ export const LIGHT_THEME: ThemeColors = {
   buttonText: '#0070f3',
   accent: '#0070f3',
   accentText: 'white',
+  activePresetBg: '#e6f2ff',
 };
 
 export const DARK_THEME: ThemeColors = {
@@ -81,4 +83,5 @@ export const DARK_THEME: ThemeColors = {
   buttonText: '#3b82f6',
   accent: '#3b82f6',
   accentText: 'white',
+  activePresetBg: '#1e3a5f',
 };

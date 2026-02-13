@@ -13,6 +13,7 @@ export interface AppData {
     finishDateLine?: string;
     mostLikelyLine?: string;
   };
+  showTodayLine?: boolean;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;
   chartDisplaySettings?: ChartDisplaySettings;

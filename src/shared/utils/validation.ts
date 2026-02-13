@@ -157,6 +157,40 @@ export function getDateErrorMessage(
   return '';
 }
 
+/**
+ * Validate a single date field change on a release
+ * Returns an error message string, or '' if valid
+ * Used by inline chart editing (useChartEditing) and useReleases.updateReleaseDate
+ */
+export function validateReleaseDateChange(
+  release: { startDate: string; earlyFinishDate: string; lateFinishDate: string },
+  dateType: 'start' | 'early' | 'late' | 'mostLikely',
+  newDate: string
+): string {
+  if (!isValidDateFormat(newDate)) return 'Invalid date format';
+
+  if (dateType === 'mostLikely') {
+    const earlyMs = parseDateLocal(release.earlyFinishDate);
+    const lateMs = parseDateLocal(release.lateFinishDate);
+    const mlMs = parseDateLocal(newDate);
+    if (mlMs < earlyMs) return 'Must be >= Early Finish';
+    if (mlMs > lateMs) return 'Must be <= Late Finish';
+    return '';
+  }
+
+  const startDate = dateType === 'start' ? newDate : release.startDate;
+  const earlyFinishDate = dateType === 'early' ? newDate : release.earlyFinishDate;
+  const lateFinishDate = dateType === 'late' ? newDate : release.lateFinishDate;
+
+  const startMs = parseDateLocal(startDate);
+  const earlyMs = parseDateLocal(earlyFinishDate);
+  const lateMs = parseDateLocal(lateFinishDate);
+
+  if (startMs >= earlyMs) return 'Start must be before Early Finish';
+  if (earlyMs > lateMs) return 'Early Finish must be <= Late Finish';
+  return '';
+}
+
 // --- Shared sanitization helpers (used by storage.ts, export.ts, snapshots.ts) ---
 
 /**

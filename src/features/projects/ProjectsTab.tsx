@@ -132,7 +132,7 @@ export function ProjectsTab({
             disabled={data.projects.length === 0}
             style={{
               padding: '0.5rem 1rem',
-              background: data.projects.length === 0 ? colors.buttonBg : colors.buttonBg,
+              background: colors.buttonBg,
               color: data.projects.length === 0 ? colors.textMuted : colors.text,
               border: `1px solid ${colors.buttonBorder}`,
               borderRadius: '4px',
@@ -176,7 +176,7 @@ export function ProjectsTab({
               placeholder="Project name"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (editingProjectId ? updateProject() : addProject(selectedProjectId, setSelectedProjectId))}
+              onKeyDown={(e) => e.key === 'Enter' && (editingProjectId ? updateProject() : addProject(selectedProjectId, setSelectedProjectId))}
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',

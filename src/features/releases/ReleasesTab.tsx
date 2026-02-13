@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError } from '../../shared/utils';
+import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, formatDateLocale } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
@@ -322,27 +322,15 @@ export function ReleasesTab({
                     {release.name}
                   </strong>
                   <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
-                    <span>Start: {(() => {
-                      const [y, m, d] = release.startDate.split('-').map(Number);
-                      return new Date(y, m - 1, d).toLocaleDateString();
-                    })()}</span>
+                    <span>Start: {formatDateLocale(release.startDate)}</span>
                     <span style={{ margin: '0 1rem' }}>|</span>
-                    <span>Early: {(() => {
-                      const [y, m, d] = release.earlyFinishDate.split('-').map(Number);
-                      return new Date(y, m - 1, d).toLocaleDateString();
-                    })()}</span>
+                    <span>Early: {formatDateLocale(release.earlyFinishDate)}</span>
                     <span style={{ margin: '0 1rem' }}>|</span>
-                    <span>Late: {(() => {
-                      const [y, m, d] = release.lateFinishDate.split('-').map(Number);
-                      return new Date(y, m - 1, d).toLocaleDateString();
-                    })()}</span>
+                    <span>Late: {formatDateLocale(release.lateFinishDate)}</span>
                     {release.mostLikelyFinishDate && (
                       <>
                         <span style={{ margin: '0 1rem' }}>|</span>
-                        <span>ML: {(() => {
-                          const [y, m, d] = release.mostLikelyFinishDate.split('-').map(Number);
-                          return new Date(y, m - 1, d).toLocaleDateString();
-                        })()}</span>
+                        <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}</span>
                       </>
                     )}
                   </div>

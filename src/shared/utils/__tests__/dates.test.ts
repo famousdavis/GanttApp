@@ -4,6 +4,7 @@ import {
   formatDateShort,
   formatDateLong,
   formatDateMDY,
+  formatDateLocale,
   getTodayString,
   getTodayFormatted,
   getQuarterBoundaries,
@@ -106,6 +107,21 @@ describe('formatDateMDY', () => {
 
   it('handles double-digit months and days without extra padding', () => {
     expect(formatDateMDY('2026-11-28')).toBe('11/28/2026');
+  });
+});
+
+describe('formatDateLocale', () => {
+  it('formats a date string using the browser locale', () => {
+    const result = formatDateLocale('2026-06-15');
+    // In jsdom/en-US locale this should contain the month, day, and year
+    expect(result).toContain('2026');
+    expect(result).toContain('15');
+  });
+
+  it('parses in local timezone (no off-by-one)', () => {
+    const result = formatDateLocale('2026-01-01');
+    // Should be January 1st, not December 31st
+    expect(result).toContain('1');
   });
 });
 

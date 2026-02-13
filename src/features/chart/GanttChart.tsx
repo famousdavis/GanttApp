@@ -113,6 +113,10 @@ export function GanttChart({
   const { todayX, quarterBoundaries } = dateInfo;
   const { finishDateX } = finishDateInfo;
 
+  // Compute derived flags once for use in Legend and Settings
+  const hasProjectFinishDate = !!projectFinishDate;
+  const hasMostLikelyReleases = releases.some(r => !!r.mostLikelyFinishDate);
+
   if (releases.length === 0) {
     return (
       <div>
@@ -324,8 +328,8 @@ export function GanttChart({
           showTodayLine={showTodayLine}
           showFinishDateLine={showFinishDateLine}
           showMostLikelyLine={showMostLikelyLine}
-          hasProjectFinishDate={!!projectFinishDate}
-          hasMostLikelyReleases={releases.some(r => !!r.mostLikelyFinishDate)}
+          hasProjectFinishDate={hasProjectFinishDate}
+          hasMostLikelyReleases={hasMostLikelyReleases}
           hasCompletedReleases={releases.some(r => r.completed)}
           editingLegendLabel={editing.editingLegendLabel}
           tempLabelValue={editing.tempLabelValue}
@@ -367,8 +371,8 @@ export function GanttChart({
         setShowFinishDateLine={settings.setShowFinishDateLine}
         showMostLikelyLine={showMostLikelyLine}
         setShowMostLikelyLine={settings.setShowMostLikelyLine}
-        hasProjectFinishDate={!!projectFinishDate}
-        hasMostLikelyReleases={releases.some(r => !!r.mostLikelyFinishDate)}
+        hasProjectFinishDate={hasProjectFinishDate}
+        hasMostLikelyReleases={hasMostLikelyReleases}
         displaySettings={displaySettings}
         setDisplaySettings={settings.setDisplaySettings}
         chartColors={chartColors}

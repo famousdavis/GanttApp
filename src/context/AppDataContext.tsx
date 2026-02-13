@@ -103,12 +103,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          // Load finish date line toggle if it exists
+          // Load toggle states if they exist
+          if (loadedData.showTodayLine !== undefined) {
+            setShowTodayLine(loadedData.showTodayLine);
+          }
           if (loadedData.showFinishDateLine !== undefined) {
             setShowFinishDateLine(loadedData.showFinishDateLine);
           }
-
-          // Load most likely line toggle if it exists
           if (loadedData.showMostLikelyLine !== undefined) {
             setShowMostLikelyLine(loadedData.showMostLikelyLine);
           }
@@ -150,11 +151,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         chartDisplaySettings: displaySettings,
         preparedBy,
         showPreparedBy,
+        showTodayLine,
+        showFinishDateLine,
         showMostLikelyLine
       };
       saveData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showMostLikelyLine, data, loading]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, data, loading]);
 
   // Update data and save to localStorage
   const updateData = (newData: AppData) => {

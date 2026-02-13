@@ -10,9 +10,12 @@ interface ChartLegendProps {
   solidBarLabel: string;
   hatchedBarLabel: string;
   finishDateLabel: string;
+  mostLikelyLineLabel: string;
   showTodayLine: boolean;
   showFinishDateLine: boolean;
+  showMostLikelyLine: boolean;
   hasProjectFinishDate: boolean;
+  hasMostLikelyReleases: boolean;
   hasCompletedReleases: boolean;
   editingLegendLabel: LegendLabelType | null;
   tempLabelValue: string;
@@ -68,9 +71,12 @@ export function ChartLegend({
   solidBarLabel,
   hatchedBarLabel,
   finishDateLabel,
+  mostLikelyLineLabel,
   showTodayLine,
   showFinishDateLine,
+  showMostLikelyLine,
   hasProjectFinishDate,
+  hasMostLikelyReleases,
   hasCompletedReleases,
   editingLegendLabel,
   tempLabelValue,
@@ -175,6 +181,34 @@ export function ChartLegend({
               title={readOnly ? undefined : 'Click to edit'}
             >
               {finishDateLabel}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Most Likely Finish line legend */}
+      {showMostLikelyLine && hasMostLikelyReleases && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{
+            width: `${displaySettings.verticalLineWidth}px`,
+            height: '20px',
+            background: chartColors.mostLikelyLine,
+            borderRadius: '2px'
+          }}></div>
+          {editingLegendLabel === 'mostLikelyLine' ? (
+            <EditableLabelInput
+              value={tempLabelValue}
+              onChange={onTempLabelChange}
+              onSave={onSaveLabelEdit}
+              onCancel={onCancelLabelEdit}
+            />
+          ) : (
+            <span
+              onClick={readOnly ? undefined : () => onStartEditLabel('mostLikelyLine')}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
+              title={readOnly ? undefined : 'Click to edit'}
+            >
+              {mostLikelyLineLabel}
             </span>
           )}
         </div>

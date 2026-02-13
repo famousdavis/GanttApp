@@ -11,8 +11,10 @@ export interface AppData {
     solidBar: string;
     hatchedBar: string;
     finishDateLine?: string;
+    mostLikelyLine?: string;
   };
   showFinishDateLine?: boolean;
+  showMostLikelyLine?: boolean;
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;

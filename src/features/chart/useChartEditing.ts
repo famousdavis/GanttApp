@@ -4,8 +4,8 @@ import { useState, useCallback } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { parseDateLocal } from '../../shared/utils/dates';
 
-export type DateType = 'start' | 'early' | 'late';
-export type LegendLabelType = 'solid' | 'hatched' | 'finishDate';
+export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
+export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine';
 
 interface DateEditInfo {
   releaseId: string;
@@ -13,7 +13,7 @@ interface DateEditInfo {
 }
 
 export function useChartEditing() {
-  const { data, updateData, solidBarLabel, setSolidBarLabel, hatchedBarLabel, setHatchedBarLabel, finishDateLabel, setFinishDateLabel } = useAppData();
+  const { data, updateData, solidBarLabel, setSolidBarLabel, hatchedBarLabel, setHatchedBarLabel, finishDateLabel, setFinishDateLabel, mostLikelyLineLabel, setMostLikelyLineLabel } = useAppData();
 
   // Legend label editing
   const [editingLegendLabel, setEditingLegendLabel] = useState<LegendLabelType | null>(null);
@@ -33,13 +33,15 @@ export function useChartEditing() {
     setEditingLegendLabel(type);
     if (type === 'solid') setTempLabelValue(solidBarLabel);
     else if (type === 'hatched') setTempLabelValue(hatchedBarLabel);
-    else setTempLabelValue(finishDateLabel);
+    else if (type === 'finishDate') setTempLabelValue(finishDateLabel);
+    else if (type === 'mostLikelyLine') setTempLabelValue(mostLikelyLineLabel);
   };
 
   const saveLabelEdit = () => {
     if (editingLegendLabel === 'solid') setSolidBarLabel(tempLabelValue);
     else if (editingLegendLabel === 'hatched') setHatchedBarLabel(tempLabelValue);
     else if (editingLegendLabel === 'finishDate') setFinishDateLabel(tempLabelValue);
+    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(tempLabelValue);
     setEditingLegendLabel(null);
   };
 
@@ -89,8 +91,32 @@ export function useChartEditing() {
       return;
     }
 
-    // Get the dates that would result from this change
     const { dateType } = editingDateInfo;
+
+    // Handle most likely finish date separately
+    if (dateType === 'mostLikely') {
+      const earlyMs = parseDateLocal(release.earlyFinishDate);
+      const lateMs = parseDateLocal(release.lateFinishDate);
+      const mlMs = parseDateLocal(tempDateValue);
+      if (mlMs < earlyMs) {
+        setDateEditError('Must be >= Early Finish');
+        return;
+      }
+      if (mlMs > lateMs) {
+        setDateEditError('Must be <= Late Finish');
+        return;
+      }
+      const updatedReleases = data.releases.map(r =>
+        r.id === editingDateInfo.releaseId
+          ? { ...r, mostLikelyFinishDate: tempDateValue }
+          : r
+      );
+      updateData({ ...data, releases: updatedReleases });
+      cancelDateEdit();
+      return;
+    }
+
+    // Get the dates that would result from this change
     const startDate = dateType === 'start' ? tempDateValue : release.startDate;
     const earlyFinishDate = dateType === 'early' ? tempDateValue : release.earlyFinishDate;
     const lateFinishDate = dateType === 'late' ? tempDateValue : release.lateFinishDate;

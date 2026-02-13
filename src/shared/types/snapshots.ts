@@ -14,6 +14,7 @@ export interface Snapshot {
     solidBar: string;
     hatchedBar: string;
     finishDateLine?: string;
+    mostLikelyLine?: string;
   };
   preparedBy?: string;          // Frozen preparedBy value
 }

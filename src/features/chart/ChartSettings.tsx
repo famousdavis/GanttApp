@@ -12,7 +12,10 @@ interface ChartSettingsProps {
   setShowTodayLine: (show: boolean) => void;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
+  showMostLikelyLine: boolean;
+  setShowMostLikelyLine: (show: boolean) => void;
   hasProjectFinishDate: boolean;
+  hasMostLikelyReleases: boolean;
   displaySettings: ChartDisplaySettings;
   setDisplaySettings: (settings: ChartDisplaySettings) => void;
   chartColors: ChartColors;
@@ -31,7 +34,10 @@ export function ChartSettings({
   setShowTodayLine,
   showFinishDateLine,
   setShowFinishDateLine,
+  showMostLikelyLine,
+  setShowMostLikelyLine,
   hasProjectFinishDate,
+  hasMostLikelyReleases,
   displaySettings,
   setDisplaySettings,
   chartColors,
@@ -82,6 +88,17 @@ export function ChartSettings({
                     style={{ cursor: 'pointer' }}
                   />
                   <span>Show Project Finish Date</span>
+                </label>
+              )}
+              {hasMostLikelyReleases && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={showMostLikelyLine}
+                    onChange={(e) => setShowMostLikelyLine(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Show Most Likely Finish</span>
                 </label>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -177,7 +194,7 @@ export function ChartSettings({
 
           {/* Color Settings */}
           <div style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
               <ColorSwatchPicker
                 label="Solid Bar Color"
                 value={chartColors.solidBar}
@@ -198,6 +215,13 @@ export function ChartSettings({
                 value={chartColors.finishDateLine}
                 onChange={(color) => onColorsChange({ ...chartColors, finishDateLine: color })}
               />
+              {showMostLikelyLine && (
+                <ColorSwatchPicker
+                  label="Most Likely Finish Line"
+                  value={chartColors.mostLikelyLine}
+                  onChange={(color) => onColorsChange({ ...chartColors, mostLikelyLine: color })}
+                />
+              )}
             </div>
           </div>
 

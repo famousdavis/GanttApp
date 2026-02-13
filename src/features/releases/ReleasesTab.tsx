@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isReleaseValid, getDateErrorMessage } from '../../shared/utils';
+import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
@@ -44,6 +44,8 @@ export function ReleasesTab({
     deleteRelease,
     startEditRelease,
     clearReleaseForm,
+    mostLikelyFinish,
+    setMostLikelyFinish,
     toggleReleaseHidden,
     toggleReleaseCompleted,
     duplicateRelease
@@ -52,7 +54,8 @@ export function ReleasesTab({
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
   const errorMessage = getDateErrorMessage(startDate, earlyFinish, lateFinish, touchedFields);
-  const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage;
+  const mostLikelyError = mostLikelyFinish ? getMostLikelyDateError(earlyFinish, lateFinish, mostLikelyFinish) : '';
+  const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage && !mostLikelyError;
 
   // Determine which fields have errors for highlighting
   const startDateInvalid = touchedFields.startDate && startDate.length === 10 && (startDate < '2000-01-01' || startDate > '2050-12-31');
@@ -108,7 +111,7 @@ export function ReleasesTab({
       </h2>
 
       <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Release Name
@@ -131,7 +134,7 @@ export function ReleasesTab({
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Start Date
+              Start Date<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
             </label>
             <input
               type="date"
@@ -153,7 +156,7 @@ export function ReleasesTab({
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Early Finish Date
+              Early Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
             </label>
             <input
               type="date"
@@ -175,7 +178,7 @@ export function ReleasesTab({
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Late Finish Date
+              Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
             </label>
             <input
               type="date"
@@ -195,19 +198,42 @@ export function ReleasesTab({
               }}
             />
           </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+              Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
+            </label>
+            <input
+              type="date"
+              value={mostLikelyFinish}
+              className={mostLikelyFinish ? 'has-value' : ''}
+              onChange={(e) => setMostLikelyFinish(e.target.value)}
+              min="2000-01-01"
+              max="2050-12-31"
+              style={{
+                padding: '0.75rem',
+                fontSize: '1rem',
+                border: mostLikelyError ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+                borderRadius: '4px',
+                width: '100%',
+                background: colors.inputBg,
+                color: colors.text
+              }}
+            />
+          </div>
         </div>
 
-        {errorMessage && (
+        {(errorMessage || mostLikelyError) && (
           <div style={{
             color: '#dc3545',
             fontSize: '0.9rem',
+            marginTop: '0.75rem',
             marginBottom: '0.75rem',
             padding: '0.5rem',
             background: '#f8d7da',
             borderRadius: '4px',
             border: '1px solid #f5c6cb'
           }}>
-            {errorMessage}
+            {errorMessage || mostLikelyError}
           </div>
         )}
 
@@ -310,6 +336,15 @@ export function ReleasesTab({
                       const [y, m, d] = release.lateFinishDate.split('-').map(Number);
                       return new Date(y, m - 1, d).toLocaleDateString();
                     })()}</span>
+                    {release.mostLikelyFinishDate && (
+                      <>
+                        <span style={{ margin: '0 1rem' }}>|</span>
+                        <span>ML: {(() => {
+                          const [y, m, d] = release.mostLikelyFinishDate.split('-').map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString();
+                        })()}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

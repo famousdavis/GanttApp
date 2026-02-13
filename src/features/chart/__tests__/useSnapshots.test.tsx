@@ -165,7 +165,7 @@ describe('useSnapshots', () => {
     act(() => {
       result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: 'William'
       });
@@ -183,7 +183,7 @@ describe('useSnapshots', () => {
     act(() => {
       result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: ''
       });

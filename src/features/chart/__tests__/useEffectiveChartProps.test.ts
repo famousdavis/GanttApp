@@ -16,7 +16,7 @@ const liveData = {
     }
   ],
   chartColors: DEFAULT_CHART_COLORS,
-  labels: { solidBar: 'Design', hatchedBar: 'Uncertainty', finishDateLine: 'Finish' },
+  labels: { solidBar: 'Design', hatchedBar: 'Uncertainty', finishDateLine: 'Finish', mostLikelyLine: 'Most Likely Finish' },
   preparedBy: 'William',
   finishDate: '2026-06-30'
 };
@@ -25,7 +25,8 @@ const snapshotColors = {
   solidBar: '#ff0000',
   hatchedBar: '#00ff00',
   todayLine: '#0000ff',
-  finishDateLine: '#ffff00'
+  finishDateLine: '#ffff00',
+  mostLikelyLine: '#000000'
 };
 
 const mockSnapshot: Snapshot = {
@@ -133,5 +134,21 @@ describe('useEffectiveChartProps', () => {
     const { result } = renderHook(() => useEffectiveChartProps(null, liveWithoutFinish));
 
     expect(result.current.finishDate).toBeUndefined();
+  });
+
+  it('returns live mostLikelyLine label when no snapshot', () => {
+    const { result } = renderHook(() => useEffectiveChartProps(null, liveData));
+
+    expect(result.current.labels.mostLikelyLine).toBe('Most Likely Finish');
+  });
+
+  it('returns snapshot mostLikelyLine label from snapshot', () => {
+    const snapshotWithMlLabel: Snapshot = {
+      ...mockSnapshot,
+      legendLabels: { solidBar: 'Snap Design', hatchedBar: 'Snap Uncertainty', finishDateLine: 'Snap Finish', mostLikelyLine: 'Snap ML' }
+    };
+    const { result } = renderHook(() => useEffectiveChartProps(snapshotWithMlLabel, liveData));
+
+    expect(result.current.labels.mostLikelyLine).toBe('Snap ML');
   });
 });

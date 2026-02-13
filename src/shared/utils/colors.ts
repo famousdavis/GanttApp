@@ -7,7 +7,8 @@ export const DEFAULT_CHART_COLORS: ChartColors = {
   solidBar: '#0070f3',
   hatchedBar: '#0070f3',
   todayLine: '#dc3545',
-  finishDateLine: '#00ff00'
+  finishDateLine: '#00ff00',
+  mostLikelyLine: '#0070f3'
 };
 
 // Default display settings
@@ -47,15 +48,15 @@ export const STANDARD_COLORS = [
 // Color preset themes (10 themes)
 export const COLOR_PRESETS: { [key: string]: ChartColors } = {
   'Default': DEFAULT_CHART_COLORS,
-  'Professional': { solidBar: '#2c3e50', hatchedBar: '#34495e', todayLine: '#e74c3c', finishDateLine: '#27ae60' },
-  'Colorful': { solidBar: '#9b59b6', hatchedBar: '#3498db', todayLine: '#e67e22', finishDateLine: '#2ecc71' },
-  'Grayscale': { solidBar: '#555555', hatchedBar: '#777777', todayLine: '#333333', finishDateLine: '#999999' },
-  'High Contrast': { solidBar: '#000000', hatchedBar: '#0066cc', todayLine: '#ff0000', finishDateLine: '#00ff00' },
-  'Forest': { solidBar: '#2d5016', hatchedBar: '#56ab2f', todayLine: '#ff6b6b', finishDateLine: '#a3e635' },
-  'Ocean': { solidBar: '#1e3a8a', hatchedBar: '#3b82f6', todayLine: '#f59e0b', finishDateLine: '#10b981' },
-  'Sunset': { solidBar: '#dc2626', hatchedBar: '#f97316', todayLine: '#7c2d12', finishDateLine: '#84cc16' },
-  'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899', finishDateLine: '#86efac' },
-  'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d', finishDateLine: '#4ade80' }
+  'Professional': { solidBar: '#2c3e50', hatchedBar: '#34495e', todayLine: '#e74c3c', finishDateLine: '#27ae60', mostLikelyLine: '#34495e' },
+  'Colorful': { solidBar: '#9b59b6', hatchedBar: '#3498db', todayLine: '#e67e22', finishDateLine: '#2ecc71', mostLikelyLine: '#3498db' },
+  'Grayscale': { solidBar: '#555555', hatchedBar: '#777777', todayLine: '#333333', finishDateLine: '#999999', mostLikelyLine: '#dc2626' },
+  'High Contrast': { solidBar: '#000000', hatchedBar: '#0066cc', todayLine: '#ff0000', finishDateLine: '#00ff00', mostLikelyLine: '#0066cc' },
+  'Forest': { solidBar: '#2d5016', hatchedBar: '#56ab2f', todayLine: '#ff6b6b', finishDateLine: '#a3e635', mostLikelyLine: '#56ab2f' },
+  'Ocean': { solidBar: '#1e3a8a', hatchedBar: '#3b82f6', todayLine: '#f59e0b', finishDateLine: '#10b981', mostLikelyLine: '#3b82f6' },
+  'Sunset': { solidBar: '#dc2626', hatchedBar: '#f97316', todayLine: '#7c2d12', finishDateLine: '#84cc16', mostLikelyLine: '#f97316' },
+  'Lavender': { solidBar: '#7c3aed', hatchedBar: '#a78bfa', todayLine: '#ec4899', finishDateLine: '#86efac', mostLikelyLine: '#a78bfa' },
+  'Earth': { solidBar: '#78350f', hatchedBar: '#92400e', todayLine: '#15803d', finishDateLine: '#4ade80', mostLikelyLine: '#92400e' }
 };
 
 // Grayscale color options

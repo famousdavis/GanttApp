@@ -80,9 +80,12 @@ function validateLoadedData(data: unknown): AppData | null {
     result.legendLabels = sanitizeLegendLabels(d.legendLabels);
   }
 
-  // Validate optional boolean
+  // Validate optional booleans
   if (typeof d.showFinishDateLine === 'boolean') {
     result.showFinishDateLine = d.showFinishDateLine;
+  }
+  if (typeof d.showMostLikelyLine === 'boolean') {
+    result.showMostLikelyLine = d.showMostLikelyLine;
   }
 
   // Validate optional prepared by

@@ -72,6 +72,7 @@ describe('storage utilities', () => {
           hatchedBar: '#111111',
           todayLine: '#222222',
           finishDateLine: '#333333',
+          mostLikelyLine: '#444444',
         },
         activePreset: 'Professional',
       });
@@ -148,6 +149,7 @@ describe('storage utilities', () => {
           hatchedBar: '#00ff00',
           todayLine: '#0000ff',
           finishDateLine: '#ffff00',
+          mostLikelyLine: '#000000',
         },
         legendLabels: {
           solidBar: 'Custom Solid',

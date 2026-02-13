@@ -113,9 +113,10 @@ describe('ReleasesTab', () => {
 
       renderReleasesTab();
       expect(screen.getByPlaceholderText('Release name')).toBeTruthy();
-      expect(screen.getByText('Start Date')).toBeTruthy();
-      expect(screen.getByText('Early Finish Date')).toBeTruthy();
-      expect(screen.getByText('Late Finish Date')).toBeTruthy();
+      expect(screen.getByText(/Start Date/)).toBeTruthy();
+      expect(screen.getByText(/Early Finish/)).toBeTruthy();
+      expect(screen.getByText(/Late Finish/)).toBeTruthy();
+      expect(screen.getByText(/Most Likely/)).toBeTruthy();
     });
   });
 

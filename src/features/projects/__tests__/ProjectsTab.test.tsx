@@ -305,14 +305,12 @@ describe('ProjectsTab', () => {
       return new File([content], 'test.json', { type: 'application/json' });
     }
 
-    it('shows confirm dialog when importing with existing data', async () => {
+    it('shows modal dialog when importing with existing data', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [makeRelease({ id: 'r1', projectId: 'p1' })],
       });
 
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
       renderProjectsTab();
 
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -324,19 +322,18 @@ describe('ProjectsTab', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
 
       await waitFor(() => {
-        expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('replace all existing'));
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+        expect(screen.getByText(/replace all existing projects/)).toBeTruthy();
       });
-
-      confirmSpy.mockRestore();
     });
 
-    it('aborts import when user cancels confirm dialog', async () => {
+    it('applies import when Replace button is clicked', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
       renderProjectsTab();
 
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -348,20 +345,52 @@ describe('ProjectsTab', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
 
       await waitFor(() => {
-        expect(confirmSpy).toHaveBeenCalled();
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByText('Replace'));
+
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects[0].name).toBe('Beta');
+      });
+    });
+
+    it('aborts import when Cancel button is clicked', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: []
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      // Modal should close
+      await waitFor(() => {
+        expect(screen.queryByText('Replace All Data')).toBeNull();
       });
 
       // Original data should remain
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.projects[0].name).toBe('Alpha');
-
-      confirmSpy.mockRestore();
     });
 
-    it('skips confirm dialog when no existing data', async () => {
+    it('skips modal dialog when no existing data', async () => {
       seedData({ projects: [], releases: [] });
 
-      const confirmSpy = vi.spyOn(window, 'confirm');
       const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
       renderProjectsTab();
 
@@ -377,9 +406,9 @@ describe('ProjectsTab', () => {
         expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('imported successfully'));
       });
 
-      expect(confirmSpy).not.toHaveBeenCalled();
+      // Modal should not have appeared
+      expect(screen.queryByText('Replace All Data')).toBeNull();
 
-      confirmSpy.mockRestore();
       alertSpy.mockRestore();
     });
   });

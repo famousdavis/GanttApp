@@ -51,6 +51,8 @@ export function ProjectsTab({
     exportDataUtil(data, allSnapshots);
   };
 
+  const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData>; fileInput: HTMLInputElement } | null>(null);
+
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -62,34 +64,32 @@ export function ProjectsTab({
       if (imported) {
         const hasExistingData = data.projects.length > 0 || data.releases.length > 0;
         if (hasExistingData) {
-          const confirmed = window.confirm(
-            'Importing will replace all existing projects, releases, and settings. This cannot be undone.\n\nDo you want to continue?'
-          );
-          if (!confirmed) {
-            event.target.value = '';
-            return;
-          }
+          setImportConfirm({ imported, fileInput: event.target });
+          return;
         }
-        updateData(imported.appData);
-        // Import snapshots if present
-        if (imported.snapshots && imported.snapshots.length > 0) {
-          saveAllSnapshots(imported.snapshots);
-        }
-        if (imported.appData.projects.length > 0) {
-          setSelectedProjectId(imported.appData.projects[0].id);
-        }
-        const snapshotMsg = imported.snapshots ? ` (including ${imported.snapshots.length} snapshot${imported.snapshots.length !== 1 ? 's' : ''})` : '';
-        alert(`Data imported successfully!${snapshotMsg}`);
+        applyImport(imported, event.target);
       } else {
         alert('Invalid file format');
+        event.target.value = '';
       }
     } catch (error) {
       alert('Error importing file');
       console.error(error);
+      event.target.value = '';
     }
+  };
 
-    // Reset file input
-    event.target.value = '';
+  const applyImport = (imported: NonNullable<ReturnType<typeof parseImportedData>>, fileInput: HTMLInputElement) => {
+    updateData(imported.appData);
+    if (imported.snapshots && imported.snapshots.length > 0) {
+      saveAllSnapshots(imported.snapshots);
+    }
+    if (imported.appData.projects.length > 0) {
+      setSelectedProjectId(imported.appData.projects[0].id);
+    }
+    const snapshotMsg = imported.snapshots ? ` (including ${imported.snapshots.length} snapshot${imported.snapshots.length !== 1 ? 's' : ''})` : '';
+    alert(`Data imported successfully!${snapshotMsg}`);
+    fileInput.value = '';
   };
 
   const [finishDateError, setFinishDateError] = useState('');
@@ -375,6 +375,86 @@ export function ProjectsTab({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Import confirmation modal */}
+      {importConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: colors.surface,
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '480px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              color: colors.text,
+              marginBottom: '1rem'
+            }}>
+              Replace All Data
+            </h3>
+            <p style={{
+              color: colors.textSecondary,
+              lineHeight: '1.6',
+              marginBottom: '1.5rem',
+              fontSize: '0.95rem'
+            }}>
+              This will replace all existing projects, releases, snapshots, and settings with the contents of this file. This cannot be undone. Export your current data first if you want to keep it.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                onClick={() => {
+                  importConfirm.fileInput.value = '';
+                  setImportConfirm(null);
+                }}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: colors.surface,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  applyImport(importConfirm.imported!, importConfirm.fileInput);
+                  setImportConfirm(null);
+                }}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Replace
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

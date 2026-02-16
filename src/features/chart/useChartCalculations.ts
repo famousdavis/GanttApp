@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Release, ChartDisplaySettings } from '../../shared/types';
 import { parseDateLocal, getQuarterBoundaries, getTodayString } from '../../shared/utils';
-import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
+import { darkenColor } from '../../shared/utils/colors';
 
 export interface ChartDimensions {
   chartWidth: number;
@@ -109,10 +109,10 @@ export function useChartCalculations(
     return Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
   }, [dateInfo.minDate, dateInfo.maxDate]);
 
-  // Get release colors (completed = green, otherwise chart colors)
-  const getReleaseColors = (release: Release, chartColors: { solidBar: string; hatchedBar: string }) => {
+  // Get release colors (completed = user-configured color, otherwise chart colors)
+  const getReleaseColors = (release: Release, chartColors: { solidBar: string; hatchedBar: string; completedBar: string }) => {
     if (release.completed) {
-      return COMPLETED_RELEASE_COLORS;
+      return { solidBar: chartColors.completedBar, hatchedBar: darkenColor(chartColors.completedBar, 0.35) };
     }
     return { solidBar: chartColors.solidBar, hatchedBar: chartColors.hatchedBar };
   };

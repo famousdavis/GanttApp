@@ -178,7 +178,7 @@ describe('ChartSettings', () => {
     expect(setMl).toHaveBeenCalled();
   });
 
-  it('shows Most Likely Finish Line color picker when toggle is on', () => {
+  it('shows Most Likely color picker when toggle is on', () => {
     renderWithTheme(
       <ChartSettings
         {...defaultProps}
@@ -188,10 +188,10 @@ describe('ChartSettings', () => {
       />
     );
 
-    expect(screen.getByText('Most Likely Finish Line')).toBeInTheDocument();
+    expect(screen.getByText('Most Likely')).toBeInTheDocument();
   });
 
-  it('hides Most Likely Finish Line color picker when toggle is off', () => {
+  it('hides Most Likely color picker when toggle is off', () => {
     renderWithTheme(
       <ChartSettings
         {...defaultProps}
@@ -201,6 +201,14 @@ describe('ChartSettings', () => {
       />
     );
 
-    expect(screen.queryByText('Most Likely Finish Line')).not.toBeInTheDocument();
+    expect(screen.queryByText('Most Likely')).not.toBeInTheDocument();
+  });
+
+  it('shows Completed color picker when expanded', () => {
+    renderWithTheme(
+      <ChartSettings {...defaultProps} showColorSettings={true} />
+    );
+
+    expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 });

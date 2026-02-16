@@ -24,6 +24,7 @@ export interface ChartColors {
   todayLine: string;
   finishDateLine: string;
   mostLikelyLine: string;
+  completedBar: string;
 }
 
 export interface ChartDisplaySettings {

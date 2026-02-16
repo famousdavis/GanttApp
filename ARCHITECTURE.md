@@ -152,7 +152,7 @@ interface Release {
   earlyFinishDate: string;     // YYYY-MM-DD (optimistic)
   lateFinishDate: string;      // YYYY-MM-DD (pessimistic)
   hidden?: boolean;            // Hide from chart
-  completed?: boolean;         // Render in green
+  completed?: boolean;         // Render as single solid bar in completedBar color (v9.0)
   mostLikelyFinishDate?: string; // Optional YYYY-MM-DD, >= early and <= late (v8.0)
 }
 
@@ -176,6 +176,7 @@ interface ChartColors {
   todayLine: string;      // Hex color for today line
   finishDateLine: string; // Hex color for finish date line
   mostLikelyLine: string; // Hex color for most likely line (v8.0)
+  completedBar: string;   // Hex color for completed release bar (v9.0)
 }
 
 // Display settings
@@ -299,7 +300,7 @@ User Input / Import File
 | `validateReleaseDateChange(release, dateType, newDate)` | Shared date cross-validation (v8.0) |
 | `getMostLikelyDateError(early, late, ml)` | Most Likely date form validation (v8.0) |
 | `sanitizeRelease(rel)` | Full release sanitization incl. ML date (v7.1) |
-| `sanitizeChartColors(colors)` | Chart colors sanitization with defaults (v7.1) |
+| `sanitizeChartColors(colors)` | Chart colors sanitization with defaults incl. completedBar (v7.1/v9.0) |
 | `sanitizeLegendLabels(labels)` | Legend labels sanitization (v7.1) |
 
 ### Import Limits (export.ts)
@@ -357,10 +358,17 @@ The GanttChart component renders an SVG with:
 1. **Quarterly gridlines** - Dashed vertical lines at Q2, Q3, Q4 boundaries
 2. **Year labels** - Year numbers at top of chart (quarter labels suppressed when too close)
 3. **Release bars** - Rendered by ChartReleaseBar for each visible release:
-   - Solid bar: startDate → earlyFinishDate
-   - Hatched bar: earlyFinishDate → lateFinishDate (SVG pattern fill)
-   - Most Likely line: optional vertical line within hatched bar (v8.0)
-   - Date labels below bars (with collision detection, 40px minimum spacing)
+   - **Normal releases:**
+     - Solid bar: startDate → earlyFinishDate
+     - Hatched bar: earlyFinishDate → lateFinishDate (SVG pattern fill)
+     - Most Likely line: optional vertical line within hatched bar (v8.0)
+     - Date labels below bars (with collision detection, 40px minimum spacing)
+   - **Completed releases (v9.0):**
+     - Single solid bar: startDate → lateFinishDate (no hatching — no uncertainty)
+     - Color: `chartColors.completedBar` (customizable, default `#90ee90`)
+     - Early Finish date label hidden
+     - Most Likely line and label hidden
+     - Only Start Date and Late Finish Date labels shown
 4. **Vertical lines** - Today's date, project finish date (configurable)
 5. **Legend** - Editable labels for bar types and Most Likely line (disabled in read-only mode)
 
@@ -381,7 +389,7 @@ The GanttChart component renders an SVG with:
 - **Unit Tests**: Utility functions (validation, dates, colors, export, snapshots)
 - **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases, useChartEditing)
 - **Component Tests**: UI components with React Testing Library
-- **447 total tests** across 28 test files
+- **459 total tests** across 28 test files
 
 ## Build & Deployment
 

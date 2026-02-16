@@ -298,4 +298,89 @@ describe('ProjectsTab', () => {
       expect(exportButton.closest('button')?.disabled).toBe(false);
     });
   });
+
+  describe('import warning dialog', () => {
+    function createValidFile(data: object): File {
+      const content = JSON.stringify(data);
+      return new File([content], 'test.json', { type: 'application/json' });
+    }
+
+    it('shows confirm dialog when importing with existing data', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [makeRelease({ id: 'r1', projectId: 'p1' })],
+      });
+
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      renderProjectsTab();
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [{ id: 'r2', projectId: 'p2', name: 'R2', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }]
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('replace all existing'));
+      });
+
+      confirmSpy.mockRestore();
+    });
+
+    it('aborts import when user cancels confirm dialog', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      renderProjectsTab();
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: []
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(confirmSpy).toHaveBeenCalled();
+      });
+
+      // Original data should remain
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].name).toBe('Alpha');
+
+      confirmSpy.mockRestore();
+    });
+
+    it('skips confirm dialog when no existing data', async () => {
+      seedData({ projects: [], releases: [] });
+
+      const confirmSpy = vi.spyOn(window, 'confirm');
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      renderProjectsTab();
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: []
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('imported successfully'));
+      });
+
+      expect(confirmSpy).not.toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+      alertSpy.mockRestore();
+    });
+  });
 });

@@ -75,6 +75,7 @@ describe('parseImportedData', () => {
         todayLine: '#0000ff',
         finishDateLine: '#ffff00',
         mostLikelyLine: '#000000',
+        completedBar: '#90ee90',
       },
       activePreset: 'Sunset',
       legendLabels: {

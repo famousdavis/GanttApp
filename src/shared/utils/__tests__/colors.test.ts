@@ -6,6 +6,7 @@ import {
   COLOR_PRESETS,
   GRAYSCALE_COLORS,
   COMPLETED_RELEASE_COLORS,
+  darkenColor,
 } from '../colors';
 
 describe('DEFAULT_CHART_COLORS', () => {
@@ -14,6 +15,7 @@ describe('DEFAULT_CHART_COLORS', () => {
     expect(DEFAULT_CHART_COLORS).toHaveProperty('hatchedBar');
     expect(DEFAULT_CHART_COLORS).toHaveProperty('todayLine');
     expect(DEFAULT_CHART_COLORS).toHaveProperty('finishDateLine');
+    expect(DEFAULT_CHART_COLORS).toHaveProperty('completedBar');
   });
 
   it('has valid hex color values', () => {
@@ -22,6 +24,7 @@ describe('DEFAULT_CHART_COLORS', () => {
     expect(DEFAULT_CHART_COLORS.hatchedBar).toMatch(hexRegex);
     expect(DEFAULT_CHART_COLORS.todayLine).toMatch(hexRegex);
     expect(DEFAULT_CHART_COLORS.finishDateLine).toMatch(hexRegex);
+    expect(DEFAULT_CHART_COLORS.completedBar).toMatch(hexRegex);
   });
 });
 
@@ -81,12 +84,14 @@ describe('COLOR_PRESETS', () => {
     expect(Object.keys(COLOR_PRESETS)).toHaveLength(10);
   });
 
-  it('each preset has all 4 required color properties', () => {
+  it('each preset has all 6 required color properties', () => {
     Object.entries(COLOR_PRESETS).forEach(([name, colors]) => {
       expect(colors, `Preset "${name}" missing solidBar`).toHaveProperty('solidBar');
       expect(colors, `Preset "${name}" missing hatchedBar`).toHaveProperty('hatchedBar');
       expect(colors, `Preset "${name}" missing todayLine`).toHaveProperty('todayLine');
       expect(colors, `Preset "${name}" missing finishDateLine`).toHaveProperty('finishDateLine');
+      expect(colors, `Preset "${name}" missing mostLikelyLine`).toHaveProperty('mostLikelyLine');
+      expect(colors, `Preset "${name}" missing completedBar`).toHaveProperty('completedBar');
     });
   });
 
@@ -97,6 +102,8 @@ describe('COLOR_PRESETS', () => {
       expect(colors.hatchedBar, `${name}.hatchedBar`).toMatch(hexRegex);
       expect(colors.todayLine, `${name}.todayLine`).toMatch(hexRegex);
       expect(colors.finishDateLine, `${name}.finishDateLine`).toMatch(hexRegex);
+      expect(colors.mostLikelyLine, `${name}.mostLikelyLine`).toMatch(hexRegex);
+      expect(colors.completedBar, `${name}.completedBar`).toMatch(hexRegex);
     });
   });
 
@@ -144,5 +151,32 @@ describe('COMPLETED_RELEASE_COLORS', () => {
     expect(COMPLETED_RELEASE_COLORS.solidBar).toBe('#90EE90');
     // Forest green for hatched bar
     expect(COMPLETED_RELEASE_COLORS.hatchedBar).toBe('#228B22');
+  });
+});
+
+describe('darkenColor', () => {
+  it('darkens a color by the given factor', () => {
+    const result = darkenColor('#90EE90', 0.35);
+    expect(result).toMatch(/^#[0-9a-f]{6}$/);
+    const r = parseInt(result.slice(1, 3), 16);
+    const g = parseInt(result.slice(3, 5), 16);
+    const b = parseInt(result.slice(5, 7), 16);
+    expect(r).toBeLessThan(144);
+    expect(g).toBeLessThan(238);
+    expect(b).toBeLessThan(144);
+  });
+
+  it('returns black when factor is 0', () => {
+    expect(darkenColor('#ff0000', 0)).toBe('#000000');
+  });
+
+  it('returns same color when factor is 1', () => {
+    expect(darkenColor('#0070f3', 1)).toBe('#0070f3');
+  });
+
+  it('handles 3-digit hex codes', () => {
+    const result = darkenColor('#fff', 0.5);
+    expect(result).toMatch(/^#[0-9a-f]{6}$/);
+    expect(result).toBe('#808080');
   });
 });

@@ -31,8 +31,26 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 8.0 */}
+      {/* Version 9.0 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 9.0
+          <span style={dateStyle}>February 16, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Import Warning Dialog</strong> — importing now shows a confirmation dialog when existing data would be replaced</li>
+          <li><strong>Customizable Completed Release Color</strong> — completed releases now use a configurable color instead of hardcoded green</li>
+          <li>New &ldquo;Completed&rdquo; color picker in Chart Settings (always visible)</li>
+          <li>Hatched bar for completed releases auto-darkens from the chosen completed color</li>
+          <li>All 10 color presets updated with Completed Bar color (default: light green #90ee90)</li>
+          <li>Chart Settings color picker labels shortened for cleaner layout (e.g., &ldquo;Solid Bar&rdquo; instead of &ldquo;Solid Bar Color&rdquo;)</li>
+          <li>Color picker grid now uses flexible layout to accommodate 5-6 pickers dynamically</li>
+          <li>Backwards compatible: new completedBar field defaults gracefully for existing data</li>
+        </ul>
+      </div>
+
+      {/* Version 8.0 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 8.0
           <span style={dateStyle}>February 13, 2026</span>

@@ -8,9 +8,10 @@ interface ColorSwatchPickerProps {
   value: string;
   onChange: (color: string) => void;
   label: string;
+  hatched?: boolean;
 }
 
-export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerProps) {
+export function ColorSwatchPicker({ value, onChange, label, hatched }: ColorSwatchPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const { colors } = useTheme();
@@ -40,17 +41,32 @@ export function ColorSwatchPicker({ value, onChange, label }: ColorSwatchPickerP
       }}>
         {label}
       </label>
-      <div
-        onClick={() => setShowPicker(!showPicker)}
-        style={{
-          width: '100%',
-          height: '40px',
-          background: value,
-          border: `2px solid ${colors.border}`,
-          borderRadius: '4px',
-          cursor: 'pointer'
-        }}
-      />
+      {hatched ? (
+        <svg
+          onClick={() => setShowPicker(!showPicker)}
+          width="100%" height="40"
+          style={{ display: 'block', border: `2px solid ${colors.border}`, borderRadius: '4px', cursor: 'pointer' }}
+        >
+          <defs>
+            <pattern id="swatch-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke={value} strokeWidth="4" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#swatch-hatch)`} stroke={value} strokeWidth="2" rx="2" />
+        </svg>
+      ) : (
+        <div
+          onClick={() => setShowPicker(!showPicker)}
+          style={{
+            width: '100%',
+            height: '40px',
+            background: value,
+            border: `2px solid ${colors.border}`,
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        />
+      )}
 
       {showPicker && (
         <div style={{

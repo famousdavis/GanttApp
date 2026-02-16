@@ -60,6 +60,16 @@ export function ProjectsTab({
       const imported = parseImportedData(content);
 
       if (imported) {
+        const hasExistingData = data.projects.length > 0 || data.releases.length > 0;
+        if (hasExistingData) {
+          const confirmed = window.confirm(
+            'Importing will replace all existing projects, releases, and settings. This cannot be undone.\n\nDo you want to continue?'
+          );
+          if (!confirmed) {
+            event.target.value = '';
+            return;
+          }
+        }
         updateData(imported.appData);
         // Import snapshots if present
         if (imported.snapshots && imported.snapshots.length > 0) {

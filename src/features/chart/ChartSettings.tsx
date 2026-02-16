@@ -194,34 +194,40 @@ export function ChartSettings({
 
           {/* Color Settings */}
           <div style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
               <ColorSwatchPicker
-                label="Solid Bar Color"
+                label="Solid Bar"
                 value={chartColors.solidBar}
                 onChange={(color) => onColorsChange({ ...chartColors, solidBar: color })}
               />
               <ColorSwatchPicker
-                label="Hatched Bar Color"
+                label="Hatched Bar"
                 value={chartColors.hatchedBar}
                 onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color })}
+                hatched
               />
               <ColorSwatchPicker
-                label="Today's Date Line"
+                label="Today's Date"
                 value={chartColors.todayLine}
                 onChange={(color) => onColorsChange({ ...chartColors, todayLine: color })}
               />
               <ColorSwatchPicker
-                label="Project Finish Date Line"
+                label="Project Finish Date"
                 value={chartColors.finishDateLine}
                 onChange={(color) => onColorsChange({ ...chartColors, finishDateLine: color })}
               />
               {showMostLikelyLine && (
                 <ColorSwatchPicker
-                  label="Most Likely Finish Line"
+                  label="Most Likely"
                   value={chartColors.mostLikelyLine}
                   onChange={(color) => onColorsChange({ ...chartColors, mostLikelyLine: color })}
                 />
               )}
+              <ColorSwatchPicker
+                label="Completed"
+                value={chartColors.completedBar}
+                onChange={(color) => onColorsChange({ ...chartColors, completedBar: color })}
+              />
             </div>
           </div>
 

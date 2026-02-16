@@ -75,31 +75,41 @@ export function ChartReleaseBar({
         </text>
       )}
 
-      {/* Solid bar (start to early) */}
-      <rect
-        x={startX} y={y} width={earlyX - startX} height={barHeight}
-        fill={releaseColors.solidBar} stroke={releaseColors.solidBar} strokeWidth="2" rx="4"
-      />
-
-      {/* Hatched bar (early to late) */}
-      <defs>
-        <pattern id={`hatch-${release.id}`} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="8" stroke={releaseColors.hatchedBar} strokeWidth="4" />
-        </pattern>
-      </defs>
-      <rect
-        x={earlyX} y={y} width={lateX - earlyX} height={barHeight}
-        fill={`url(#hatch-${release.id})`} stroke={releaseColors.hatchedBar} strokeWidth="2" rx="4"
-      />
-
-      {/* Most Likely Finish Date vertical line (within hatched bar) */}
-      {showMostLikelyLine && mlX !== null && (
-        <line
-          x1={mlX} y1={y}
-          x2={mlX} y2={y + barHeight}
-          stroke={mostLikelyLineColor}
-          strokeWidth={displaySettings.verticalLineWidth}
+      {release.completed ? (
+        /* Completed: single solid bar from start to late (no uncertainty) */
+        <rect
+          x={startX} y={y} width={lateX - startX} height={barHeight}
+          fill={releaseColors.solidBar} stroke={releaseColors.solidBar} strokeWidth="2" rx="4"
         />
+      ) : (
+        <>
+          {/* Solid bar (start to early) */}
+          <rect
+            x={startX} y={y} width={earlyX - startX} height={barHeight}
+            fill={releaseColors.solidBar} stroke={releaseColors.solidBar} strokeWidth="2" rx="4"
+          />
+
+          {/* Hatched bar (early to late) */}
+          <defs>
+            <pattern id={`hatch-${release.id}`} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke={releaseColors.hatchedBar} strokeWidth="4" />
+            </pattern>
+          </defs>
+          <rect
+            x={earlyX} y={y} width={lateX - earlyX} height={barHeight}
+            fill={`url(#hatch-${release.id})`} stroke={releaseColors.hatchedBar} strokeWidth="2" rx="4"
+          />
+
+          {/* Most Likely Finish Date vertical line (within hatched bar) */}
+          {showMostLikelyLine && mlX !== null && (
+            <line
+              x1={mlX} y1={y}
+              x2={mlX} y2={y + barHeight}
+              stroke={mostLikelyLineColor}
+              strokeWidth={displaySettings.verticalLineWidth}
+            />
+          )}
+        </>
       )}
 
       {/* Start date label */}
@@ -124,8 +134,8 @@ export function ChartReleaseBar({
         </text>
       )}
 
-      {/* Early finish date label */}
-      {showEarlyLabel && (
+      {/* Early finish date label (hidden for completed releases — no uncertainty) */}
+      {!release.completed && showEarlyLabel && (
         !readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'early' ? (
           <foreignObject x={earlyX - 70} y={y + barHeight + 2} width={140} height={28}>
             <InlineDateEditor
@@ -170,8 +180,8 @@ export function ChartReleaseBar({
         </text>
       )}
 
-      {/* Most Likely Finish date label */}
-      {showMostLikelyLine && showMlLabel && mlDate && (
+      {/* Most Likely Finish date label (hidden for completed releases) */}
+      {!release.completed && showMostLikelyLine && showMlLabel && mlDate && (
         !readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'mostLikely' ? (
           <foreignObject x={mlX! - 70} y={y + barHeight + 2} width={140} height={28}>
             <InlineDateEditor

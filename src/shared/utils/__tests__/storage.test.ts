@@ -150,6 +150,7 @@ describe('storage utilities', () => {
           todayLine: '#0000ff',
           finishDateLine: '#ffff00',
           mostLikelyLine: '#000000',
+          completedBar: '#90ee90',
         },
         legendLabels: {
           solidBar: 'Custom Solid',

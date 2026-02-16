@@ -214,7 +214,8 @@ export function sanitizeChartColors(colors: unknown): ChartColors {
     hatchedBar: sanitizeColor(c.hatchedBar as string, DEFAULT_CHART_COLORS.hatchedBar),
     todayLine: sanitizeColor(c.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
     finishDateLine: sanitizeColor(c.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine),
-    mostLikelyLine: sanitizeColor(c.mostLikelyLine as string, DEFAULT_CHART_COLORS.mostLikelyLine)
+    mostLikelyLine: sanitizeColor(c.mostLikelyLine as string, DEFAULT_CHART_COLORS.mostLikelyLine),
+    completedBar: sanitizeColor(c.completedBar as string, DEFAULT_CHART_COLORS.completedBar)
   };
 }
 

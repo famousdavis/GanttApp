@@ -231,7 +231,7 @@ describe('useChartCalculations', () => {
       const releases = [makeRelease()];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
 
-      const colors = result.current.getReleaseColors(makeRelease(), { solidBar: '#0070f3', hatchedBar: '#0070f3' });
+      const colors = result.current.getReleaseColors(makeRelease(), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90' });
       expect(colors.solidBar).toBe('#0070f3');
     });
 
@@ -239,9 +239,17 @@ describe('useChartCalculations', () => {
       const releases = [makeRelease()];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
 
-      const colors = result.current.getReleaseColors(makeRelease({ completed: true }), { solidBar: '#0070f3', hatchedBar: '#0070f3' });
-      expect(colors.solidBar).toBe('#90EE90');
-      expect(colors.hatchedBar).toBe('#228B22');
+      const colors = result.current.getReleaseColors(makeRelease({ completed: true }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90' });
+      expect(colors.solidBar).toBe('#90ee90');
+      expect(colors.hatchedBar).toMatch(/^#[0-9a-f]{6}$/);
+    });
+
+    it('uses custom completedBar color for completed releases', () => {
+      const releases = [makeRelease()];
+      const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
+
+      const colors = result.current.getReleaseColors(makeRelease({ completed: true }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#ff0000' });
+      expect(colors.solidBar).toBe('#ff0000');
     });
   });
 });

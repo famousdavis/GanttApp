@@ -290,6 +290,32 @@ describe('sanitizeChartColors - mostLikelyLine', () => {
   });
 });
 
+describe('sanitizeChartColors - completedBar', () => {
+  it('includes completedBar from valid input', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626', completedBar: '#90ee90'
+    });
+    expect(result.completedBar).toBe('#90ee90');
+  });
+
+  it('falls back to default when completedBar is missing', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626'
+    });
+    expect(result.completedBar).toBe('#90ee90');
+  });
+
+  it('falls back to default when completedBar is invalid', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626', completedBar: 'not-a-color'
+    });
+    expect(result.completedBar).toBe('#90ee90');
+  });
+});
+
 describe('sanitizeLegendLabels - mostLikelyLine', () => {
   it('includes mostLikelyLine label from valid input', () => {
     const result = sanitizeLegendLabels({

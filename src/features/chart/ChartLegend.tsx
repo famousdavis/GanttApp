@@ -1,7 +1,6 @@
 // Chart legend component with editable labels
 
 import { ChartColors, ChartDisplaySettings } from '../../shared/types';
-import { COMPLETED_RELEASE_COLORS } from '../../shared/utils/colors';
 import { LegendLabelType } from './useChartEditing';
 
 interface ChartLegendProps {
@@ -140,7 +139,7 @@ export function ChartLegend({
       {/* Completed legend — shown only when completed releases exist */}
       {hasCompletedReleases && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ width: '30px', height: '20px', background: COMPLETED_RELEASE_COLORS.solidBar, borderRadius: '4px' }}></div>
+          <div style={{ width: '30px', height: '20px', background: chartColors.completedBar, borderRadius: '4px' }}></div>
           <span>Completed</span>
         </div>
       )}

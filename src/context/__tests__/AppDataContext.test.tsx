@@ -45,6 +45,7 @@ describe('AppDataContext', () => {
         todayLine: '#dc3545',
         finishDateLine: '#00ff00',
         mostLikelyLine: '#0070f3',
+        completedBar: '#90ee90',
       });
     });
 
@@ -244,6 +245,7 @@ describe('AppDataContext', () => {
         todayLine: '#dc3545',
         finishDateLine: '#00ff00',
         mostLikelyLine: '#0070f3',
+        completedBar: '#90ee90',
       });
       expect(result.current.solidBarLabel).toBe('Design, Code, Test');
       expect(result.current.showFinishDateLine).toBe(true);

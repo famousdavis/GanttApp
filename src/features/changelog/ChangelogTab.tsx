@@ -40,8 +40,8 @@ export function ChangelogTab() {
         <ul style={listStyle}>
           <li><strong>Import Warning Dialog</strong> — importing now shows a confirmation dialog when existing data would be replaced</li>
           <li><strong>Customizable Completed Release Color</strong> — completed releases now use a configurable color instead of hardcoded green</li>
+          <li><strong>Completed Release Solid Bar</strong> — completed releases render as a single solid bar from start to late finish (no hatching, since there is no uncertainty for delivered releases)</li>
           <li>New &ldquo;Completed&rdquo; color picker in Chart Settings (always visible)</li>
-          <li>Hatched bar for completed releases auto-darkens from the chosen completed color</li>
           <li>All 10 color presets updated with Completed Bar color (default: light green #90ee90)</li>
           <li>Chart Settings color picker labels shortened for cleaner layout (e.g., &ldquo;Solid Bar&rdquo; instead of &ldquo;Solid Bar Color&rdquo;)</li>
           <li>Color picker grid now uses flexible layout to accommodate 5-6 pickers dynamically</li>

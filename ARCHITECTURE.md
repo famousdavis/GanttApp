@@ -10,7 +10,9 @@ This document describes the technical architecture of GanttApp, a browser-based 
 | UI Library | React | 19 |
 | Language | TypeScript | 5 |
 | Bundler | Turbopack (default in Next.js 16) | - |
-| Storage | Browser localStorage | - |
+| Storage (default) | Browser localStorage | - |
+| Storage (optional) | Firebase Firestore | ^12.9.0 |
+| Auth (optional) | Firebase Auth (Google/Microsoft SSO) | ^12.9.0 |
 | Chart Export | html2canvas | 1.4.1 |
 | Testing | Vitest + React Testing Library | 4.0.18 |
 | Linting | ESLint 9 (flat config) | 9.17.0 |
@@ -22,12 +24,14 @@ This document describes the technical architecture of GanttApp, a browser-based 
 GanttApp/
 ├── pages/
 │   ├── index.tsx              # Main app entry + orchestration
-│   ├── _app.tsx               # Next.js app wrapper
+│   ├── _app.tsx               # Provider hierarchy (Auth > Storage > Theme > AppData)
 │   └── index-old.tsx          # Pre-refactor backup (reference only)
 │
 ├── src/
 │   ├── context/
-│   │   ├── AppDataContext.tsx  # Global state provider + localStorage sync
+│   │   ├── AppDataContext.tsx  # Global state provider + storage sync
+│   │   ├── AuthContext.tsx     # Firebase Auth provider (v11.0)
+│   │   ├── StorageContext.tsx  # Storage mode switching (v10.0/v11.0)
 │   │   └── ThemeContext.tsx    # Dark mode theme provider
 │   │
 │   ├── features/              # Feature-based modules
@@ -47,10 +51,16 @@ GanttApp/
 │   │   │   └── useEffectiveChartProps.ts # Snapshot vs live data resolver (v7.1)
 │   │   ├── projects/
 │   │   │   ├── ProjectsTab.tsx
+│   │   │   ├── ShareDialog.tsx       # Project sharing modal (v11.0)
 │   │   │   └── useProjects.ts
-│   │   └── releases/
-│   │       ├── ReleasesTab.tsx
-│   │       └── useReleases.ts
+│   │   ├── releases/
+│   │   │   ├── ReleasesTab.tsx
+│   │   │   └── useReleases.ts
+│   │   └── settings/
+│   │       └── SettingsTab.tsx        # Storage mode, auth, export attribution (v11.0)
+│   │
+│   ├── lib/
+│   │   └── firebase.ts               # Conditional Firebase init (v11.0)
 │   │
 │   ├── shared/
 │   │   ├── components/
@@ -66,15 +76,24 @@ GanttApp/
 │   │   ├── hooks/
 │   │   │   ├── useDragAndDrop.ts
 │   │   │   └── useKeyboardShortcuts.ts
+│   │   ├── storage/                   # Storage abstraction layer (v10.0/v11.0)
+│   │   │   ├── index.ts              # Barrel exports
+│   │   │   ├── local-storage-driver.ts      # LocalStorageDriver
+│   │   │   ├── local-gantt-storage-service.ts # LocalGanttStorageService
+│   │   │   ├── firestore-driver.ts          # FirestoreDriver (v11.0)
+│   │   │   └── firestore-gantt-storage-service.ts # Cloud service (v11.0)
 │   │   ├── types/
 │   │   │   ├── models.ts      # Core data models (Project, Release, etc.)
 │   │   │   ├── app.ts         # App-level types (AppData, TabType)
+│   │   │   ├── firestore.ts   # Firestore document types (v11.0)
+│   │   │   ├── storage.ts     # StorageDriver, GanttStorageService (v10.0)
 │   │   │   ├── snapshots.ts   # Snapshot type definition
 │   │   │   └── index.ts       # Re-exports
 │   │   └── utils/
 │   │       ├── colors.ts      # Color constants, presets, defaults
 │   │       ├── dates.ts       # Date parsing, formatting, ID generation
 │   │       ├── export.ts      # JSON export/import with sanitization
+│   │       ├── firestore-converters.ts # Flat AppData ↔ Firestore translation (v11.0)
 │   │       ├── snapshots.ts   # Snapshot CRUD, validation, localStorage
 │   │       ├── storage.ts     # localStorage wrapper with validation
 │   │       ├── theme.ts       # Theme color constants
@@ -83,7 +102,8 @@ GanttApp/
 │   │
 │   └── test/
 │       ├── setup.ts           # Test configuration
-│       └── ThemeWrapper.tsx    # Test utility for themed components
+│       ├── ThemeWrapper.tsx    # Test utility for themed components
+│       └── FullWrapper.tsx    # Test utility with all providers (v10.0)
 │
 ├── styles/
 │   └── globals.css            # Global styles + date input styling
@@ -91,6 +111,8 @@ GanttApp/
 ├── public/
 │   └── favicon.ico
 │
+├── firestore.rules            # Firestore security rules reference (v11.0)
+├── .env.local.example         # Firebase config template (v11.0)
 ├── eslint.config.mjs          # ESLint 9 flat config
 ├── vitest.config.ts           # Vitest test configuration
 ├── tsconfig.json              # TypeScript configuration
@@ -98,39 +120,59 @@ GanttApp/
 └── package.json
 ```
 
+## Provider Hierarchy (v11.0)
+
+```
+AuthProvider > StorageProvider > ThemeProvider > AppDataProvider
+```
+
+- **AuthProvider** (outermost): Wraps `onAuthStateChanged`. No dependencies on other providers.
+- **StorageProvider**: Uses `useAuth()` for cloud mode switching and session restoration. Provides `storage`, `mode`, `switchMode()`, `isSwitching`, `switchError`.
+- **ThemeProvider**: Dark mode theme, independent of storage.
+- **AppDataProvider** (innermost): Uses `useStorage()` for all data load/save. Has `[storage]` in its load `useEffect` dependency array — switching the storage instance automatically triggers data reload.
+
 ## Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                   localStorage                            │   │
-│  │  Key: "ganttAppData"    → JSON (AppData)                 │   │
-│  │  Key: "ganttAppSnapshots" → JSON (Snapshot[])            │   │
-│  │  Key: "gantt-theme"     → "light" | "dark" | "system"   │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│         ▲                                      │                 │
-│         │ save                                 │ load            │
-│         │                                      ▼                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              AppDataContext (Provider)                    │   │
-│  │  State: data, chartColors, displaySettings,              │   │
-│  │         legendLabels, toggles, preparedBy                │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         │ useAppData() hook                                      │
-│         ▼                                                        │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  index.tsx (Orchestration)                                │   │
-│  │  - useSnapshots() → effective props (live vs snapshot)   │   │
-│  │  - useChartEditing() → inline edit state                 │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
-│  │ProjectsTab│ │ReleasesTab│ │GanttChart│ │ AboutTab │          │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              Browser                                       │
+│                                                                            │
+│  ┌──────────────────┐         ┌──────────────────────────┐                │
+│  │   localStorage    │         │   Firebase Firestore      │               │
+│  │  (default mode)   │◄───┐   │   (cloud mode, optional)  │◄──┐          │
+│  └──────────────────┘    │   └──────────────────────────┘   │          │
+│                           │                                   │          │
+│  ┌────────────────────────┴───────────────────────────────────┴──────┐  │
+│  │              Storage Abstraction Layer (v10.0)                      │  │
+│  │                                                                     │  │
+│  │  StorageDriver (I/O)         GanttStorageService (app logic)       │  │
+│  │  ├── LocalStorageDriver      ├── LocalGanttStorageService          │  │
+│  │  └── FirestoreDriver         └── FirestoreGanttStorageServiceImpl  │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│         ▲                                      │                          │
+│         │ save                                 │ load                     │
+│         │                                      ▼                          │
+│  ┌─────────────────────────────────────────────────────────┐             │
+│  │              AppDataContext (Provider)                    │             │
+│  │  State: data, chartColors, displaySettings,              │             │
+│  │         legendLabels, toggles, preparedBy,               │             │
+│  │         exportAttribution                                │             │
+│  │  Cloud: real-time sync via onSnapshot (v11.0)            │             │
+│  └─────────────────────────────────────────────────────────┘             │
+│         │                                                                  │
+│         │ useAppData() hook                                                │
+│         ▼                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐             │
+│  │  index.tsx (Orchestration)                                │             │
+│  │  - useSnapshots() → effective props (live vs snapshot)   │             │
+│  │  - useChartEditing() → inline edit state                 │             │
+│  └─────────────────────────────────────────────────────────┘             │
+│         │                                                                  │
+│         ▼                                                                  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│  │ProjectsTab│ │ReleasesTab│ │GanttChart│ │ Settings │ │ AboutTab │      │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Data Models
@@ -189,6 +231,12 @@ interface ChartDisplaySettings {
   rowSpacing: '20' | '25' | '30';
 }
 
+// Export attribution (v11.0)
+interface ExportAttribution {
+  name: string;
+  identifier: string;
+}
+
 // Top-level app data structure
 interface AppData {
   projects: Project[];
@@ -207,20 +255,83 @@ interface AppData {
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;
+  exportAttribution?: ExportAttribution; // v11.0
 }
 ```
 
-## Snapshot Architecture (v7.0)
+## Storage Architecture (v10.0/v11.0)
 
-Snapshots provide read-only historical records of release plans, stored separately from live data.
+### Two-Layer Abstraction
 
-### Storage Isolation
+```
+┌──────────────────────────────────────────────────────────────┐
+│  GanttStorageService (app logic)                              │
+│  loadAppData, saveAppData, loadSnapshots, saveSnapshots,     │
+│  addSnapshot, deleteSnapshot, deleteSnapshotsForProject      │
+├──────────────────────────────────────────────────────────────┤
+│  StorageDriver (raw I/O)                                      │
+│  load<T>, save<T>, remove, onRemoteChange                    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **StorageDriver**: Thin I/O wrapper. `LocalStorageDriver` wraps `window.localStorage`. `FirestoreDriver` wraps Firestore SDK.
+- **GanttStorageService**: App-level operations. Translates between flat `AppData` and storage backend. `LocalGanttStorageService` uses validation/sanitization. `FirestoreGanttStorageServiceImpl` adds debouncing, diff-based writes, real-time subscriptions.
+
+### CloudGanttStorageService (v11.0)
+
+Extends `GanttStorageService` with cloud-specific methods:
+
+```typescript
+interface CloudGanttStorageService extends GanttStorageService {
+  subscribeToProject(projectId, callback): () => void;
+  shareProject(projectId, targetEmail, role): Promise<void>;
+  removeProjectMember(projectId, targetUid): Promise<void>;
+  getProjectMembers(projectId): Promise<{ uid, role, email? }[]>;
+  createUserProfile(displayName, email): Promise<void>;
+  flushPendingWrites(): Promise<void>;
+  dispose(): void;
+}
+```
+
+Key behaviors:
+- **Write debouncing**: 500ms `setTimeout` with coalescing; structural mutations bypass debounce
+- **Diff-based saves**: In-memory `lastSavedState` cache — only writes changed data via batch writes
+- **beforeunload handler**: Flushes pending writes on tab close. Removed on `dispose()`.
+- **Real-time sync**: `subscribeToProject()` returns `onSnapshot` unsubscribe function. Echo prevention via `snapshot.metadata.hasPendingWrites`.
+
+### localStorage Keys
 
 | Key | Content | Purpose |
 |-----|---------|---------|
 | `ganttAppData` | AppData (live) | Current projects, releases, settings |
 | `ganttAppSnapshots` | Snapshot[] | All historical snapshots across projects |
 | `gantt-theme` | Theme preference | Light/dark/system |
+| `ganttapp-storage-mode` | `"local"` or `"cloud"` | Storage mode preference (v11.0) |
+
+### Firestore Structure (Cloud Mode)
+
+```
+ganttapp/
+  projects/{projectId}/          ← one document per project
+    (root doc = meta)            ← name, owner, members, finishDate, _originRef, _changeLog
+    releases/{releaseId}         ← one doc per release with explicit `order` field
+    snapshots/{snapshotId}       ← embedded releases array (same shape as local)
+  users/{uid}/
+    profile                      ← displayName, email, createdAt, lastLogin
+    settings                     ← chartColors, displaySettings, toggles, legendLabels, preparedBy
+```
+
+### Firestore Security Rules
+
+Defined in `firestore.rules` (repo root). Key rules:
+- Projects: read/write gated on `members` map (owner or editor can write; any member can read)
+- Subcollections (releases, snapshots): derived from parent project's `members`
+- User profile: readable by any authenticated user, writable only by owner
+- User settings: readable and writable only by owner
+
+## Snapshot Architecture (v7.0)
+
+Snapshots provide read-only historical records of release plans, stored separately from live data.
 
 ### Effective Props Pattern
 
@@ -249,7 +360,7 @@ When `readOnly=true`:
 ### Snapshot Lifecycle
 
 ```
-Save: Current view → window.prompt() → structuredClone(releases) → addSnapshot() → localStorage
+Save: Current view → window.prompt() → structuredClone(releases) → addSnapshot() → storage
 View: Click chip → setActiveSnapshotId → effective props swap → chart re-renders
 Delete: Click trash → window.confirm() → deleteSnapshot() → reset to Current
 Cascade: Delete project → deleteSnapshotsForProject() → all project snapshots removed
@@ -302,6 +413,7 @@ User Input / Import File
 | `sanitizeRelease(rel)` | Full release sanitization incl. ML date (v7.1) |
 | `sanitizeChartColors(colors)` | Chart colors sanitization with defaults incl. completedBar (v7.1/v9.0) |
 | `sanitizeLegendLabels(labels)` | Legend labels sanitization (v7.1) |
+| `sanitizeExportAttribution(attr)` | Export attribution sanitization (v11.0) |
 
 ### Import Limits (export.ts)
 
@@ -325,9 +437,10 @@ User Input / Import File
 
 ```
 index.tsx (AppContent)
-├── Tabs (navigation)
+├── Tabs (navigation: Projects | Releases | Gantt Chart | Settings | About)
 ├── ProjectsTab
-│   └── useProjects (CRUD hook + cascade snapshot delete)
+│   ├── useProjects (CRUD hook + cascade snapshot delete)
+│   └── ShareDialog (cloud mode only, v11.0)
 ├── ReleasesTab
 │   └── useReleases (CRUD hook)
 ├── GanttChart
@@ -337,19 +450,26 @@ index.tsx (AppContent)
 │   ├── ChartLegend (editable labels incl. Most Likely)
 │   ├── Read-only banner (snapshot view)
 │   └── ChartSettings (display/color/toggle options)
+├── SettingsTab (v11.0)
+│   ├── Storage mode selector (Local/Cloud radio)
+│   ├── Account section (sign-in/sign-out)
+│   └── Export attribution fields
 ├── AboutTab
-└── ChangelogTab
+└── ChangelogTab (via footer version link)
 ```
 
 ### State Management Pattern
 
 1. **Global State**: `AppDataContext` provides data and updaters
-2. **Feature Hooks**: `useProjects`, `useReleases`, `useSnapshots` encapsulate CRUD logic
-3. **Editing Hook**: `useChartEditing` manages inline edit state for names, dates, labels
-4. **Effective Props**: `useEffectiveChartProps` resolves snapshot vs live data for chart rendering
-5. **Local State**: Component-specific UI state (form fields, toggles)
-6. **Persistence**: Automatic localStorage sync on every `updateData()` call
-7. **Snapshot Storage**: Independent localStorage key managed by `useSnapshots` hook
+2. **Auth State**: `AuthContext` provides user, sign-in/out methods (v11.0)
+3. **Storage State**: `StorageContext` provides storage service, mode, switchMode (v10.0/v11.0)
+4. **Feature Hooks**: `useProjects`, `useReleases`, `useSnapshots` encapsulate CRUD logic
+5. **Editing Hook**: `useChartEditing` manages inline edit state for names, dates, labels
+6. **Effective Props**: `useEffectiveChartProps` resolves snapshot vs live data for chart rendering
+7. **Local State**: Component-specific UI state (form fields, toggles)
+8. **Persistence**: Automatic save via `GanttStorageService` on every `updateData()` call
+9. **Snapshot Storage**: Managed by `useSnapshots` hook through `GanttStorageService`
+10. **Real-time Sync**: Cloud mode subscribes to Firestore changes via `onSnapshot` (v11.0)
 
 ## Chart Rendering
 
@@ -386,10 +506,12 @@ The GanttChart component renders an SVG with:
 
 ## Testing Strategy
 
-- **Unit Tests**: Utility functions (validation, dates, colors, export, snapshots)
-- **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases, useChartEditing)
+- **Unit Tests**: Utility functions (validation, dates, colors, export, snapshots, firestore converters)
+- **Hook Tests**: Custom hooks with renderHook (useProjects, useReleases, useChartEditing, useSnapshots)
 - **Component Tests**: UI components with React Testing Library
-- **459 total tests** across 28 test files
+- **Storage Tests**: StorageDriver and GanttStorageService implementations (mocked Firestore)
+- **Context Tests**: AuthContext, StorageContext, AppDataContext providers
+- **581 total tests** across 38 test files
 
 ## Build & Deployment
 
@@ -404,10 +526,13 @@ npm test         # Vitest test runner
 
 ## Key Design Decisions
 
-1. **localStorage over cloud** - User owns their data, no auth complexity
-2. **Pages Router over App Router** - Simpler, well-tested, no RSC overhead
-3. **Inline SVG over chart library** - Full control, smaller bundle
-4. **Feature modules** - Scales well, reduces cognitive load
-5. **Defense-in-depth** - Validate on input, sanitize on load, whitelist settings
-6. **Separate snapshot storage** - Isolates historical data from live data, prevents corruption risk
-7. **Effective props pattern** - Chart component is data-source agnostic (live vs snapshot)
+1. **localStorage default, cloud optional** - User owns their data by default; cloud is opt-in for sharing and multi-device access (v11.0)
+2. **Two-layer storage abstraction** - Driver (raw I/O) + Service (app logic) allows different backends to share sanitization/validation code (v10.0)
+3. **Pages Router over App Router** - Simpler, well-tested, no RSC overhead
+4. **Inline SVG over chart library** - Full control, smaller bundle
+5. **Feature modules** - Scales well, reduces cognitive load
+6. **Defense-in-depth** - Validate on input, sanitize on load, whitelist settings
+7. **Separate snapshot storage** - Isolates historical data from live data, prevents corruption risk
+8. **Effective props pattern** - Chart component is data-source agnostic (live vs snapshot)
+9. **Provider hierarchy** - AuthProvider outermost (no deps), StorageProvider uses auth, AppDataProvider uses storage — switching storage instance auto-reloads data (v11.0)
+10. **Write-echo prevention** - Uses Firestore's `hasPendingWrites` flag for deterministic echo prevention, not time-based (v11.0)

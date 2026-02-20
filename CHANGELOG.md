@@ -1,5 +1,110 @@
 # Change Log
 
+## Version 11.0 (2026-02-20)
+- Added Firebase Authentication with Google and Microsoft SSO (AuthContext)
+- Added Firestore cloud storage backend (FirestoreDriver, FirestoreGanttStorageServiceImpl)
+- Added StorageContext with local ↔ cloud mode switching and data migration
+- Added Settings tab: storage mode selector, account management, export attribution
+- Added real-time sync via Firestore onSnapshot with echo prevention (hasPendingWrites)
+- Added project sharing with role-based access control (owner/editor/viewer) via ShareDialog
+- Added Firestore security rules (firestore.rules)
+- Added export attribution: name/identifier injected as _exportedBy in JSON exports
+- Added academic integrity metadata: _changeLog and _originRef on cloud-stored projects
+- Updated About page with dual-storage messaging (Local Storage default, Cloud Storage optional)
+- Tab order: Projects, Releases, Gantt Chart, Settings, About
+- Provider hierarchy: AuthProvider > StorageProvider > ThemeProvider > AppDataProvider
+- 581 tests across 38 test files, all passing
+
+## Version 10.0 (2026-02-18)
+- Added storage abstraction layer: StorageDriver and GanttStorageService interfaces
+- Added LocalStorageDriver and LocalGanttStorageService (refactored from direct localStorage)
+- Added StorageContext providing pluggable storage to the component tree
+- Added Firebase SDK (firebase ^12.9.0) with conditional initialization
+- Added .env.local.example template for Firebase configuration
+- All snapshot operations now async via GanttStorageService
+- AppDataContext consumes useStorage() instead of direct localStorage calls
+- Zero functional changes — all existing features work identically
+- 497 tests across 32 test files, all passing
+
+## Version 9.0 (2026-02-16)
+- Added import safety dialog: confirmation shown after file parse, before data apply
+- Added customizable completed release color (completedBar property in ChartColors)
+- Completed releases render as single solid bar from startDate to lateFinishDate (no hatching)
+- Early Finish and Most Likely labels hidden for completed releases
+- Added darkenColor() utility for computed hatched bar colors
+- Hatched Bar color picker swatch now displays with SVG hatched pattern
+- Color picker labels renamed for clarity (Today → Today's Date, etc.)
+- 459 tests across 28 test files, all passing
+
+## Version 8.0 (2026-02-13)
+- Added optional Most Likely Finish Date per release (vertical line in hatched bar)
+- Added global toggle: Show Most Likely Finish (in Chart Settings)
+- Added configurable Most Likely line color with color picker
+- Added click-to-edit inline on chart for Most Likely date
+- Added editable Most Likely legend entry
+- Smart label suppression for Most Likely date (40px threshold)
+- All 10 color presets updated with Most Likely line color
+- Snapshots capture Most Likely data per-release
+- Fixed showTodayLine toggle persistence to localStorage
+- Fixed onKeyPress (deprecated) to onKeyDown in ProjectsTab
+- Fixed dark mode colors in ChartSettings preset buttons
+- Fixed saveLabelEdit() to reject empty/whitespace-only labels
+- Added shared validateReleaseDateChange() and formatDateLocale() utilities
+- 447 tests across 26 test files, all passing
+
+## Version 7.1 (2026-02-09)
+- Internal refactoring for maintainability — zero functional changes
+- Extracted 5 shared sanitization functions into validation.ts (DRY)
+- Updated useChartCalculations hook with correct constants and displaySettings parameter
+- Reduced GanttChart from 52 individual props to 9 grouped props
+- Extracted ChartReleaseBar component from GanttChart (~150 LOC)
+- Extracted useEffectiveChartProps hook for snapshot vs live data resolution
+- Added 66 new tests across 6 test files
+- 393 tests across 22 test files, all passing
+
+## Version 7.0 (2026-02-09)
+- Added Release Plan Snapshots: save read-only historical records of release plans
+- Chip navigation bar above chart to toggle between Current and saved snapshots
+- One-click snapshot creation with optional custom name
+- Snapshots capture releases, chart colors, legend labels, project finish date, Prepared By
+- Historical snapshots are fully read-only (inline editing disabled)
+- Delete old snapshots with confirmation dialog
+- Cascade delete: project deletion removes all its snapshots
+- Export/Import includes snapshots in JSON file
+- Separate localStorage key (ganttAppSnapshots) for data isolation
+- Limits: 100 total snapshots, 50 per project, 2MB import file size cap
+- Added Prepared By field in Chart Settings with show/hide toggle
+- Fixed quarter label (Q4) overlapping year label
+- Fixed horizontal scrollbar on Windows Chrome/Edge
+- 322 tests, all passing
+
+## Version 6.1 (2026-02-07)
+- Added Row Spacing control in Chart Settings with S/M/L options (20px, 25px, 30px)
+- Row height formula changed from barHeight * 2 to barHeight + rowSpacing
+- Bar Height labels changed to S/M/L for compact display
+- 320 tests, all passing
+
+## Version 6.0 (2026-02-06)
+- Added click-to-edit dates directly on chart (inline date picker with validation)
+- Added configurable Bar Height in Chart Settings (Small/Medium/Large)
+- Compact horizontal layout for PresetButtonGroup controls
+- 289 tests, all passing
+
+## Version 5.7 (2026-02-06)
+- Added Duplicate Release (one-click cloning with auto-shifted dates)
+- Added keyboard shortcuts: Escape (cancel), Ctrl/Cmd+S (save), Arrow keys (tab navigation)
+- Added dark mode with light/dark/system toggle (ThemeContext)
+- Theme stored in separate localStorage key (gantt-theme)
+- All components updated with theme-aware styling
+- 288 tests, all passing
+
+## Version 5.6 (2026-02-03)
+- Added comprehensive input sanitization for all user-provided and imported data
+- Added sanitizeString(), sanitizeId(), isValidHexColor(), sanitizeColor() to validation.ts
+- Added file size limit (1MB), array limits (50 projects, 500 releases) on import
+- Added validateLoadedData() defense-in-depth for localStorage
+- npm audit: 0 vulnerabilities
+
 ## Version 5.5 (2026-02-02)
 - Upgraded Next.js from 15.5.11 to 16.1.6 (major version upgrade)
 - Turbopack is now the default bundler (faster builds)

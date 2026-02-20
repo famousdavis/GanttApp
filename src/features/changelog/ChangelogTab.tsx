@@ -52,7 +52,7 @@ export function ChangelogTab() {
       </div>
 
       {/* Version 10.0 */}
-      <div>
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 10.0
           <span style={dateStyle}>February 20, 2026</span>

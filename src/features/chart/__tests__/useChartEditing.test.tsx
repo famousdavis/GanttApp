@@ -2,8 +2,37 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useChartEditing } from '../useChartEditing';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
 import React from 'react';
+
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -39,11 +68,15 @@ const testData = {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider>
-      <AppDataProvider>
-        {children}
-      </AppDataProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <StorageProvider>
+        <ThemeProvider>
+          <AppDataProvider>
+            {children}
+          </AppDataProvider>
+        </ThemeProvider>
+      </StorageProvider>
+    </AuthProvider>
   );
 }
 
@@ -51,6 +84,10 @@ describe('useChartEditing', () => {
   beforeEach(() => {
     localStorageMock.clear();
     localStorageMock.setItem('gantt-data', JSON.stringify(testData));
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('legend label editing', () => {

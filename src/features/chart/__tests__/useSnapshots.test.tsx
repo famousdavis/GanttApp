@@ -1,9 +1,38 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSnapshots } from '../useSnapshots';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
 import React from 'react';
+
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -57,11 +86,15 @@ const otherProjectSnapshot = {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider>
-      <AppDataProvider>
-        {children}
-      </AppDataProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <StorageProvider>
+        <ThemeProvider>
+          <AppDataProvider>
+            {children}
+          </AppDataProvider>
+        </ThemeProvider>
+      </StorageProvider>
+    </AuthProvider>
   );
 }
 
@@ -69,6 +102,10 @@ describe('useSnapshots', () => {
   beforeEach(() => {
     localStorageMock.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   it('returns empty snapshots when none stored', () => {
@@ -80,29 +117,37 @@ describe('useSnapshots', () => {
     expect(result.current.isViewingSnapshot).toBe(false);
   });
 
-  it('loads snapshots from localStorage on mount', () => {
+  it('loads snapshots from localStorage on mount', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot, testSnapshot2]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    expect(result.current.snapshots).toHaveLength(2);
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(2);
+    });
     expect(result.current.snapshots[0].name).toBe('Sprint 1 Review');
     expect(result.current.snapshots[1].name).toBe('Sprint 2 Review');
   });
 
-  it('filters snapshots by project ID', () => {
+  it('filters snapshots by project ID', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot, otherProjectSnapshot]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    expect(result.current.snapshots).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(1);
+    });
     expect(result.current.snapshots[0].id).toBe('snap1');
   });
 
-  it('selects a snapshot by ID', () => {
+  it('selects a snapshot by ID', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(1);
+    });
 
     act(() => {
       result.current.setActiveSnapshotId('snap1');
@@ -114,10 +159,14 @@ describe('useSnapshots', () => {
     expect(result.current.isViewingSnapshot).toBe(true);
   });
 
-  it('returns null activeSnapshot when Current view is selected', () => {
+  it('returns null activeSnapshot when Current view is selected', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(1);
+    });
 
     act(() => {
       result.current.setActiveSnapshotId('snap1');
@@ -132,13 +181,17 @@ describe('useSnapshots', () => {
     expect(result.current.isViewingSnapshot).toBe(false);
   });
 
-  it('resets active snapshot when project changes', () => {
+  it('resets active snapshot when project changes', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot]));
 
     const { result, rerender } = renderHook(
       ({ projectId }) => useSnapshots(projectId),
       { wrapper, initialProps: { projectId: 'p1' } }
     );
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(1);
+    });
 
     act(() => {
       result.current.setActiveSnapshotId('snap1');
@@ -153,7 +206,7 @@ describe('useSnapshots', () => {
     expect(result.current.isViewingSnapshot).toBe(false);
   });
 
-  it('saves a snapshot via prompt', () => {
+  it('saves a snapshot via prompt', async () => {
     vi.spyOn(window, 'prompt').mockReturnValue('My Snapshot');
     localStorageMock.setItem('ganttAppData', JSON.stringify({
       projects: [{ id: 'p1', name: 'Project 1' }],
@@ -162,8 +215,8 @@ describe('useSnapshots', () => {
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    act(() => {
-      result.current.saveSnapshot({
+    await act(async () => {
+      await result.current.saveSnapshot({
         releases: [],
         chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
@@ -175,13 +228,13 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots[0].name).toBe('My Snapshot');
   });
 
-  it('does not save snapshot when user cancels prompt', () => {
+  it('does not save snapshot when user cancels prompt', async () => {
     vi.spyOn(window, 'prompt').mockReturnValue(null);
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    act(() => {
-      result.current.saveSnapshot({
+    await act(async () => {
+      await result.current.saveSnapshot({
         releases: [],
         chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
@@ -192,18 +245,22 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots).toHaveLength(0);
   });
 
-  it('deletes a snapshot with confirmation', () => {
+  it('deletes a snapshot with confirmation', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot, testSnapshot2]));
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(2);
+    });
+
     act(() => {
       result.current.setActiveSnapshotId('snap1');
     });
 
-    act(() => {
-      result.current.deleteSnapshot('snap1');
+    await act(async () => {
+      await result.current.deleteSnapshot('snap1');
     });
 
     expect(result.current.snapshots).toHaveLength(1);
@@ -211,36 +268,44 @@ describe('useSnapshots', () => {
     expect(result.current.activeSnapshotId).toBeNull();
   });
 
-  it('does not delete when user cancels confirmation', () => {
+  it('does not delete when user cancels confirmation', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot]));
     vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    act(() => {
-      result.current.deleteSnapshot('snap1');
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.deleteSnapshot('snap1');
     });
 
     expect(result.current.snapshots).toHaveLength(1);
   });
 
-  it('replaces all snapshots', () => {
+  it('replaces all snapshots', async () => {
     const newSnapshots = [testSnapshot, testSnapshot2, otherProjectSnapshot];
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    act(() => {
-      result.current.replaceAllSnapshots(newSnapshots);
+    await act(async () => {
+      await result.current.replaceAllSnapshots(newSnapshots);
     });
 
     expect(result.current.snapshots).toHaveLength(2); // Only p1 snapshots
     expect(result.current.allSnapshots).toHaveLength(3); // All snapshots stored
   });
 
-  it('sorts snapshots by timestamp ascending', () => {
+  it('sorts snapshots by timestamp ascending', async () => {
     // Store in reverse order
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot2, testSnapshot]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(2);
+    });
 
     expect(result.current.snapshots[0].id).toBe('snap1'); // Earlier timestamp first
     expect(result.current.snapshots[1].id).toBe('snap2');

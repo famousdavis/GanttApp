@@ -1,11 +1,40 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
 import { ReleasesTab } from '../ReleasesTab';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
+
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -33,11 +62,15 @@ function seedData(data: AppData) {
 
 function TestWrapper({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider>
-      <AppDataProvider>
-        {children}
-      </AppDataProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <StorageProvider>
+        <ThemeProvider>
+          <AppDataProvider>
+            {children}
+          </AppDataProvider>
+        </ThemeProvider>
+      </StorageProvider>
+    </AuthProvider>
   );
 }
 
@@ -66,6 +99,10 @@ describe('ReleasesTab', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('rendering', () => {
@@ -74,44 +111,53 @@ describe('ReleasesTab', () => {
       expect(screen.getByText(/No projects yet/)).toBeTruthy();
     });
 
-    it('renders project selector dropdown', () => {
+    it('renders project selector dropdown', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
         releases: [],
       });
 
       renderReleasesTab();
-      const select = screen.getByRole('combobox');
-      expect(select).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toBeTruthy();
+      });
     });
 
-    it('renders empty release state when project has no releases', () => {
+    it('renders empty release state when project has no releases', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
       expect(screen.getByText(/No releases yet/)).toBeTruthy();
     });
 
-    it('renders release list with names', () => {
+    it('renders release list with names', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
       });
 
       renderReleasesTab();
-      expect(screen.getByText('Sprint 1')).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
     });
 
-    it('renders form inputs for release name and dates', () => {
+    it('renders form inputs for release name and dates', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
       expect(screen.getByPlaceholderText('Release name')).toBeTruthy();
       expect(screen.getByText(/Start Date/)).toBeTruthy();
       expect(screen.getByText(/Early Finish/)).toBeTruthy();
@@ -121,7 +167,7 @@ describe('ReleasesTab', () => {
   });
 
   describe('project selection', () => {
-    it('filters releases by selected project', () => {
+    it('filters releases by selected project', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
         releases: [
@@ -131,17 +177,22 @@ describe('ReleasesTab', () => {
       });
 
       renderReleasesTab({ selectedProjectId: 'p1' });
-      expect(screen.getByText('Sprint 1')).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
       expect(screen.queryByText('Sprint 2')).toBeNull();
     });
 
-    it('calls setSelectedProjectId on dropdown change', () => {
+    it('calls setSelectedProjectId on dropdown change', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
         releases: [],
       });
 
       const { props } = renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toBeTruthy();
+      });
       const select = screen.getByRole('combobox');
       fireEvent.change(select, { target: { value: 'p2' } });
 
@@ -150,23 +201,29 @@ describe('ReleasesTab', () => {
   });
 
   describe('add release form', () => {
-    it('renders Add Release button', () => {
+    it('renders Add Release button', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
       expect(screen.getByText('Add Release')).toBeTruthy();
     });
 
-    it('adds release when all fields are valid', () => {
+    it('adds release when all fields are valid', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
 
       fireEvent.change(screen.getByPlaceholderText('Release name'), { target: { value: 'Sprint 1' } });
 
@@ -184,13 +241,16 @@ describe('ReleasesTab', () => {
   });
 
   describe('edit release', () => {
-    it('switches to edit mode with pre-filled data when Edit is clicked', () => {
+    it('switches to edit mode with pre-filled data when Edit is clicked', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Edit'));
 
       const nameInput = screen.getByPlaceholderText('Release name') as HTMLInputElement;
@@ -199,13 +259,16 @@ describe('ReleasesTab', () => {
       expect(screen.getByText('Cancel')).toBeTruthy();
     });
 
-    it('cancels edit and clears form', () => {
+    it('cancels edit and clears form', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Edit'));
       fireEvent.click(screen.getByText('Cancel'));
 
@@ -216,7 +279,7 @@ describe('ReleasesTab', () => {
   });
 
   describe('delete release', () => {
-    it('shows confirmation dialog on Delete click', () => {
+    it('shows confirmation dialog on Delete click', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
@@ -224,12 +287,15 @@ describe('ReleasesTab', () => {
 
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Delete'));
 
       expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Sprint 1'));
     });
 
-    it('deletes release when confirmed', () => {
+    it('deletes release when confirmed', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
@@ -237,6 +303,9 @@ describe('ReleasesTab', () => {
 
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Delete'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -245,25 +314,30 @@ describe('ReleasesTab', () => {
   });
 
   describe('visibility toggle', () => {
-    it('renders Show checkbox for each release', () => {
+    it('renders Show checkbox for each release', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
       renderReleasesTab();
-      expect(screen.getByText('Show')).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText('Show')).toBeTruthy();
+      });
       const checkbox = screen.getByRole('checkbox');
       expect(checkbox).toBeTruthy();
     });
 
-    it('toggles release hidden state on checkbox change', () => {
+    it('toggles release hidden state on checkbox change', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByRole('checkbox')).toBeTruthy();
+      });
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
 
       // Initially checked (not hidden)
@@ -277,37 +351,44 @@ describe('ReleasesTab', () => {
   });
 
   describe('completion toggle', () => {
-    it('renders Mark Done button for each release', () => {
+    it('renders Mark Done button for each release', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
       renderReleasesTab();
-      expect(screen.getByText('Mark Done')).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText('Mark Done')).toBeTruthy();
+      });
     });
 
-    it('toggles to Done state', () => {
+    it('toggles to Done state', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
       renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Mark Done')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Mark Done'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.releases[0].completed).toBe(true);
     });
 
-    it('shows checkmark when completed', () => {
+    it('shows checkmark when completed', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', completed: true })],
       });
 
       renderReleasesTab();
-      expect(screen.getByText(/Done/)).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText(/Done/)).toBeTruthy();
+      });
     });
   });
 });

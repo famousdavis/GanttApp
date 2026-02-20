@@ -1,13 +1,42 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider, useAppData } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { useProjects } from '../useProjects';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
 
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
+
 function wrapper({ children }: { children: ReactNode }) {
-  return <AppDataProvider>{children}</AppDataProvider>;
+  return <AuthProvider><StorageProvider><AppDataProvider>{children}</AppDataProvider></StorageProvider></AuthProvider>;
 }
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -34,10 +63,23 @@ function seedData(data: AppData) {
   localStorage.setItem('ganttAppData', JSON.stringify(data));
 }
 
+/** Renders useProjects alongside useAppData so we can wait for async data load. */
+function renderProjectsHook() {
+  return renderHook(() => {
+    const projects = useProjects();
+    const { data } = useAppData();
+    return { ...projects, data };
+  }, { wrapper });
+}
+
 describe('useProjects', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('initial state', () => {
@@ -192,13 +234,17 @@ describe('useProjects', () => {
   });
 
   describe('updateProject', () => {
-    it('updates project name and finish date', () => {
+    it('updates project name and finish date', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Original' })],
         releases: [],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
+
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(1);
+      });
 
       act(() => {
         result.current.startEditProject(makeProject({ id: 'p1', name: 'Original' }));
@@ -218,13 +264,17 @@ describe('useProjects', () => {
       expect(stored.projects[0].finishDate).toBe('2026-10-15');
     });
 
-    it('removes finish date when cleared (sets undefined)', () => {
+    it('removes finish date when cleared (sets undefined)', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'With Date', finishDate: '2026-12-31' })],
         releases: [],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
+
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(1);
+      });
 
       act(() => {
         result.current.startEditProject(makeProject({ id: 'p1', name: 'With Date', finishDate: '2026-12-31' }));
@@ -309,17 +359,21 @@ describe('useProjects', () => {
   });
 
   describe('deleteProject', () => {
-    it('removes the project from data', () => {
+    it('removes the project from data', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' }), makeProject({ id: 'p2', name: 'Second' })],
         releases: [],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
       const setSelectedProjectId = vi.fn();
 
-      act(() => {
-        result.current.deleteProject('p1', 'p2', setSelectedProjectId);
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(2);
+      });
+
+      await act(async () => {
+        await result.current.deleteProject('p1', 'p2', setSelectedProjectId);
       });
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -327,7 +381,7 @@ describe('useProjects', () => {
       expect(stored.projects[0].id).toBe('p2');
     });
 
-    it('cascades: removes all releases belonging to deleted project', () => {
+    it('cascades: removes all releases belonging to deleted project', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [
@@ -337,11 +391,15 @@ describe('useProjects', () => {
         ],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
       const setSelectedProjectId = vi.fn();
 
-      act(() => {
-        result.current.deleteProject('p1', 'p1', setSelectedProjectId);
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(1);
+      });
+
+      await act(async () => {
+        await result.current.deleteProject('p1', 'p1', setSelectedProjectId);
       });
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -349,33 +407,41 @@ describe('useProjects', () => {
       expect(stored.releases[0].id).toBe('r3');
     });
 
-    it('updates selectedProjectId to first remaining project when deleting selected', () => {
+    it('updates selectedProjectId to first remaining project when deleting selected', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' }), makeProject({ id: 'p2', name: 'Second' })],
         releases: [],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
       const setSelectedProjectId = vi.fn();
 
-      act(() => {
-        result.current.deleteProject('p1', 'p1', setSelectedProjectId);
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(2);
+      });
+
+      await act(async () => {
+        await result.current.deleteProject('p1', 'p1', setSelectedProjectId);
       });
 
       expect(setSelectedProjectId).toHaveBeenCalledWith('p2');
     });
 
-    it('sets selectedProjectId to empty string when deleting last project', () => {
+    it('sets selectedProjectId to empty string when deleting last project', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [],
       });
 
-      const { result } = renderHook(() => useProjects(), { wrapper });
+      const { result } = renderProjectsHook();
       const setSelectedProjectId = vi.fn();
 
-      act(() => {
-        result.current.deleteProject('p1', 'p1', setSelectedProjectId);
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(1);
+      });
+
+      await act(async () => {
+        await result.current.deleteProject('p1', 'p1', setSelectedProjectId);
       });
 
       expect(setSelectedProjectId).toHaveBeenCalledWith('');

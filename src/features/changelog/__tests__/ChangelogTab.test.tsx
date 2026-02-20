@@ -29,11 +29,16 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 9.0, second 8.0, etc.
-    expect(versionTexts[0]).toContain('9.0');
-    expect(versionTexts[1]).toContain('8.0');
+    // First version heading should be 11.0, second 10.0, etc.
+    expect(versionTexts[0]).toContain('11.0');
+    expect(versionTexts[1]).toContain('10.0');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
+  });
+
+  it('renders Version 11.0 entry', () => {
+    render(<ChangelogTab />, { wrapper: ThemeWrapper });
+    expect(screen.getByText(/Version 11\.0/)).toBeTruthy();
   });
 
   it('renders Version 6.0 entry', () => {

@@ -31,8 +31,46 @@ export function ChangelogTab() {
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>
 
-      {/* Version 9.0 */}
+      {/* Version 11.0 */}
       <div>
+        <h3 style={versionStyle}>
+          Version 11.0
+          <span style={dateStyle}>February 20, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Cloud Storage</strong> &mdash; optional Firebase/Firestore backend with Google and Microsoft SSO authentication</li>
+          <li><strong>Settings Tab</strong> &mdash; new tab for storage mode selection, account management, and export attribution</li>
+          <li><strong>Real-Time Sync</strong> &mdash; changes sync across devices and tabs in cloud mode via Firestore onSnapshot</li>
+          <li><strong>Project Sharing</strong> &mdash; share projects with team members as owner, editor, or viewer (cloud mode)</li>
+          <li><strong>Export Attribution</strong> &mdash; exported JSON now includes preparer name, identifier, and timestamp</li>
+          <li><strong>Academic Integrity</strong> &mdash; cloud projects track origin references and change logs (up to 50 entries per project)</li>
+          <li>Local/cloud mode switching with automatic data migration in both directions</li>
+          <li>Firestore security rules for project-level access control</li>
+          <li>About page updated with dual-storage documentation</li>
+          <li>All chart display settings are per-user (personal preferences, even on shared projects)</li>
+        </ul>
+      </div>
+
+      {/* Version 10.0 */}
+      <div>
+        <h3 style={versionStyle}>
+          Version 10.0
+          <span style={dateStyle}>February 20, 2026</span>
+        </h3>
+        <ul style={listStyle}>
+          <li><strong>Storage Abstraction Layer</strong> — internal refactoring to support future cloud storage, with zero functional changes</li>
+          <li>Introduced StorageDriver and GanttStorageService interfaces for pluggable storage backends</li>
+          <li>All data persistence now routes through a storage service instead of direct localStorage calls</li>
+          <li>Added Firebase SDK (conditionally initialized, inactive until cloud mode is enabled in a future release)</li>
+          <li>New StorageContext provides storage service to all components via React context</li>
+          <li>Theme preference continues to use localStorage directly (unaffected by storage mode)</li>
+          <li>37 new tests added (497 total, up from 459) covering storage driver, service, and context</li>
+          <li>All 497 tests pass, production build succeeds, zero functional changes for users</li>
+        </ul>
+      </div>
+
+      {/* Version 9.0 */}
+      <div style={{ marginTop: '2rem' }}>
         <h3 style={versionStyle}>
           Version 9.0
           <span style={dateStyle}>February 16, 2026</span>

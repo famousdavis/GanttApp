@@ -1,11 +1,40 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
 import { ProjectsTab } from '../ProjectsTab';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
+
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -33,11 +62,15 @@ function seedData(data: AppData) {
 
 function TestWrapper({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider>
-      <AppDataProvider>
-        {children}
-      </AppDataProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <StorageProvider>
+        <ThemeProvider>
+          <AppDataProvider>
+            {children}
+          </AppDataProvider>
+        </ThemeProvider>
+      </StorageProvider>
+    </AuthProvider>
   );
 }
 
@@ -67,6 +100,10 @@ describe('ProjectsTab', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('rendering', () => {
@@ -75,18 +112,20 @@ describe('ProjectsTab', () => {
       expect(screen.getByText(/No projects yet/)).toBeTruthy();
     });
 
-    it('renders project list when projects exist', () => {
+    it('renders project list when projects exist', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
         releases: [],
       });
 
       renderProjectsTab();
-      expect(screen.getByText('Alpha')).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
       expect(screen.getByText('Beta')).toBeTruthy();
     });
 
-    it('shows release count for each project', () => {
+    it('shows release count for each project', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [
@@ -96,17 +135,21 @@ describe('ProjectsTab', () => {
       });
 
       renderProjectsTab();
-      expect(screen.getByText(/2 releases/)).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText(/2 releases/)).toBeTruthy();
+      });
     });
 
-    it('shows finish date for projects that have one', () => {
+    it('shows finish date for projects that have one', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha', finishDate: '2026-12-31' })],
         releases: [],
       });
 
       renderProjectsTab();
-      expect(screen.getByText(/finish:/)).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText(/finish:/)).toBeTruthy();
+      });
     });
 
     it('renders Export and Import buttons', () => {
@@ -151,39 +194,48 @@ describe('ProjectsTab', () => {
   });
 
   describe('edit project', () => {
-    it('shows Update and Cancel buttons in edit mode', () => {
+    it('shows Update and Cancel buttons in edit mode', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Edit')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Edit'));
 
       expect(screen.getByText('Update')).toBeTruthy();
       expect(screen.getByText('Cancel')).toBeTruthy();
     });
 
-    it('loads project data into form when Edit is clicked', () => {
+    it('loads project data into form when Edit is clicked', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Edit')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Edit'));
 
       const nameInput = screen.getByPlaceholderText('Project name') as HTMLInputElement;
       expect(nameInput.value).toBe('Alpha');
     });
 
-    it('cancels edit and clears form on Cancel click', () => {
+    it('cancels edit and clears form on Cancel click', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Edit')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Edit'));
       fireEvent.click(screen.getByText('Cancel'));
 
@@ -194,7 +246,7 @@ describe('ProjectsTab', () => {
   });
 
   describe('delete project', () => {
-    it('shows confirmation dialog on Delete click', () => {
+    it('shows confirmation dialog on Delete click', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
@@ -202,12 +254,15 @@ describe('ProjectsTab', () => {
 
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Delete'));
 
       expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Alpha'));
     });
 
-    it('deletes project when confirmed', () => {
+    it('deletes project when confirmed', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
@@ -215,13 +270,18 @@ describe('ProjectsTab', () => {
 
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Delete'));
 
-      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.projects).toHaveLength(0);
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects).toHaveLength(0);
+      });
     });
 
-    it('does not delete when confirmation is cancelled', () => {
+    it('does not delete when confirmation is cancelled', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
@@ -229,6 +289,9 @@ describe('ProjectsTab', () => {
 
       vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('Delete'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -237,13 +300,16 @@ describe('ProjectsTab', () => {
   });
 
   describe('navigation', () => {
-    it('calls setActiveTab and setSelectedProjectId on View Releases click', () => {
+    it('calls setActiveTab and setSelectedProjectId on View Releases click', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       const { props } = renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('View Releases')).toBeTruthy();
+      });
       fireEvent.click(screen.getByText('View Releases'));
 
       expect(props.setActiveTab).toHaveBeenCalledWith('releases');
@@ -287,13 +353,16 @@ describe('ProjectsTab', () => {
       expect(exportButton.closest('button')?.disabled).toBe(true);
     });
 
-    it('enables Export button when projects exist', () => {
+    it('enables Export button when projects exist', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
       });
 
       renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
       const exportButton = screen.getByText(/Export/);
       expect(exportButton.closest('button')?.disabled).toBe(false);
     });
@@ -312,6 +381,11 @@ describe('ProjectsTab', () => {
       });
 
       renderProjectsTab();
+
+      // Wait for async data to load before triggering import
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
 
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createValidFile({
@@ -335,6 +409,11 @@ describe('ProjectsTab', () => {
 
       vi.spyOn(window, 'alert').mockImplementation(() => {});
       renderProjectsTab();
+
+      // Wait for async data to load
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
 
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createValidFile({
@@ -363,6 +442,11 @@ describe('ProjectsTab', () => {
       });
 
       renderProjectsTab();
+
+      // Wait for async data to load
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
 
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createValidFile({

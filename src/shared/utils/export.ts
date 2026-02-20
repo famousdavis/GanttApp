@@ -3,7 +3,7 @@
 import { AppData } from '../types/app';
 import { Project } from '../types/models';
 import { Snapshot } from '../types/snapshots';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, VALID_PRESET_NAMES } from './validation';
 import { validateSnapshot } from './snapshots';
 
 // Maximum limits for imported data to prevent DoS via large files
@@ -20,11 +20,24 @@ export interface ImportResult {
 /**
  * Export app data as JSON file download, optionally including snapshots
  */
-export function exportData(data: AppData, snapshots?: Snapshot[]): void {
-  const exportObj = snapshots && snapshots.length > 0
-    ? { ...data, snapshots }
-    : data;
-  const dataStr = JSON.stringify(exportObj, null, 2);
+export function exportData(data: AppData, snapshots?: Snapshot[], options?: { storageMode?: string; uid?: string }): void {
+  // Build export object with optional attribution metadata
+  const baseObj: Record<string, unknown> = { ...data };
+  if (snapshots && snapshots.length > 0) {
+    baseObj.snapshots = snapshots;
+  }
+  if (data.exportAttribution) {
+    baseObj._exportedBy = {
+      name: data.exportAttribution.name,
+      identifier: data.exportAttribution.identifier,
+    };
+    baseObj._exportedAt = new Date().toISOString();
+  }
+  // Add storage reference for provenance tracking
+  if (options?.storageMode === 'cloud' && options?.uid) {
+    baseObj._storageRef = `firestore:uid:${options.uid}`;
+  }
+  const dataStr = JSON.stringify(baseObj, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -147,6 +160,11 @@ export function parseImportedData(fileContent: string): ImportResult | null {
     }
     if (typeof imported.showPreparedBy === 'boolean') {
       sanitizedData.showPreparedBy = imported.showPreparedBy;
+    }
+
+    // Sanitize optional export attribution
+    if (imported.exportAttribution) {
+      sanitizedData.exportAttribution = sanitizeExportAttribution(imported.exportAttribution);
     }
 
     // Parse optional snapshots array

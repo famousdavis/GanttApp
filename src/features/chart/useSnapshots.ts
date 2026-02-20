@@ -2,15 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Snapshot } from '../../shared/types';
-import {
-  loadSnapshots,
-  saveSnapshots as saveAllSnapshots,
-  addSnapshot as addSnapshotToStorage,
-  deleteSnapshot as deleteSnapshotFromStorage,
-  getSnapshotsForProject
-} from '../../shared/utils/snapshots';
+import { getSnapshotsForProject } from '../../shared/utils/snapshots';
 import { generateId, getTodayFormatted } from '../../shared/utils/dates';
 import { Release, ChartColors } from '../../shared/types';
+import { useStorage } from '../../context/StorageContext';
 
 interface SaveSnapshotParams {
   releases: Release[];
@@ -21,13 +16,18 @@ interface SaveSnapshotParams {
 }
 
 export function useSnapshots(selectedProjectId: string) {
+  const { storage } = useStorage();
   const [allSnapshots, setAllSnapshots] = useState<Snapshot[]>([]);
   const [activeSnapshotId, setActiveSnapshotId] = useState<string | null>(null);
 
-  // Load snapshots on mount
+  // Load snapshots on mount (or when storage service changes)
   useEffect(() => {
-    setAllSnapshots(loadSnapshots());
-  }, []);
+    let cancelled = false;
+    storage.loadSnapshots().then(snapshots => {
+      if (!cancelled) setAllSnapshots(snapshots);
+    });
+    return () => { cancelled = true; };
+  }, [storage]);
 
   // Reset to Current view when project changes
   useEffect(() => {
@@ -56,7 +56,7 @@ export function useSnapshots(selectedProjectId: string) {
   }, [snapshots, activeSnapshotId]);
 
   // Save a new snapshot
-  const saveSnapshot = useCallback((params: SaveSnapshotParams) => {
+  const saveSnapshot = useCallback(async (params: SaveSnapshotParams) => {
     const defaultName = getTodayFormatted();
     const userInput = window.prompt('Enter a name for this snapshot (optional):', defaultName);
 
@@ -75,16 +75,16 @@ export function useSnapshots(selectedProjectId: string) {
       preparedBy: params.preparedBy
     };
 
-    const result = addSnapshotToStorage(snapshot);
+    const result = await storage.addSnapshot(snapshot);
     if (result === null) {
       alert('Snapshot limit reached. Delete old snapshots to save new ones.');
     } else {
       setAllSnapshots(result);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, storage]);
 
   // Delete a snapshot
-  const handleDeleteSnapshot = useCallback((snapshotId: string) => {
+  const handleDeleteSnapshot = useCallback(async (snapshotId: string) => {
     const snap = allSnapshots.find(s => s.id === snapshotId);
     const label = snap ? `"${snap.name}"` : 'this snapshot';
     const dateStr = snap ? new Date(snap.timestamp).toLocaleDateString('en-US', {
@@ -95,16 +95,16 @@ export function useSnapshots(selectedProjectId: string) {
       return;
     }
 
-    const updated = deleteSnapshotFromStorage(snapshotId);
+    const updated = await storage.deleteSnapshot(snapshotId);
     setAllSnapshots(updated);
     setActiveSnapshotId(null);
-  }, [allSnapshots]);
+  }, [allSnapshots, storage]);
 
   // For export: expose the raw setter so import can replace all snapshots
-  const replaceAllSnapshots = useCallback((snapshots: Snapshot[]) => {
-    saveAllSnapshots(snapshots);
+  const replaceAllSnapshots = useCallback(async (snapshots: Snapshot[]) => {
+    await storage.saveSnapshots(snapshots);
     setAllSnapshots(snapshots);
-  }, []);
+  }, [storage]);
 
   return {
     snapshots,

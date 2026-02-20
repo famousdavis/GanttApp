@@ -1,0 +1,65 @@
+// Firestore Security Rules for GanttApp
+// Deploy via Firebase CLI: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: check if the user is a member of a project
+    function isMember(projectId) {
+      return isAuth() &&
+        request.auth.uid in get(/databases/$(database)/documents/ganttapp/projects/$(projectId)).data.members;
+    }
+
+    // Helper: check if the user has a specific role on a project
+    function hasRole(projectId, role) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/ganttapp/projects/$(projectId)).data.members[request.auth.uid] == role;
+    }
+
+    // Helper: check if user can write to a project (owner or editor)
+    function canWrite(projectId) {
+      return hasRole(projectId, 'owner') || hasRole(projectId, 'editor');
+    }
+
+    // Project documents
+    match /ganttapp/projects/{projectId} {
+      allow read: if isMember(projectId);
+      allow create: if isAuth() &&
+        request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if canWrite(projectId);
+      allow delete: if hasRole(projectId, 'owner');
+
+      // Releases subcollection
+      match /releases/{releaseId} {
+        allow read: if isMember(projectId);
+        allow write: if canWrite(projectId);
+      }
+
+      // Snapshots subcollection
+      match /snapshots/{snapshotId} {
+        allow read: if isMember(projectId);
+        allow write: if canWrite(projectId);
+      }
+    }
+
+    // User documents
+    match /ganttapp/users/{userId} {
+      // Profile: readable by any authenticated user, writable only by owner
+      match /profile {
+        allow read: if isAuth();
+        allow write: if isAuth() && request.auth.uid == userId;
+      }
+
+      // Settings: readable and writable only by owner
+      match /settings {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+      }
+    }
+  }
+}

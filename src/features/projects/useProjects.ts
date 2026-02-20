@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { Project } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
+import { useStorage } from '../../context/StorageContext';
 import { generateId } from '../../shared/utils';
-import { deleteSnapshotsForProject } from '../../shared/utils/snapshots';
 
 export function useProjects() {
   const { data, updateData } = useAppData();
+  const { storage } = useStorage();
   const [projectName, setProjectName] = useState('');
   const [projectFinishDate, setProjectFinishDate] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export function useProjects() {
     setEditingProjectId(null);
   };
 
-  const deleteProject = (id: string, selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
+  const deleteProject = async (id: string, selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
     const newData = {
       ...data,
       projects: data.projects.filter(p => p.id !== id),
@@ -54,7 +55,7 @@ export function useProjects() {
     };
     updateData(newData);
     // Cascade delete: remove all snapshots for this project
-    deleteSnapshotsForProject(id);
+    await storage.deleteSnapshotsForProject(id);
     if (selectedProjectId === id) {
       const remaining = data.projects.filter(p => p.id !== id);
       setSelectedProjectId(remaining.length > 0 ? remaining[0].id : '');

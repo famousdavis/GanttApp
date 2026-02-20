@@ -1,6 +1,7 @@
 // Application-level types
 
 import { Project, Release, ChartColors, ChartDisplaySettings } from './models';
+import { ExportAttribution } from './firestore';
 
 export interface AppData {
   projects: Project[];
@@ -19,6 +20,7 @@ export interface AppData {
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;
+  exportAttribution?: ExportAttribution;
 }
 
-export type TabType = 'projects' | 'releases' | 'chart' | 'about' | 'changelog';
+export type TabType = 'projects' | 'releases' | 'chart' | 'settings' | 'about' | 'changelog';

@@ -15,6 +15,7 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
     { id: 'projects', label: 'Projects' },
     { id: 'releases', label: 'Releases' },
     { id: 'chart', label: 'Gantt Chart' },
+    { id: 'settings', label: 'Settings' },
     { id: 'about', label: 'About' }
   ];
 

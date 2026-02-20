@@ -1,7 +1,7 @@
 // localStorage utilities for GanttApp
 
 import { AppData } from '../types/app';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, VALID_PRESET_NAMES } from './validation';
 
 const STORAGE_KEY = 'ganttAppData';
 
@@ -20,7 +20,7 @@ export function saveData(data: AppData): void {
  * Validate and sanitize loaded data structure
  * This provides defense-in-depth against localStorage tampering
  */
-function validateLoadedData(data: unknown): AppData | null {
+export function validateLoadedData(data: unknown): AppData | null {
   if (!data || typeof data !== 'object') return null;
 
   const d = data as Record<string, unknown>;
@@ -102,6 +102,11 @@ function validateLoadedData(data: unknown): AppData | null {
   // Validate optional display settings
   if (d.chartDisplaySettings && typeof d.chartDisplaySettings === 'object') {
     result.chartDisplaySettings = sanitizeDisplaySettings(d.chartDisplaySettings);
+  }
+
+  // Validate optional export attribution
+  if (d.exportAttribution) {
+    result.exportAttribution = sanitizeExportAttribution(d.exportAttribution);
   }
 
   return result;

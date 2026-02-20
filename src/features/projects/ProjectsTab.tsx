@@ -2,15 +2,18 @@
 
 import { useState, useMemo } from 'react';
 import { useProjects } from './useProjects';
+import { ShareDialog } from './ShareDialog';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useStorage } from '../../context/StorageContext';
 import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
 import { isProjectNameValid } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
-import { saveSnapshots as saveAllSnapshots, loadSnapshots } from '../../shared/utils/snapshots';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { TabType } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
+import type { CloudGanttStorageService } from '../../shared/storage';
 
 interface ProjectsTabProps {
   selectedProjectId: string;
@@ -33,6 +36,10 @@ export function ProjectsTab({
 }: ProjectsTabProps) {
   const { data, updateData } = useAppData();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const { storage } = useStorage();
+  const [shareProjectId, setShareProjectId] = useState<string | null>(null);
+  const isCloudMode = storage.mode === 'cloud';
   const {
     projectName,
     setProjectName,
@@ -46,9 +53,12 @@ export function ProjectsTab({
     cancelEditProject
   } = useProjects();
 
-  const handleExport = () => {
-    const allSnapshots = loadSnapshots();
-    exportDataUtil(data, allSnapshots);
+  const handleExport = async () => {
+    const allSnapshots = await storage.loadSnapshots();
+    exportDataUtil(data, allSnapshots, {
+      storageMode: storage.mode,
+      uid: user?.uid,
+    });
   };
 
   const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData>; fileInput: HTMLInputElement } | null>(null);
@@ -79,10 +89,10 @@ export function ProjectsTab({
     }
   };
 
-  const applyImport = (imported: NonNullable<ReturnType<typeof parseImportedData>>, fileInput: HTMLInputElement) => {
+  const applyImport = async (imported: NonNullable<ReturnType<typeof parseImportedData>>, fileInput: HTMLInputElement) => {
     updateData(imported.appData);
     if (imported.snapshots && imported.snapshots.length > 0) {
-      saveAllSnapshots(imported.snapshots);
+      await storage.saveSnapshots(imported.snapshots);
     }
     if (imported.appData.projects.length > 0) {
       setSelectedProjectId(imported.appData.projects[0].id);
@@ -340,6 +350,22 @@ export function ProjectsTab({
                 >
                   View Releases
                 </button>
+                {isCloudMode && (
+                  <button
+                    onClick={() => setShareProjectId(project.id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: colors.buttonBg,
+                      border: `1px solid ${colors.buttonBorder}`,
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      color: colors.buttonText
+                    }}
+                  >
+                    Share
+                  </button>
+                )}
                 <button
                   onClick={() => startEditProject(project)}
                   style={{
@@ -377,6 +403,19 @@ export function ProjectsTab({
           ))}
         </div>
       )}
+
+      {/* Share dialog (cloud mode only) */}
+      {shareProjectId && isCloudMode && (() => {
+        const project = data.projects.find(p => p.id === shareProjectId);
+        return project ? (
+          <ShareDialog
+            projectId={shareProjectId}
+            projectName={project.name}
+            cloudStorage={storage as CloudGanttStorageService}
+            onClose={() => setShareProjectId(null)}
+          />
+        ) : null;
+      })()}
 
       {/* Import confirmation modal */}
       {importConfirm && (

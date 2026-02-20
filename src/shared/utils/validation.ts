@@ -332,6 +332,19 @@ export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatch
 }
 
 /**
+ * Sanitize export attribution from untrusted data
+ * Returns undefined if invalid
+ */
+export function sanitizeExportAttribution(attr: unknown): { name: string; identifier: string } | undefined {
+  if (!attr || typeof attr !== 'object') return undefined;
+  const a = attr as Record<string, unknown>;
+  const name = typeof a.name === 'string' ? sanitizeString(a.name, 100) : '';
+  const identifier = typeof a.identifier === 'string' ? sanitizeString(a.identifier, 100) : '';
+  if (!name && !identifier) return undefined;
+  return { name, identifier };
+}
+
+/**
  * Get user-friendly error message for Most Likely Finish Date validation
  * Returns empty string if valid or if the field is empty (optional field)
  */

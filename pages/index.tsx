@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
 import Head from 'next/head';
-import { AppDataProvider, useAppData } from '../src/context/AppDataContext';
+import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
 import { ChartColors, TabType } from '../src/shared/types';
 import { Tabs } from '../src/shared/components/Tabs';
@@ -9,6 +9,7 @@ import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ReleasesTab } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
 import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
+import { SettingsTab } from '../src/features/settings/SettingsTab';
 import { GanttChart } from '../src/features/chart/GanttChart';
 import { useChartEditing } from '../src/features/chart/useChartEditing';
 import { useSnapshots } from '../src/features/chart/useSnapshots';
@@ -148,7 +149,7 @@ function AppContent() {
   }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, preparedBy]);
 
   // Keyboard shortcuts
-  const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'about'], []);
+  const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'settings', 'about'], []);
   const shortcuts = useMemo(() => ({
     'escape': () => {
       if (chartEditing.hasActiveEditor) {
@@ -189,7 +190,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 9.0</title>
+        <title>GanttApp - Version 11.0</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -298,6 +299,7 @@ function AppContent() {
             />
           )}
 
+          {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'about' && <AboutTab />}
           {activeTab === 'changelog' && <ChangelogTab />}
         </main>
@@ -323,7 +325,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 9.0
+            Version 11.0
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>
@@ -332,11 +334,7 @@ function AppContent() {
   );
 }
 
-// Wrap with provider
+// AppDataProvider is now in _app.tsx
 export default function Home() {
-  return (
-    <AppDataProvider>
-      <AppContent />
-    </AppDataProvider>
-  );
+  return <AppContent />;
 }

@@ -23,16 +23,34 @@ export function AboutTab() {
       </section>
 
       <section style={{ marginBottom: '2rem' }}>
-        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data & Security</h3>
-        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: colors.textSecondary }}>
-          <li>Stored locally in your <strong>browser</strong> (not in any cloud database)</li>
-          <li><strong>Your data never leaves your device</strong></li>
-          <li>No external database servers, no third-party access, no data governance concerns</li>
-          <li>Safe for corporate/organizational data - all data stays within your network</li>
-          <li>Use <strong>Export</strong> to backup your data to your file system anytime</li>
-          <li>Use <strong>Import</strong> to restore from a backup or share with colleagues</li>
-          <li><strong>Note:</strong> If you clear your browser cache/data, you will lose all stored projects and releases unless you&apos;ve exported a backup</li>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Your Data &amp; Storage Options</h3>
+
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary, marginBottom: '1rem' }}>
+          GanttApp offers two storage modes. Switch between them in the <strong>Settings</strong> tab.
+        </p>
+
+        <h4 style={{ fontSize: '1rem', color: colors.text, marginBottom: '0.5rem' }}>Local Storage (Default)</h4>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: colors.textSecondary, marginBottom: '1rem' }}>
+          <li>Data stored in your <strong>browser</strong> &mdash; never leaves your device</li>
+          <li>No external servers, no third-party access, no data governance concerns</li>
+          <li>Safe for corporate/organizational data</li>
+          <li>Use <strong>Export</strong> to backup and <strong>Import</strong> to restore</li>
+          <li><strong>Note:</strong> Clearing browser cache/data will remove stored data unless you&apos;ve exported a backup</li>
         </ul>
+
+        <h4 style={{ fontSize: '1rem', color: colors.text, marginBottom: '0.5rem' }}>Cloud Storage (Optional)</h4>
+        <ul style={{ paddingLeft: '2rem', lineHeight: '1.8', color: colors.textSecondary, marginBottom: '1rem' }}>
+          <li>Sign in with <strong>Google</strong> or <strong>Microsoft</strong></li>
+          <li>Data synced via Firebase/Firestore &mdash; access from any device</li>
+          <li>Share projects with team members (owner, editor, viewer roles)</li>
+          <li>Encrypted in transit (TLS) and at rest</li>
+        </ul>
+
+        <p style={{ lineHeight: '1.6', color: colors.textMuted, fontSize: '0.9rem' }}>
+          Theme preference is always stored locally regardless of storage mode. Chart display settings
+          (colors, labels, toggles) are personal preferences &mdash; each user sees their own settings,
+          even on shared projects.
+        </p>
       </section>
 
       <section style={{ marginBottom: '2rem' }}>

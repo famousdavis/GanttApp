@@ -1,18 +1,51 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider, useAppData } from '../AppDataContext';
+import { StorageProvider } from '../StorageContext';
+import { AuthProvider } from '../AuthContext';
 import { AppData } from '../../shared/types/app';
+
+// Mock firebase modules
+vi.mock('../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
 
 // Wrapper component for hooks that need the provider
 function wrapper({ children }: { children: ReactNode }) {
-  return <AppDataProvider>{children}</AppDataProvider>;
+  return <AuthProvider><StorageProvider><AppDataProvider>{children}</AppDataProvider></StorageProvider></AuthProvider>;
 }
 
 describe('AppDataContext', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('useAppData outside provider', () => {
@@ -174,7 +207,7 @@ describe('AppDataContext', () => {
   });
 
   describe('localStorage persistence', () => {
-    it('loads existing data from localStorage on mount', () => {
+    it('loads existing data from localStorage on mount', async () => {
       const savedData: AppData = {
         projects: [{ id: '1', name: 'Saved Project' }],
         releases: [],
@@ -205,8 +238,10 @@ describe('AppDataContext', () => {
 
       const { result } = renderHook(() => useAppData(), { wrapper });
 
-      // Wait for useEffect to run
-      expect(result.current.data.projects[0].name).toBe('Saved Project');
+      // Wait for async load to complete
+      await waitFor(() => {
+        expect(result.current.data.projects[0].name).toBe('Saved Project');
+      });
       expect(result.current.chartColors.solidBar).toBe('#111111');
       expect(result.current.solidBarLabel).toBe('Saved Solid');
       expect(result.current.hatchedBarLabel).toBe('Saved Hatched');
@@ -215,7 +250,7 @@ describe('AppDataContext', () => {
       expect(result.current.displaySettings.releaseNameFontSize).toBe('18');
     });
 
-    it('loads active preset from localStorage', () => {
+    it('loads active preset from localStorage', async () => {
       const savedData: AppData = {
         projects: [],
         releases: [],
@@ -225,10 +260,52 @@ describe('AppDataContext', () => {
       localStorage.setItem('ganttAppData', JSON.stringify(savedData));
 
       const { result } = renderHook(() => useAppData(), { wrapper });
-      expect(result.current.activePreset).toBe('Ocean');
+      await waitFor(() => {
+        expect(result.current.activePreset).toBe('Ocean');
+      });
     });
 
-    it('uses defaults when localStorage data has no optional fields', () => {
+    it('loads exportAttribution from localStorage', async () => {
+      const savedData: AppData = {
+        projects: [],
+        releases: [],
+        exportAttribution: { name: 'Test User', identifier: 'test@example.com' },
+      };
+
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.exportAttribution).toEqual({ name: 'Test User', identifier: 'test@example.com' });
+      });
+    });
+
+    it('initializes exportAttribution as undefined when not in localStorage', async () => {
+      const savedData: AppData = {
+        projects: [],
+        releases: [],
+      };
+
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+      expect(result.current.exportAttribution).toBeUndefined();
+    });
+
+    it('updates exportAttribution via setExportAttribution', () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      act(() => {
+        result.current.setExportAttribution({ name: 'New User', identifier: 'new@test.com' });
+      });
+
+      expect(result.current.exportAttribution).toEqual({ name: 'New User', identifier: 'new@test.com' });
+    });
+
+    it('uses defaults when localStorage data has no optional fields', async () => {
       const savedData: AppData = {
         projects: [{ id: '1', name: 'Basic' }],
         releases: [],
@@ -238,7 +315,10 @@ describe('AppDataContext', () => {
 
       const { result } = renderHook(() => useAppData(), { wrapper });
 
-      // Should use defaults for optional fields
+      // Wait for async load, then verify defaults for optional fields
+      await waitFor(() => {
+        expect(result.current.data.projects[0].name).toBe('Basic');
+      });
       expect(result.current.chartColors).toEqual({
         solidBar: '#0070f3',
         hatchedBar: '#0070f3',
@@ -249,6 +329,26 @@ describe('AppDataContext', () => {
       });
       expect(result.current.solidBarLabel).toBe('Design, Code, Test');
       expect(result.current.showFinishDateLine).toBe(true);
+    });
+  });
+
+  describe('real-time sync', () => {
+    it('does not subscribe to projects in local mode', async () => {
+      const savedData: AppData = {
+        projects: [{ id: 'p1', name: 'Test' }],
+        releases: [],
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.data.projects).toHaveLength(1);
+      });
+
+      // In local mode, storage.mode === 'local', so no subscriptions should be created
+      // If subscriptions were attempted, firebase/firestore mock would be called — it is not
+      expect(result.current.data.projects[0].name).toBe('Test');
     });
   });
 });

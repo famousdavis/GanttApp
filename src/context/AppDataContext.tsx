@@ -1,9 +1,10 @@
 // Global application data context
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppData, Project, Release, ChartColors, ChartDisplaySettings } from '../shared/types';
-import { saveData, loadData } from '../shared/utils';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAttribution } from '../shared/types';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../shared/utils';
+import { useStorage } from './StorageContext';
+import type { CloudGanttStorageService } from '../shared/storage';
 
 interface AppDataContextType {
   data: AppData;
@@ -44,13 +45,22 @@ interface AppDataContextType {
   setPreparedBy: (name: string) => void;
   showPreparedBy: boolean;
   setShowPreparedBy: (show: boolean) => void;
+
+  // Export Attribution
+  exportAttribution: ExportAttribution | undefined;
+  setExportAttribution: (attr: ExportAttribution) => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
+  const { storage } = useStorage();
   const [data, setData] = useState<AppData>({ projects: [], releases: [] });
   const [loading, setLoading] = useState(true);
+
+  // Suppress save-on-load: the save effect fires when loading becomes false,
+  // which would write the just-loaded data back. This ref prevents that.
+  const isInitialLoadRef = useRef(true);
 
   // Chart settings
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
@@ -73,11 +83,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [preparedBy, setPreparedBy] = useState('');
   const [showPreparedBy, setShowPreparedBy] = useState(false);
 
-  // Load data from localStorage on mount
+  // Export Attribution
+  const [exportAttribution, setExportAttribution] = useState<ExportAttribution | undefined>(undefined);
+
+  // Load data from storage on mount (or when storage service changes)
   useEffect(() => {
-    const loadDataFromStorage = () => {
+    let cancelled = false;
+
+    const loadDataFromStorage = async () => {
       try {
-        const loadedData = loadData();
+        const loadedData = await storage.loadAppData();
+        if (cancelled) return;
+
         if (loadedData) {
           setData(loadedData);
 
@@ -126,20 +143,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (loadedData.showPreparedBy !== undefined) {
             setShowPreparedBy(loadedData.showPreparedBy);
           }
+
+          // Load export attribution
+          if (loadedData.exportAttribution && typeof loadedData.exportAttribution === 'object') {
+            setExportAttribution(loadedData.exportAttribution);
+          }
         }
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          // Allow save effect to run on subsequent changes (not the initial hydration)
+          isInitialLoadRef.current = false;
+        }
       }
     };
 
     loadDataFromStorage();
-  }, []);
+    return () => { cancelled = true; };
+  }, [storage]);
 
-  // Save legend labels, display settings, and prepared by to localStorage whenever they change
+  // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !isInitialLoadRef.current) {
       const newData = {
         ...data,
         legendLabels: {
@@ -153,16 +180,48 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         showPreparedBy,
         showTodayLine,
         showFinishDateLine,
-        showMostLikelyLine
+        showMostLikelyLine,
+        ...(exportAttribution ? { exportAttribution } : {})
       };
-      saveData(newData);
+      storage.saveAppData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, data, loading]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, exportAttribution, data, loading, storage]);
 
-  // Update data and save to localStorage
+  // Real-time sync: subscribe to Firestore changes in cloud mode
+  // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
+  const projectIds = useMemo(
+    () => JSON.stringify(data.projects.map(p => p.id).sort()),
+    [data.projects]
+  );
+
+  useEffect(() => {
+    if (storage.mode !== 'cloud' || loading) return;
+
+    const cloudStorage = storage as CloudGanttStorageService;
+    const ids: string[] = JSON.parse(projectIds);
+
+    const unsubscribers = ids.map(projectId =>
+      cloudStorage.subscribeToProject(projectId, (releases, snapshot) => {
+        // Skip local echoes — only apply server-confirmed data
+        if (snapshot.metadata.hasPendingWrites) return;
+
+        setData(prev => ({
+          ...prev,
+          releases: [
+            ...prev.releases.filter(r => r.projectId !== projectId),
+            ...releases
+          ]
+        }));
+      })
+    );
+
+    return () => unsubscribers.forEach(u => u());
+  }, [storage, projectIds, loading]);
+
+  // Update data and save to storage
   const updateData = (newData: AppData) => {
     setData(newData);
-    saveData(newData);
+    storage.saveAppData(newData);
   };
 
   const value = {
@@ -195,7 +254,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     preparedBy,
     setPreparedBy,
     showPreparedBy,
-    setShowPreparedBy
+    setShowPreparedBy,
+    exportAttribution,
+    setExportAttribution
   };
 
   return <AppDataContext value={value}>{children}</AppDataContext>;

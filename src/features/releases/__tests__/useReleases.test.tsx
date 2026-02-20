@@ -1,13 +1,51 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { AppDataProvider } from '../../../context/AppDataContext';
+import { AppDataProvider, useAppData } from '../../../context/AppDataContext';
+import { StorageProvider } from '../../../context/StorageContext';
+import { AuthProvider } from '../../../context/AuthContext';
 import { useReleases } from '../useReleases';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
 
+// Mock firebase modules
+vi.mock('../../../lib/firebase', () => ({
+  auth: null,
+  db: null,
+  isFirebaseAvailable: false,
+}));
+
+const mockOnAuthStateChanged = vi.fn();
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider { addScope = vi.fn(); }
+  class MockOAuthProvider { addScope = vi.fn(); constructor(_id: string) {} }
+  return {
+    onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
+    signInWithPopup: vi.fn(),
+    signOut: vi.fn(),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    OAuthProvider: MockOAuthProvider,
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  collection: vi.fn(),
+  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
+}));
+
 function wrapper({ children }: { children: ReactNode }) {
-  return <AppDataProvider>{children}</AppDataProvider>;
+  return <AuthProvider><StorageProvider><AppDataProvider>{children}</AppDataProvider></StorageProvider></AuthProvider>;
+}
+
+/** Renders useReleases alongside useAppData so we can wait for async data load. */
+function renderReleasesHook() {
+  return renderHook(() => {
+    const releases = useReleases();
+    const { data } = useAppData();
+    return { ...releases, data };
+  }, { wrapper });
 }
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -38,6 +76,10 @@ describe('useReleases', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
+      callback(null);
+      return vi.fn();
+    });
   });
 
   describe('initial state', () => {
@@ -311,13 +353,17 @@ describe('useReleases', () => {
   });
 
   describe('updateRelease', () => {
-    it('updates release fields when valid', () => {
+    it('updates release fields when valid', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', projectId: 'p1', name: 'Original' })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
 
       act(() => {
         result.current.startEditRelease(makeRelease({ id: 'r1', name: 'Original' }));
@@ -430,7 +476,7 @@ describe('useReleases', () => {
       expect(stored.releases[0].name).toBe('Original');
     });
 
-    it('only modifies the targeted release, leaving others unchanged', () => {
+    it('only modifies the targeted release, leaving others unchanged', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [
@@ -439,7 +485,11 @@ describe('useReleases', () => {
         ],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(2);
+      });
 
       act(() => {
         result.current.startEditRelease(makeRelease({ id: 'r1', name: 'First' }));
@@ -460,13 +510,17 @@ describe('useReleases', () => {
   });
 
   describe('deleteRelease', () => {
-    it('removes release by id', () => {
+    it('removes release by id', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' }), makeRelease({ id: 'r2', name: 'Second' })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(2);
+      });
 
       act(() => {
         result.current.deleteRelease('r1');
@@ -477,7 +531,7 @@ describe('useReleases', () => {
       expect(stored.releases[0].id).toBe('r2');
     });
 
-    it('does not affect other releases', () => {
+    it('does not affect other releases', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [
@@ -487,7 +541,11 @@ describe('useReleases', () => {
         ],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(3);
+      });
 
       act(() => {
         result.current.deleteRelease('r2');
@@ -553,13 +611,17 @@ describe('useReleases', () => {
   });
 
   describe('toggleReleaseHidden', () => {
-    it('toggles hidden from undefined/false to true', () => {
+    it('toggles hidden from undefined/false to true', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
 
       act(() => {
         result.current.toggleReleaseHidden('r1');
@@ -569,13 +631,17 @@ describe('useReleases', () => {
       expect(stored.releases[0].hidden).toBe(true);
     });
 
-    it('toggles hidden from true to false', () => {
+    it('toggles hidden from true to false', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', hidden: true })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
 
       act(() => {
         result.current.toggleReleaseHidden('r1');
@@ -587,13 +653,17 @@ describe('useReleases', () => {
   });
 
   describe('toggleReleaseCompleted', () => {
-    it('toggles completed from undefined/false to true', () => {
+    it('toggles completed from undefined/false to true', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
 
       act(() => {
         result.current.toggleReleaseCompleted('r1');
@@ -603,13 +673,17 @@ describe('useReleases', () => {
       expect(stored.releases[0].completed).toBe(true);
     });
 
-    it('toggles completed from true to false', () => {
+    it('toggles completed from true to false', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1', completed: true })],
       });
 
-      const { result } = renderHook(() => useReleases(), { wrapper });
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
 
       act(() => {
         result.current.toggleReleaseCompleted('r1');

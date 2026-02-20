@@ -10,11 +10,12 @@ describe('Tabs', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders all four tabs', () => {
+  it('renders all five tabs', () => {
     render(<Tabs activeTab="projects" onTabChange={mockOnTabChange} />, { wrapper: ThemeWrapper });
     expect(screen.getByText('Projects')).toBeTruthy();
     expect(screen.getByText('Releases')).toBeTruthy();
     expect(screen.getByText('Gantt Chart')).toBeTruthy();
+    expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByText('About')).toBeTruthy();
   });
 
@@ -24,7 +25,8 @@ describe('Tabs', () => {
     expect(buttons[0].textContent).toBe('Projects');
     expect(buttons[1].textContent).toBe('Releases');
     expect(buttons[2].textContent).toBe('Gantt Chart');
-    expect(buttons[3].textContent).toBe('About');
+    expect(buttons[3].textContent).toBe('Settings');
+    expect(buttons[4].textContent).toBe('About');
   });
 
   it('calls onTabChange with "projects" when clicking Projects', () => {
@@ -43,6 +45,12 @@ describe('Tabs', () => {
     render(<Tabs activeTab="projects" onTabChange={mockOnTabChange} />, { wrapper: ThemeWrapper });
     fireEvent.click(screen.getByText('Gantt Chart'));
     expect(mockOnTabChange).toHaveBeenCalledWith('chart');
+  });
+
+  it('calls onTabChange with "settings" when clicking Settings', () => {
+    render(<Tabs activeTab="projects" onTabChange={mockOnTabChange} />, { wrapper: ThemeWrapper });
+    fireEvent.click(screen.getByText('Settings'));
+    expect(mockOnTabChange).toHaveBeenCalledWith('settings');
   });
 
   it('calls onTabChange with "about" when clicking About', () => {

@@ -26,7 +26,7 @@ export function projectToFirestoreMeta(
     name: project.name,
     owner: existingMeta?.owner ?? uid,
     members: existingMeta?.members ?? { [uid]: 'owner' },
-    finishDate: project.finishDate,
+    ...(project.finishDate ? { finishDate: project.finishDate } : { finishDate: null }),
     schemaVersion: 1,
     _originRef: existingMeta?._originRef ?? `uid:${uid}`,
     _changeLog: existingMeta?._changeLog ?? [],

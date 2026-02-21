@@ -311,23 +311,28 @@ Key behaviors:
 ### Firestore Structure (Cloud Mode)
 
 ```
-ganttapp/
-  projects/{projectId}/          ← one document per project
-    (root doc = meta)            ← name, owner, members, finishDate, _originRef, _changeLog
-    releases/{releaseId}         ← one doc per release with explicit `order` field
-    snapshots/{snapshotId}       ← embedded releases array (same shape as local)
-  users/{uid}/
-    profile                      ← displayName, email, createdAt, lastLogin
-    settings                     ← chartColors, displaySettings, toggles, legendLabels, preparedBy
+ganttapp_projects/{projectId}/   ← one document per project (name, owner, members, finishDate, _originRef, _changeLog)
+  releases/{releaseId}           ← one doc per release with explicit `order` field
+  snapshots/{snapshotId}         ← embedded releases array (same shape as local)
+ganttapp_profiles/{uid}          ← displayName, email, createdAt, lastLogin
+ganttapp_settings/{uid}          ← chartColors, displaySettings, toggles, legendLabels, preparedBy
 ```
+
+Top-level collections use underscore-separated names (`ganttapp_projects`, not `ganttapp/projects`) because Firestore's `doc()` requires an even number of path segments.
 
 ### Firestore Security Rules
 
 Defined in `firestore.rules` (repo root). Key rules:
-- Projects: read/write gated on `members` map (owner or editor can write; any member can read)
-- Subcollections (releases, snapshots): derived from parent project's `members`
-- User profile: readable by any authenticated user, writable only by owner
-- User settings: readable and writable only by owner
+- Projects: `allow list` for all authenticated users (client-side membership filtering); `allow get/update/delete` gated on `members` map
+- Subcollections (releases, snapshots): derived from parent project's `members` via `get()`
+- User profile (`ganttapp_profiles`): readable by any authenticated user, writable only by owner
+- User settings (`ganttapp_settings`): readable and writable only by owner
+
+### Key Firestore Patterns
+
+- **2-phase batch commit:** Parent project documents must be committed before subcollection documents because security rules use `get()` on the parent. See `StorageContext.switchMode()` (3 phases) and `executeSave()` (2 phases).
+- **Conditional spread for optional fields:** Firestore rejects explicit `undefined` — use `...(value && { field: value })` in converters.
+- **Memory cache:** Uses `memoryLocalCache()` (not persistent) to avoid stale security rule cache in IndexedDB.
 
 ## Snapshot Architecture (v7.0)
 

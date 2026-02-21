@@ -86,8 +86,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async loadAppData(): Promise<AppData | null> {
     try {
-      // Load all projects where this user is a member
-      const projectsSnap = await getDocs(collection(this.db, 'ganttapp/projects'));
+      // Step 1: List projects
+      const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
       const projects: { id: string; meta: FirestoreProjectMeta }[] = [];
 
       for (const docSnap of projectsSnap.docs) {
@@ -96,12 +96,11 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           projects.push({ id: docSnap.id, meta: data });
         }
       }
-
-      // Load releases for each project
+      // Step 2: Load releases for each project
       const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
       for (const project of projects) {
         const releasesSnap = await getDocs(
-          collection(this.db, `ganttapp/projects/${project.id}/releases`)
+          collection(this.db, `ganttapp_projects/${project.id}/releases`)
         );
         releasesMap.set(
           project.id,
@@ -109,8 +108,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         );
       }
 
-      // Load user settings
-      const settingsDoc = await getDoc(doc(this.db, `ganttapp/users/${this.uid}/settings`));
+      // Step 3: Load user settings
+      const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
       const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
 
       // Reconstruct flat AppData
@@ -161,13 +160,13 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       const allSnapshots: Snapshot[] = [];
 
       // Query all project docs this user has access to
-      const projectsSnap = await getDocs(collection(this.db, 'ganttapp/projects'));
+      const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
       for (const projectDoc of projectsSnap.docs) {
         const data = projectDoc.data() as FirestoreProjectMeta;
         if (!data.members || !data.members[this.uid]) continue;
 
         const snapshotsSnap = await getDocs(
-          collection(this.db, `ganttapp/projects/${projectDoc.id}/snapshots`)
+          collection(this.db, `ganttapp_projects/${projectDoc.id}/snapshots`)
         );
         for (const snapDoc of snapshotsSnap.docs) {
           allSnapshots.push(
@@ -195,13 +194,13 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const batch = writeBatch(this.db);
 
     // Delete all existing snapshots first, then rewrite
-    const projectsSnap = await getDocs(collection(this.db, 'ganttapp/projects'));
+    const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
     for (const projectDoc of projectsSnap.docs) {
       const data = projectDoc.data() as FirestoreProjectMeta;
       if (!data.members || !data.members[this.uid]) continue;
 
       const existingSnaps = await getDocs(
-        collection(this.db, `ganttapp/projects/${projectDoc.id}/snapshots`)
+        collection(this.db, `ganttapp_projects/${projectDoc.id}/snapshots`)
       );
       for (const existing of existingSnaps.docs) {
         batch.delete(existing.ref);
@@ -211,7 +210,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     // Write new snapshots
     byProject.forEach((projectSnapshots, projectId) => {
       for (const snap of projectSnapshots) {
-        const ref = doc(this.db, `ganttapp/projects/${projectId}/snapshots/${snap.id}`);
+        const ref = doc(this.db, `ganttapp_projects/${projectId}/snapshots/${snap.id}`);
         batch.set(ref, snapshotToFirestore(snap));
       }
     });
@@ -227,7 +226,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const projectCount = all.filter(s => s.projectId === snapshot.projectId).length;
     if (projectCount >= MAX_SNAPSHOTS_PER_PROJECT) return null;
 
-    const ref = doc(this.db, `ganttapp/projects/${snapshot.projectId}/snapshots/${snapshot.id}`);
+    const ref = doc(this.db, `ganttapp_projects/${snapshot.projectId}/snapshots/${snapshot.id}`);
     await setDoc(ref, snapshotToFirestore(snapshot));
 
     all.push(snapshot);
@@ -239,7 +238,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const toDelete = all.find(s => s.id === snapshotId);
     if (toDelete) {
       await deleteDoc(
-        doc(this.db, `ganttapp/projects/${toDelete.projectId}/snapshots/${snapshotId}`)
+        doc(this.db, `ganttapp_projects/${toDelete.projectId}/snapshots/${snapshotId}`)
       );
     }
     return all.filter(s => s.id !== snapshotId);
@@ -250,7 +249,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const toDelete = all.filter(s => s.projectId === projectId);
     const batch = writeBatch(this.db);
     for (const snap of toDelete) {
-      batch.delete(doc(this.db, `ganttapp/projects/${projectId}/snapshots/${snap.id}`));
+      batch.delete(doc(this.db, `ganttapp_projects/${projectId}/snapshots/${snap.id}`));
     }
     await batch.commit();
     return all.filter(s => s.projectId !== projectId);
@@ -262,7 +261,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     projectId: string,
     callback: (releases: Release[], snapshot: QuerySnapshot) => void
   ): () => void {
-    const releasesRef = collection(this.db, `ganttapp/projects/${projectId}/releases`);
+    const releasesRef = collection(this.db, `ganttapp_projects/${projectId}/releases`);
     const q = query(releasesRef);
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -280,7 +279,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async shareProject(projectId: string, targetEmail: string, role: ProjectRole): Promise<void> {
     // Look up user by email
-    const usersSnap = await getDocs(collection(this.db, 'ganttapp/users'));
+    const usersSnap = await getDocs(collection(this.db, 'ganttapp_profiles'));
     let targetUid: string | null = null;
 
     for (const userDoc of usersSnap.docs) {
@@ -296,7 +295,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     }
 
     // Update project members
-    const projectRef = doc(this.db, `ganttapp/projects/${projectId}`);
+    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
     const projectSnap = await getDoc(projectRef);
     if (!projectSnap.exists()) throw new Error('Project not found');
 
@@ -314,7 +313,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async removeProjectMember(projectId: string, targetUid: string): Promise<void> {
-    const projectRef = doc(this.db, `ganttapp/projects/${projectId}`);
+    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
     const projectSnap = await getDoc(projectRef);
     if (!projectSnap.exists()) throw new Error('Project not found');
 
@@ -338,7 +337,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   async getProjectMembers(
     projectId: string
   ): Promise<{ uid: string; role: ProjectRole; email?: string }[]> {
-    const projectRef = doc(this.db, `ganttapp/projects/${projectId}`);
+    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
     const projectSnap = await getDoc(projectRef);
     if (!projectSnap.exists()) return [];
 
@@ -347,7 +346,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
     for (const [uid, role] of Object.entries(meta.members)) {
       // Try to load user profile for email
-      const profileDoc = await getDoc(doc(this.db, `ganttapp/users/${uid}/profile`));
+      const profileDoc = await getDoc(doc(this.db, `ganttapp_profiles/${uid}`));
       const email = profileDoc.exists() ? (profileDoc.data() as any).email : undefined;
       members.push({ uid, role, email });
     }
@@ -356,7 +355,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async createUserProfile(displayName: string, email: string): Promise<void> {
-    const profileRef = doc(this.db, `ganttapp/users/${this.uid}/profile`);
+    const profileRef = doc(this.db, `ganttapp_profiles/${this.uid}`);
     const existing = await getDoc(profileRef);
     const now = new Date().toISOString();
 
@@ -412,19 +411,25 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     this.pendingData = null;
 
     try {
-      const batch = writeBatch(this.db);
       const prev = this.lastSavedState;
 
       // Determine what changed
       const prevProjectIdList = prev?.projects.map(p => p.id) ?? [];
       const currProjectIdSet = new Set(data.projects.map(p => p.id));
 
-      // Handle project additions and updates
-      for (const project of data.projects) {
-        const projectRef = doc(this.db, `ganttapp/projects/${project.id}`);
+      // Identify new projects — these must be committed first, before subcollection
+      // writes, because subcollection security rules use get() on the parent project.
+      const newProjectIds = new Set<string>();
 
+      // Phase 1: Commit new project documents so they exist for subcollection rules.
+      const newProjectBatch = writeBatch(this.db);
+      let hasNewProjects = false;
+
+      for (const project of data.projects) {
         if (!prevProjectIdList.includes(project.id)) {
-          // New project
+          newProjectIds.add(project.id);
+          hasNewProjects = true;
+          const projectRef = doc(this.db, `ganttapp_projects/${project.id}`);
           const meta = projectToFirestoreMeta(project, this.uid);
           meta._changeLog = appendChangeLogEntry([], {
             timestamp: new Date().toISOString(),
@@ -432,8 +437,21 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
             action: 'create',
             target: `project:${project.id}`,
           });
-          batch.set(projectRef, meta);
-        } else {
+          newProjectBatch.set(projectRef, meta);
+        }
+      }
+
+      if (hasNewProjects) {
+        await newProjectBatch.commit();
+      }
+
+      // Phase 2: All other operations (updates, releases, deletions, settings).
+      const batch = writeBatch(this.db);
+
+      for (const project of data.projects) {
+        const projectRef = doc(this.db, `ganttapp_projects/${project.id}`);
+
+        if (!newProjectIds.has(project.id)) {
           // Existing project — check if name/finishDate changed
           const prevProject = prev?.projects.find(p => p.id === project.id);
           if (prevProject && (prevProject.name !== project.name || prevProject.finishDate !== project.finishDate)) {
@@ -461,7 +479,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
         // Add or update releases
         currReleases.forEach((release, index) => {
-          const releaseRef = doc(this.db, `ganttapp/projects/${project.id}/releases/${release.id}`);
+          const releaseRef = doc(this.db, `ganttapp_projects/${project.id}/releases/${release.id}`);
           const prevRelease = prevReleases.find(r => r.id === release.id);
 
           if (!prevReleaseIdList.includes(release.id) || this.releaseChanged(prevRelease, release)) {
@@ -472,7 +490,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         // Delete removed releases
         prevReleases.forEach(prevRelease => {
           if (!currReleaseIdSet.has(prevRelease.id)) {
-            batch.delete(doc(this.db, `ganttapp/projects/${project.id}/releases/${prevRelease.id}`));
+            batch.delete(doc(this.db, `ganttapp_projects/${project.id}/releases/${prevRelease.id}`));
           }
         });
       }
@@ -480,7 +498,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       // Handle project deletions
       prevProjectIdList.forEach(prevId => {
         if (!currProjectIdSet.has(prevId)) {
-          batch.delete(doc(this.db, `ganttapp/projects/${prevId}`));
+          batch.delete(doc(this.db, `ganttapp_projects/${prevId}`));
           // Note: subcollections (releases, snapshots) are not auto-deleted by Firestore
           // They become orphaned but harmless; a cleanup function can handle this later
         }
@@ -488,7 +506,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
       // Save user settings if changed
       if (this.settingsChanged(prev, data)) {
-        const settingsRef = doc(this.db, `ganttapp/users/${this.uid}/settings`);
+        const settingsRef = doc(this.db, `ganttapp_settings/${this.uid}`);
         batch.set(settingsRef, appDataToUserSettings(data));
       }
 

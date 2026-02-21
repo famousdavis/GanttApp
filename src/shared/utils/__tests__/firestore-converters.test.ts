@@ -134,6 +134,21 @@ describe('firestore-converters', () => {
       expect(settings.activePreset).toBeUndefined();
       expect(settings.showTodayLine).toBeUndefined();
     });
+
+    it('includes exportAttribution when present', () => {
+      const data: AppData = {
+        projects: [], releases: [],
+        exportAttribution: { name: 'Alice', identifier: 'student-42' },
+      };
+      const settings = appDataToUserSettings(data);
+      expect(settings.exportAttribution).toEqual({ name: 'Alice', identifier: 'student-42' });
+    });
+
+    it('includes empty-string preparedBy (Bug #2: was dropped by truthy check)', () => {
+      const data: AppData = { projects: [], releases: [], preparedBy: '' };
+      const settings = appDataToUserSettings(data);
+      expect(settings.preparedBy).toBe('');
+    });
   });
 
   // --- firestoreToProject ---
@@ -195,6 +210,20 @@ describe('firestore-converters', () => {
       // Should not have projects/releases
       expect(result.projects).toBeUndefined();
     });
+
+    it('round-trips exportAttribution from Firestore', () => {
+      const settings: FirestoreUserSettings = {
+        exportAttribution: { name: 'Bob', identifier: 'team-7' },
+      };
+      const result = userSettingsToAppData(settings);
+      expect(result.exportAttribution).toEqual({ name: 'Bob', identifier: 'team-7' });
+    });
+
+    it('round-trips empty-string preparedBy from Firestore', () => {
+      const settings: FirestoreUserSettings = { preparedBy: '' };
+      const result = userSettingsToAppData(settings);
+      expect(result.preparedBy).toBe('');
+    });
   });
 
   // --- firestoreSnapshotToFlat ---
@@ -218,6 +247,17 @@ describe('firestore-converters', () => {
       expect(snap.releases[0].projectId).toBe('p1');
       expect(snap.releases[0].name).toBe('R1');
       expect(snap.projectFinishDate).toBe('2026-06-30');
+    });
+
+    it('preserves empty-string preparedBy', () => {
+      const fsSnapshot: FirestoreSnapshot = {
+        name: 'Sprint 2',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [],
+        preparedBy: '',
+      };
+      const snap = firestoreSnapshotToFlat('snap2', 'p1', fsSnapshot);
+      expect(snap.preparedBy).toBe('');
     });
   });
 
@@ -273,6 +313,16 @@ describe('firestore-converters', () => {
       expect((result as Record<string, unknown>).id).toBeUndefined();
       expect((result as Record<string, unknown>).projectId).toBeUndefined();
     });
+
+    it('includes empty-string preparedBy', () => {
+      const snapshot: Snapshot = {
+        id: 'snap2', projectId: 'p1', name: 'Test',
+        timestamp: '2026-02-15T10:00:00.000Z', releases: [],
+        preparedBy: '',
+      };
+      const result = snapshotToFirestore(snapshot);
+      expect(result.preparedBy).toBe('');
+    });
   });
 
   // --- appendChangeLogEntry ---
@@ -312,6 +362,18 @@ describe('firestore-converters', () => {
   // --- Round-trip fidelity ---
 
   describe('round-trip', () => {
+    it('settings → Firestore → settings preserves exportAttribution', () => {
+      const data: AppData = {
+        projects: [], releases: [],
+        exportAttribution: { name: 'Alice', identifier: 'team-42' },
+        preparedBy: 'Alice',
+      };
+      const settings = appDataToUserSettings(data);
+      const roundTripped = userSettingsToAppData(settings);
+      expect(roundTripped.exportAttribution).toEqual({ name: 'Alice', identifier: 'team-42' });
+      expect(roundTripped.preparedBy).toBe('Alice');
+    });
+
     it('project → Firestore → project is equivalent', () => {
       const meta = projectToFirestoreMeta(mockProject, 'uid-1');
       const roundTripped = firestoreToProject('p1', meta);

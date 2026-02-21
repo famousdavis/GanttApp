@@ -1,6 +1,7 @@
-// FirestoreGanttStorageService — cloud mode implementation of GanttStorageService
-// Manages Firestore documents for projects, releases, snapshots, user profile, and settings.
-// Includes write debouncing, in-memory diff cache, beforeunload safety, and real-time subscriptions.
+// FirestoreGanttStorageService — cloud mode implementation of GanttStorageService.
+// Manages lifecycle (debouncing, disposal, beforeunload) and delegates to:
+//   - firestore-save-executor.ts — 2-phase batch commit with diff-based saves
+//   - firestore-sharing.ts — project sharing, member management, user profiles
 
 import type { GanttStorageService, StorageMode } from '../types/storage';
 import type { AppData } from '../types/app';
@@ -11,7 +12,6 @@ import type {
   FirestoreRelease,
   FirestoreUserSettings,
   ProjectRole,
-  ChangeLogEntry,
 } from '../types/firestore';
 import type { Firestore, QuerySnapshot } from 'firebase/firestore';
 import {
@@ -26,16 +26,19 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import {
-  projectToFirestoreMeta,
-  releaseToFirestore,
-  appDataToUserSettings,
   snapshotToFirestore,
   firestoreToProject,
   firestoreReleasesToFlat,
   userSettingsToAppData,
   firestoreSnapshotToFlat,
-  appendChangeLogEntry,
 } from '../utils/firestore-converters';
+import { executeFirestoreSave } from './firestore-save-executor';
+import {
+  shareProject as shareProjectFn,
+  removeProjectMember as removeProjectMemberFn,
+  getProjectMembers as getProjectMembersFn,
+  createUserProfile as createUserProfileFn,
+} from './firestore-sharing';
 
 const DEBOUNCE_MS = 500;
 const MAX_SNAPSHOTS_TOTAL = 100;
@@ -72,9 +75,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     // Register beforeunload to flush pending writes when tab closes
     this.beforeUnloadHandler = () => {
       if (this.pendingData) {
-        // Best effort — synchronous flush via sendBeacon not available for Firestore
-        // flushPendingWrites is async but beforeunload can't wait
-        this.flushPendingWritesSync();
+        this.executeSave().catch(() => {});
       }
     };
     if (typeof window !== 'undefined') {
@@ -86,7 +87,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async loadAppData(): Promise<AppData | null> {
     try {
-      // Step 1: List projects
+      // Step 1: List projects (client-side membership filtering)
       const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
       const projects: { id: string; meta: FirestoreProjectMeta }[] = [];
 
@@ -96,6 +97,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           projects.push({ id: docSnap.id, meta: data });
         }
       }
+
       // Step 2: Load releases for each project
       const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
       for (const project of projects) {
@@ -135,7 +137,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     if (this.disposed) return;
     this.pendingData = data;
 
-    // Debounce writes
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -159,7 +160,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     try {
       const allSnapshots: Snapshot[] = [];
 
-      // Query all project docs this user has access to
       const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
       for (const projectDoc of projectsSnap.docs) {
         const data = projectDoc.data() as FirestoreProjectMeta;
@@ -183,7 +183,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async saveSnapshots(snapshots: Snapshot[]): Promise<void> {
-    // Group by project and write each group
     const byProject = new Map<string, Snapshot[]>();
     for (const snap of snapshots) {
       const group = byProject.get(snap.projectId) ?? [];
@@ -193,7 +192,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
     const batch = writeBatch(this.db);
 
-    // Delete all existing snapshots first, then rewrite
     const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
     for (const projectDoc of projectsSnap.docs) {
       const data = projectDoc.data() as FirestoreProjectMeta;
@@ -207,7 +205,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       }
     }
 
-    // Write new snapshots
     byProject.forEach((projectSnapshots, projectId) => {
       for (const snap of projectSnapshots) {
         const ref = doc(this.db, `ganttapp_projects/${projectId}/snapshots/${snap.id}`);
@@ -220,7 +217,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async addSnapshot(snapshot: Snapshot): Promise<Snapshot[] | null> {
     const all = await this.loadSnapshots();
-
     if (all.length >= MAX_SNAPSHOTS_TOTAL) return null;
 
     const projectCount = all.filter(s => s.projectId === snapshot.projectId).length;
@@ -255,7 +251,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     return all.filter(s => s.projectId !== projectId);
   }
 
-  // --- Cloud-specific methods ---
+  // --- Cloud-specific methods (delegated) ---
 
   subscribeToProject(
     projectId: string,
@@ -278,94 +274,22 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async shareProject(projectId: string, targetEmail: string, role: ProjectRole): Promise<void> {
-    // Look up user by email
-    const usersSnap = await getDocs(collection(this.db, 'ganttapp_profiles'));
-    let targetUid: string | null = null;
-
-    for (const userDoc of usersSnap.docs) {
-      const profile = userDoc.data();
-      if (profile.email === targetEmail) {
-        targetUid = userDoc.id;
-        break;
-      }
-    }
-
-    if (!targetUid) {
-      throw new Error(`User with email "${targetEmail}" not found. They must sign in at least once first.`);
-    }
-
-    // Update project members
-    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
-    const projectSnap = await getDoc(projectRef);
-    if (!projectSnap.exists()) throw new Error('Project not found');
-
-    const meta = projectSnap.data() as FirestoreProjectMeta;
-    meta.members[targetUid] = role;
-    meta.updatedAt = new Date().toISOString();
-    meta._changeLog = appendChangeLogEntry(meta._changeLog ?? [], {
-      timestamp: new Date().toISOString(),
-      uid: this.uid,
-      action: 'update',
-      target: `member:${targetUid}:${role}`,
-    });
-
-    await setDoc(projectRef, meta);
+    return shareProjectFn(this.db, this.uid, projectId, targetEmail, role);
   }
 
   async removeProjectMember(projectId: string, targetUid: string): Promise<void> {
-    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
-    const projectSnap = await getDoc(projectRef);
-    if (!projectSnap.exists()) throw new Error('Project not found');
-
-    const meta = projectSnap.data() as FirestoreProjectMeta;
-    if (meta.owner === targetUid) {
-      throw new Error('Cannot remove the project owner');
-    }
-
-    delete meta.members[targetUid];
-    meta.updatedAt = new Date().toISOString();
-    meta._changeLog = appendChangeLogEntry(meta._changeLog ?? [], {
-      timestamp: new Date().toISOString(),
-      uid: this.uid,
-      action: 'delete',
-      target: `member:${targetUid}`,
-    });
-
-    await setDoc(projectRef, meta);
+    return removeProjectMemberFn(this.db, this.uid, projectId, targetUid);
   }
 
-  async getProjectMembers(
-    projectId: string
-  ): Promise<{ uid: string; role: ProjectRole; email?: string }[]> {
-    const projectRef = doc(this.db, `ganttapp_projects/${projectId}`);
-    const projectSnap = await getDoc(projectRef);
-    if (!projectSnap.exists()) return [];
-
-    const meta = projectSnap.data() as FirestoreProjectMeta;
-    const members: { uid: string; role: ProjectRole; email?: string }[] = [];
-
-    for (const [uid, role] of Object.entries(meta.members)) {
-      // Try to load user profile for email
-      const profileDoc = await getDoc(doc(this.db, `ganttapp_profiles/${uid}`));
-      const email = profileDoc.exists() ? (profileDoc.data() as any).email : undefined;
-      members.push({ uid, role, email });
-    }
-
-    return members;
+  async getProjectMembers(projectId: string): Promise<{ uid: string; role: ProjectRole; email?: string }[]> {
+    return getProjectMembersFn(this.db, projectId);
   }
 
   async createUserProfile(displayName: string, email: string): Promise<void> {
-    const profileRef = doc(this.db, `ganttapp_profiles/${this.uid}`);
-    const existing = await getDoc(profileRef);
-    const now = new Date().toISOString();
-
-    if (existing.exists()) {
-      // Update lastLogin
-      await setDoc(profileRef, { ...existing.data(), lastLogin: now, displayName, email }, { merge: true });
-    } else {
-      await setDoc(profileRef, { displayName, email, createdAt: now, lastLogin: now });
-    }
+    return createUserProfileFn(this.db, this.uid, displayName, email);
   }
+
+  // --- Lifecycle ---
 
   async flushPendingWrites(): Promise<void> {
     if (this.debounceTimer) {
@@ -380,30 +304,26 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   dispose(): void {
     this.disposed = true;
 
-    // Clear debounce timer
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
 
-    // Unsubscribe all listeners
     for (const unsub of this.unsubscribers) {
       unsub();
     }
     this.unsubscribers = [];
 
-    // Remove beforeunload handler
     if (this.beforeUnloadHandler && typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', this.beforeUnloadHandler);
       this.beforeUnloadHandler = null;
     }
 
-    // Invalidate cache
     this.lastSavedState = null;
     this.pendingData = null;
   }
 
-  // --- Private helpers ---
+  // --- Private ---
 
   private async executeSave(): Promise<void> {
     const data = this.pendingData;
@@ -411,149 +331,14 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     this.pendingData = null;
 
     try {
-      const prev = this.lastSavedState;
-
-      // Determine what changed
-      const prevProjectIdList = prev?.projects.map(p => p.id) ?? [];
-      const currProjectIdSet = new Set(data.projects.map(p => p.id));
-
-      // Identify new projects — these must be committed first, before subcollection
-      // writes, because subcollection security rules use get() on the parent project.
-      const newProjectIds = new Set<string>();
-
-      // Phase 1: Commit new project documents so they exist for subcollection rules.
-      const newProjectBatch = writeBatch(this.db);
-      let hasNewProjects = false;
-
-      for (const project of data.projects) {
-        if (!prevProjectIdList.includes(project.id)) {
-          newProjectIds.add(project.id);
-          hasNewProjects = true;
-          const projectRef = doc(this.db, `ganttapp_projects/${project.id}`);
-          const meta = projectToFirestoreMeta(project, this.uid);
-          meta._changeLog = appendChangeLogEntry([], {
-            timestamp: new Date().toISOString(),
-            uid: this.uid,
-            action: 'create',
-            target: `project:${project.id}`,
-          });
-          newProjectBatch.set(projectRef, meta);
-        }
-      }
-
-      if (hasNewProjects) {
-        await newProjectBatch.commit();
-      }
-
-      // Phase 2: All other operations (updates, releases, deletions, settings).
-      const batch = writeBatch(this.db);
-
-      for (const project of data.projects) {
-        const projectRef = doc(this.db, `ganttapp_projects/${project.id}`);
-
-        if (!newProjectIds.has(project.id)) {
-          // Existing project — check if name/finishDate changed
-          const prevProject = prev?.projects.find(p => p.id === project.id);
-          if (prevProject && (prevProject.name !== project.name || prevProject.finishDate !== project.finishDate)) {
-            // Load existing meta to preserve members/changelog
-            const existingSnap = await getDoc(projectRef);
-            if (existingSnap.exists()) {
-              const existingMeta = existingSnap.data() as FirestoreProjectMeta;
-              const updated = projectToFirestoreMeta(project, this.uid, existingMeta);
-              updated._changeLog = appendChangeLogEntry(updated._changeLog ?? [], {
-                timestamp: new Date().toISOString(),
-                uid: this.uid,
-                action: 'update',
-                target: `project:${project.id}`,
-              });
-              batch.set(projectRef, updated);
-            }
-          }
-        }
-
-        // Handle releases for this project
-        const prevReleases = prev?.releases.filter(r => r.projectId === project.id) ?? [];
-        const currReleases = data.releases.filter(r => r.projectId === project.id);
-        const prevReleaseIdList = prevReleases.map(r => r.id);
-        const currReleaseIdSet = new Set(currReleases.map(r => r.id));
-
-        // Add or update releases
-        currReleases.forEach((release, index) => {
-          const releaseRef = doc(this.db, `ganttapp_projects/${project.id}/releases/${release.id}`);
-          const prevRelease = prevReleases.find(r => r.id === release.id);
-
-          if (!prevReleaseIdList.includes(release.id) || this.releaseChanged(prevRelease, release)) {
-            batch.set(releaseRef, releaseToFirestore(release, index));
-          }
-        });
-
-        // Delete removed releases
-        prevReleases.forEach(prevRelease => {
-          if (!currReleaseIdSet.has(prevRelease.id)) {
-            batch.delete(doc(this.db, `ganttapp_projects/${project.id}/releases/${prevRelease.id}`));
-          }
-        });
-      }
-
-      // Handle project deletions
-      prevProjectIdList.forEach(prevId => {
-        if (!currProjectIdSet.has(prevId)) {
-          batch.delete(doc(this.db, `ganttapp_projects/${prevId}`));
-          // Note: subcollections (releases, snapshots) are not auto-deleted by Firestore
-          // They become orphaned but harmless; a cleanup function can handle this later
-        }
-      });
-
-      // Save user settings if changed
-      if (this.settingsChanged(prev, data)) {
-        const settingsRef = doc(this.db, `ganttapp_settings/${this.uid}`);
-        batch.set(settingsRef, appDataToUserSettings(data));
-      }
-
-      await batch.commit();
-      this.lastSavedState = structuredClone(data);
+      this.lastSavedState = await executeFirestoreSave(
+        this.db, this.uid, data, this.lastSavedState
+      );
     } catch (error) {
       console.error('Failed to save cloud data:', error);
-      // Re-queue for retry
       if (!this.pendingData) {
         this.pendingData = data;
       }
     }
-  }
-
-  /** Synchronous best-effort flush for beforeunload — cannot await. */
-  private flushPendingWritesSync(): void {
-    // Fire and forget — the browser may or may not complete this
-    if (this.pendingData) {
-      this.executeSave().catch(() => {});
-    }
-  }
-
-  private releaseChanged(prev: Release | undefined, curr: Release): boolean {
-    if (!prev) return true;
-    return (
-      prev.name !== curr.name ||
-      prev.startDate !== curr.startDate ||
-      prev.earlyFinishDate !== curr.earlyFinishDate ||
-      prev.lateFinishDate !== curr.lateFinishDate ||
-      prev.hidden !== curr.hidden ||
-      prev.completed !== curr.completed ||
-      prev.mostLikelyFinishDate !== curr.mostLikelyFinishDate
-    );
-  }
-
-  private settingsChanged(prev: AppData | null, curr: AppData): boolean {
-    if (!prev) return true;
-    return (
-      JSON.stringify(prev.chartColors) !== JSON.stringify(curr.chartColors) ||
-      prev.activePreset !== curr.activePreset ||
-      JSON.stringify(prev.legendLabels) !== JSON.stringify(curr.legendLabels) ||
-      prev.showTodayLine !== curr.showTodayLine ||
-      prev.showFinishDateLine !== curr.showFinishDateLine ||
-      prev.showMostLikelyLine !== curr.showMostLikelyLine ||
-      JSON.stringify(prev.chartDisplaySettings) !== JSON.stringify(curr.chartDisplaySettings) ||
-      prev.preparedBy !== curr.preparedBy ||
-      prev.showPreparedBy !== curr.showPreparedBy
-    );
   }
 }

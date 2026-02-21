@@ -90,6 +90,7 @@ export interface FirestoreUserSettings {
   };
   preparedBy?: string;
   showPreparedBy?: boolean;
+  exportAttribution?: { name: string; identifier: string };
 }
 
 export interface ExportAttribution {

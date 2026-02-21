@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChangelogTab } from '../ChangelogTab';
+import { CHANGELOG_ENTRIES } from '../changelog-data';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 
 describe('ChangelogTab', () => {
@@ -29,9 +30,9 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 11.0, second 10.0, etc.
-    expect(versionTexts[0]).toContain('11.0');
-    expect(versionTexts[1]).toContain('10.0');
+    // First version heading should be 11.1, second 11.0, etc.
+    expect(versionTexts[0]).toContain('11.1');
+    expect(versionTexts[1]).toContain('11.0');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });
@@ -44,5 +45,18 @@ describe('ChangelogTab', () => {
   it('renders Version 6.0 entry', () => {
     render(<ChangelogTab />, { wrapper: ThemeWrapper });
     expect(screen.getByText(/Version 6\.0/)).toBeTruthy();
+  });
+
+  it('CHANGELOG_ENTRIES is sorted in reverse chronological order', () => {
+    const versions = CHANGELOG_ENTRIES.map(e => parseFloat(e.version));
+    for (let i = 1; i < versions.length; i++) {
+      expect(versions[i]).toBeLessThan(versions[i - 1]);
+    }
+  });
+
+  it('each entry has at least one item', () => {
+    for (const entry of CHANGELOG_ENTRIES) {
+      expect(entry.items.length).toBeGreaterThan(0);
+    }
   });
 });

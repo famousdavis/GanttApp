@@ -36,6 +36,9 @@ export async function shareProject(
   if (!projectSnap.exists()) throw new Error('Project not found');
 
   const meta = projectSnap.data() as FirestoreProjectMeta;
+  if (meta.members[uid] !== 'owner') {
+    throw new Error('Only the project owner can share projects.');
+  }
   meta.members[targetUid] = role;
   meta.updatedAt = new Date().toISOString();
   meta._changeLog = appendChangeLogEntry(meta._changeLog ?? [], {
@@ -60,6 +63,9 @@ export async function removeProjectMember(
   if (!projectSnap.exists()) throw new Error('Project not found');
 
   const meta = projectSnap.data() as FirestoreProjectMeta;
+  if (meta.members[uid] !== 'owner') {
+    throw new Error('Only the project owner can remove members.');
+  }
   if (meta.owner === targetUid) {
     throw new Error('Cannot remove the project owner');
   }

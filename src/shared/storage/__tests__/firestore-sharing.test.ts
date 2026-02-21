@@ -43,6 +43,25 @@ describe('firestore-sharing', () => {
       ).rejects.toThrow('not found');
     });
 
+    it('throws when non-owner tries to share', async () => {
+      // Mock user lookup — find the target
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [{ id: 'target-uid', data: () => ({ email: 'target@test.com' }) }],
+      });
+      // Mock project — caller is editor, not owner
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          name: 'P1', owner: 'real-owner', members: { 'real-owner': 'owner', [mockUid]: 'editor' },
+          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
+        }),
+      });
+
+      await expect(
+        shareProject(mockDb, mockUid, 'p1', 'target@test.com', 'editor')
+      ).rejects.toThrow('Only the project owner can share projects');
+    });
+
     it('adds member to project when user found', async () => {
       // Mock user lookup
       mockGetDocs.mockResolvedValueOnce({
@@ -66,17 +85,31 @@ describe('firestore-sharing', () => {
   });
 
   describe('removeProjectMember', () => {
-    it('throws when trying to remove owner', async () => {
+    it('throws when non-owner tries to remove member', async () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({
-          name: 'P1', owner: 'owner-uid', members: { 'owner-uid': 'owner' },
+          name: 'P1', owner: 'real-owner', members: { 'real-owner': 'owner', [mockUid]: 'editor', 'other-uid': 'viewer' },
           schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
         }),
       });
 
       await expect(
-        removeProjectMember(mockDb, mockUid, 'p1', 'owner-uid')
+        removeProjectMember(mockDb, mockUid, 'p1', 'other-uid')
+      ).rejects.toThrow('Only the project owner can remove members');
+    });
+
+    it('throws when trying to remove owner', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          name: 'P1', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
+          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
+        }),
+      });
+
+      await expect(
+        removeProjectMember(mockDb, mockUid, 'p1', mockUid)
       ).rejects.toThrow('Cannot remove the project owner');
     });
 

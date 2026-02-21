@@ -6,6 +6,7 @@ import { getSnapshotsForProject } from '../../shared/utils/snapshots';
 import { generateId, getTodayFormatted } from '../../shared/utils/dates';
 import { Release, ChartColors } from '../../shared/types';
 import { useStorage } from '../../context/StorageContext';
+import { sanitizeString } from '../../shared/utils/validation';
 
 interface SaveSnapshotParams {
   releases: Release[];
@@ -67,7 +68,7 @@ export function useSnapshots(selectedProjectId: string) {
       id: generateId(),
       projectId: selectedProjectId,
       timestamp: new Date().toISOString(),
-      name: userInput.trim() || defaultName,
+      name: sanitizeString(userInput) || defaultName,
       releases: structuredClone(params.releases),
       projectFinishDate: params.projectFinishDate,
       chartColors: structuredClone(params.chartColors),

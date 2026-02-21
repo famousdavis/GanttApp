@@ -5,6 +5,7 @@ import { Project } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
 import { useStorage } from '../../context/StorageContext';
 import { generateId } from '../../shared/utils';
+import { sanitizeString } from '../../shared/utils/validation';
 
 export function useProjects() {
   const { data, updateData } = useAppData();
@@ -17,7 +18,7 @@ export function useProjects() {
     if (!projectName.trim()) return;
     const newProject: Project = {
       id: generateId(),
-      name: projectName.trim(),
+      name: sanitizeString(projectName),
       ...(projectFinishDate && { finishDate: projectFinishDate })
     };
     const newData = { ...data, projects: [...data.projects, newProject] };
@@ -36,7 +37,7 @@ export function useProjects() {
       projects: data.projects.map(p =>
         p.id === editingProjectId ? {
           ...p,
-          name: projectName.trim(),
+          name: sanitizeString(projectName),
           ...(projectFinishDate ? { finishDate: projectFinishDate } : { finishDate: undefined })
         } : p
       )

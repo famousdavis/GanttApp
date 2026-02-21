@@ -362,16 +362,17 @@ describe('FirestoreGanttStorageService', () => {
 
   describe('removeProjectMember', () => {
     it('throws when trying to remove owner', async () => {
+      // Service uid (test-uid) must be the owner to pass the owner-role check
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({
-          name: 'Test', owner: 'owner-uid', members: { 'owner-uid': 'owner' },
+          name: 'Test', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
           schemaVersion: 1, createdAt: '', updatedAt: '',
         }),
       });
 
       await expect(
-        service.removeProjectMember('p1', 'owner-uid')
+        service.removeProjectMember('p1', mockUid)
       ).rejects.toThrow('Cannot remove the project owner');
     });
   });

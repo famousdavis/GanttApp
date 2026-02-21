@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '11.2',
+    date: 'February 20, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Sharing functions now enforce owner-only access (prevents editors from adding/removing project members)</>,
+      <><strong>Security</strong> &mdash; All user text inputs sanitized at point of entry via <code>sanitizeString()</code> (project names, release names, snapshot names, export attribution, Prepared By)</>,
+      <><strong>Security</strong> &mdash; HTTP security headers added: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy</>,
+      <><strong>UI</strong> &mdash; Share button now only visible to project owners in cloud mode</>,
+      <><strong>UI</strong> &mdash; Export attribution inputs now have <code>maxLength</code> enforcement</>,
+    ],
+  },
+  {
     version: '11.1',
     date: 'February 20, 2026',
     items: [

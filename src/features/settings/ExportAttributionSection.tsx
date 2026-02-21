@@ -2,6 +2,7 @@
 
 import type { ExportAttribution } from '../../shared/types/firestore';
 import type { ThemeColors } from '../../shared/utils/theme';
+import { sanitizeString } from '../../shared/utils/validation';
 
 interface ExportAttributionSectionProps {
   colors: ThemeColors;
@@ -38,10 +39,11 @@ export function ExportAttributionSection({
           type="text"
           value={exportAttribution?.name ?? ''}
           onChange={(e) => onChangeAttribution({
-            name: e.target.value,
+            name: sanitizeString(e.target.value, 100),
             identifier: exportAttribution?.identifier ?? '',
           })}
           placeholder="e.g., Mark Twain"
+          maxLength={100}
           style={inputStyle}
         />
       </div>
@@ -55,9 +57,10 @@ export function ExportAttributionSection({
           value={exportAttribution?.identifier ?? ''}
           onChange={(e) => onChangeAttribution({
             name: exportAttribution?.name ?? '',
-            identifier: e.target.value,
+            identifier: sanitizeString(e.target.value, 100),
           })}
           placeholder="e.g, student ID, email, or team name"
+          maxLength={100}
           style={inputStyle}
         />
       </div>

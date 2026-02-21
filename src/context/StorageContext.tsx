@@ -66,9 +66,16 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           throw new Error('You must sign in before switching to cloud storage.');
         }
 
-        const confirmed = window.confirm(
-          'Upload your local data to the cloud? Your local data will remain as a backup.'
-        );
+        // Peek at local data to show context-aware confirmation
+        const peekService = new LocalGanttStorageService();
+        const localData = await peekService.loadAppData();
+        const hasLocalData = localData !== null && localData.projects.length > 0;
+
+        const confirmMessage = hasLocalData
+          ? 'Upload your local data to the cloud? Your local data will remain as a backup.'
+          : 'Connect to cloud storage? Your existing cloud data will be loaded.';
+
+        const confirmed = window.confirm(confirmMessage);
         if (!confirmed) {
           setIsSwitching(false);
           return;

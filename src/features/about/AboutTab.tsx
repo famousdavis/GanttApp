@@ -56,8 +56,9 @@ export function AboutTab() {
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Version Updates</h3>
         <p style={{ lineHeight: '1.6', color: colors.textSecondary }}>
-          When new versions are released, your data remains safe in localStorage. I recommend
-          exporting a backup before major updates as a precaution.
+          When new versions are released, your data remains safe &mdash; whether stored locally
+          in your browser or synced to the cloud. I recommend exporting a backup before major
+          updates as a precaution.
         </p>
       </section>
 

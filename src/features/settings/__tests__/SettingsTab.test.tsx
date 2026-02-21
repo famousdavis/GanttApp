@@ -62,13 +62,8 @@ describe('SettingsTab', () => {
 
   it('renders Local and Cloud radio buttons', () => {
     render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByText('Local')).toBeTruthy();
-    expect(screen.getByText('Cloud')).toBeTruthy();
-  });
-
-  it('renders Account section', () => {
-    render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByText('Account')).toBeTruthy();
+    expect(screen.getByText('Local (browser only)')).toBeTruthy();
+    expect(screen.getByText('Cloud (sync across devices)')).toBeTruthy();
   });
 
   it('renders Export Attribution section', () => {
@@ -80,17 +75,6 @@ describe('SettingsTab', () => {
     render(<SettingsTab />, { wrapper: FullWrapper });
     expect(screen.getByPlaceholderText(/Mark Twain/)).toBeTruthy();
     expect(screen.getByPlaceholderText(/student ID, email, or team name/)).toBeTruthy();
-  });
-
-  it('shows sign-in buttons when not authenticated', () => {
-    render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByText('Sign in with Google')).toBeTruthy();
-    expect(screen.getByText('Sign in with Microsoft')).toBeTruthy();
-  });
-
-  it('shows Firebase unavailable message when Firebase is not configured', () => {
-    render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByText(/Firebase is not configured/)).toBeTruthy();
   });
 
   it('has Local radio checked by default', () => {
@@ -107,11 +91,20 @@ describe('SettingsTab', () => {
     expect(cloudRadio.disabled).toBe(true);
   });
 
-  it('disables sign-in buttons when Firebase is unavailable', () => {
+  it('shows Firebase unavailable message when Firebase is not configured', () => {
     render(<SettingsTab />, { wrapper: FullWrapper });
-    const googleBtn = screen.getByText('Sign in with Google');
-    expect((googleBtn as HTMLButtonElement).disabled).toBe(true);
-    const msBtn = screen.getByText('Sign in with Microsoft');
-    expect((msBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Firebase is not configured/)).toBeTruthy();
+  });
+
+  it('does not show sign-in buttons when Firebase is unavailable', () => {
+    render(<SettingsTab />, { wrapper: FullWrapper });
+    expect(screen.queryByText('Sign in with Google')).toBeNull();
+    expect(screen.queryByText('Sign in with Microsoft')).toBeNull();
+  });
+
+  it('does not render a separate Account section', () => {
+    render(<SettingsTab />, { wrapper: FullWrapper });
+    // Auth UI is now integrated into the Storage section — no separate "Account" heading
+    expect(screen.queryByText('Account')).toBeNull();
   });
 });

@@ -69,5 +69,24 @@ service cloud.firestore {
     match /ganttapp_settings/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
+
+    // ── SPERT Story Map ──────────────────────────────────────
+
+    match /spertstorymap_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
+      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth() && request.auth.uid in resource.data.members && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor');
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+    }
+
+    match /spertstorymap_profiles/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+
+    match /spertstorymap_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
   }
 }

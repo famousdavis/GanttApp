@@ -2,7 +2,7 @@
 // When env vars are missing, exports null values and the app operates in local-only mode.
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -25,11 +25,16 @@ const app: FirebaseApp | null = isFirebaseConfigured
 // memoryLocalCache avoids IndexedDB persistence issues (stale security rule
 // decisions cached across rule deployments). Offline support is not needed —
 // GanttApp's local mode handles offline use cases.
-export const db: Firestore | null = app
-  ? initializeFirestore(app, {
-      localCache: memoryLocalCache(),
-    })
-  : null;
+// On HMR re-evaluation, initializeFirestore throws if already called — fall back to getFirestore.
+function getOrInitFirestore(firebaseApp: FirebaseApp): Firestore {
+  try {
+    return initializeFirestore(firebaseApp, { localCache: memoryLocalCache() });
+  } catch {
+    return getFirestore(firebaseApp);
+  }
+}
+
+export const db: Firestore | null = app ? getOrInitFirestore(app) : null;
 
 export const auth: Auth | null = app ? getAuth(app) : null;
 

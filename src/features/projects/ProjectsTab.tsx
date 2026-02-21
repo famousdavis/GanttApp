@@ -350,7 +350,7 @@ export function ProjectsTab({
                 >
                   View Releases
                 </button>
-                {isCloudMode && (
+                {isCloudMode && user && project.owner === user.uid && (
                   <button
                     onClick={() => setShareProjectId(project.id)}
                     style={{

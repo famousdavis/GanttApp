@@ -4,6 +4,7 @@ import { ChartColors, ChartDisplaySettings } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup } from '../../shared/components/ColorPickers';
 import { COLOR_PRESETS } from '../../shared/utils/colors';
+import { sanitizeString } from '../../shared/utils/validation';
 
 interface ChartSettingsProps {
   showColorSettings: boolean;
@@ -114,7 +115,7 @@ export function ChartSettings({
                 <input
                   type="text"
                   value={preparedBy}
-                  onChange={(e) => setPreparedBy(e.target.value)}
+                  onChange={(e) => setPreparedBy(sanitizeString(e.target.value))}
                   placeholder="Enter your name"
                   maxLength={100}
                   style={{

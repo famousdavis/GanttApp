@@ -4,6 +4,7 @@ export interface Project {
   id: string;
   name: string;
   finishDate?: string;
+  owner?: string;       // Firebase uid — only populated in cloud mode (v11.2)
 }
 
 export interface Release {

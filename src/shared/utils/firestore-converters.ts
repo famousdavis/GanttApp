@@ -89,6 +89,7 @@ export function firestoreToProject(
     id: projectId,
     name: meta.name,
     ...(meta.finishDate && { finishDate: meta.finishDate }),
+    owner: meta.owner,
   };
 }
 

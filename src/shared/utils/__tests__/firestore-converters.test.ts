@@ -160,7 +160,7 @@ describe('firestore-converters', () => {
         schemaVersion: 1, createdAt: '', updatedAt: '', finishDate: '2026-06-30',
       };
       const project = firestoreToProject('p1', meta);
-      expect(project).toEqual({ id: 'p1', name: 'Alpha', finishDate: '2026-06-30' });
+      expect(project).toEqual({ id: 'p1', name: 'Alpha', finishDate: '2026-06-30', owner: 'uid-1' });
     });
 
     it('omits finishDate when missing', () => {
@@ -169,7 +169,7 @@ describe('firestore-converters', () => {
         schemaVersion: 1, createdAt: '', updatedAt: '',
       };
       const project = firestoreToProject('p2', meta);
-      expect(project).toEqual({ id: 'p2', name: 'Beta' });
+      expect(project).toEqual({ id: 'p2', name: 'Beta', owner: 'uid-1' });
     });
   });
 

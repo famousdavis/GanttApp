@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Release } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
 import { isValidDateFormat, generateId, parseDateLocal, formatDateISO, validateReleaseDateChange } from '../../shared/utils';
+import { sanitizeString } from '../../shared/utils/validation';
 
 export function useReleases() {
   const { data, updateData } = useAppData();
@@ -31,7 +32,7 @@ export function useReleases() {
     const newRelease: Release = {
       id: generateId(),
       projectId: selectedProjectId,
-      name: releaseName.trim(),
+      name: sanitizeString(releaseName),
       startDate,
       earlyFinishDate: earlyFinish,
       lateFinishDate: lateFinish,
@@ -60,7 +61,7 @@ export function useReleases() {
       releases: data.releases.map(r =>
         r.id === editingReleaseId ? {
           ...r,
-          name: releaseName.trim(),
+          name: sanitizeString(releaseName),
           startDate,
           earlyFinishDate: earlyFinish,
           lateFinishDate: lateFinish,

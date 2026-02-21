@@ -1,4 +1,4 @@
-// Settings Tab — orchestrates storage mode, account, and export attribution sections
+// Settings Tab — orchestrates storage mode and export attribution sections
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
@@ -7,7 +7,6 @@ import { useStorage } from '../../context/StorageContext';
 import { useAppData } from '../../context/AppDataContext';
 import { isFirebaseAvailable } from '../../lib/firebase';
 import { StorageSection } from './StorageSection';
-import { AccountSection } from './AccountSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
 
 export function SettingsTab() {
@@ -59,14 +58,9 @@ export function SettingsTab() {
         switchError={switchError}
         isFirebaseAvailable={isFirebaseAvailable}
         onModeChange={handleModeChange}
-      />
-
-      <AccountSection
-        colors={colors}
         user={user}
         isAuthenticated={isAuthenticated}
         authLoading={authLoading}
-        isFirebaseAvailable={isFirebaseAvailable}
         authError={authError}
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}

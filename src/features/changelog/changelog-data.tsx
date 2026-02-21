@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '11.3',
+    date: 'February 21, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Cloud storage radio button now disabled until user signs in (was showing an error after click)</>,
+      <><strong>UX</strong> &mdash; Sign-in buttons moved into the Storage section with helper text &ldquo;Sign in to enable cloud storage and sharing&rdquo;</>,
+      <><strong>Refactor</strong> &mdash; AccountSection merged into StorageSection for a more intuitive settings layout</>,
+    ],
+  },
+  {
     version: '11.2',
     date: 'February 20, 2026',
     items: [

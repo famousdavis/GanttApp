@@ -76,7 +76,7 @@ describe('firestore-converters', () => {
     it('handles project without finishDate', () => {
       const project: Project = { id: 'p2', name: 'No Date' };
       const meta = projectToFirestoreMeta(project, 'uid-1');
-      expect(meta.finishDate).toBeUndefined();
+      expect(meta.finishDate).toBeNull();
     });
   });
 

@@ -49,14 +49,13 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated || !user) return;
 
     restoredRef.current = true;
-
     const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid);
 
     // Update lastLogin
     cloudService.createUserProfile(
       user.displayName ?? 'Unknown',
       user.email ?? ''
-    ).catch(() => {}); // best effort
+    ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
 
     setStorage(cloudService);
   }, [isAuthenticated, user]);
@@ -102,39 +101,51 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           authUser.email ?? ''
         );
 
-        // Upload data to Firestore
+        // Upload data to Firestore in phases.
+        // Phase 1: Create project documents + user settings (no subcollections).
+        // Subcollection security rules use get() on the parent project doc, so the
+        // parent must exist before subcollection writes are evaluated.
         if (localData && localData.projects.length > 0) {
-          const batch = writeBatch(firestore);
+          const projectBatch = writeBatch(firestore);
 
           for (const project of localData.projects) {
-            // Create project document
             const meta = projectToFirestoreMeta(project, authUser.uid);
-            batch.set(doc(firestore, `ganttapp/projects/${project.id}`), meta);
-
-            // Create release documents
-            const projectReleases = localData.releases.filter(r => r.projectId === project.id);
-            projectReleases.forEach((release, index) => {
-              batch.set(
-                doc(firestore, `ganttapp/projects/${project.id}/releases/${release.id}`),
-                releaseToFirestore(release, index)
-              );
-            });
+            projectBatch.set(doc(firestore, `ganttapp_projects/${project.id}`), meta);
           }
 
-          // Upload user settings
-          batch.set(
-            doc(firestore, `ganttapp/users/${authUser.uid}/settings`),
+          // Upload user settings (same batch — no subcollection dependency)
+          projectBatch.set(
+            doc(firestore, `ganttapp_settings/${authUser.uid}`),
             appDataToUserSettings(localData)
           );
 
-          await batch.commit();
+          await projectBatch.commit();
 
-          // Upload snapshots (separate batch — may be large)
+          // Phase 2: Create release documents (subcollections — parent projects now exist)
+          const releasesBatch = writeBatch(firestore);
+          let releaseCount = 0;
+
+          for (const project of localData.projects) {
+            const projectReleases = localData.releases.filter(r => r.projectId === project.id);
+            projectReleases.forEach((release, index) => {
+              releasesBatch.set(
+                doc(firestore, `ganttapp_projects/${project.id}/releases/${release.id}`),
+                releaseToFirestore(release, index)
+              );
+              releaseCount++;
+            });
+          }
+
+          if (releaseCount > 0) {
+            await releasesBatch.commit();
+          }
+
+          // Phase 3: Upload snapshots (subcollections — parent projects now exist)
           if (localSnapshots.length > 0) {
             const snapBatch = writeBatch(firestore);
             for (const snap of localSnapshots) {
               snapBatch.set(
-                doc(firestore, `ganttapp/projects/${snap.projectId}/snapshots/${snap.id}`),
+                doc(firestore, `ganttapp_projects/${snap.projectId}/snapshots/${snap.id}`),
                 snapshotToFirestore(snap)
               );
             }

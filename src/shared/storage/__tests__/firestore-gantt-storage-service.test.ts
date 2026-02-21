@@ -10,6 +10,7 @@ const mockDoc = vi.fn();
 const mockCollection = vi.fn();
 const mockWriteBatch = vi.fn();
 const mockQuery = vi.fn();
+const mockWhere = vi.fn();
 
 const batchMock = {
   set: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   writeBatch: () => batchMock,
   query: (...args: unknown[]) => mockQuery(...args),
+  where: (...args: unknown[]) => mockWhere(...args),
 }));
 
 import { FirestoreGanttStorageServiceImpl } from '../firestore-gantt-storage-service';
@@ -107,7 +109,7 @@ describe('FirestoreGanttStorageService', () => {
       expect(result).toBeNull();
     });
 
-    it('filters projects by membership', async () => {
+    it('filters projects by membership client-side', async () => {
       mockGetDocs.mockResolvedValueOnce({
         docs: [
           { id: 'p1', data: () => ({ name: 'Mine', members: { [mockUid]: 'owner' }, owner: mockUid, schemaVersion: 1, createdAt: '', updatedAt: '' }) },

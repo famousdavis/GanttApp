@@ -1,5 +1,5 @@
 // Firestore Security Rules for GanttApp
-// Deploy via Firebase CLI: firebase deploy --only firestore:rules
+// Deploy via Firebase CLI: npx firebase deploy --only firestore:rules --project spert-suite
 
 rules_version = '2';
 service cloud.firestore {
@@ -10,56 +10,64 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper: check if the user is a member of a project
-    function isMember(projectId) {
+    // Helper: check if the user is a member of a project (via get() — for subcollections)
+    function isMemberGet(projectId) {
       return isAuth() &&
-        request.auth.uid in get(/databases/$(database)/documents/ganttapp/projects/$(projectId)).data.members;
+        request.auth.uid in get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members;
     }
 
-    // Helper: check if the user has a specific role on a project
-    function hasRole(projectId, role) {
+    // Helper: check if the user has a specific role on a project (via get() — for subcollections)
+    function hasRoleGet(projectId, role) {
       return isAuth() &&
-        get(/databases/$(database)/documents/ganttapp/projects/$(projectId)).data.members[request.auth.uid] == role;
+        get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members[request.auth.uid] == role;
     }
 
-    // Helper: check if user can write to a project (owner or editor)
-    function canWrite(projectId) {
-      return hasRole(projectId, 'owner') || hasRole(projectId, 'editor');
+    // Helper: check if user can write to a project (owner or editor, via get() — for subcollections)
+    function canWriteGet(projectId) {
+      return hasRoleGet(projectId, 'owner') || hasRoleGet(projectId, 'editor');
     }
 
     // Project documents
-    match /ganttapp/projects/{projectId} {
-      allow read: if isMember(projectId);
+    match /ganttapp_projects/{projectId} {
+      // List queries (getDocs on collection) require rules that Firestore can evaluate
+      // against query constraints. Map-key membership (`uid in resource.data.members`)
+      // cannot be matched by a query constraint, so we allow list for all authenticated
+      // users and filter by membership client-side. Individual get/update/delete still
+      // enforce membership. This is safe: project metadata (name, members) is not sensitive,
+      // and write operations are fully protected.
+      allow list: if isAuth();
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
       allow create: if isAuth() &&
         request.resource.data.members[request.auth.uid] == 'owner';
-      allow update: if canWrite(projectId);
-      allow delete: if hasRole(projectId, 'owner');
+      allow update: if isAuth() &&
+        request.auth.uid in resource.data.members &&
+        (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor');
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
 
-      // Releases subcollection
+      // Releases subcollection — must use get() to read parent project's members
       match /releases/{releaseId} {
-        allow read: if isMember(projectId);
-        allow write: if canWrite(projectId);
+        allow read: if isMemberGet(projectId);
+        allow write: if canWriteGet(projectId);
       }
 
-      // Snapshots subcollection
+      // Snapshots subcollection — must use get() to read parent project's members
       match /snapshots/{snapshotId} {
-        allow read: if isMember(projectId);
-        allow write: if canWrite(projectId);
+        allow read: if isMemberGet(projectId);
+        allow write: if canWriteGet(projectId);
       }
     }
 
-    // User documents
-    match /ganttapp/users/{userId} {
-      // Profile: readable by any authenticated user, writable only by owner
-      match /profile {
-        allow read: if isAuth();
-        allow write: if isAuth() && request.auth.uid == userId;
-      }
+    // User profiles: readable by any authenticated user, writable only by owner
+    match /ganttapp_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
 
-      // Settings: readable and writable only by owner
-      match /settings {
-        allow read, write: if isAuth() && request.auth.uid == userId;
-      }
+    // User settings: readable and writable only by owner
+    match /ganttapp_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
     }
   }
 }

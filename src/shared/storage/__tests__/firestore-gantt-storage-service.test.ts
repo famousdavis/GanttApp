@@ -310,6 +310,46 @@ describe('FirestoreGanttStorageService', () => {
     });
   });
 
+  describe('settingsChanged triggers save on exportAttribution change', () => {
+    it('saves settings when exportAttribution changes', async () => {
+      // Load initial state
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [{ id: 'p1', data: () => ({ name: 'P1', members: { [mockUid]: 'owner' }, owner: mockUid, schemaVersion: 1, createdAt: '', updatedAt: '' }) }],
+      });
+      mockGetDocs.mockResolvedValueOnce({ docs: [] }); // releases
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ showTodayLine: true }),
+      });
+      await service.loadAppData();
+
+      // Save with exportAttribution added
+      const data = {
+        projects: [{ id: 'p1', name: 'P1' }],
+        releases: [],
+        showTodayLine: true,
+        exportAttribution: { name: 'Alice', identifier: 'team-42' },
+      };
+
+      // Mock getDoc for the project update check
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ name: 'P1', members: { [mockUid]: 'owner' }, owner: mockUid, schemaVersion: 1, createdAt: '', updatedAt: '' }),
+      });
+
+      await service.saveAppDataImmediate(data);
+
+      // The settings doc should have been written
+      const settingsSetCalls = batchMock.set.mock.calls.filter(
+        (call: unknown[]) => String(call[0]).includes('ganttapp_settings')
+      );
+      expect(settingsSetCalls.length).toBeGreaterThan(0);
+      // Verify exportAttribution is in the settings
+      const settingsData = settingsSetCalls[0][1];
+      expect(settingsData.exportAttribution).toEqual({ name: 'Alice', identifier: 'team-42' });
+    });
+  });
+
   describe('shareProject', () => {
     it('throws when target user not found', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] }); // no users found

@@ -59,8 +59,9 @@ export function appDataToUserSettings(data: AppData): FirestoreUserSettings {
     ...(data.showFinishDateLine !== undefined && { showFinishDateLine: data.showFinishDateLine }),
     ...(data.showMostLikelyLine !== undefined && { showMostLikelyLine: data.showMostLikelyLine }),
     ...(data.chartDisplaySettings && { chartDisplaySettings: data.chartDisplaySettings }),
-    ...(data.preparedBy && { preparedBy: data.preparedBy }),
+    ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
     ...(data.showPreparedBy !== undefined && { showPreparedBy: data.showPreparedBy }),
+    ...(data.exportAttribution && { exportAttribution: data.exportAttribution }),
   };
 }
 
@@ -73,7 +74,7 @@ export function snapshotToFirestore(snapshot: Snapshot): FirestoreSnapshot {
     ...(snapshot.projectFinishDate && { projectFinishDate: snapshot.projectFinishDate }),
     ...(snapshot.chartColors && { chartColors: snapshot.chartColors }),
     ...(snapshot.legendLabels && { legendLabels: snapshot.legendLabels }),
-    ...(snapshot.preparedBy && { preparedBy: snapshot.preparedBy }),
+    ...(snapshot.preparedBy !== undefined && { preparedBy: snapshot.preparedBy }),
   };
 }
 
@@ -121,8 +122,9 @@ export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<
     ...(settings.showFinishDateLine !== undefined && { showFinishDateLine: settings.showFinishDateLine }),
     ...(settings.showMostLikelyLine !== undefined && { showMostLikelyLine: settings.showMostLikelyLine }),
     ...(settings.chartDisplaySettings && { chartDisplaySettings: settings.chartDisplaySettings as ChartDisplaySettings }),
-    ...(settings.preparedBy && { preparedBy: settings.preparedBy }),
+    ...(settings.preparedBy !== undefined && { preparedBy: settings.preparedBy }),
     ...(settings.showPreparedBy !== undefined && { showPreparedBy: settings.showPreparedBy }),
+    ...(settings.exportAttribution && { exportAttribution: settings.exportAttribution }),
   };
 }
 
@@ -153,7 +155,7 @@ export function firestoreSnapshotToFlat(
     ...(data.projectFinishDate && { projectFinishDate: data.projectFinishDate }),
     ...(data.chartColors && { chartColors: data.chartColors as ChartColors }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),
-    ...(data.preparedBy && { preparedBy: data.preparedBy }),
+    ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
   };
 }
 

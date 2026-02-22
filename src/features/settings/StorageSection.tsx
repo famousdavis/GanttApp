@@ -197,7 +197,13 @@ export function StorageSection({
               <button
                 onClick={confirmUpload}
                 disabled={isSwitching}
-                style={{ ...btnBase, background: '#0070f3', cursor: isSwitching ? 'not-allowed' : 'pointer' }}
+                style={{
+                  ...btnBase,
+                  background: 'transparent',
+                  color: '#0070f3',
+                  border: '1px solid #0070f3',
+                  cursor: isSwitching ? 'not-allowed' : 'pointer',
+                }}
               >
                 Upload to Cloud
               </button>
@@ -207,7 +213,7 @@ export function StorageSection({
                 style={{
                   ...btnBase,
                   background: 'transparent',
-                  color: colors.textSecondary,
+                  color: colors.text,
                   border: `1px solid ${colors.border}`,
                   cursor: isSwitching ? 'not-allowed' : 'pointer',
                 }}
@@ -278,7 +284,13 @@ export function StorageSection({
               <button
                 onClick={onConfirmUploadPrompt}
                 disabled={isSwitching}
-                style={{ ...btnBase, background: '#0070f3', cursor: isSwitching ? 'not-allowed' : 'pointer' }}
+                style={{
+                  ...btnBase,
+                  background: 'transparent',
+                  color: '#0070f3',
+                  border: '1px solid #0070f3',
+                  cursor: isSwitching ? 'not-allowed' : 'pointer',
+                }}
               >
                 Upload to Cloud
               </button>
@@ -288,7 +300,7 @@ export function StorageSection({
                 style={{
                   ...btnBase,
                   background: 'transparent',
-                  color: colors.textSecondary,
+                  color: colors.text,
                   border: `1px solid ${colors.border}`,
                   cursor: isSwitching ? 'not-allowed' : 'pointer',
                 }}

@@ -13,6 +13,7 @@ import {
   appDataToUserSettings,
   snapshotToFirestore,
 } from '../shared/utils/firestore-converters';
+import { sanitizeString } from '../shared/utils/validation';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 
 export interface SwitchToCloudResult {
@@ -43,10 +44,10 @@ export async function switchToCloudMode(
   // Create cloud service
   const cloudService = new FirestoreGanttStorageServiceImpl(firestore, user.uid);
 
-  // Create/update user profile
+  // Create/update user profile (sanitize defense-in-depth, v12.2)
   await cloudService.createUserProfile(
-    user.displayName ?? 'Unknown',
-    user.email ?? ''
+    sanitizeString(user.displayName ?? 'Unknown'),
+    sanitizeString(user.email ?? '')
   );
 
   let uploaded = 0;
@@ -84,7 +85,7 @@ export async function switchToCloudMode(
           // Network error, unavailable, deadline-exceeded, etc.
           // Surface to user — don't silently create duplicates.
           throw new Error(
-            `Failed to check project "${project.name}": ${collisionErr instanceof Error ? collisionErr.message : 'unknown error'}`
+            `Failed to check project "${sanitizeString(project.name)}": ${collisionErr instanceof Error ? collisionErr.message : 'unknown error'}`
           );
         }
       }

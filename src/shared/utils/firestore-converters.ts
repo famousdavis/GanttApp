@@ -12,6 +12,7 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
+import { sanitizeId } from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -89,7 +90,7 @@ export function firestoreToProject(
     id: projectId,
     name: meta.name,
     ...(meta.finishDate && { finishDate: meta.finishDate }),
-    owner: meta.owner,
+    owner: sanitizeId(meta.owner),
   };
 }
 

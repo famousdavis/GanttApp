@@ -199,4 +199,33 @@ describe('StorageContext', () => {
     // Mode should still be local
     expect(result.current.mode).toBe('local');
   });
+
+  // v12.2: Error message sanitization
+  it('switchMode uses sanitized error message (not raw Firebase error)', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useStorage(), { wrapper });
+
+    // switchMode('cloud') throws because Firebase is unavailable — this is an app-level error
+    // (no code property), so sanitizeFirebaseError passes it through
+    await act(async () => {
+      await result.current.switchMode('cloud');
+    });
+
+    await waitFor(() => {
+      // App-level error: message passes through sanitizeFirebaseError
+      expect(result.current.switchError).toBe('Firebase is not configured. Cloud features are unavailable.');
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('switchMode to local does not expose raw error details', async () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+
+    // Switching from local to local is a no-op — no error
+    await act(async () => {
+      await result.current.switchMode('local');
+    });
+
+    expect(result.current.switchError).toBeNull();
+  });
 });

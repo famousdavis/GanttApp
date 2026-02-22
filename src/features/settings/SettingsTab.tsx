@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStorage } from '../../context/StorageContext';
 import { useAppData } from '../../context/AppDataContext';
 import { isFirebaseAvailable } from '../../lib/firebase';
+import { sanitizeFirebaseError } from '../../shared/utils/validation';
 import { StorageSection } from './StorageSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
 
@@ -31,7 +32,7 @@ export function SettingsTab() {
         await signInWithMicrosoft();
       }
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Sign-in failed');
+      setAuthError(sanitizeFirebaseError(error));
     }
   };
 
@@ -44,7 +45,7 @@ export function SettingsTab() {
       }
       await signOut();
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Sign-out failed');
+      setAuthError(sanitizeFirebaseError(error));
     }
   };
 

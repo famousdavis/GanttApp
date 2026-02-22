@@ -171,6 +171,27 @@ describe('firestore-converters', () => {
       const project = firestoreToProject('p2', meta);
       expect(project).toEqual({ id: 'p2', name: 'Beta', owner: 'uid-1' });
     });
+
+    // v12.2: Security — owner field sanitization
+    it('sanitizes owner with control characters', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'Test', owner: 'uid-1\x00<script>', members: { 'uid-1': 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+      const project = firestoreToProject('p3', meta);
+      // sanitizeId strips non-alphanumeric/hyphen/underscore chars
+      expect(project.owner).toBe('uid-1script');
+    });
+
+    it('truncates oversized owner to 50 chars', () => {
+      const longOwner = 'a'.repeat(100);
+      const meta: FirestoreProjectMeta = {
+        name: 'Test', owner: longOwner, members: {},
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+      const project = firestoreToProject('p4', meta);
+      expect(project.owner).toBe('a'.repeat(50));
+    });
   });
 
   // --- firestoreReleasesToFlat ---

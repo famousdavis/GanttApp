@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.2',
+    date: 'February 22, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Firebase error messages are now sanitized before display, preventing internal details (project IDs, collection paths) from leaking to the UI</>,
+      <><strong>Security</strong> &mdash; Project <code>owner</code> field from Firestore is now sanitized with <code>sanitizeId()</code> to prevent injection of control characters or oversized strings</>,
+      <><strong>Security</strong> &mdash; User profile data (displayName, email) is now sanitized with <code>sanitizeString()</code> before writing to Firestore (defense-in-depth)</>,
+      <><strong>Security</strong> &mdash; Project names in error messages are now sanitized to prevent control character injection</>,
+      <><strong>Tests</strong> &mdash; Added 10 new security tests: sanitizeFirebaseError (6), owner sanitization (2), StorageContext error handling (2). Total: 696 tests across 45 files</>,
+    ],
+  },
+  {
     version: '12.1',
     date: 'February 22, 2026',
     items: [

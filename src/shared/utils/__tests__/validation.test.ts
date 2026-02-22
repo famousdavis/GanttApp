@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError } from '../validation';
 
 describe('isValidDateFormat', () => {
   it('accepts valid dates within 2000-2050 range', () => {
@@ -386,5 +386,41 @@ describe('validateReleaseDateChange', () => {
   it('returns error for invalid date format', () => {
     expect(validateReleaseDateChange(baseRelease, 'start', 'not-a-date')).toBe('Invalid date format');
     expect(validateReleaseDateChange(baseRelease, 'mostLikely', '2099-01-01')).toBe('Invalid date format');
+  });
+});
+
+// --- sanitizeFirebaseError (v12.2) ---
+
+describe('sanitizeFirebaseError', () => {
+  it('returns generic message for non-Error values', () => {
+    expect(sanitizeFirebaseError(null)).toBe('An unexpected error occurred.');
+    expect(sanitizeFirebaseError('string error')).toBe('An unexpected error occurred.');
+    expect(sanitizeFirebaseError(42)).toBe('An unexpected error occurred.');
+    expect(sanitizeFirebaseError(undefined)).toBe('An unexpected error occurred.');
+  });
+
+  it('passes through plain Error message (no code = app-level error)', () => {
+    const err = new Error('Firebase is not configured. Cloud features are unavailable.');
+    expect(sanitizeFirebaseError(err)).toBe('Firebase is not configured. Cloud features are unavailable.');
+  });
+
+  it('maps permission-denied to friendly message', () => {
+    const err = Object.assign(new Error('PERMISSION_DENIED: Missing or insufficient permissions'), { code: 'permission-denied' });
+    expect(sanitizeFirebaseError(err)).toBe('Permission denied. Please check your account access.');
+  });
+
+  it('maps auth/popup-closed-by-user to friendly message', () => {
+    const err = Object.assign(new Error('Firebase: Error (auth/popup-closed-by-user).'), { code: 'auth/popup-closed-by-user' });
+    expect(sanitizeFirebaseError(err)).toBe('Sign-in was cancelled.');
+  });
+
+  it('maps unavailable to friendly message', () => {
+    const err = Object.assign(new Error('The service is currently unavailable'), { code: 'unavailable' });
+    expect(sanitizeFirebaseError(err)).toBe('Service temporarily unavailable. Please try again later.');
+  });
+
+  it('returns generic message for unknown Firebase error codes', () => {
+    const err = Object.assign(new Error('Some internal Firebase error details'), { code: 'unknown/internal-error' });
+    expect(sanitizeFirebaseError(err)).toBe('An error occurred. Please try again.');
   });
 });

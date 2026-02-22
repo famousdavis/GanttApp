@@ -372,3 +372,51 @@ export function getMostLikelyDateError(
 
   return '';
 }
+
+// --- Firebase error sanitization (v12.2) ---
+
+/**
+ * Convert Firebase/Firestore errors to user-friendly messages.
+ * Prevents leaking internal details (project IDs, collection paths, SDK internals).
+ *
+ * Firebase errors have a `code` property (e.g. 'permission-denied', 'auth/popup-closed-by-user').
+ * App-level errors (thrown by our own code) are plain Error objects without `code` — these
+ * are passed through as-is since they already contain user-friendly messages.
+ */
+export function sanitizeFirebaseError(error: unknown): string {
+  if (!(error instanceof Error)) return 'An unexpected error occurred.';
+
+  const code = (error as { code?: string }).code;
+
+  // No code → app-level error (our own throw), pass message through
+  if (!code) return error.message;
+
+  // Firebase/Firestore error codes → map to user-friendly messages
+  switch (code) {
+    case 'permission-denied':
+      return 'Permission denied. Please check your account access.';
+    case 'unavailable':
+      return 'Service temporarily unavailable. Please try again later.';
+    case 'unauthenticated':
+      return 'Authentication required. Please sign in again.';
+    case 'not-found':
+      return 'The requested resource was not found.';
+    case 'already-exists':
+      return 'This resource already exists.';
+    case 'resource-exhausted':
+      return 'Too many requests. Please try again later.';
+    case 'deadline-exceeded':
+      return 'Request timed out. Please try again.';
+    case 'auth/popup-closed-by-user':
+      return 'Sign-in was cancelled.';
+    case 'auth/popup-blocked':
+      return 'Sign-in popup was blocked. Please allow popups for this site.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.';
+    case 'auth/too-many-requests':
+      return 'Too many sign-in attempts. Please try again later.';
+    default:
+      // Unknown Firebase error code — return generic message (don't leak internals)
+      return 'An error occurred. Please try again.';
+  }
+}

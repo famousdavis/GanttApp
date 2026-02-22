@@ -11,6 +11,7 @@ import type { CloudGanttStorageService } from '../shared/storage/firestore-gantt
 import { db, isFirebaseAvailable } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { switchToCloudMode } from './storage-mode-switch';
+import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
 
 const STORAGE_MODE_KEY = 'ganttapp-storage-mode';
 const HAS_UPLOADED_KEY = 'ganttapp-has-uploaded-to-cloud';
@@ -92,8 +93,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       // Covers both "returning user" and "fresh browser" scenarios
       const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid);
       cloudService.createUserProfile(
-        user.displayName ?? 'Unknown',
-        user.email ?? ''
+        sanitizeString(user.displayName ?? 'Unknown'),
+        sanitizeString(user.email ?? '')
       ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
       setStorage(cloudService);
     }
@@ -113,8 +114,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
       setStorage(result.service);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Upload failed';
-      setSwitchError(message);
+      setSwitchError(sanitizeFirebaseError(error));
       console.error('Upload prompt confirm error:', error);
     } finally {
       setIsSwitching(false);
@@ -130,8 +130,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 
     const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid);
     cloudService.createUserProfile(
-      user.displayName ?? 'Unknown',
-      user.email ?? ''
+      sanitizeString(user.displayName ?? 'Unknown'),
+      sanitizeString(user.email ?? '')
     ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
     setStorage(cloudService);
   }, [user]);
@@ -178,8 +178,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         setStorage(localService);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Mode switch failed';
-      setSwitchError(message);
+      setSwitchError(sanitizeFirebaseError(error));
       console.error('Mode switch error:', error);
     } finally {
       setIsSwitching(false);

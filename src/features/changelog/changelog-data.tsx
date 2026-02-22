@@ -11,6 +11,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.0',
+    date: 'February 22, 2026',
+    items: [
+      <><strong>Architecture</strong> &mdash; Cloud is now the source of truth: switching to local no longer downloads cloud data (one-way upload only)</>,
+      <><strong>Feature</strong> &mdash; Existence-based dedup: re-uploading projects that already exist in the cloud are automatically skipped, preventing duplicates</>,
+      <><strong>Feature</strong> &mdash; Post-upload cleanup dialog prompts users to clear local copies after successful cloud upload</>,
+      <><strong>Feature</strong> &mdash; Smart re-sign-in: detects local projects on cloud mode restoration and prompts to upload or skip</>,
+      <><strong>Feature</strong> &mdash; &ldquo;Download All Projects as JSON&rdquo; button in cloud mode for backup and portability</>,
+      <><strong>UX</strong> &mdash; Sign-out no longer downloads data &mdash; flushes pending writes and switches to local mode cleanly</>,
+      <><strong>Robustness</strong> &mdash; Network errors during upload are surfaced to the user instead of silently creating duplicate projects</>,
+    ],
+  },
+  {
     version: '11.3',
     date: 'February 21, 2026',
     items: [

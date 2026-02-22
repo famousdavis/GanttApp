@@ -30,9 +30,9 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 11.3, second 11.2, etc.
-    expect(versionTexts[0]).toContain('11.3');
-    expect(versionTexts[1]).toContain('11.2');
+    // First version heading should be 12.0, second 11.3, etc.
+    expect(versionTexts[0]).toContain('12.0');
+    expect(versionTexts[1]).toContain('11.3');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });

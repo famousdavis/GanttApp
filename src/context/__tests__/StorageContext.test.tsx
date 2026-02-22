@@ -26,6 +26,7 @@ vi.mock('firebase/auth', () => {
 
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
+  getDoc: vi.fn(),
   setDoc: vi.fn(),
   collection: vi.fn(),
   writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) })),
@@ -132,5 +133,27 @@ describe('StorageContext', () => {
     });
     expect(result.current.mode).toBe('local');
     consoleSpy.mockRestore();
+  });
+
+  // v12.0: New context fields
+  it('exposes uploadResult as null initially', () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+    expect(result.current.uploadResult).toBeNull();
+  });
+
+  it('exposes clearUploadResult function', () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+    expect(typeof result.current.clearUploadResult).toBe('function');
+  });
+
+  it('exposes needsUploadPrompt as null initially', () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+    expect(result.current.needsUploadPrompt).toBeNull();
+  });
+
+  it('exposes confirmUploadPrompt and skipUploadPrompt functions', () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+    expect(typeof result.current.confirmUploadPrompt).toBe('function');
+    expect(typeof result.current.skipUploadPrompt).toBe('function');
   });
 });

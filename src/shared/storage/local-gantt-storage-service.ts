@@ -13,6 +13,16 @@ const SNAPSHOTS_KEY = 'ganttAppSnapshots';
 const MAX_SNAPSHOTS_TOTAL = 100;
 const MAX_SNAPSHOTS_PER_PROJECT = 50;
 
+/**
+ * Clear only project data and snapshots from localStorage.
+ * Preserves: ganttapp-storage-mode, ganttapp-has-uploaded-to-cloud, gantt-theme,
+ * ganttapp-workspace-id — these are user preferences, not project data.
+ */
+export function clearLocalProjectData(): void {
+  localStorage.removeItem(APP_DATA_KEY);
+  localStorage.removeItem(SNAPSHOTS_KEY);
+}
+
 export class LocalGanttStorageService implements GanttStorageService {
   readonly mode: StorageMode = 'local';
   private driver: LocalStorageDriver;

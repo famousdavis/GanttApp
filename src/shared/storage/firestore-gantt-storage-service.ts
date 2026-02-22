@@ -10,6 +10,7 @@ import type { Release } from '../types/models';
 import type {
   FirestoreProjectMeta,
   FirestoreRelease,
+  FirestoreSnapshot,
   FirestoreUserSettings,
   ProjectRole,
 } from '../types/firestore';
@@ -170,7 +171,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         );
         for (const snapDoc of snapshotsSnap.docs) {
           allSnapshots.push(
-            firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as any)
+            firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot)
           );
         }
       }

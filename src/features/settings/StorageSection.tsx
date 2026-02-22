@@ -2,6 +2,7 @@
 // Cloud radio is disabled until the user signs in (SPERT Story Map pattern).
 // v12.0: Inline upload/cleanup confirmations, upload prompt for re-sign-in, Download All Projects button.
 // v12.0.1: Replaced window.confirm() with inline UI (matches SPERT Story Map pattern).
+// v12.1: Uses shared ConfirmDialog component; skipUpload routes through connectToCloudDirect.
 
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
@@ -11,6 +12,7 @@ import type { UploadResult } from '../../context/StorageContext';
 import type { GanttStorageService } from '../../shared/types/storage';
 import { clearLocalProjectData } from '../../shared/storage/local-gantt-storage-service';
 import { exportAllProjects } from '../../shared/utils/export';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 
 interface StorageSectionProps {
   colors: ThemeColors;
@@ -35,6 +37,8 @@ interface StorageSectionProps {
   onSkipUploadPrompt: () => Promise<void>;
   // v12.0: Download All Projects
   storage: GanttStorageService;
+  // v12.1: Connect to cloud without uploading (fixes skip-triggers-upload bug)
+  onConnectCloudDirect: () => Promise<void>;
 }
 
 export function StorageSection({
@@ -42,7 +46,7 @@ export function StorageSection({
   user, isAuthenticated, authLoading, authError, onSignIn, onSignOut,
   uploadResult, onClearUploadResult,
   needsUploadPrompt, onConfirmUploadPrompt, onSkipUploadPrompt,
-  storage,
+  storage, onConnectCloudDirect,
 }: StorageSectionProps) {
   // Inline confirmation state — replaces window.confirm() (v12.0.1)
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
@@ -77,10 +81,8 @@ export function StorageSection({
   const handleCloudSwitch = () => {
     const localCount = getLocalProjectCount();
     if (localCount > 0) {
-      // Has local projects — show inline upload confirmation
       setShowUploadConfirm(true);
     } else {
-      // No local projects — switch directly
       onModeChange('cloud');
     }
   };
@@ -91,12 +93,10 @@ export function StorageSection({
     await onModeChange('cloud');
   };
 
-  // User chose to skip upload — switch to cloud without uploading
-  const skipUpload = () => {
+  // User chose to skip upload — connect to cloud without uploading (v12.1 fix)
+  const skipUpload = async () => {
     setShowUploadConfirm(false);
-    // Switch to cloud — switchToCloudMode handles the "no local data" case
-    // by just connecting to cloud (local data stays in localStorage)
-    onModeChange('cloud');
+    await onConnectCloudDirect();
   };
 
   // Show cleanup confirmation when upload completes with results
@@ -117,11 +117,6 @@ export function StorageSection({
     clearLocalProjectData();
     setShowCleanupConfirm(false);
     setStatusMessage(prev => prev ? prev + ' Local data cleared.' : 'Local data cleared.');
-  };
-
-  // User dismissed cleanup dialog
-  const dismissCleanup = () => {
-    setShowCleanupConfirm(false);
   };
 
   const handleDownloadAll = async () => {
@@ -178,138 +173,41 @@ export function StorageSection({
         </span>
       </label>
 
-      {/* Upload confirmation — shown when user clicks Cloud radio and has local data (v12.0.1) */}
+      {/* Upload confirmation — shown when user clicks Cloud radio and has local data */}
       {showUploadConfirm && (
-        <div style={{
-          marginTop: '0.5rem',
-          paddingLeft: '1.5rem',
-        }}>
-          <div style={{
-            padding: '1rem',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '6px',
-            background: colors.surface,
-          }}>
-            <p style={{ color: colors.text, margin: '0 0 0.75rem 0' }}>
-              You have local projects. Upload them to the cloud?
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={confirmUpload}
-                disabled={isSwitching}
-                style={{
-                  ...btnBase,
-                  background: 'transparent',
-                  color: '#0070f3',
-                  border: '1px solid #0070f3',
-                  cursor: isSwitching ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Upload to Cloud
-              </button>
-              <button
-                onClick={skipUpload}
-                disabled={isSwitching}
-                style={{
-                  ...btnBase,
-                  background: 'transparent',
-                  color: colors.text,
-                  border: `1px solid ${colors.border}`,
-                  cursor: isSwitching ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Skip &mdash; Connect Without Uploading
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message="You have local projects. Upload them to the cloud?"
+          colors={colors}
+          buttons={[
+            { label: 'Upload to Cloud', onClick: confirmUpload, variant: 'primary', disabled: isSwitching },
+            { label: 'Skip \u2014 Connect Without Uploading', onClick: skipUpload, variant: 'secondary', disabled: isSwitching },
+          ]}
+        />
       )}
 
-      {/* Cleanup confirmation — shown after successful upload (v12.0.1) */}
+      {/* Cleanup confirmation — shown after successful upload */}
       {showCleanupConfirm && (
-        <div style={{
-          marginTop: '0.5rem',
-          paddingLeft: '1.5rem',
-        }}>
-          <div style={{
-            padding: '1rem',
-            border: '1px solid #e53e3e',
-            borderRadius: '6px',
-            background: colors.surface,
-          }}>
-            <p style={{ color: colors.text, margin: '0 0 0.75rem 0' }}>
-              Your projects are now in the cloud. Clear local copies to prevent duplicates on future sign-ins?
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={confirmCleanup}
-                style={{ ...btnBase, background: '#e53e3e', cursor: 'pointer' }}
-              >
-                Clear Local Data
-              </button>
-              <button
-                onClick={dismissCleanup}
-                style={{
-                  ...btnBase,
-                  background: 'transparent',
-                  color: colors.textSecondary,
-                  border: `1px solid ${colors.border}`,
-                  cursor: 'pointer',
-                }}
-              >
-                Keep Local Copies
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message="Your projects are now in the cloud. Clear local copies to prevent duplicates on future sign-ins?"
+          colors={colors}
+          borderColor="#e53e3e"
+          buttons={[
+            { label: 'Clear Local Data', onClick: confirmCleanup, variant: 'danger' },
+            { label: 'Keep Local Copies', onClick: () => setShowCleanupConfirm(false), variant: 'secondary' },
+          ]}
+        />
       )}
 
-      {/* Re-sign-in upload prompt (v12.0) */}
+      {/* Re-sign-in upload prompt */}
       {needsUploadPrompt && (
-        <div style={{
-          marginTop: '0.5rem',
-          paddingLeft: '1.5rem',
-        }}>
-          <div style={{
-            padding: '1rem',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '6px',
-            background: colors.surface,
-          }}>
-            <p style={{ color: colors.text, margin: '0 0 0.75rem 0' }}>
-              You have <strong>{needsUploadPrompt.projectCount}</strong> local project(s).
-              Upload them to the cloud?
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={onConfirmUploadPrompt}
-                disabled={isSwitching}
-                style={{
-                  ...btnBase,
-                  background: 'transparent',
-                  color: '#0070f3',
-                  border: '1px solid #0070f3',
-                  cursor: isSwitching ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Upload to Cloud
-              </button>
-              <button
-                onClick={onSkipUploadPrompt}
-                disabled={isSwitching}
-                style={{
-                  ...btnBase,
-                  background: 'transparent',
-                  color: colors.text,
-                  border: `1px solid ${colors.border}`,
-                  cursor: isSwitching ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Skip &mdash; Connect Without Uploading
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message={<>You have <strong>{needsUploadPrompt.projectCount}</strong> local project(s). Upload them to the cloud?</>}
+          colors={colors}
+          buttons={[
+            { label: 'Upload to Cloud', onClick: onConfirmUploadPrompt, variant: 'primary', disabled: isSwitching },
+            { label: 'Skip \u2014 Connect Without Uploading', onClick: onSkipUploadPrompt, variant: 'secondary', disabled: isSwitching },
+          ]}
+        />
       )}
 
       {/* Status message — upload results, export results, etc. */}
@@ -379,7 +277,7 @@ export function StorageSection({
         </div>
       )}
 
-      {/* Download All Projects button — cloud mode only (v12.0) */}
+      {/* Download All Projects button — cloud mode only */}
       {isAuthenticated && mode === 'cloud' && (
         <div style={{ marginTop: '0.75rem', paddingLeft: '1.5rem' }}>
           <button

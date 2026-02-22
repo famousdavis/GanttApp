@@ -156,4 +156,47 @@ describe('StorageContext', () => {
     expect(typeof result.current.confirmUploadPrompt).toBe('function');
     expect(typeof result.current.skipUploadPrompt).toBe('function');
   });
+
+  // v12.1: connectToCloudDirect
+  it('exposes connectToCloudDirect function', () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+    expect(typeof result.current.connectToCloudDirect).toBe('function');
+  });
+
+  it('connectToCloudDirect is a no-op when db or user is null', async () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+
+    // Should not throw or change mode — db and user are both null in this mock
+    await act(async () => {
+      await result.current.connectToCloudDirect();
+    });
+
+    // Mode should still be local
+    expect(result.current.mode).toBe('local');
+  });
+
+  it('skipUploadPrompt is a no-op when db or user is null', async () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+
+    // Should not throw — db and user are both null in this mock
+    await act(async () => {
+      await result.current.skipUploadPrompt();
+    });
+
+    // Mode should still be local, no localStorage key set
+    expect(result.current.mode).toBe('local');
+    expect(localStorage.getItem('ganttapp-storage-mode')).toBeNull();
+  });
+
+  it('confirmUploadPrompt is a no-op when db or user is null', async () => {
+    const { result } = renderHook(() => useStorage(), { wrapper });
+
+    // Should not throw — db and user are both null in this mock
+    await act(async () => {
+      await result.current.confirmUploadPrompt();
+    });
+
+    // Mode should still be local
+    expect(result.current.mode).toBe('local');
+  });
 });

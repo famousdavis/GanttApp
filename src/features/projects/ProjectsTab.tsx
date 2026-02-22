@@ -11,6 +11,7 @@ import { exportData as exportDataUtil, parseImportedData, readFileAsText } from 
 import { isProjectNameValid } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { TabType } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 import type { CloudGanttStorageService } from '../../shared/storage';
@@ -419,82 +420,30 @@ export function ProjectsTab({
 
       {/* Import confirmation modal */}
       {importConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <div style={{
-            background: colors.surface,
-            borderRadius: '12px',
-            padding: '2rem',
-            maxWidth: '480px',
-            width: '90%',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
-          }}>
-            <h3 style={{
-              fontSize: '1.25rem',
-              fontWeight: '700',
-              color: colors.text,
-              marginBottom: '1rem'
-            }}>
-              Replace All Data
-            </h3>
-            <p style={{
-              color: colors.textSecondary,
-              lineHeight: '1.6',
-              marginBottom: '1.5rem',
-              fontSize: '0.95rem'
-            }}>
-              This will replace all existing projects, releases, snapshots, and settings with the contents of this file. This cannot be undone. Export your current data first if you want to keep it.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button
-                onClick={() => {
-                  importConfirm.fileInput.value = '';
-                  setImportConfirm(null);
-                }}
-                style={{
-                  padding: '0.6rem 1.25rem',
-                  background: colors.surface,
-                  color: colors.text,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.9rem'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  applyImport(importConfirm.imported!, importConfirm.fileInput);
-                  setImportConfirm(null);
-                }}
-                style={{
-                  padding: '0.6rem 1.25rem',
-                  background: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.9rem'
-                }}
-              >
-                Replace
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          modal
+          title="Replace All Data"
+          message="This will replace all existing projects, releases, snapshots, and settings with the contents of this file. This cannot be undone. Export your current data first if you want to keep it."
+          colors={colors}
+          buttons={[
+            {
+              label: 'Cancel',
+              variant: 'secondary',
+              onClick: () => {
+                importConfirm.fileInput.value = '';
+                setImportConfirm(null);
+              },
+            },
+            {
+              label: 'Replace',
+              variant: 'danger',
+              onClick: () => {
+                applyImport(importConfirm.imported!, importConfirm.fileInput);
+                setImportConfirm(null);
+              },
+            },
+          ]}
+        />
       )}
     </div>
   );

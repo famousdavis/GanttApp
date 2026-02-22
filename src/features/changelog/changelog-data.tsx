@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.1',
+    date: 'February 22, 2026',
+    items: [
+      <><strong>Bug Fix</strong> &mdash; &ldquo;Skip &mdash; Connect Without Uploading&rdquo; now correctly connects to cloud without uploading local data (was triggering upload)</>,
+      <><strong>Bug Fix</strong> &mdash; Skipping the upload prompt now persists the cloud mode preference (was re-prompting on every reload)</>,
+      <><strong>Bug Fix</strong> &mdash; Fixed <code>as any</code> type cast in cloud storage service (now uses proper <code>FirestoreSnapshot</code> type)</>,
+      <><strong>Refactor</strong> &mdash; Created shared <code>ConfirmDialog</code> component for inline and modal confirmation dialogs, reducing code duplication across StorageSection and ProjectsTab</>,
+      <><strong>Tests</strong> &mdash; Added 47 new tests: ConfirmDialog (13), StorageSection (30), StorageContext (4). Total: 686 tests across 45 files</>,
+    ],
+  },
+  {
     version: '12.0',
     date: 'February 22, 2026',
     items: [

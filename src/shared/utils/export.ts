@@ -193,6 +193,52 @@ export function parseImportedData(fileContent: string): ImportResult | null {
 }
 
 /**
+ * Export all projects as a single combined JSON file.
+ * Loads all data from the current storage service and produces one download.
+ * File is compatible with the existing import flow (same shape as AppData + snapshots).
+ */
+export async function exportAllProjects(
+  storage: { loadAppData: () => Promise<AppData | null>; loadSnapshots: () => Promise<Snapshot[]> }
+): Promise<{ exported: number }> {
+  const appData = await storage.loadAppData();
+  if (!appData || appData.projects.length === 0) {
+    throw new Error('No projects to export.');
+  }
+
+  const snapshots = await storage.loadSnapshots();
+
+  const exportObj: Record<string, unknown> = {
+    ...appData,
+    _exportedAt: new Date().toISOString(),
+    _exportType: 'ganttapp-all-projects',
+  };
+
+  if (snapshots.length > 0) {
+    exportObj.snapshots = snapshots;
+  }
+
+  if (appData.exportAttribution) {
+    exportObj._exportedBy = {
+      name: appData.exportAttribution.name,
+      identifier: appData.exportAttribution.identifier,
+    };
+  }
+
+  const dataStr = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ganttapp-all-projects-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  return { exported: appData.projects.length };
+}
+
+/**
  * Read a file and return its contents as string
  * Returns a Promise that resolves with the file content
  */

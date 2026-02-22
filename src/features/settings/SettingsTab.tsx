@@ -12,7 +12,11 @@ import { ExportAttributionSection } from './ExportAttributionSection';
 export function SettingsTab() {
   const { colors } = useTheme();
   const { user, isAuthenticated, signInWithGoogle, signInWithMicrosoft, signOut, loading: authLoading } = useAuth();
-  const { mode, switchMode, isSwitching, switchError } = useStorage();
+  const {
+    storage, mode, switchMode, isSwitching, switchError,
+    uploadResult, clearUploadResult,
+    needsUploadPrompt, confirmUploadPrompt, skipUploadPrompt,
+  } = useStorage();
   const { exportAttribution, setExportAttribution } = useAppData();
 
   const [authError, setAuthError] = useState<string | null>(null);
@@ -33,6 +37,7 @@ export function SettingsTab() {
   const handleSignOut = async () => {
     setAuthError(null);
     try {
+      // v12.0: switchMode('local') no longer downloads data — just flushes and disposes
       if (mode === 'cloud') {
         await switchMode('local');
       }
@@ -64,6 +69,12 @@ export function SettingsTab() {
         authError={authError}
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}
+        uploadResult={uploadResult}
+        onClearUploadResult={clearUploadResult}
+        needsUploadPrompt={needsUploadPrompt}
+        onConfirmUploadPrompt={confirmUploadPrompt}
+        onSkipUploadPrompt={skipUploadPrompt}
+        storage={storage}
       />
 
       <ExportAttributionSection

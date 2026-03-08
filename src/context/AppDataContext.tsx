@@ -1,6 +1,6 @@
 // Global application data context
 
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAttribution } from '../shared/types';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../shared/utils';
 import { useStorage } from './StorageContext';
@@ -62,6 +62,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // which would write the just-loaded data back. This ref prevents that.
   const isInitialLoadRef = useRef(true);
 
+  // Track current data for the data-loss guard (closures in async effects see stale state)
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
   // Chart settings
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
@@ -96,57 +100,64 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (loadedData) {
-          setData(loadedData);
+          // Data-loss guard: don't wipe non-empty local state with empty cloud results
+          if (loadedData.projects.length === 0 && dataRef.current.projects.length > 0) {
+            console.warn(
+              `Cloud returned 0 projects but local has ${dataRef.current.projects.length} — skipping replacement to protect local data`
+            );
+          } else {
+            setData(loadedData);
 
-          // Load chart colors or use defaults
-          if (loadedData.chartColors) {
-            setChartColors(loadedData.chartColors);
-          }
-
-          // Load active preset if it exists
-          if (loadedData.activePreset) {
-            setActivePreset(loadedData.activePreset);
-          }
-
-          // Load legend labels if they exist
-          if (loadedData.legendLabels) {
-            setSolidBarLabel(loadedData.legendLabels.solidBar);
-            setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
-            if (loadedData.legendLabels.finishDateLine) {
-              setFinishDateLabel(loadedData.legendLabels.finishDateLine);
+            // Load chart colors or use defaults
+            if (loadedData.chartColors) {
+              setChartColors(loadedData.chartColors);
             }
-            if (loadedData.legendLabels.mostLikelyLine) {
-              setMostLikelyLineLabel(loadedData.legendLabels.mostLikelyLine);
+
+            // Load active preset if it exists
+            if (loadedData.activePreset) {
+              setActivePreset(loadedData.activePreset);
             }
-          }
 
-          // Load toggle states if they exist
-          if (loadedData.showTodayLine !== undefined) {
-            setShowTodayLine(loadedData.showTodayLine);
-          }
-          if (loadedData.showFinishDateLine !== undefined) {
-            setShowFinishDateLine(loadedData.showFinishDateLine);
-          }
-          if (loadedData.showMostLikelyLine !== undefined) {
-            setShowMostLikelyLine(loadedData.showMostLikelyLine);
-          }
+            // Load legend labels if they exist
+            if (loadedData.legendLabels) {
+              setSolidBarLabel(loadedData.legendLabels.solidBar);
+              setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
+              if (loadedData.legendLabels.finishDateLine) {
+                setFinishDateLabel(loadedData.legendLabels.finishDateLine);
+              }
+              if (loadedData.legendLabels.mostLikelyLine) {
+                setMostLikelyLineLabel(loadedData.legendLabels.mostLikelyLine);
+              }
+            }
 
-          // Load display settings if they exist
-          if (loadedData.chartDisplaySettings) {
-            setDisplaySettings(loadedData.chartDisplaySettings);
-          }
+            // Load toggle states if they exist
+            if (loadedData.showTodayLine !== undefined) {
+              setShowTodayLine(loadedData.showTodayLine);
+            }
+            if (loadedData.showFinishDateLine !== undefined) {
+              setShowFinishDateLine(loadedData.showFinishDateLine);
+            }
+            if (loadedData.showMostLikelyLine !== undefined) {
+              setShowMostLikelyLine(loadedData.showMostLikelyLine);
+            }
 
-          // Load prepared by settings
-          if (typeof loadedData.preparedBy === 'string') {
-            setPreparedBy(loadedData.preparedBy);
-          }
-          if (loadedData.showPreparedBy !== undefined) {
-            setShowPreparedBy(loadedData.showPreparedBy);
-          }
+            // Load display settings if they exist
+            if (loadedData.chartDisplaySettings) {
+              setDisplaySettings(loadedData.chartDisplaySettings);
+            }
 
-          // Load export attribution
-          if (loadedData.exportAttribution && typeof loadedData.exportAttribution === 'object') {
-            setExportAttribution(loadedData.exportAttribution);
+            // Load prepared by settings
+            if (typeof loadedData.preparedBy === 'string') {
+              setPreparedBy(loadedData.preparedBy);
+            }
+            if (loadedData.showPreparedBy !== undefined) {
+              setShowPreparedBy(loadedData.showPreparedBy);
+            }
+
+            // Load export attribution
+            if (loadedData.exportAttribution && typeof loadedData.exportAttribution === 'object') {
+              setExportAttribution(loadedData.exportAttribution);
+            }
           }
         }
       } catch (error) {
@@ -205,13 +216,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         // Skip local echoes — only apply server-confirmed data
         if (snapshot.metadata.hasPendingWrites) return;
 
-        setData(prev => ({
-          ...prev,
-          releases: [
-            ...prev.releases.filter(r => r.projectId !== projectId),
-            ...releases
-          ]
-        }));
+        setData(prev => {
+          // Data-loss guard: don't wipe existing releases with empty cloud results
+          const existingCount = prev.releases.filter(r => r.projectId === projectId).length;
+          if (releases.length === 0 && existingCount > 0) {
+            console.warn(
+              `Cloud returned 0 releases for project ${projectId} but local has ${existingCount} — skipping to protect data`
+            );
+            return prev;
+          }
+          return {
+            ...prev,
+            releases: [
+              ...prev.releases.filter(r => r.projectId !== projectId),
+              ...releases
+            ]
+          };
+        });
       })
     );
 

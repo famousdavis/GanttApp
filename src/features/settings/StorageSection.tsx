@@ -2,7 +2,8 @@
 // Cloud radio is disabled until the user signs in (SPERT Story Map pattern).
 // v12.0: Inline upload/cleanup confirmations, upload prompt for re-sign-in, Download All Projects button.
 // v12.0.1: Replaced window.confirm() with inline UI (matches SPERT Story Map pattern).
-// v12.1: Uses shared ConfirmDialog component; skipUpload routes through connectToCloudDirect.
+// v12.1: Uses shared ConfirmDialog component.
+// v12.3: Skip→Cancel — stays in local mode instead of connecting to cloud without uploading.
 
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
@@ -34,19 +35,17 @@ interface StorageSectionProps {
   // v12.0: re-sign-in upload prompt
   needsUploadPrompt: { projectCount: number } | null;
   onConfirmUploadPrompt: () => Promise<void>;
-  onSkipUploadPrompt: () => Promise<void>;
+  onCancelUploadPrompt: () => void;
   // v12.0: Download All Projects
   storage: GanttStorageService;
-  // v12.1: Connect to cloud without uploading (fixes skip-triggers-upload bug)
-  onConnectCloudDirect: () => Promise<void>;
 }
 
 export function StorageSection({
   colors, mode, isSwitching, switchError, isFirebaseAvailable, onModeChange,
   user, isAuthenticated, authLoading, authError, onSignIn, onSignOut,
   uploadResult, onClearUploadResult,
-  needsUploadPrompt, onConfirmUploadPrompt, onSkipUploadPrompt,
-  storage, onConnectCloudDirect,
+  needsUploadPrompt, onConfirmUploadPrompt, onCancelUploadPrompt,
+  storage,
 }: StorageSectionProps) {
   // Inline confirmation state — replaces window.confirm() (v12.0.1)
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
@@ -93,10 +92,10 @@ export function StorageSection({
     await onModeChange('cloud');
   };
 
-  // User chose to skip upload — connect to cloud without uploading (v12.1 fix)
-  const skipUpload = async () => {
+  // User chose to cancel — stay in local mode (v12.3 fix)
+  const cancelUpload = () => {
     setShowUploadConfirm(false);
-    await onConnectCloudDirect();
+    // Stay in local mode — do NOT switch to cloud without uploading
   };
 
   // Show cleanup confirmation when upload completes with results
@@ -180,7 +179,7 @@ export function StorageSection({
           colors={colors}
           buttons={[
             { label: 'Upload to Cloud', onClick: confirmUpload, variant: 'primary', disabled: isSwitching },
-            { label: 'Skip \u2014 Connect Without Uploading', onClick: skipUpload, variant: 'secondary', disabled: isSwitching },
+            { label: 'Cancel', onClick: cancelUpload, variant: 'secondary', disabled: isSwitching },
           ]}
         />
       )}
@@ -205,7 +204,7 @@ export function StorageSection({
           colors={colors}
           buttons={[
             { label: 'Upload to Cloud', onClick: onConfirmUploadPrompt, variant: 'primary', disabled: isSwitching },
-            { label: 'Skip \u2014 Connect Without Uploading', onClick: onSkipUploadPrompt, variant: 'secondary', disabled: isSwitching },
+            { label: 'Cancel', onClick: onCancelUploadPrompt, variant: 'secondary', disabled: isSwitching },
           ]}
         />
       )}

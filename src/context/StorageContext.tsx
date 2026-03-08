@@ -1,7 +1,7 @@
 // Storage Context — provides GanttStorageService to the app
 // Supports local → cloud one-way upload with existence-based dedup (v12.0).
 // Cloud is the source of truth — no cloud→local download on sign-out.
-// v12.1: Added connectToCloudDirect (skip upload), fixed skipUploadPrompt persist.
+// v12.3: Replaced skip/connectToCloudDirect with cancelUploadPrompt (stays in local mode).
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GanttStorageService, StorageMode } from '../shared/types/storage';
@@ -31,8 +31,7 @@ interface StorageContextType {
   clearUploadResult: () => void;
   needsUploadPrompt: { projectCount: number } | null;
   confirmUploadPrompt: () => Promise<void>;
-  skipUploadPrompt: () => Promise<void>;
-  connectToCloudDirect: () => Promise<void>;
+  cancelUploadPrompt: () => void;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -121,27 +120,12 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // Connect to cloud without uploading local data.
-  // Used by: skipUploadPrompt (re-sign-in flow) and StorageSection's "Skip" button.
-  const connectToCloudDirect = useCallback(async () => {
-    if (!db || !user) return;
-
-    localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
-
-    const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid);
-    cloudService.createUserProfile(
-      sanitizeString(user.displayName ?? 'Unknown'),
-      sanitizeString(user.email ?? '')
-    ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
-    setStorage(cloudService);
-  }, [user]);
-
-  // Handle user skipping the upload prompt — connect to cloud without uploading
-  const skipUploadPrompt = useCallback(async () => {
-    if (!db || !user) return;
+  // Handle user cancelling the upload prompt — stay in local mode (v12.3)
+  const cancelUploadPrompt = useCallback(() => {
     setNeedsUploadPrompt(null);
-    await connectToCloudDirect();
-  }, [user, connectToCloudDirect]);
+    // Revert stored mode to 'local' since we're not connecting to cloud
+    localStorage.setItem(STORAGE_MODE_KEY, 'local');
+  }, []);
 
   const switchMode = useCallback(async (newMode: StorageMode): Promise<UploadResult | void> => {
     setIsSwitching(true);
@@ -196,8 +180,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       clearUploadResult,
       needsUploadPrompt,
       confirmUploadPrompt,
-      skipUploadPrompt,
-      connectToCloudDirect,
+      cancelUploadPrompt,
     }}>
       {children}
     </StorageContext>

@@ -151,41 +151,34 @@ describe('StorageContext', () => {
     expect(result.current.needsUploadPrompt).toBeNull();
   });
 
-  it('exposes confirmUploadPrompt and skipUploadPrompt functions', () => {
+  it('exposes confirmUploadPrompt and cancelUploadPrompt functions', () => {
     const { result } = renderHook(() => useStorage(), { wrapper });
     expect(typeof result.current.confirmUploadPrompt).toBe('function');
-    expect(typeof result.current.skipUploadPrompt).toBe('function');
+    expect(typeof result.current.cancelUploadPrompt).toBe('function');
   });
 
-  // v12.1: connectToCloudDirect
-  it('exposes connectToCloudDirect function', () => {
-    const { result } = renderHook(() => useStorage(), { wrapper });
-    expect(typeof result.current.connectToCloudDirect).toBe('function');
-  });
-
-  it('connectToCloudDirect is a no-op when db or user is null', async () => {
+  // v12.3: cancelUploadPrompt replaces skipUploadPrompt + connectToCloudDirect
+  it('cancelUploadPrompt reverts stored mode to local', () => {
+    localStorage.setItem('ganttapp-storage-mode', 'cloud');
     const { result } = renderHook(() => useStorage(), { wrapper });
 
-    // Should not throw or change mode — db and user are both null in this mock
-    await act(async () => {
-      await result.current.connectToCloudDirect();
+    act(() => {
+      result.current.cancelUploadPrompt();
     });
 
-    // Mode should still be local
+    // Mode stays local, stored mode reverted
     expect(result.current.mode).toBe('local');
+    expect(localStorage.getItem('ganttapp-storage-mode')).toBe('local');
   });
 
-  it('skipUploadPrompt is a no-op when db or user is null', async () => {
+  it('cancelUploadPrompt clears needsUploadPrompt', () => {
     const { result } = renderHook(() => useStorage(), { wrapper });
 
-    // Should not throw — db and user are both null in this mock
-    await act(async () => {
-      await result.current.skipUploadPrompt();
+    act(() => {
+      result.current.cancelUploadPrompt();
     });
 
-    // Mode should still be local, no localStorage key set
-    expect(result.current.mode).toBe('local');
-    expect(localStorage.getItem('ganttapp-storage-mode')).toBeNull();
+    expect(result.current.needsUploadPrompt).toBeNull();
   });
 
   it('confirmUploadPrompt is a no-op when db or user is null', async () => {

@@ -45,9 +45,8 @@ function renderSection(overrides: Record<string, unknown> = {}) {
     onClearUploadResult: vi.fn(),
     needsUploadPrompt: null,
     onConfirmUploadPrompt: vi.fn(),
-    onSkipUploadPrompt: vi.fn(),
+    onCancelUploadPrompt: vi.fn(),
     storage: mockStorage,
-    onConnectCloudDirect: vi.fn(),
   };
   const props = { ...defaultProps, ...overrides };
   return render(<StorageSection {...props} />);
@@ -115,7 +114,7 @@ describe('StorageSection', () => {
     fireEvent.click(cloudRadio);
 
     expect(screen.getByText('Upload to Cloud')).toBeInTheDocument();
-    expect(screen.getByText(/Connect Without Uploading/)).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
 
   it('calls onModeChange when clicking Cloud radio with no local data', () => {
@@ -149,25 +148,23 @@ describe('StorageSection', () => {
     expect(onModeChange).toHaveBeenCalledWith('cloud');
   });
 
-  it('calls onConnectCloudDirect when Skip is clicked (v12.1 bug fix)', async () => {
+  it('dismisses dialog and stays in local mode when Cancel is clicked (v12.3 fix)', () => {
     localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
-    const onConnectCloudDirect = vi.fn();
     const onModeChange = vi.fn();
 
-    renderSection({ user: mockUser, isAuthenticated: true, onConnectCloudDirect, onModeChange });
+    renderSection({ user: mockUser, isAuthenticated: true, onModeChange });
 
     // Click Cloud radio to show confirmation
     const radios = screen.getAllByRole('radio');
     const cloudRadio = radios.find(r => (r as HTMLInputElement).value === 'cloud') as HTMLInputElement;
     fireEvent.click(cloudRadio);
 
-    // Click Skip — should call onConnectCloudDirect, NOT onModeChange
-    await act(async () => {
-      fireEvent.click(screen.getByText(/Connect Without Uploading/));
-    });
+    // Click Cancel — should NOT call onModeChange, should dismiss dialog
+    fireEvent.click(screen.getByText('Cancel'));
 
-    expect(onConnectCloudDirect).toHaveBeenCalledOnce();
     expect(onModeChange).not.toHaveBeenCalled();
+    // Dialog should be dismissed
+    expect(screen.queryByText('Upload to Cloud')).not.toBeInTheDocument();
   });
 
   // === Cleanup confirmation ===
@@ -240,15 +237,15 @@ describe('StorageSection', () => {
     expect(onConfirmUploadPrompt).toHaveBeenCalledOnce();
   });
 
-  it('calls onSkipUploadPrompt when Skip button is clicked in re-sign-in prompt', () => {
-    const onSkipUploadPrompt = vi.fn();
+  it('calls onCancelUploadPrompt when Cancel is clicked in re-sign-in prompt (v12.3)', () => {
+    const onCancelUploadPrompt = vi.fn();
     renderSection({
       needsUploadPrompt: { projectCount: 3 },
-      onSkipUploadPrompt,
+      onCancelUploadPrompt,
     });
 
-    fireEvent.click(screen.getByText(/Connect Without Uploading/));
-    expect(onSkipUploadPrompt).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(onCancelUploadPrompt).toHaveBeenCalledOnce();
   });
 
   // === Auth UI ===

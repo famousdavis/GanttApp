@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.3',
+    date: 'March 8, 2026',
+    items: [
+      <><strong>Bug Fix</strong> &mdash; Cloud sync no longer replaces local data with empty cloud results &mdash; guards added to both initial load and real-time sync to prevent silent data loss</>,
+      <><strong>Bug Fix</strong> &mdash; &ldquo;Skip &mdash; Connect Without Uploading&rdquo; replaced with &ldquo;Cancel&rdquo; that stays in local mode, preventing data loss when cloud has no data</>,
+      <><strong>UX</strong> &mdash; Cancelling the upload prompt during re-sign-in now reverts stored mode to local instead of switching to cloud without data</>,
+    ],
+  },
+  {
     version: '12.2',
     date: 'February 22, 2026',
     items: [

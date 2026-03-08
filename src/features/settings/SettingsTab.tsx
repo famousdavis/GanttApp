@@ -16,8 +16,7 @@ export function SettingsTab() {
   const {
     storage, mode, switchMode, isSwitching, switchError,
     uploadResult, clearUploadResult,
-    needsUploadPrompt, confirmUploadPrompt, skipUploadPrompt,
-    connectToCloudDirect,
+    needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
   } = useStorage();
   const { exportAttribution, setExportAttribution } = useAppData();
 
@@ -75,9 +74,8 @@ export function SettingsTab() {
         onClearUploadResult={clearUploadResult}
         needsUploadPrompt={needsUploadPrompt}
         onConfirmUploadPrompt={confirmUploadPrompt}
-        onSkipUploadPrompt={skipUploadPrompt}
+        onCancelUploadPrompt={cancelUploadPrompt}
         storage={storage}
-        onConnectCloudDirect={connectToCloudDirect}
       />
 
       <ExportAttributionSection

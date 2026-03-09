@@ -224,7 +224,7 @@ function AppContent() {
             }}
             title={`Theme: ${mode} (click to change)`}
           >
-            {resolvedTheme === 'dark' ? '☀️' : '🌙'}
+            {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
           </button>
         </header>
 

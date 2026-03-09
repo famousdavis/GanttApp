@@ -63,6 +63,31 @@ export function AboutTab() {
       </section>
 
       <section style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Quick Start Guide</h3>
+        <p style={{ lineHeight: '1.6', color: colors.textSecondary, marginBottom: '0.5rem' }}>
+          New to GanttApp? Our quick reference guide covers creating projects, adding releases,
+          reading the chart, and using snapshots.
+        </p>
+        <a
+          href="https://github.com/famousdavis/GanttApp/raw/main/GanttApp_Quick_Reference_Guide.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-block',
+            padding: '0.75rem 1.5rem',
+            background: '#0070f3',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            fontWeight: '600',
+            marginTop: '0.5rem'
+          }}
+        >
+          Download Quick Reference Guide (PDF)
+        </a>
+      </section>
+
+      <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Author & Source Code</h3>
         <p style={{ lineHeight: '1.6', color: colors.textSecondary, marginBottom: '0.5rem' }}>
           Created by <strong>William W. Davis, MSPM, PMP</strong>

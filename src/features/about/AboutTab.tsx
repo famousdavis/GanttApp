@@ -65,7 +65,7 @@ export function AboutTab() {
       <section style={{ marginBottom: '2rem' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Quick Start Guide</h3>
         <p style={{ lineHeight: '1.6', color: colors.textSecondary, marginBottom: '0.5rem' }}>
-          New to GanttApp? Our quick reference guide covers creating projects, adding releases,
+          New to GanttApp? My quick reference guide covers creating projects, adding releases,
           reading the chart, and using snapshots.
         </p>
         <a

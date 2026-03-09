@@ -190,7 +190,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 12.3</title>
+        <title>GanttApp - Version 12.4</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -325,7 +325,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 12.3
+            Version 12.4
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.4',
+    date: 'March 8, 2026',
+    items: [
+      <><strong>Docs</strong> &mdash; Added Quick Start Guide section to the About tab with a downloadable PDF covering project creation, releases, chart reading, and snapshots</>,
+    ],
+  },
+  {
     version: '12.3',
     date: 'March 8, 2026',
     items: [

@@ -78,6 +78,16 @@ describe('firestore-converters', () => {
       const meta = projectToFirestoreMeta(project, 'uid-1');
       expect(meta.finishDate).toBeNull();
     });
+
+    it('includes order when provided', () => {
+      const meta = projectToFirestoreMeta(mockProject, 'uid-1', undefined, 3);
+      expect(meta.order).toBe(3);
+    });
+
+    it('omits order when not provided', () => {
+      const meta = projectToFirestoreMeta(mockProject, 'uid-1');
+      expect(meta.order).toBeUndefined();
+    });
   });
 
   // --- releaseToFirestore ---

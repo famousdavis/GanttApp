@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '12.5',
+    date: 'March 9, 2026',
+    items: [
+      <><strong>Bug Fix</strong> &mdash; Drag-and-drop release reordering now persists to Firestore in cloud mode (was silently lost on reload because diff-based saves only checked content fields, not array position)</>,
+      <><strong>Bug Fix</strong> &mdash; Drag-and-drop project reordering now persists to Firestore in cloud mode (added <code>order</code> field to project documents)</>,
+    ],
+  },
+  {
     version: '12.4',
     date: 'March 8, 2026',
     items: [

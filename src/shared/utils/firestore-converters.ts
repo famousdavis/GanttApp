@@ -20,7 +20,8 @@ import { sanitizeId } from './validation';
 export function projectToFirestoreMeta(
   project: Project,
   uid: string,
-  existingMeta?: Partial<FirestoreProjectMeta>
+  existingMeta?: Partial<FirestoreProjectMeta>,
+  order?: number
 ): FirestoreProjectMeta {
   const now = new Date().toISOString();
   return {
@@ -28,6 +29,7 @@ export function projectToFirestoreMeta(
     owner: existingMeta?.owner ?? uid,
     members: existingMeta?.members ?? { [uid]: 'owner' },
     ...(project.finishDate ? { finishDate: project.finishDate } : { finishDate: null }),
+    ...(order !== undefined && { order }),
     schemaVersion: 1,
     _originRef: existingMeta?._originRef ?? `uid:${uid}`,
     _changeLog: existingMeta?._changeLog ?? [],

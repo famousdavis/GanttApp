@@ -14,6 +14,7 @@ export interface FirestoreProjectMeta {
   owner: string;                        // Firebase uid
   members: Record<string, ProjectRole>; // { uid: 'owner' | 'editor' | 'viewer' }
   finishDate?: string | null;           // YYYY-MM-DD or null if not set
+  order?: number;                       // Display order (0-based), added v12.5
   schemaVersion: number;                // starts at 1
   _originRef?: string;                  // e.g., "uid:abc123"
   _changeLog?: ChangeLogEntry[];        // capped at 50 entries per project (oldest trimmed on overflow)

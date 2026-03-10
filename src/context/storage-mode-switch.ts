@@ -99,10 +99,10 @@ export async function switchToCloudMode(
     if (projectsToUpload.length > 0) {
       const projectBatch: WriteBatch = writeBatch(firestore);
 
-      for (const { project, targetId } of projectsToUpload) {
-        const meta = projectToFirestoreMeta({ ...project, id: targetId }, user.uid);
+      projectsToUpload.forEach(({ project, targetId }, index) => {
+        const meta = projectToFirestoreMeta({ ...project, id: targetId }, user.uid, undefined, index);
         projectBatch.set(doc(firestore, `ganttapp_projects/${targetId}`), meta);
-      }
+      });
 
       // Upload user settings (same batch — no subcollection dependency)
       projectBatch.set(

@@ -99,6 +99,9 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         }
       }
 
+      // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
+      projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
+
       // Step 2: Load releases for each project
       const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
       for (const project of projects) {

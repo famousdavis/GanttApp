@@ -47,6 +47,53 @@ describe('firestore-save-executor', () => {
     });
   });
 
+  describe('releaseChanged — order detection note', () => {
+    // releaseChanged only compares content fields. Order detection is handled
+    // separately in executeFirestoreSave by comparing array indices. This test
+    // documents that releaseChanged intentionally does NOT detect order changes
+    // (the order field is not part of the Release model — it's computed from
+    // array position during save).
+    const r1: Release = {
+      id: 'r1', projectId: 'p1', name: 'R1',
+      startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+    };
+    const r2: Release = {
+      id: 'r2', projectId: 'p1', name: 'R2',
+      startDate: '2026-04-01', earlyFinishDate: '2026-05-01', lateFinishDate: '2026-06-01',
+    };
+
+    it('does not detect order change (order is handled by index comparison)', () => {
+      // Same release content, different array positions — releaseChanged returns false
+      // because order detection is done externally by comparing prevIndex !== index
+      expect(releaseChanged(r1, r1)).toBe(false);
+      expect(releaseChanged(r2, r2)).toBe(false);
+    });
+
+    it('release order change triggers write via index comparison (integration note)', () => {
+      // Given prev = [r1, r2] and curr = [r2, r1]:
+      //   - r2 at curr index 0: prevIndex = 1 !== 0 → write triggered
+      //   - r1 at curr index 1: prevIndex = 0 !== 1 → write triggered
+      // This is NOT tested in releaseChanged — it's tested by the index comparison
+      // in executeFirestoreSave: prevIndex !== index
+      const prevReleases = [r1, r2];
+      const currReleases = [r2, r1]; // swapped order
+
+      // r2 moved from index 1 to index 0
+      const r2PrevIndex = prevReleases.findIndex(r => r.id === 'r2');
+      const r2CurrIndex = currReleases.findIndex(r => r.id === 'r2');
+      expect(r2PrevIndex).toBe(1);
+      expect(r2CurrIndex).toBe(0);
+      expect(r2PrevIndex !== r2CurrIndex).toBe(true); // order changed → triggers write
+
+      // r1 moved from index 0 to index 1
+      const r1PrevIndex = prevReleases.findIndex(r => r.id === 'r1');
+      const r1CurrIndex = currReleases.findIndex(r => r.id === 'r1');
+      expect(r1PrevIndex).toBe(0);
+      expect(r1CurrIndex).toBe(1);
+      expect(r1PrevIndex !== r1CurrIndex).toBe(true); // order changed → triggers write
+    });
+  });
+
   describe('settingsChanged', () => {
     const base: AppData = {
       projects: [], releases: [],

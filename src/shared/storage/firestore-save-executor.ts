@@ -72,12 +72,12 @@ export async function executeFirestoreSave(
   const newProjectBatch = writeBatch(db);
   let hasNewProjects = false;
 
-  for (const project of data.projects) {
+  data.projects.forEach((project, projectIndex) => {
     if (!prevProjectIdList.includes(project.id)) {
       newProjectIds.add(project.id);
       hasNewProjects = true;
       const projectRef = doc(db, `ganttapp_projects/${project.id}`);
-      const meta = projectToFirestoreMeta(project, uid);
+      const meta = projectToFirestoreMeta(project, uid, undefined, projectIndex);
       meta._changeLog = appendChangeLogEntry([], {
         timestamp: new Date().toISOString(),
         uid,
@@ -86,7 +86,7 @@ export async function executeFirestoreSave(
       });
       newProjectBatch.set(projectRef, meta);
     }
-  }
+  });
 
   if (hasNewProjects) {
     await newProjectBatch.commit();
@@ -95,18 +95,23 @@ export async function executeFirestoreSave(
   // Phase 2: All other operations (updates, releases, deletions, settings).
   const batch = writeBatch(db);
 
-  for (const project of data.projects) {
+  for (let projectIndex = 0; projectIndex < data.projects.length; projectIndex++) {
+    const project = data.projects[projectIndex];
     const projectRef = doc(db, `ganttapp_projects/${project.id}`);
 
     if (!newProjectIds.has(project.id)) {
-      // Existing project — check if name/finishDate changed
+      // Existing project — check if name/finishDate/order changed
       const prevProject = prev?.projects.find(p => p.id === project.id);
-      if (prevProject && (prevProject.name !== project.name || prevProject.finishDate !== project.finishDate)) {
+      const prevProjectIndex = prev?.projects.findIndex(p => p.id === project.id) ?? -1;
+      const contentChanged = prevProject && (prevProject.name !== project.name || prevProject.finishDate !== project.finishDate);
+      const orderChanged = prevProjectIndex !== projectIndex;
+
+      if (contentChanged || orderChanged) {
         // Load existing meta to preserve members/changelog
         const existingSnap = await getDoc(projectRef);
         if (existingSnap.exists()) {
           const existingMeta = existingSnap.data() as FirestoreProjectMeta;
-          const updated = projectToFirestoreMeta(project, uid, existingMeta);
+          const updated = projectToFirestoreMeta(project, uid, existingMeta, projectIndex);
           updated._changeLog = appendChangeLogEntry(updated._changeLog ?? [], {
             timestamp: new Date().toISOString(),
             uid,
@@ -124,12 +129,13 @@ export async function executeFirestoreSave(
     const prevReleaseIdList = prevReleases.map(r => r.id);
     const currReleaseIdSet = new Set(currReleases.map(r => r.id));
 
-    // Add or update releases
+    // Add or update releases (includes order change detection)
     currReleases.forEach((release, index) => {
       const releaseRef = doc(db, `ganttapp_projects/${project.id}/releases/${release.id}`);
       const prevRelease = prevReleases.find(r => r.id === release.id);
+      const prevIndex = prevReleases.findIndex(r => r.id === release.id);
 
-      if (!prevReleaseIdList.includes(release.id) || releaseChanged(prevRelease, release)) {
+      if (!prevReleaseIdList.includes(release.id) || releaseChanged(prevRelease, release) || prevIndex !== index) {
         batch.set(releaseRef, releaseToFirestore(release, index));
       }
     });

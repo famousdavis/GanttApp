@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 // Storage Context — provides GanttStorageService to the app
 // Supports local → cloud one-way upload with existence-based dedup (v12.0).
 // Cloud is the source of truth — no cloud→local download on sign-out.

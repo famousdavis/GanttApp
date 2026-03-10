@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChangelogTab } from '../ChangelogTab';
@@ -30,9 +34,9 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 12.5, second 12.4, etc.
-    expect(versionTexts[0]).toContain('12.5');
-    expect(versionTexts[1]).toContain('12.4');
+    // First version heading should be 12.6, second 12.5, etc.
+    expect(versionTexts[0]).toContain('12.6');
+    expect(versionTexts[1]).toContain('12.5');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });

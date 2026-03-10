@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 // Storage section — Local/Cloud radio buttons with integrated auth UI
 // Cloud radio is disabled until the user signs in (SPERT Story Map pattern).
 // v12.0: Inline upload/cleanup confirmations, upload prompt for re-sign-in, Download All Projects button.

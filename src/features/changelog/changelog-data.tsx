@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 // Changelog data — version entries rendered by ChangelogTab.
 // To add a new version: insert an entry at the TOP of the array.
 
@@ -10,6 +14,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: '12.6',
+    date: 'March 9, 2026',
+    items: [
+      <><strong>Improvement</strong> &mdash; Added copyright headers to all 117 human-authored source files (GNU GPL v3 attribution)</>,
+      <><strong>Improvement</strong> &mdash; Strengthened LICENSE file with author attribution block and Section 7 additional terms (Attribution Preservation, UI Notice Preservation)</>,
+    ],
+  },
   {
     version: '12.5',
     date: 'March 9, 2026',

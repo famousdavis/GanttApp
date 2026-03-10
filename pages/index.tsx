@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 import { useState, useMemo, useCallback } from 'react';
 import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
 import Head from 'next/head';
@@ -190,7 +194,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 12.5</title>
+        <title>GanttApp - Version 12.6</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -325,7 +329,7 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 12.5
+            Version 12.6
           </button>
           {' '}| Licensed under GNU GPL v3
         </footer>

@@ -143,7 +143,7 @@ export function useReleases() {
     const newRelease: Release = {
       id: generateId(),
       projectId: original.projectId,
-      name: `${original.name} (copy)`,
+      name: sanitizeString(`${original.name} (copy)`),
       startDate: formatDateISO(newStartMs),
       earlyFinishDate: formatDateISO(newStartMs + earlyOffsetMs),
       lateFinishDate: formatDateISO(newStartMs + lateOffsetMs),

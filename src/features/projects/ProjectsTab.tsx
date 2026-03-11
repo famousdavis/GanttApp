@@ -203,6 +203,7 @@ export function ProjectsTab({
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (editingProjectId ? updateProject() : addProject(selectedProjectId, setSelectedProjectId))}
+              maxLength={100}
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',

@@ -129,6 +129,7 @@ export function ReleasesTab({
               placeholder="Release name"
               value={releaseName}
               onChange={(e) => setReleaseName(e.target.value)}
+              maxLength={100}
               style={{
                 padding: '0.75rem',
                 fontSize: '1rem',

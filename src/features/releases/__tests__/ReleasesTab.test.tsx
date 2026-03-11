@@ -289,14 +289,14 @@ describe('ReleasesTab', () => {
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
       });
 
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderReleasesTab();
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
       fireEvent.click(screen.getByText('Delete'));
 
-      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Sprint 1'));
+      expect(screen.getByText('Delete Release')).toBeTruthy();
+      expect(screen.getByText(/Delete release "Sprint 1"/)).toBeTruthy();
     });
 
     it('deletes release when confirmed', async () => {
@@ -305,12 +305,15 @@ describe('ReleasesTab', () => {
         releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
       });
 
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderReleasesTab();
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
       fireEvent.click(screen.getByText('Delete'));
+
+      // Click the Delete button in the ConfirmDialog
+      const deleteButtons = screen.getAllByText('Delete');
+      fireEvent.click(deleteButtons[deleteButtons.length - 1]);
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.releases).toHaveLength(0);

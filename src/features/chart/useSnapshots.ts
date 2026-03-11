@@ -88,22 +88,12 @@ export function useSnapshots(selectedProjectId: string) {
     }
   }, [selectedProjectId, storage]);
 
-  // Delete a snapshot
+  // Delete a snapshot (caller is responsible for confirmation UI)
   const handleDeleteSnapshot = useCallback(async (snapshotId: string) => {
-    const snap = allSnapshots.find(s => s.id === snapshotId);
-    const label = snap ? `"${snap.name}"` : 'this snapshot';
-    const dateStr = snap ? new Date(snap.timestamp).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    }) : '';
-
-    if (!window.confirm(`Delete snapshot ${label}${dateStr ? ` (${dateStr})` : ''}?`)) {
-      return;
-    }
-
     const updated = await storage.deleteSnapshot(snapshotId);
     setAllSnapshots(updated);
     setActiveSnapshotId(null);
-  }, [allSnapshots, storage]);
+  }, [storage]);
 
   // For export: expose the raw setter so import can replace all snapshots
   const replaceAllSnapshots = useCallback(async (snapshots: Snapshot[]) => {

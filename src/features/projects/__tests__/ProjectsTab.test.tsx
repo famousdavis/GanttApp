@@ -256,14 +256,14 @@ describe('ProjectsTab', () => {
         releases: [],
       });
 
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderProjectsTab();
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeTruthy();
       });
       fireEvent.click(screen.getByText('Delete'));
 
-      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Alpha'));
+      expect(screen.getByText('Delete Project')).toBeTruthy();
+      expect(screen.getByText(/Delete project "Alpha"/)).toBeTruthy();
     });
 
     it('deletes project when confirmed', async () => {
@@ -272,12 +272,15 @@ describe('ProjectsTab', () => {
         releases: [],
       });
 
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderProjectsTab();
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeTruthy();
       });
       fireEvent.click(screen.getByText('Delete'));
+
+      // Click the Delete button in the ConfirmDialog
+      const deleteButtons = screen.getAllByText('Delete');
+      fireEvent.click(deleteButtons[deleteButtons.length - 1]);
 
       await waitFor(() => {
         const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -291,12 +294,14 @@ describe('ProjectsTab', () => {
         releases: [],
       });
 
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderProjectsTab();
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeTruthy();
       });
       fireEvent.click(screen.getByText('Delete'));
+
+      // Click Cancel in the ConfirmDialog
+      fireEvent.click(screen.getByText('Cancel'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.projects).toHaveLength(1);

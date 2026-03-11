@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.1',
+    date: 'March 11, 2026',
+    items: [
+      <><strong>Improvement</strong> &mdash; Replaced all remaining <code>window.confirm()</code> calls with styled <code>ConfirmDialog</code> component for consistent UX across project delete, release delete, member removal, and snapshot delete</>,
+      <><strong>Improvement</strong> &mdash; Updated dependencies to latest within semver ranges: firebase 12.10.0, eslint 9.39.4, @types/react 19.2.14, @vitejs/plugin-react 5.1.4, firebase-tools 15.9.1</>,
+    ],
+  },
+  {
     version: '13.0',
     date: 'March 11, 2026',
     items: [

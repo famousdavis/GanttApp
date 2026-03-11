@@ -249,9 +249,8 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots).toHaveLength(0);
   });
 
-  it('deletes a snapshot with confirmation', async () => {
+  it('deletes a snapshot directly (confirmation handled by caller)', async () => {
     localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot, testSnapshot2]));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
@@ -270,23 +269,6 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots).toHaveLength(1);
     expect(result.current.snapshots[0].id).toBe('snap2');
     expect(result.current.activeSnapshotId).toBeNull();
-  });
-
-  it('does not delete when user cancels confirmation', async () => {
-    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot]));
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.snapshots).toHaveLength(1);
-    });
-
-    await act(async () => {
-      await result.current.deleteSnapshot('snap1');
-    });
-
-    expect(result.current.snapshots).toHaveLength(1);
   });
 
   it('replaces all snapshots', async () => {

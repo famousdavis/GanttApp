@@ -13,7 +13,20 @@ const mockSignOut = vi.fn();
 
 vi.mock('../../lib/firebase', () => ({
   auth: { currentUser: null },
+  db: {},
   isFirebaseAvailable: true,
+}));
+
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  getDoc: vi.fn(),
+  setDoc: vi.fn(),
+  serverTimestamp: vi.fn(() => ({ _type: 'serverTimestamp' })),
+}));
+
+vi.mock('../../lib/version', () => ({
+  TOS_VERSION: '03-11-2026',
+  APP_ID: 'ganttapp',
 }));
 
 vi.mock('firebase/auth', () => {
@@ -70,14 +83,18 @@ describe('AuthContext', () => {
     expect(result.current.isAuthenticated).toBe(false);
   });
 
-  it('sets user and loading=false after auth state resolves', () => {
-    const mockUser = { uid: 'test-uid', email: 'test@example.com' };
+  it('sets user and loading=false after auth state resolves', async () => {
+    const mockUser = { uid: 'test-uid', email: 'test@example.com', providerData: [{ providerId: 'google.com' }] };
     mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: typeof mockUser) => void) => {
       callback(mockUser);
       return vi.fn();
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
+    // Wait for async ToS resolution to complete
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
     expect(result.current.user).toEqual(mockUser);
     expect(result.current.loading).toBe(false);
     expect(result.current.isAuthenticated).toBe(true);

@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 13.1 (2026-03-11)
+- Replaced all remaining window.confirm() calls with styled ConfirmDialog component (project delete, release delete, member removal, snapshot delete)
+- Updated dependencies: @types/react 19.2.14, @vitejs/plugin-react 5.1.4, eslint 9.39.4, firebase 12.10.0, firebase-tools 15.9.1
+- Synced package.json version to 13.1.0
+
 ## Version 13.0 (2026-03-11)
 - Added Terms of Service and Privacy Policy links to persistent footer (browsewrap notice)
 - Added first-run informational banner for new users (dismissible, non-blocking)

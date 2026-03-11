@@ -109,13 +109,20 @@ describe('SnapshotBar', () => {
     expect(onSave).toHaveBeenCalledOnce();
   });
 
-  it('calls onDeleteSnapshot when delete button is clicked', () => {
+  it('shows confirmation dialog and calls onDeleteSnapshot when confirmed', () => {
     const onDelete = vi.fn();
     renderWithTheme(
       <SnapshotBar {...defaultProps} activeSnapshotId="snap1" onDeleteSnapshot={onDelete} />
     );
 
     fireEvent.click(screen.getByTitle('Delete this snapshot'));
+
+    // ConfirmDialog should appear
+    expect(screen.getByText('Delete Snapshot')).toBeInTheDocument();
+    expect(screen.getByText(/Delete snapshot "Sprint 1"/)).toBeInTheDocument();
+
+    // Confirm deletion
+    fireEvent.click(screen.getByText('Delete'));
     expect(onDelete).toHaveBeenCalledWith('snap1');
   });
 

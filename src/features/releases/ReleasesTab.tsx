@@ -4,12 +4,13 @@
 
 // Releases Tab component with form and list
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, formatDateLocale } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
 interface ReleasesTabProps {
@@ -54,6 +55,8 @@ export function ReleasesTab({
     toggleReleaseCompleted,
     duplicateRelease
   } = useReleases();
+
+  const [deleteConfirmReleaseId, setDeleteConfirmReleaseId] = useState<string | null>(null);
 
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
@@ -406,11 +409,7 @@ export function ReleasesTab({
                   Edit
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete release "${release.name}"?`)) {
-                      deleteRelease(release.id);
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmReleaseId(release.id)}
                   style={{
                     padding: '0.5rem 1rem',
                     background: colors.buttonBg,
@@ -428,6 +427,34 @@ export function ReleasesTab({
           ))}
         </div>
       )}
+
+      {/* Delete release confirmation modal */}
+      {deleteConfirmReleaseId && (() => {
+        const release = currentReleases.find(r => r.id === deleteConfirmReleaseId);
+        return release ? (
+          <ConfirmDialog
+            modal
+            title="Delete Release"
+            message={`Delete release "${release.name}"?`}
+            colors={colors}
+            buttons={[
+              {
+                label: 'Cancel',
+                variant: 'secondary',
+                onClick: () => setDeleteConfirmReleaseId(null),
+              },
+              {
+                label: 'Delete',
+                variant: 'danger',
+                onClick: () => {
+                  deleteRelease(release.id);
+                  setDeleteConfirmReleaseId(null);
+                },
+              },
+            ]}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

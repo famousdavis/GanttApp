@@ -44,6 +44,7 @@ export function ProjectsTab({
   const { user } = useAuth();
   const { storage } = useStorage();
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
+  const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
   const isCloudMode = storage.mode === 'cloud';
   const {
     projectName,
@@ -386,11 +387,7 @@ export function ProjectsTab({
                   Edit
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete project "${project.name}"? This will also delete all its releases.`)) {
-                      deleteProject(project.id, selectedProjectId, setSelectedProjectId);
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmProjectId(project.id)}
                   style={{
                     padding: '0.5rem 1rem',
                     background: colors.buttonBg,
@@ -418,6 +415,34 @@ export function ProjectsTab({
             projectName={project.name}
             cloudStorage={storage as CloudGanttStorageService}
             onClose={() => setShareProjectId(null)}
+          />
+        ) : null;
+      })()}
+
+      {/* Delete project confirmation modal */}
+      {deleteConfirmProjectId && (() => {
+        const project = data.projects.find(p => p.id === deleteConfirmProjectId);
+        return project ? (
+          <ConfirmDialog
+            modal
+            title="Delete Project"
+            message={`Delete project "${project.name}"? This will also delete all its releases.`}
+            colors={colors}
+            buttons={[
+              {
+                label: 'Cancel',
+                variant: 'secondary',
+                onClick: () => setDeleteConfirmProjectId(null),
+              },
+              {
+                label: 'Delete',
+                variant: 'danger',
+                onClick: () => {
+                  deleteProject(deleteConfirmProjectId, selectedProjectId, setSelectedProjectId);
+                  setDeleteConfirmProjectId(null);
+                },
+              },
+            ]}
           />
         ) : null;
       })()}

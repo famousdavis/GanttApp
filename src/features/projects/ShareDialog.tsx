@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import type { CloudGanttStorageService } from '../../shared/storage';
 import type { ProjectRole } from '../../shared/types/firestore';
 
@@ -30,6 +31,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [removeMemberUid, setRemoveMemberUid] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,8 +70,8 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
     }
   };
 
-  const handleRemove = async (uid: string) => {
-    if (!confirm('Remove this member from the project?')) return;
+  const confirmRemoveMember = async (uid: string) => {
+    setRemoveMemberUid(null);
     setError(null);
     setActionLoading(true);
     try {
@@ -214,7 +216,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
                   </div>
                   {member.role !== 'owner' && (
                     <button
-                      onClick={() => handleRemove(member.uid)}
+                      onClick={() => setRemoveMemberUid(member.uid)}
                       disabled={actionLoading}
                       style={{
                         padding: '0.25rem 0.5rem',
@@ -234,6 +236,28 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
             </div>
           )}
         </div>
+
+        {/* Remove member confirmation modal */}
+        {removeMemberUid && (
+          <ConfirmDialog
+            modal
+            title="Remove Member"
+            message="Remove this member from the project?"
+            colors={colors}
+            buttons={[
+              {
+                label: 'Cancel',
+                variant: 'secondary',
+                onClick: () => setRemoveMemberUid(null),
+              },
+              {
+                label: 'Remove',
+                variant: 'danger',
+                onClick: () => confirmRemoveMember(removeMemberUid),
+              },
+            ]}
+          />
+        )}
 
         {/* Close button */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

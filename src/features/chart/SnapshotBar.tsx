@@ -4,8 +4,10 @@
 
 // Snapshot navigation bar for the Gantt chart
 
+import { useState } from 'react';
 import { Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 
 interface SnapshotBarProps {
   snapshots: Snapshot[];
@@ -23,6 +25,7 @@ export function SnapshotBar({
   onDeleteSnapshot
 }: SnapshotBarProps) {
   const { colors } = useTheme();
+  const [deleteConfirmSnapshotId, setDeleteConfirmSnapshotId] = useState<string | null>(null);
   const isCurrentView = activeSnapshotId === null;
 
   const chipStyle = (isActive: boolean) => ({
@@ -108,7 +111,7 @@ export function SnapshotBar({
         {/* Delete button — only when viewing a historical snapshot */}
         {!isCurrentView && activeSnapshotId && (
           <button
-            onClick={() => onDeleteSnapshot(activeSnapshotId)}
+            onClick={() => setDeleteConfirmSnapshotId(activeSnapshotId)}
             style={{
               padding: '0.35rem 0.75rem',
               border: `1px solid ${colors.borderLight}`,
@@ -128,6 +131,38 @@ export function SnapshotBar({
           </button>
         )}
       </div>
+
+      {/* Delete snapshot confirmation modal */}
+      {deleteConfirmSnapshotId && (() => {
+        const snap = snapshots.find(s => s.id === deleteConfirmSnapshotId);
+        const label = snap ? `"${snap.name}"` : 'this snapshot';
+        const dateStr = snap ? new Date(snap.timestamp).toLocaleDateString('en-US', {
+          year: 'numeric', month: 'short', day: 'numeric'
+        }) : '';
+        return (
+          <ConfirmDialog
+            modal
+            title="Delete Snapshot"
+            message={`Delete snapshot ${label}${dateStr ? ` (${dateStr})` : ''}?`}
+            colors={colors}
+            buttons={[
+              {
+                label: 'Cancel',
+                variant: 'secondary',
+                onClick: () => setDeleteConfirmSnapshotId(null),
+              },
+              {
+                label: 'Delete',
+                variant: 'danger',
+                onClick: () => {
+                  onDeleteSnapshot(deleteConfirmSnapshotId);
+                  setDeleteConfirmSnapshotId(null);
+                },
+              },
+            ]}
+          />
+        );
+      })()}
     </div>
   );
 }

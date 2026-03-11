@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAppData } from '../../context/AppDataContext';
-import { validateReleaseDateChange } from '../../shared/utils/validation';
+import { validateReleaseDateChange, sanitizeString } from '../../shared/utils/validation';
 
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
 export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine';
@@ -42,16 +42,16 @@ export function useChartEditing() {
   };
 
   const saveLabelEdit = () => {
-    const trimmed = tempLabelValue.trim();
-    if (!trimmed) {
+    const sanitized = sanitizeString(tempLabelValue, 50);
+    if (!sanitized) {
       // Reject empty/whitespace-only labels — cancel instead
       cancelLabelEdit();
       return;
     }
-    if (editingLegendLabel === 'solid') setSolidBarLabel(trimmed);
-    else if (editingLegendLabel === 'hatched') setHatchedBarLabel(trimmed);
-    else if (editingLegendLabel === 'finishDate') setFinishDateLabel(trimmed);
-    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(trimmed);
+    if (editingLegendLabel === 'solid') setSolidBarLabel(sanitized);
+    else if (editingLegendLabel === 'hatched') setHatchedBarLabel(sanitized);
+    else if (editingLegendLabel === 'finishDate') setFinishDateLabel(sanitized);
+    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(sanitized);
     setEditingLegendLabel(null);
   };
 
@@ -67,9 +67,10 @@ export function useChartEditing() {
   };
 
   const saveReleaseNameEdit = () => {
-    if (editingReleaseId && tempReleaseName.trim()) {
+    const sanitizedName = sanitizeString(tempReleaseName);
+    if (editingReleaseId && sanitizedName) {
       const updatedReleases = data.releases.map(r =>
-        r.id === editingReleaseId ? { ...r, name: tempReleaseName.trim() } : r
+        r.id === editingReleaseId ? { ...r, name: sanitizedName } : r
       );
       updateData({ ...data, releases: updatedReleases });
     }

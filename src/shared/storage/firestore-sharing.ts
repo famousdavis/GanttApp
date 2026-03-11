@@ -31,7 +31,7 @@ export async function shareProject(
   }
 
   if (!targetUid) {
-    throw new Error(`User with email "${targetEmail}" not found. They must sign in at least once first.`);
+    throw new Error('User not found. They must sign in at least once first.');
   }
 
   // Update project members

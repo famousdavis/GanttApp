@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 13.2 (2026-03-11)
+- Security: Added sanitizeString() to inline chart editing (release names and legend labels)
+- Security: Sanitized Firestore-loaded project and release names in converters
+- Security: Removed user email interpolation from sharing error messages
+- Security: Sanitized raw Firestore error in cloud mode-switch via sanitizeFirebaseError()
+- Security: Added maxLength to project name, release name, and share email inputs
+- Security: Applied sanitizeString() to share email and duplicate release name at point of entry
+
 ## Version 13.1 (2026-03-11)
 - Replaced all remaining window.confirm() calls with styled ConfirmDialog component (project delete, release delete, member removal, snapshot delete)
 - Updated dependencies: @types/react 19.2.14, @vitejs/plugin-react 5.1.4, eslint 9.39.4, firebase 12.10.0, firebase-tools 15.9.1

@@ -16,7 +16,7 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
-import { sanitizeId } from './validation';
+import { sanitizeId, sanitizeString } from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -94,7 +94,7 @@ export function firestoreToProject(
 ): Project {
   return {
     id: projectId,
-    name: meta.name,
+    name: sanitizeString(meta.name),
     ...(meta.finishDate && { finishDate: meta.finishDate }),
     owner: sanitizeId(meta.owner),
   };
@@ -110,7 +110,7 @@ export function firestoreReleasesToFlat(
     .map(({ id, data }) => ({
       id,
       projectId,
-      name: data.name,
+      name: sanitizeString(data.name),
       startDate: data.startDate,
       earlyFinishDate: data.earlyFinishDate,
       lateFinishDate: data.lateFinishDate,

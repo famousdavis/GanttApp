@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { sanitizeString } from '../../shared/utils/validation';
 import type { CloudGanttStorageService } from '../../shared/storage';
 import type { ProjectRole } from '../../shared/types/firestore';
 
@@ -54,11 +55,12 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   }, [projectId, cloudStorage]);
 
   const handleShare = async () => {
-    if (!email.trim()) return;
+    const sanitizedEmail = sanitizeString(email, 254);
+    if (!sanitizedEmail) return;
     setError(null);
     setActionLoading(true);
     try {
-      await cloudStorage.shareProject(projectId, email.trim(), role);
+      await cloudStorage.shareProject(projectId, sanitizedEmail, role);
       // Reload members
       const result = await cloudStorage.getProjectMembers(projectId);
       setMembers(result);
@@ -127,6 +129,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleShare()}
             disabled={actionLoading}
+            maxLength={254}
             style={{
               flex: 1,
               padding: '0.5rem 0.75rem',

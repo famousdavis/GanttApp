@@ -17,7 +17,7 @@ import {
   appDataToUserSettings,
   snapshotToFirestore,
 } from '../shared/utils/firestore-converters';
-import { sanitizeString } from '../shared/utils/validation';
+import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 
 export interface SwitchToCloudResult {
@@ -89,7 +89,7 @@ export async function switchToCloudMode(
           // Network error, unavailable, deadline-exceeded, etc.
           // Surface to user — don't silently create duplicates.
           throw new Error(
-            `Failed to check project "${sanitizeString(project.name)}": ${collisionErr instanceof Error ? collisionErr.message : 'unknown error'}`
+            `Failed to check project "${sanitizeString(project.name)}": ${sanitizeFirebaseError(collisionErr)}`
           );
         }
       }

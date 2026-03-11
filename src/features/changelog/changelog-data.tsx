@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.2',
+    date: 'March 11, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Added <code>sanitizeString()</code> to inline chart editing (release names and legend labels) for defense-in-depth consistency</>,
+      <><strong>Security</strong> &mdash; Sanitized Firestore-loaded project and release names in converters, matching the localStorage validation path</>,
+      <><strong>Security</strong> &mdash; Removed user email interpolation from sharing error messages to prevent information leakage</>,
+      <><strong>Security</strong> &mdash; Sanitized raw Firestore error in cloud mode-switch re-thrown error via <code>sanitizeFirebaseError()</code></>,
+      <><strong>Security</strong> &mdash; Added <code>maxLength</code> to project name, release name, and share email inputs for consistent client-side length limits</>,
+      <><strong>Security</strong> &mdash; Applied <code>sanitizeString()</code> to share email and duplicate release name at point of entry</>,
+    ],
+  },
+  {
     version: '13.1',
     date: 'March 11, 2026',
     items: [

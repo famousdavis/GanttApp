@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.0',
+    date: 'March 11, 2026',
+    items: [
+      <><strong>Legal</strong> &mdash; Added Terms of Service and Privacy Policy links to persistent footer (browsewrap notice)</>,
+      <><strong>Feature</strong> &mdash; First-run informational banner for new users (dismissible, non-blocking)</>,
+      <><strong>Feature</strong> &mdash; Clickwrap consent modal required before enabling Cloud Storage (checkbox + agreement links)</>,
+      <><strong>Feature</strong> &mdash; ToS acceptance recorded in Firestore (<code>users/{'{uid}'}</code>) for returning-user version verification</>,
+      <><strong>Improvement</strong> &mdash; Centralized version constants in <code>src/lib/version.ts</code> (APP_VERSION, TOS_VERSION, APP_ID)</>,
+    ],
+  },
+  {
     version: '12.6',
     date: 'March 9, 2026',
     items: [

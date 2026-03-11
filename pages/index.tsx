@@ -7,8 +7,10 @@ import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
 import Head from 'next/head';
 import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
+import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { Tabs } from '../src/shared/components/Tabs';
+import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ReleasesTab } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
@@ -194,7 +196,7 @@ function AppContent() {
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
       <Head>
-        <title>GanttApp - Version 12.6</title>
+        <title>GanttApp - Version {APP_VERSION}</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -231,6 +233,8 @@ function AppContent() {
             {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
           </button>
         </header>
+
+        <FirstRunBanner />
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -316,7 +320,7 @@ function AppContent() {
           color: colors.textSecondary,
           fontSize: '0.875rem'
         }}>
-          © 2026 William W. Davis, MSPM, PMP |{' '}
+          &copy; 2026 William W. Davis, MSPM, PMP |{' '}
           <button
             onClick={() => setActiveTab('changelog')}
             style={{
@@ -329,9 +333,19 @@ function AppContent() {
               padding: 0
             }}
           >
-            Version 12.6
+            Version {APP_VERSION}
           </button>
           {' '}| Licensed under GNU GPL v3
+          <br />
+          <a href="https://spert-landing.vercel.app/TOS.pdf" target="_blank" rel="noopener noreferrer"
+            style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+            Terms of Service
+          </a>
+          {' '}|{' '}
+          <a href="https://spert-landing.vercel.app/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
+            style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+            Privacy Policy
+          </a>
         </footer>
       </div>
     </div>

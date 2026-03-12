@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.3',
+    date: 'March 11, 2026',
+    items: [
+      <><strong>Infrastructure</strong> &mdash; Pinned Node.js target to v22 LTS: added <code>engines</code> field to package.json, created <code>.nvmrc</code>, and updated <code>@types/node</code> to ^22 ahead of Node 20 EOL (April 30, 2026)</>,
+    ],
+  },
+  {
     version: '13.2',
     date: 'March 11, 2026',
     items: [

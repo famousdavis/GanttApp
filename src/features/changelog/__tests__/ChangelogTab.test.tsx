@@ -34,9 +34,9 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 13.3, second 13.2, etc.
-    expect(versionTexts[0]).toContain('13.3');
-    expect(versionTexts[1]).toContain('13.2');
+    // First version heading should be 13.3.1, second 13.3, etc.
+    expect(versionTexts[0]).toContain('13.3.1');
+    expect(versionTexts[1]).toContain('13.3');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });
@@ -52,9 +52,18 @@ describe('ChangelogTab', () => {
   });
 
   it('CHANGELOG_ENTRIES is sorted in reverse chronological order', () => {
-    const versions = CHANGELOG_ENTRIES.map(e => parseFloat(e.version));
-    for (let i = 1; i < versions.length; i++) {
-      expect(versions[i]).toBeLessThan(versions[i - 1]);
+    const compareVersions = (a: string, b: string): number => {
+      const pa = a.split('.').map(Number);
+      const pb = b.split('.').map(Number);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const diff = (pa[i] || 0) - (pb[i] || 0);
+        if (diff !== 0) return diff;
+      }
+      return 0;
+    };
+    const versionStrings = CHANGELOG_ENTRIES.map(e => e.version);
+    for (let i = 1; i < versionStrings.length; i++) {
+      expect(compareVersions(versionStrings[i], versionStrings[i - 1])).toBeLessThan(0);
     }
   });
 

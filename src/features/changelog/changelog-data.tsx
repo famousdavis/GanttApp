@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.3.1',
+    date: 'March 16, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Updated first-run notification to clarify browsewrap agreement to Terms of Service and Privacy Policy</>,
+    ],
+  },
+  {
     version: '13.3',
     date: 'March 11, 2026',
     items: [

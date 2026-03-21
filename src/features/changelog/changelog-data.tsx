@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.4',
+    date: 'March 20, 2026',
+    items: [
+      <><strong>Legal</strong> &mdash; Updated Terms of Service and Privacy Policy to revised versions (effective March 20, 2026); existing Cloud Storage users will be prompted to re-accept on next sign-in</>,
+    ],
+  },
+  {
     version: '13.3.1',
     date: 'March 16, 2026',
     items: [

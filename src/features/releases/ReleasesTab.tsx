@@ -92,6 +92,138 @@ export function ReleasesTab({
     return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
   }
 
+  // Shared release form fields (used by both Add and inline Edit forms)
+  const renderFormFields = () => (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Release Name
+          </label>
+          <input
+            type="text"
+            placeholder="Release name"
+            value={releaseName}
+            onChange={(e) => setReleaseName(e.target.value)}
+            maxLength={100}
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Start Date<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
+          </label>
+          <input
+            type="date"
+            value={startDate}
+            className={startDate ? 'has-value' : ''}
+            onChange={(e) => setStartDate(e.target.value)}
+            min="2000-01-01"
+            max="2050-12-31"
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: startDateInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Early Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
+          </label>
+          <input
+            type="date"
+            value={earlyFinish}
+            className={earlyFinish ? 'has-value' : ''}
+            onChange={(e) => setEarlyFinish(e.target.value)}
+            min="2000-01-01"
+            max="2050-12-31"
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: earlyFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
+          </label>
+          <input
+            type="date"
+            value={lateFinish}
+            className={lateFinish ? 'has-value' : ''}
+            onChange={(e) => setLateFinish(e.target.value)}
+            min="2000-01-01"
+            max="2050-12-31"
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: lateFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
+          </label>
+          <input
+            type="date"
+            value={mostLikelyFinish}
+            className={mostLikelyFinish ? 'has-value' : ''}
+            onChange={(e) => setMostLikelyFinish(e.target.value)}
+            min="2000-01-01"
+            max="2050-12-31"
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+        </div>
+      </div>
+
+      {(errorMessage || mostLikelyErrorVisible) && (
+        <div style={{
+          color: '#dc3545',
+          fontSize: '0.9rem',
+          marginTop: '0.75rem',
+          marginBottom: '0.75rem',
+          padding: '0.5rem',
+          background: '#f8d7da',
+          borderRadius: '4px',
+          border: '1px solid #f5c6cb'
+        }}>
+          {errorMessage || mostLikelyErrorVisible}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div>
       <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text, display: 'flex', alignItems: 'baseline' }}>
@@ -118,169 +250,10 @@ export function ReleasesTab({
         </select>
       </h2>
 
-      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Release Name
-            </label>
-            <input
-              type="text"
-              placeholder="Release name"
-              value={releaseName}
-              onChange={(e) => setReleaseName(e.target.value)}
-              maxLength={100}
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: `2px solid ${colors.inputBorder}`,
-                borderRadius: '4px',
-                width: '100%',
-                background: colors.inputBg,
-                color: colors.text
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Start Date<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              className={startDate ? 'has-value' : ''}
-              onChange={(e) => setStartDate(e.target.value)}
-              min="2000-01-01"
-              max="2050-12-31"
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: startDateInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-                borderRadius: '4px',
-                width: '100%',
-                background: colors.inputBg,
-                color: colors.text
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Early Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={earlyFinish}
-              className={earlyFinish ? 'has-value' : ''}
-              onChange={(e) => setEarlyFinish(e.target.value)}
-              min="2000-01-01"
-              max="2050-12-31"
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: earlyFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-                borderRadius: '4px',
-                width: '100%',
-                background: colors.inputBg,
-                color: colors.text
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={lateFinish}
-              className={lateFinish ? 'has-value' : ''}
-              onChange={(e) => setLateFinish(e.target.value)}
-              min="2000-01-01"
-              max="2050-12-31"
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: lateFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-                borderRadius: '4px',
-                width: '100%',
-                background: colors.inputBg,
-                color: colors.text
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
-            </label>
-            <input
-              type="date"
-              value={mostLikelyFinish}
-              className={mostLikelyFinish ? 'has-value' : ''}
-              onChange={(e) => setMostLikelyFinish(e.target.value)}
-              min="2000-01-01"
-              max="2050-12-31"
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-                borderRadius: '4px',
-                width: '100%',
-                background: colors.inputBg,
-                color: colors.text
-              }}
-            />
-          </div>
-        </div>
-
-        {(errorMessage || mostLikelyErrorVisible) && (
-          <div style={{
-            color: '#dc3545',
-            fontSize: '0.9rem',
-            marginTop: '0.75rem',
-            marginBottom: '0.75rem',
-            padding: '0.5rem',
-            background: '#f8d7da',
-            borderRadius: '4px',
-            border: '1px solid #f5c6cb'
-          }}>
-            {errorMessage || mostLikelyErrorVisible}
-          </div>
-        )}
-
-        {editingReleaseId ? (
-          <>
-            <button
-              onClick={updateRelease}
-              disabled={!isValid}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: isValid ? '#00c9a7' : '#ccc',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isValid ? 'pointer' : 'not-allowed',
-                fontWeight: '600',
-                marginRight: '0.5rem',
-                opacity: isValid ? 1 : 0.6
-              }}
-            >
-              Update Release
-            </button>
-            <button
-              onClick={clearReleaseForm}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#999',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
+      {/* Add Release form — hidden when editing inline */}
+      {!editingReleaseId && (
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+          {renderFormFields()}
           <button
             onClick={() => addRelease(selectedProjectId)}
             disabled={!isValid}
@@ -297,133 +270,179 @@ export function ReleasesTab({
           >
             Add Release
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {currentReleases.length === 0 ? (
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases yet. Add one to get started!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {currentReleases.map(release => (
-            <div
-              key={release.id}
-              draggable
-              onDragStart={() => onReleaseDragStart(release.id)}
-              onDragOver={(e) => onReleaseDragOver(e, release.id)}
-              onDragEnd={onReleaseDragEnd}
-              style={{
-                padding: '1rem',
-                background: colors.surface,
-                border: `2px solid ${colors.border}`,
-                borderRadius: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: draggedReleaseId === release.id ? 'grabbing' : 'grab',
-                opacity: draggedReleaseId === release.id ? 0.5 : 1,
-                transition: 'opacity 0.2s'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <DragHandle />
-                <div>
-                  <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem', color: colors.text }}>
-                    {release.name}
-                  </strong>
-                  <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
-                    <span>Start: {formatDateLocale(release.startDate)}</span>
-                    <span style={{ margin: '0 1rem' }}>|</span>
-                    <span>Early: {formatDateLocale(release.earlyFinishDate)}</span>
-                    <span style={{ margin: '0 1rem' }}>|</span>
-                    <span>Late: {formatDateLocale(release.lateFinishDate)}</span>
-                    {release.mostLikelyFinishDate && (
-                      <>
-                        <span style={{ margin: '0 1rem' }}>|</span>
-                        <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}</span>
-                      </>
-                    )}
+            <div key={release.id}>
+              {/* Release row */}
+              <div
+                draggable={editingReleaseId !== release.id}
+                onDragStart={() => onReleaseDragStart(release.id)}
+                onDragOver={(e) => onReleaseDragOver(e, release.id)}
+                onDragEnd={onReleaseDragEnd}
+                style={{
+                  padding: '1rem',
+                  background: colors.surface,
+                  border: editingReleaseId === release.id ? '2px solid #0070f3' : `2px solid ${colors.border}`,
+                  borderRadius: editingReleaseId === release.id ? '8px 8px 0 0' : '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  cursor: editingReleaseId === release.id ? 'default' : (draggedReleaseId === release.id ? 'grabbing' : 'grab'),
+                  opacity: draggedReleaseId === release.id ? 0.5 : 1,
+                  transition: 'opacity 0.2s'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <DragHandle />
+                  <div>
+                    <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem', color: colors.text }}>
+                      {release.name}
+                    </strong>
+                    <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
+                      <span>Start: {formatDateLocale(release.startDate)}</span>
+                      <span style={{ margin: '0 1rem' }}>|</span>
+                      <span>Early: {formatDateLocale(release.earlyFinishDate)}</span>
+                      <span style={{ margin: '0 1rem' }}>|</span>
+                      <span>Late: {formatDateLocale(release.lateFinishDate)}</span>
+                      {release.mostLikelyFinishDate && (
+                        <>
+                          <span style={{ margin: '0 1rem' }}>|</span>
+                          <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    background: release.hidden ? colors.hoverBg : 'transparent',
+                    color: colors.textSecondary
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!release.hidden}
+                      onChange={() => toggleReleaseHidden(release.id)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span>Show</span>
+                  </label>
+                  <button
+                    onClick={() => toggleReleaseCompleted(release.id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      minWidth: '105px',
+                      background: release.completed ? '#28a745' : colors.buttonBg,
+                      border: release.completed ? '1px solid #28a745' : `1px solid ${colors.buttonBorder}`,
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      color: release.completed ? 'white' : colors.buttonText
+                    }}
+                  >
+                    {release.completed ? '✓ Done' : 'Mark Done'}
+                  </button>
+                  <button
+                    onClick={() => duplicateRelease(release.id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: colors.buttonBg,
+                      border: `1px solid ${colors.buttonBorder}`,
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      color: colors.buttonText
+                    }}
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    onClick={() => startEditRelease(release)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: editingReleaseId === release.id ? '#0070f3' : colors.buttonBg,
+                      border: editingReleaseId === release.id ? '1px solid #0070f3' : `1px solid ${colors.buttonBorder}`,
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      color: editingReleaseId === release.id ? 'white' : colors.buttonText
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmReleaseId(release.id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: colors.buttonBg,
+                      border: '1px solid #dc3545',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      color: '#dc3545'
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  padding: '0.5rem',
-                  borderRadius: '4px',
-                  background: release.hidden ? colors.hoverBg : 'transparent',
-                  color: colors.textSecondary
+
+              {/* Inline edit form — appears below the release being edited */}
+              {editingReleaseId === release.id && (
+                <div style={{
+                  padding: '1.5rem',
+                  background: colors.surface,
+                  borderRadius: '0 0 8px 8px',
+                  border: '2px solid #0070f3',
+                  borderTop: `1px solid ${colors.border}`
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={!release.hidden}
-                    onChange={() => toggleReleaseHidden(release.id)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span>Show</span>
-                </label>
-                <button
-                  onClick={() => toggleReleaseCompleted(release.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    minWidth: '105px',
-                    background: release.completed ? '#28a745' : colors.buttonBg,
-                    border: release.completed ? '1px solid #28a745' : `1px solid ${colors.buttonBorder}`,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                    color: release.completed ? 'white' : colors.buttonText
-                  }}
-                >
-                  {release.completed ? '✓ Done' : 'Mark Done'}
-                </button>
-                <button
-                  onClick={() => duplicateRelease(release.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: colors.buttonText
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  onClick={() => startEditRelease(release)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: colors.buttonText
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setDeleteConfirmReleaseId(release.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: '1px solid #dc3545',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: '#dc3545'
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+                  {renderFormFields()}
+                  <button
+                    onClick={updateRelease}
+                    disabled={!isValid}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: isValid ? '#00c9a7' : '#ccc',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: isValid ? 'pointer' : 'not-allowed',
+                      fontWeight: '600',
+                      marginRight: '0.5rem',
+                      opacity: isValid ? 1 : 0.6
+                    }}
+                  >
+                    Update Release
+                  </button>
+                  <button
+                    onClick={clearReleaseForm}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: '#999',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

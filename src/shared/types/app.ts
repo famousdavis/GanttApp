@@ -21,6 +21,7 @@ export interface AppData {
   showTodayLine?: boolean;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;
+  showMonths?: boolean;
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;

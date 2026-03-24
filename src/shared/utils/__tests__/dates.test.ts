@@ -12,6 +12,7 @@ import {
   getTodayString,
   getTodayFormatted,
   getQuarterBoundaries,
+  getMonthBoundaries,
   generateId,
 } from '../dates';
 
@@ -249,5 +250,57 @@ describe('getQuarterBoundaries', () => {
 
     // 3 years * 4 quarters = 12 boundaries
     expect(boundaries).toHaveLength(12);
+  });
+});
+
+describe('getMonthBoundaries', () => {
+  it('returns all 12 month boundaries within a single year', () => {
+    const min = parseDateLocal('2026-01-01');
+    const max = parseDateLocal('2026-12-31');
+    const boundaries = getMonthBoundaries(min, max);
+
+    expect(boundaries).toHaveLength(12);
+    const months = boundaries.map(d => d.getMonth());
+    expect(months).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  });
+
+  it('returns only month boundaries within the date range', () => {
+    const min = parseDateLocal('2026-03-15');
+    const max = parseDateLocal('2026-06-15');
+    const boundaries = getMonthBoundaries(min, max);
+
+    // Apr 1, May 1, Jun 1 (Mar 15 > Mar 1 so Mar excluded)
+    expect(boundaries).toHaveLength(3);
+    expect(boundaries[0].getMonth()).toBe(3); // April
+    expect(boundaries[1].getMonth()).toBe(4); // May
+    expect(boundaries[2].getMonth()).toBe(5); // June
+  });
+
+  it('returns boundaries spanning multiple years', () => {
+    const min = parseDateLocal('2025-11-01');
+    const max = parseDateLocal('2026-02-28');
+    const boundaries = getMonthBoundaries(min, max);
+
+    // Nov 1, Dec 1, Jan 1, Feb 1
+    expect(boundaries).toHaveLength(4);
+    expect(boundaries[0].getMonth()).toBe(10); // Nov
+    expect(boundaries[3].getMonth()).toBe(1);  // Feb
+  });
+
+  it('returns empty array when no month boundaries fall in range', () => {
+    const min = parseDateLocal('2026-01-02');
+    const max = parseDateLocal('2026-01-31');
+    const boundaries = getMonthBoundaries(min, max);
+
+    expect(boundaries).toHaveLength(0);
+  });
+
+  it('includes boundary date when it equals min', () => {
+    const min = parseDateLocal('2026-06-01');
+    const max = parseDateLocal('2026-06-30');
+    const boundaries = getMonthBoundaries(min, max);
+
+    expect(boundaries).toHaveLength(1);
+    expect(boundaries[0].getMonth()).toBe(5); // June
   });
 });

@@ -74,6 +74,8 @@ export interface ChartSettingsGroupProps {
   setShowPreparedBy: (show: boolean) => void;
   showMostLikelyLine: boolean;
   setShowMostLikelyLine: (show: boolean) => void;
+  showMonths: boolean;
+  setShowMonths: (show: boolean) => void;
 }
 
 // --- Main component props ---
@@ -107,14 +109,14 @@ export function GanttChart({
 
   // Destructure grouped props for convenient access
   const { readOnly, datePreparedOverride } = snapshot;
-  const { displaySettings, chartColors, showTodayLine, showFinishDateLine, showPreparedBy, showMostLikelyLine } = settings;
+  const { displaySettings, chartColors, showTodayLine, showFinishDateLine, showPreparedBy, showMostLikelyLine, showMonths } = settings;
   const { preparedBy } = settings;
 
   // Chart calculations (dimensions, date math, coordinate mapping)
   const { dimensions, dateInfo, finishDateInfo, dateToX, years, getReleaseColors, minLabelSpacing } =
     useChartCalculations(releases, displaySettings, projectFinishDate);
   const { chartWidth, chartHeight, leftMargin, topMargin, barHeight, rowHeight } = dimensions;
-  const { todayX, quarterBoundaries } = dateInfo;
+  const { todayX, quarterBoundaries, monthBoundaries } = dateInfo;
   const { finishDateX } = finishDateInfo;
 
   // Compute derived flags once for use in Legend and Settings
@@ -266,6 +268,44 @@ export function GanttChart({
               });
             })()}
 
+            {/* Monthly gridlines and labels */}
+            {showMonths && (() => {
+              const MONTH_ABBREVS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              // Quarter start months to skip labels for (they already have Q labels)
+              const quarterStartMonths = new Set([3, 6, 9]); // Apr, Jul, Oct
+              // Year label positions for proximity check
+              const yearLabelPositions = years.map((year, index) => {
+                if (index === 0) return leftMargin + 20;
+                const jan1 = new Date(year, 0, 1).getTime();
+                if (jan1 < dateInfo.minDate || jan1 > dateInfo.maxDate) return null;
+                return dateToX(new Date(year, 0, 1).toISOString().split('T')[0]);
+              }).filter((x): x is number => x !== null);
+
+              return monthBoundaries.map((date, i) => {
+                const x = dateToX(date.toISOString().split('T')[0]);
+                const month = date.getMonth();
+                // Skip label if this is a quarter start (Q2/Q3/Q4 label already there) or Jan (year label)
+                const isQuarterStart = quarterStartMonths.has(month);
+                const isJan = month === 0;
+                const tooCloseToYear = yearLabelPositions.some(yx => Math.abs(x - yx) < 50);
+                const showLabel = !isQuarterStart && !isJan && !tooCloseToYear;
+
+                return (
+                  <g key={`month-${i}`}>
+                    <line
+                      x1={x} y1={topMargin} x2={x} y2={chartHeight}
+                      stroke="#e8e8e8" strokeWidth="0.5"
+                    />
+                    {showLabel && (
+                      <text x={x + 3} y={topMargin - 3} fontSize="11" fill="#bbb" textAnchor="start">
+                        {MONTH_ABBREVS[month]}
+                      </text>
+                    )}
+                  </g>
+                );
+              });
+            })()}
+
             {/* Today's date line */}
             {showTodayLine && todayX && (
               <line
@@ -375,6 +415,8 @@ export function GanttChart({
         setShowFinishDateLine={settings.setShowFinishDateLine}
         showMostLikelyLine={showMostLikelyLine}
         setShowMostLikelyLine={settings.setShowMostLikelyLine}
+        showMonths={showMonths}
+        setShowMonths={settings.setShowMonths}
         hasProjectFinishDate={hasProjectFinishDate}
         hasMostLikelyReleases={hasMostLikelyReleases}
         displaySettings={displaySettings}

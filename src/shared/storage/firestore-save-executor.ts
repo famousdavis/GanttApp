@@ -41,6 +41,7 @@ export function settingsChanged(prev: AppData | null, curr: AppData): boolean {
     prev.showTodayLine !== curr.showTodayLine ||
     prev.showFinishDateLine !== curr.showFinishDateLine ||
     prev.showMostLikelyLine !== curr.showMostLikelyLine ||
+    prev.showMonths !== curr.showMonths ||
     JSON.stringify(prev.chartDisplaySettings) !== JSON.stringify(curr.chartDisplaySettings) ||
     prev.preparedBy !== curr.preparedBy ||
     prev.showPreparedBy !== curr.showPreparedBy ||

@@ -24,6 +24,8 @@ describe('ChartSettings', () => {
     hasMostLikelyReleases: false,
     showMostLikelyLine: false,
     setShowMostLikelyLine: vi.fn(),
+    showMonths: false,
+    setShowMonths: vi.fn(),
     displaySettings: DEFAULT_DISPLAY_SETTINGS,
     setDisplaySettings: vi.fn(),
     chartColors: DEFAULT_CHART_COLORS,
@@ -72,20 +74,20 @@ describe('ChartSettings', () => {
     expect(screen.getByText('Show Prepared By')).toBeInTheDocument();
   });
 
-  it('shows Show Project Finish Date checkbox when project has finish date', () => {
+  it('shows Show Finish Date checkbox when project has finish date', () => {
     renderWithTheme(
       <ChartSettings {...defaultProps} showColorSettings={true} hasProjectFinishDate={true} />
     );
 
-    expect(screen.getByText('Show Project Finish Date')).toBeInTheDocument();
+    expect(screen.getByText('Show Finish Date')).toBeInTheDocument();
   });
 
-  it('hides Show Project Finish Date checkbox when no finish date', () => {
+  it('hides Show Finish Date checkbox when no finish date', () => {
     renderWithTheme(
       <ChartSettings {...defaultProps} showColorSettings={true} hasProjectFinishDate={false} />
     );
 
-    expect(screen.queryByText('Show Project Finish Date')).not.toBeInTheDocument();
+    expect(screen.queryByText('Show Finish Date')).not.toBeInTheDocument();
   });
 
   it('calls setShowTodayLine when checkbox is toggled', () => {

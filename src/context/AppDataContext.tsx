@@ -41,6 +41,8 @@ interface AppDataContextType {
   setShowFinishDateLine: (show: boolean) => void;
   showMostLikelyLine: boolean;
   setShowMostLikelyLine: (show: boolean) => void;
+  showMonths: boolean;
+  setShowMonths: (show: boolean) => void;
   showColorSettings: boolean;
   setShowColorSettings: (show: boolean) => void;
 
@@ -85,6 +87,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [showTodayLine, setShowTodayLine] = useState(true);
   const [showFinishDateLine, setShowFinishDateLine] = useState(true);
   const [showMostLikelyLine, setShowMostLikelyLine] = useState(false);
+  const [showMonths, setShowMonths] = useState(false);
   const [showColorSettings, setShowColorSettings] = useState(false);
 
   // Prepared By
@@ -144,6 +147,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             if (loadedData.showMostLikelyLine !== undefined) {
               setShowMostLikelyLine(loadedData.showMostLikelyLine);
             }
+            if (loadedData.showMonths !== undefined) {
+              setShowMonths(loadedData.showMonths);
+            }
 
             // Load display settings if they exist
             if (loadedData.chartDisplaySettings) {
@@ -196,11 +202,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         showTodayLine,
         showFinishDateLine,
         showMostLikelyLine,
+        showMonths,
         ...(exportAttribution ? { exportAttribution } : {})
       };
       storage.saveAppData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, exportAttribution, data, loading, storage]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, data, loading, storage]);
 
   // Real-time sync: subscribe to Firestore changes in cloud mode
   // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
@@ -274,6 +281,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setShowFinishDateLine,
     showMostLikelyLine,
     setShowMostLikelyLine,
+    showMonths,
+    setShowMonths,
     showColorSettings,
     setShowColorSettings,
     preparedBy,

@@ -49,6 +49,8 @@ function AppContent() {
     setMostLikelyLineLabel,
     showMostLikelyLine,
     setShowMostLikelyLine,
+    showMonths,
+    setShowMonths,
     updateData
   } = useAppData();
 
@@ -302,7 +304,9 @@ function AppContent() {
                 showPreparedBy,
                 setShowPreparedBy,
                 showMostLikelyLine,
-                setShowMostLikelyLine
+                setShowMostLikelyLine,
+                showMonths,
+                setShowMonths
               }}
             />
           )}
@@ -336,16 +340,17 @@ function AppContent() {
             Version {APP_VERSION}
           </button>
           {' '}| Licensed under GNU GPL v3
-          <br />
-          <a href="https://spert-landing.vercel.app/TOS.pdf" target="_blank" rel="noopener noreferrer"
-            style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
-            Terms of Service
-          </a>
-          {' '}|{' '}
-          <a href="https://spert-landing.vercel.app/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
-            style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
-            Privacy Policy
-          </a>
+          <div style={{ marginTop: '0.25rem' }}>
+            <a href="https://spert-landing.vercel.app/TOS.pdf" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              Terms of Service
+            </a>
+            {' '}|{' '}
+            <a href="https://spert-landing.vercel.app/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              Privacy Policy
+            </a>
+          </div>
         </footer>
       </div>
     </div>

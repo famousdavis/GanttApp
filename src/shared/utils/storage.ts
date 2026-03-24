@@ -94,6 +94,9 @@ export function validateLoadedData(data: unknown): AppData | null {
   if (typeof d.showMostLikelyLine === 'boolean') {
     result.showMostLikelyLine = d.showMostLikelyLine;
   }
+  if (typeof d.showMonths === 'boolean') {
+    result.showMonths = d.showMonths;
+  }
 
   // Validate optional prepared by
   if (typeof d.preparedBy === 'string') {

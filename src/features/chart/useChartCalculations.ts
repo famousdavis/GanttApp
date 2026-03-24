@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { Release, ChartDisplaySettings } from '../../shared/types';
-import { parseDateLocal, getQuarterBoundaries, getTodayString } from '../../shared/utils';
+import { parseDateLocal, getQuarterBoundaries, getMonthBoundaries, getTodayString } from '../../shared/utils';
 import { darkenColor } from '../../shared/utils/colors';
 
 export interface ChartDimensions {
@@ -28,6 +28,7 @@ export interface ChartDateInfo {
   todayInRange: boolean;
   todayX: number | null;
   quarterBoundaries: Date[];
+  monthBoundaries: Date[];
 }
 
 // Fixed chart layout constants
@@ -77,6 +78,7 @@ export function useChartCalculations(
     const todayX = todayInRange ? dateToX(todayString, minDate, dateRange, dimensions) : null;
 
     const quarterBoundaries = getQuarterBoundaries(minDate, maxDate);
+    const monthBoundaries = getMonthBoundaries(minDate, maxDate);
 
     return {
       minDate,
@@ -86,7 +88,8 @@ export function useChartCalculations(
       todayTime,
       todayInRange,
       todayX,
-      quarterBoundaries
+      quarterBoundaries,
+      monthBoundaries
     };
   }, [releases, dimensions]);
 

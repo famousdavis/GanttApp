@@ -105,3 +105,33 @@ export function getQuarterBoundaries(minDate: number, maxDate: number): Date[] {
 
   return boundaries;
 }
+
+/**
+ * Calculate month boundaries for a date range
+ * Returns array of Date objects representing the 1st of each month within range
+ */
+export function getMonthBoundaries(minDate: number, maxDate: number): Date[] {
+  const boundaries: Date[] = [];
+  const startYear = new Date(minDate).getFullYear();
+  const startMonth = new Date(minDate).getMonth();
+  const endYear = new Date(maxDate).getFullYear();
+  const endMonth = new Date(maxDate).getMonth();
+
+  let year = startYear;
+  let month = startMonth;
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    const date = new Date(year, month, 1);
+    const time = date.getTime();
+    if (time >= minDate && time <= maxDate) {
+      boundaries.push(date);
+    }
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+
+  return boundaries;
+}

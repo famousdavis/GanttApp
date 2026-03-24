@@ -1,5 +1,21 @@
 # Change Log
 
+## Version 13.5 (2026-03-24)
+- UX: Inline edit form on Releases tab — clicking Edit shows the form below the release instead of at the top of the page
+- Chart: New "Show Months" toggle in Chart Settings renders abbreviated month labels and thin vertical separators
+- Chart: Renamed "Show Project Finish Date" to "Show Finish Date" in Chart Settings
+- Export: JSON export filename prefix changed from "gantt-data" to "ganttapp-export"
+- UI: Improved footer spacing between copyright row and legal links
+
+## Version 13.4 (2026-03-20)
+- Legal: Updated Terms of Service and Privacy Policy (effective March 20, 2026); triggers re-consent for Cloud Storage users
+
+## Version 13.3.1 (2026-03-16)
+- UX: Updated first-run banner text to clarify browsewrap agreement
+
+## Version 13.3 (2026-03-11)
+- Infrastructure: Pinned Node.js target to v22 LTS; added engines field, .nvmrc, updated @types/node
+
 ## Version 13.2 (2026-03-11)
 - Security: Added sanitizeString() to inline chart editing (release names and legend labels)
 - Security: Sanitized Firestore-loaded project and release names in converters

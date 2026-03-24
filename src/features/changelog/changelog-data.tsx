@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.5',
+    date: 'March 24, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Clicking Edit on a release now shows the edit form inline below that release instead of scrolling to the top of the page</>,
+      <><strong>Chart</strong> &mdash; New &quot;Show Months&quot; toggle in Chart Settings displays abbreviated month labels and thin separator lines on the Gantt chart</>,
+      <><strong>Chart</strong> &mdash; Renamed &quot;Show Project Finish Date&quot; to &quot;Show Finish Date&quot; in Chart Settings</>,
+      <><strong>Export</strong> &mdash; JSON export filename changed from &quot;gantt-data&quot; to &quot;ganttapp-export&quot; prefix</>,
+      <><strong>UI</strong> &mdash; Improved footer spacing between copyright row and legal links</>,
+    ],
+  },
+  {
     version: '13.4',
     date: 'March 20, 2026',
     items: [

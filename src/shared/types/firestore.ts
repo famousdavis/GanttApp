@@ -85,6 +85,7 @@ export interface FirestoreUserSettings {
   showTodayLine?: boolean;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;
+  showMonths?: boolean;
   chartDisplaySettings?: {
     releaseNameFontSize: string;
     dateLabelFontSize: string;

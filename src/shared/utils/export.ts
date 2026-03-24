@@ -46,7 +46,7 @@ export function exportData(data: AppData, snapshots?: Snapshot[], options?: { st
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `gantt-data-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `ganttapp-export-${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -151,6 +151,9 @@ export function parseImportedData(fileContent: string): ImportResult | null {
     }
     if (typeof imported.showMostLikelyLine === 'boolean') {
       sanitizedData.showMostLikelyLine = imported.showMostLikelyLine;
+    }
+    if (typeof imported.showMonths === 'boolean') {
+      sanitizedData.showMonths = imported.showMonths;
     }
 
     // Sanitize optional display settings

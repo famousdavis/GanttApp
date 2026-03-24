@@ -19,6 +19,8 @@ interface ChartSettingsProps {
   setShowFinishDateLine: (show: boolean) => void;
   showMostLikelyLine: boolean;
   setShowMostLikelyLine: (show: boolean) => void;
+  showMonths: boolean;
+  setShowMonths: (show: boolean) => void;
   hasProjectFinishDate: boolean;
   hasMostLikelyReleases: boolean;
   displaySettings: ChartDisplaySettings;
@@ -41,6 +43,8 @@ export function ChartSettings({
   setShowFinishDateLine,
   showMostLikelyLine,
   setShowMostLikelyLine,
+  showMonths,
+  setShowMonths,
   hasProjectFinishDate,
   hasMostLikelyReleases,
   displaySettings,
@@ -92,7 +96,7 @@ export function ChartSettings({
                     onChange={(e) => setShowFinishDateLine(e.target.checked)}
                     style={{ cursor: 'pointer' }}
                   />
-                  <span>Show Project Finish Date</span>
+                  <span>Show Finish Date</span>
                 </label>
               )}
               {hasMostLikelyReleases && (
@@ -106,6 +110,15 @@ export function ChartSettings({
                   <span>Show Most Likely Finish</span>
                 </label>
               )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showMonths}
+                  onChange={(e) => setShowMonths(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Show Months</span>
+              </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   <input
@@ -129,7 +142,7 @@ export function ChartSettings({
                     fontSize: '0.9rem',
                     background: colors.inputBg,
                     color: colors.text,
-                    width: '250px'
+                    width: '180px'
                   }}
                 />
               </div>

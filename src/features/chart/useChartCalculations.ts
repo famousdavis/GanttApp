@@ -41,23 +41,25 @@ const MIN_LABEL_SPACING = 40;
 export function useChartCalculations(
   releases: Release[],
   displaySettings: ChartDisplaySettings,
-  projectFinishDate?: string
+  projectFinishDate?: string,
+  showMonths?: boolean
 ) {
   const barHeight = parseInt(displaySettings.barHeight);
   const rowSpacing = parseInt(displaySettings.rowSpacing);
 
   const dimensions: ChartDimensions = useMemo(() => {
     const rowHeight = barHeight + rowSpacing;
+    const topMargin = showMonths ? TOP_MARGIN + 15 : TOP_MARGIN;
     return {
       chartWidth: CHART_WIDTH,
-      chartHeight: releases.length * rowHeight + 80,
+      chartHeight: releases.length * rowHeight + 80 + (showMonths ? 15 : 0),
       leftMargin: LEFT_MARGIN,
       rightMargin: RIGHT_MARGIN,
-      topMargin: TOP_MARGIN,
+      topMargin,
       barHeight,
       rowHeight
     };
-  }, [releases.length, barHeight, rowSpacing]);
+  }, [releases.length, barHeight, rowSpacing, showMonths]);
 
   const dateInfo: ChartDateInfo = useMemo(() => {
     const allDates = releases.flatMap(r => [

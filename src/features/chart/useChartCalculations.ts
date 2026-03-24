@@ -49,10 +49,10 @@ export function useChartCalculations(
 
   const dimensions: ChartDimensions = useMemo(() => {
     const rowHeight = barHeight + rowSpacing;
-    const topMargin = showMonths ? TOP_MARGIN + 15 : TOP_MARGIN;
+    const topMargin = showMonths ? TOP_MARGIN + 25 : TOP_MARGIN;
     return {
       chartWidth: CHART_WIDTH,
-      chartHeight: releases.length * rowHeight + 80 + (showMonths ? 15 : 0),
+      chartHeight: releases.length * rowHeight + 80 + (showMonths ? 25 : 0),
       leftMargin: LEFT_MARGIN,
       rightMargin: RIGHT_MARGIN,
       topMargin,

@@ -282,7 +282,7 @@ export function GanttChart({
                       x1={x} y1={topMargin} x2={x} y2={chartHeight}
                       stroke="#e8e8e8" strokeWidth="0.5"
                     />
-                    <text x={x + 3} y={topMargin - 5} fontSize="11" fill="#bbb" textAnchor="start">
+                    <text x={x + 3} y={topMargin - 8} fontSize="11" fill="#bbb" textAnchor="start">
                       {MONTH_ABBREVS[month]}
                     </text>
                   </g>

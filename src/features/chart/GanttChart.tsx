@@ -119,6 +119,9 @@ export function GanttChart({
   const { todayX, quarterBoundaries, monthBoundaries } = dateInfo;
   const { finishDateX } = finishDateInfo;
 
+  // When months are shown, push year/quarter labels up to make room for month row
+  const headerLabelY = showMonths ? topMargin - 25 : topMargin - 15;
+
   // Compute derived flags once for use in Legend and Settings
   const hasProjectFinishDate = !!projectFinishDate;
   const hasMostLikelyReleases = releases.some(r => !!r.mostLikelyFinishDate);
@@ -259,7 +262,7 @@ export function GanttChart({
                       stroke="#c0c0c0" strokeWidth="1" strokeDasharray="4"
                     />
                     {quarterLabel && !tooCloseToYear && (
-                      <text x={x + 5} y={topMargin - 15} fontSize="14" fill="#999" fontWeight="600" textAnchor="start">
+                      <text x={x + 5} y={headerLabelY} fontSize="14" fill="#999" fontWeight="600" textAnchor="start">
                         {quarterLabel}
                       </text>
                     )}
@@ -318,7 +321,7 @@ export function GanttChart({
               }
 
               return (
-                <text key={year} x={x} y={topMargin - 15} fontSize="16" fill="#333" fontWeight="600" textAnchor="middle">
+                <text key={year} x={x} y={headerLabelY} fontSize="16" fill="#333" fontWeight="600" textAnchor="middle">
                   {year}
                 </text>
               );

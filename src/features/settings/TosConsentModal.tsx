@@ -57,12 +57,12 @@ export function TosConsentModal({ colors, onAccept, onCancel }: TosConsentModalP
         }}>
           <p style={{ margin: '0 0 0.75rem 0' }}>
             Cloud Storage stores your project planning data in Firebase/Firestore on Google Cloud.
-            Use is governed by the Statistical PERT&reg; Terms of Service and Privacy Policy.
+            Use is governed by the Terms of Service and Privacy Policy for SPERT&reg; Suite web apps.
           </p>
           <p style={{ margin: 0 }}>
             Please review:{' '}
             <a
-              href="https://spert-landing.vercel.app/TOS.pdf"
+              href="https://spertsuite.com/TOS.pdf"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#0070f3', textDecoration: 'none' }}
@@ -71,7 +71,7 @@ export function TosConsentModal({ colors, onAccept, onCancel }: TosConsentModalP
             </a>
             {' '}and{' '}
             <a
-              href="https://spert-landing.vercel.app/PRIVACY.pdf"
+              href="https://spertsuite.com/PRIVACY.pdf"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#0070f3', textDecoration: 'none' }}

@@ -64,14 +64,14 @@ describe('TosConsentModal', () => {
   it('contains Terms of Service link to correct URL', () => {
     render(<TosConsentModal {...defaultProps} />);
     const link = screen.getByText('Terms of Service');
-    expect(link.getAttribute('href')).toBe('https://spert-landing.vercel.app/TOS.pdf');
+    expect(link.getAttribute('href')).toBe('https://spertsuite.com/TOS.pdf');
     expect(link.getAttribute('target')).toBe('_blank');
   });
 
   it('contains Privacy Policy link to correct URL', () => {
     render(<TosConsentModal {...defaultProps} />);
     const link = screen.getByText('Privacy Policy');
-    expect(link.getAttribute('href')).toBe('https://spert-landing.vercel.app/PRIVACY.pdf');
+    expect(link.getAttribute('href')).toBe('https://spertsuite.com/PRIVACY.pdf');
     expect(link.getAttribute('target')).toBe('_blank');
   });
 

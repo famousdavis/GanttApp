@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.6',
+    date: 'March 31, 2026',
+    items: [
+      <><strong>Legal</strong> &mdash; Updated Terms of Service and Privacy Policy to revised versions (effective March 31, 2026); existing Cloud Storage users will be prompted to re-accept on next sign-in</>,
+      <><strong>Legal</strong> &mdash; Updated canonical legal document URLs to spertsuite.com</>,
+      <><strong>UI</strong> &mdash; Updated consent UI text to SPERT&reg; Suite branding</>,
+    ],
+  },
+  {
     version: '13.5',
     date: 'March 24, 2026',
     items: [

@@ -49,10 +49,10 @@ export function FirstRunBanner() {
         lineHeight: '1.5',
         margin: 0,
       }}>
-        Statistical PERT&reg; apps are free. No account is required to use them. By accessing or
+        SPERT&reg; Suite web apps are free. No account is required to use them. By accessing or
         using this app, you agree to our{' '}
         <a
-          href="https://spert-landing.vercel.app/TOS.pdf"
+          href="https://spertsuite.com/TOS.pdf"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0070f3', textDecoration: 'none' }}
@@ -61,7 +61,7 @@ export function FirstRunBanner() {
         </a>
         {' '}and{' '}
         <a
-          href="https://spert-landing.vercel.app/PRIVACY.pdf"
+          href="https://spertsuite.com/PRIVACY.pdf"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0070f3', textDecoration: 'none' }}

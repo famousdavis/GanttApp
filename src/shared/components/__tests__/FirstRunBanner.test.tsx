@@ -16,7 +16,7 @@ describe('FirstRunBanner', () => {
 
   it('renders when spert_firstRun_seen is absent from localStorage', () => {
     render(<FirstRunBanner />, { wrapper: ThemeWrapper });
-    expect(screen.getByText(/Statistical PERT/)).toBeTruthy();
+    expect(screen.getByText(/SPERT® Suite web apps/)).toBeTruthy();
   });
 
   it('does not render when spert_firstRun_seen is "true"', () => {
@@ -27,7 +27,7 @@ describe('FirstRunBanner', () => {
 
   it('clicking "Got it" sets localStorage and hides the banner', () => {
     const { container } = render(<FirstRunBanner />, { wrapper: ThemeWrapper });
-    expect(screen.getByText(/Statistical PERT/)).toBeTruthy();
+    expect(screen.getByText(/SPERT® Suite web apps/)).toBeTruthy();
 
     fireEvent.click(screen.getByText('Got it'));
 
@@ -44,14 +44,14 @@ describe('FirstRunBanner', () => {
   it('contains Terms of Service link', () => {
     render(<FirstRunBanner />, { wrapper: ThemeWrapper });
     const link = screen.getByText('Terms of Service');
-    expect(link.getAttribute('href')).toBe('https://spert-landing.vercel.app/TOS.pdf');
+    expect(link.getAttribute('href')).toBe('https://spertsuite.com/TOS.pdf');
     expect(link.getAttribute('target')).toBe('_blank');
   });
 
   it('contains Privacy Policy link', () => {
     render(<FirstRunBanner />, { wrapper: ThemeWrapper });
     const link = screen.getByText('Privacy Policy');
-    expect(link.getAttribute('href')).toBe('https://spert-landing.vercel.app/PRIVACY.pdf');
+    expect(link.getAttribute('href')).toBe('https://spertsuite.com/PRIVACY.pdf');
     expect(link.getAttribute('target')).toBe('_blank');
   });
 });

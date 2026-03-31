@@ -16,7 +16,7 @@ describe('FirstRunBanner', () => {
 
   it('renders when spert_firstRun_seen is absent from localStorage', () => {
     render(<FirstRunBanner />, { wrapper: ThemeWrapper });
-    expect(screen.getByText(/SPERT® Suite web apps/)).toBeTruthy();
+    expect(screen.getByText(/SPERT® Suite web apps are free to use/)).toBeTruthy();
   });
 
   it('does not render when spert_firstRun_seen is "true"', () => {
@@ -27,7 +27,7 @@ describe('FirstRunBanner', () => {
 
   it('clicking "Got it" sets localStorage and hides the banner', () => {
     const { container } = render(<FirstRunBanner />, { wrapper: ThemeWrapper });
-    expect(screen.getByText(/SPERT® Suite web apps/)).toBeTruthy();
+    expect(screen.getByText(/SPERT® Suite web apps are free to use/)).toBeTruthy();
 
     fireEvent.click(screen.getByText('Got it'));
 

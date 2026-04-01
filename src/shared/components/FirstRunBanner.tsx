@@ -49,8 +49,8 @@ export function FirstRunBanner() {
         lineHeight: '1.5',
         margin: 0,
       }}>
-        SPERT&reg; Suite web apps are free to use. No account is required. If you choose to
-        enable optional Cloud Storage, you will be asked to review and agree to our{' '}
+        SPERT&reg; Suite web apps are free to use. No account is required to use them. By
+        accessing or using this app, you agree to our{' '}
         <a
           href="https://spertsuite.com/TOS.pdf"
           target="_blank"
@@ -67,7 +67,8 @@ export function FirstRunBanner() {
           style={{ color: '#0070f3', textDecoration: 'none' }}
         >
           Privacy Policy
-        </a>.
+        </a>. If you choose to enable optional Cloud Storage, you&apos;ll be asked to
+        explicitly confirm your agreement.
       </p>
       <button
         onClick={handleDismiss}

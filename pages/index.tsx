@@ -341,14 +341,19 @@ function AppContent() {
           </button>
           {' '}| Licensed under GNU GPL v3
           <div style={{ marginTop: '0.25rem' }}>
-            <a href="https://spert-landing.vercel.app/TOS.pdf" target="_blank" rel="noopener noreferrer"
+            <a href="https://spertsuite.com/TOS.pdf" target="_blank" rel="noopener noreferrer"
               style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
               Terms of Service
             </a>
             {' '}|{' '}
-            <a href="https://spert-landing.vercel.app/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
+            <a href="https://spertsuite.com/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
               style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
               Privacy Policy
+            </a>
+            {' '}|{' '}
+            <a href="https://github.com/famousdavis/GanttApp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              License
             </a>
           </div>
         </footer>

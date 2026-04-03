@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.7',
+    date: 'April 2, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Added amber warning banner that appears on every app load when using local storage mode, reminding users to export their data; dismissible per session via &times;</>,
+      <><strong>Settings</strong> &mdash; New &quot;Notifications&quot; section with a checkbox to permanently suppress the local storage warning banner (visible only in local storage mode)</>,
+    ],
+  },
+  {
     version: '13.6',
     date: 'March 31, 2026',
     items: [

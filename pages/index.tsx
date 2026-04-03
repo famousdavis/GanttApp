@@ -11,6 +11,7 @@ import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
+import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ReleasesTab } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
@@ -237,6 +238,7 @@ function AppContent() {
         </header>
 
         <FirstRunBanner />
+        <LocalStorageWarningBanner />
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 

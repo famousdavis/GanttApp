@@ -5,7 +5,7 @@
 // Settings Tab — orchestrates storage mode and export attribution sections
 // v13.0: Intercepts sign-in to show ToS consent modal before Firebase Auth.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useStorage } from '../../context/StorageContext';
@@ -33,6 +33,21 @@ export function SettingsTab() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [showTosModal, setShowTosModal] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
+
+  const SUPPRESS_KEY = 'ganttapp-suppress-local-warning';
+  const [warnOnLocal, setWarnOnLocal] = useState(true);
+
+  useEffect(() => {
+    const suppressed = localStorage.getItem(SUPPRESS_KEY);
+    if (suppressed === 'true') {
+      setWarnOnLocal(false);
+    }
+  }, []);
+
+  const handleWarnOnLocalChange = (checked: boolean) => {
+    setWarnOnLocal(checked);
+    localStorage.setItem(SUPPRESS_KEY, checked ? 'false' : 'true');
+  };
 
   // Execute Firebase Auth sign-in (extracted for reuse)
   const executeSignIn = async (provider: 'google' | 'microsoft') => {
@@ -141,6 +156,41 @@ export function SettingsTab() {
         exportAttribution={exportAttribution}
         onChangeAttribution={setExportAttribution}
       />
+
+      {mode === 'local' && (
+        <section style={{ marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>
+            Notifications
+          </h3>
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.5rem',
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={warnOnLocal}
+              onChange={(e) => handleWarnOnLocalChange(e.target.checked)}
+              style={{ marginTop: '0.2rem' }}
+            />
+            <div>
+              <span style={{ fontWeight: '600', color: colors.text }}>
+                Warn me on startup when using local storage
+              </span>
+              <p style={{
+                color: colors.textSecondary,
+                fontSize: '0.85rem',
+                lineHeight: '1.5',
+                margin: '0.25rem 0 0 0',
+              }}>
+                Shows a caution banner each time the app loads while your data is stored
+                locally in this browser. Takes effect on the next time the app loads.
+              </p>
+            </div>
+          </label>
+        </section>
+      )}
     </div>
   );
 }

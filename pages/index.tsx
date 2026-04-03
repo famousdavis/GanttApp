@@ -343,6 +343,11 @@ function AppContent() {
           </button>
           {' '}| Licensed under GNU GPL v3
           <div style={{ marginTop: '0.25rem' }}>
+            <a href="https://spertsuite.com" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              SPERT&reg; Suite
+            </a>
+            {' '}|{' '}
             <a href="https://spertsuite.com/TOS.pdf" target="_blank" rel="noopener noreferrer"
               style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
               Terms of Service

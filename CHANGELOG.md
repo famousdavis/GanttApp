@@ -1,5 +1,15 @@
 # Change Log
 
+## Version 13.7 (2026-04-02)
+- UX: Added amber warning banner on every app load when using local storage mode, reminding users to export their data; dismissible per session via "Got it" button
+- Settings: New "Notifications" section with a checkbox to permanently suppress the local storage warning banner (visible only in local storage mode)
+
+## Version 13.6 (2026-03-31)
+- Legal: Updated Terms of Service and Privacy Policy (effective March 31, 2026); triggers re-consent for Cloud Storage users
+- Legal: Updated canonical legal document URLs to spertsuite.com
+- UI: Updated consent UI text to SPERT Suite branding
+- UI: Added License link to footer
+
 ## Version 13.5 (2026-03-24)
 - UX: Inline edit form on Releases tab — clicking Edit shows the form below the release instead of at the top of the page
 - Chart: New "Show Months" toggle in Chart Settings renders abbreviated month labels and thin vertical separators

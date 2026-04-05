@@ -2,10 +2,9 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// StorageStatusChip — Adaptive header chip showing storage mode and auth state.
-// Local mode: gray pill with database icon + "Local".
-// Cloud mode: avatar initial circle + display name + cloud icon (blue-accented).
-// Clicking navigates to the Settings tab.
+// StorageStatusChip — Option C split pill showing storage mode and auth state.
+// Cloud signed-in: avatar initial + first name | cloud icon → Settings.
+// Local / signed-out: lock icon + "Local only" | "Sign in" → Settings.
 
 import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -15,114 +14,146 @@ interface StorageStatusChipProps {
   onSettingsClick: () => void;
 }
 
+function CloudIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
+        fill="#0070f3"
+      />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke="#9CA3AF" strokeWidth="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
   const { mode } = useStorage();
   const { user } = useAuth();
-  const { colors, resolvedTheme } = useTheme();
+  const { colors } = useTheme();
 
-  const initial = (
-    user?.displayName?.[0]?.toUpperCase() ??
-    user?.email?.[0]?.toUpperCase() ??
-    '?'
-  );
+  const isCloudSignedIn = mode === 'cloud' && !!user;
 
-  const rawName = user?.displayName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? '';
-  const displayName = rawName.length > 12 ? rawName.slice(0, 12) + '\u2026' : rawName;
+  // Extract first name from displayName.
+  // Microsoft Entra ID may return "Last, First" format — detect the comma and swap.
+  const rawDisplayName = user?.displayName ?? '';
+  let firstName: string;
+  if (rawDisplayName.includes(',')) {
+    // "Last, First" → take the part after the comma
+    firstName = rawDisplayName.split(',')[1]?.trim().split(' ')[0] ?? '';
+  } else {
+    // "First Last" → take the first word
+    firstName = rawDisplayName.split(' ')[0] ?? '';
+  }
+  if (!firstName) {
+    firstName = user?.email?.split('@')[0] ?? '';
+  }
+  const initial = firstName.charAt(0).toUpperCase() || '?';
 
-  const chipStyle: React.CSSProperties = {
+  const borderColor = colors.border ?? '#D1D5DB';
+
+  const pillStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '5px',
-    padding: '4px 10px 4px 8px',
-    borderRadius: '20px',
-    border: `1px solid ${mode === 'cloud' ? colors.accent + '66' : colors.border}`,
-    background: mode === 'cloud'
-      ? (resolvedTheme === 'dark' ? '#1e3a5f' : '#e6f2ff')
-      : colors.surface,
-    cursor: 'pointer',
-    fontSize: '0.8rem',
-    fontWeight: 500,
-    color: mode === 'cloud' ? colors.accent : colors.textSecondary,
-    transition: 'opacity 0.15s ease',
-    userSelect: 'none',
+    borderRadius: '999px',
+    border: `0.5px solid ${borderColor}`,
+    background: 'transparent',
+    overflow: 'hidden',
+    lineHeight: 1,
     whiteSpace: 'nowrap',
-    // Reset button defaults
+  };
+
+  const dividerStyle: React.CSSProperties = {
+    alignSelf: 'stretch',
+    width: '0.5px',
+    backgroundColor: borderColor,
+  };
+
+  const rightButtonStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px 10px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    borderTopRightRadius: '999px',
+    borderBottomRightRadius: '999px',
     appearance: 'none',
     WebkitAppearance: 'none',
     outline: 'none',
-    lineHeight: 1,
   };
 
-  if (mode === 'local') {
+  if (isCloudSignedIn) {
     return (
-      <button
-        onClick={onSettingsClick}
-        style={chipStyle}
-        title="Using local storage — click to manage in Settings"
-      >
-        {/* Database / local storage icon */}
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      <div style={pillStyle} title={`Signed in as ${user?.email ?? 'cloud user'}`}>
+        {/* Left segment: avatar + first name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              backgroundColor: '#0070f3',
+              color: 'white',
+              fontSize: '11px',
+              fontWeight: 500,
+              flexShrink: 0,
+              lineHeight: 1,
+            }}
+            aria-hidden="true"
+          >
+            {initial}
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+            {firstName}
+          </span>
+        </div>
+        {/* Vertical divider */}
+        <div style={dividerStyle} />
+        {/* Right segment: cloud icon → Settings */}
+        <button
+          onClick={onSettingsClick}
+          style={rightButtonStyle}
+          aria-label="Open settings"
         >
-          <ellipse cx="12" cy="5" rx="9" ry="3" />
-          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-        </svg>
-        Local
-      </button>
+          <CloudIcon />
+        </button>
+      </div>
     );
   }
 
-  // Cloud mode — show avatar initial + display name + cloud icon
   return (
-    <button
-      onClick={onSettingsClick}
-      style={chipStyle}
-      title={`Signed in as ${user?.email ?? 'cloud user'} — click to manage in Settings`}
-    >
-      {/* Avatar circle with first initial */}
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          background: colors.accent,
-          color: 'white',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          flexShrink: 0,
-          lineHeight: 1,
-        }}
-        aria-hidden="true"
+    <div style={pillStyle} title="Using local storage">
+      {/* Left segment: lock icon + "Local only" */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px' }}>
+        <LockIcon />
+        <span style={{ fontSize: '13px', color: '#9CA3AF' }}>
+          Local only
+        </span>
+      </div>
+      {/* Vertical divider */}
+      <div style={dividerStyle} />
+      {/* Right segment: "Sign in" → Settings */}
+      <button
+        onClick={onSettingsClick}
+        style={rightButtonStyle}
+        aria-label="Sign in"
       >
-        {initial}
-      </span>
-      {displayName && <span>{displayName}</span>}
-      {/* Cloud icon */}
-      <svg
-        width="13"
-        height="13"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
-      </svg>
-    </button>
+        <span style={{ fontSize: '12px', fontWeight: 500, color: '#0070f3' }}>
+          Sign in
+        </span>
+      </button>
+    </div>
   );
 }

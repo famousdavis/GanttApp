@@ -222,7 +222,6 @@ function AppContent() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <StorageStatusChip onSettingsClick={() => setActiveTab('settings')} />
             <button
               onClick={cycleTheme}
               style={{
@@ -238,6 +237,7 @@ function AppContent() {
             >
               {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
             </button>
+            <StorageStatusChip onSettingsClick={() => setActiveTab('settings')} />
           </div>
         </header>
 

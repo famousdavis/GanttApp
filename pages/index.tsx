@@ -12,6 +12,7 @@ import { ChartColors, TabType } from '../src/shared/types';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
+import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ReleasesTab } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
@@ -220,21 +221,24 @@ function AppContent() {
               Visualize release date uncertainty in your project timeline
             </p>
           </div>
-          <button
-            onClick={cycleTheme}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '1.5rem',
-              padding: '0.5rem',
-              borderRadius: '8px',
-              transition: 'background-color 0.2s ease'
-            }}
-            title={`Theme: ${mode} (click to change)`}
-          >
-            {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <StorageStatusChip onSettingsClick={() => setActiveTab('settings')} />
+            <button
+              onClick={cycleTheme}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                padding: '0.5rem',
+                borderRadius: '8px',
+                transition: 'background-color 0.2s ease'
+              }}
+              title={`Theme: ${mode} (click to change)`}
+            >
+              {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
+            </button>
+          </div>
         </header>
 
         <FirstRunBanner />

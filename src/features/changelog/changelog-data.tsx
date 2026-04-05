@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '13.8',
+    date: 'April 4, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Added storage &amp; auth status chip in the upper-right header: shows a &quot;Local&quot; pill (with database icon) in local storage mode, and a user avatar initial + display name + cloud icon in cloud mode; clicking navigates to Settings</>,
+    ],
+  },
+  {
     version: '13.7',
     date: 'April 2, 2026',
     items: [

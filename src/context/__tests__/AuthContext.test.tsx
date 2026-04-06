@@ -25,7 +25,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 vi.mock('../../lib/version', () => ({
-  TOS_VERSION: '03-20-2026',
+  TOS_VERSION: '04-05-2026',
   APP_ID: 'ganttapp',
 }));
 

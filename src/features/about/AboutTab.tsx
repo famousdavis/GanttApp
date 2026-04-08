@@ -73,7 +73,7 @@ export function AboutTab() {
           reading the chart, and using snapshots.
         </p>
         <a
-          href="https://github.com/famousdavis/GanttApp/raw/main/GanttApp_Quick_Reference_Guide.pdf"
+          href="/GanttApp_Quick_Reference_Guide.pdf"
           target="_blank"
           rel="noopener noreferrer"
           style={{

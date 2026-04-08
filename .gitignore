@@ -30,6 +30,9 @@ yarn-error.log*
 # proprietary development documentation
 CLAUDE.md
 
+# claude code local config
+.claude/
+
 # vercel
 .vercel
 

@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '14.0',
+    date: 'April 9, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Unified the header auth chip into a single click target. Clicking anywhere on the pill (avatar, name, or cloud icon) now opens an account popover when signed in to cloud storage</>,
+      <><strong>UX</strong> &mdash; Account popover shows display name + email and exposes a Sign Out button directly from the header &mdash; no more navigating to Settings to sign out</>,
+      <><strong>UX</strong> &mdash; Signed-out chip behavior unchanged: clicking anywhere on the pill opens the Settings tab to start the sign-in flow</>,
+      <><strong>A11y</strong> &mdash; Chip is now a single <code>&lt;button&gt;</code> with <code>aria-haspopup</code>, <code>aria-expanded</code>, and a descriptive <code>aria-label</code>; Escape dismisses the popover</>,
+      <><strong>Reliability</strong> &mdash; Sign Out uses a loading state with re-entry guards so the popover cannot be dismissed mid-await</>,
+    ],
+  },
+  {
     version: '13.9',
     date: 'April 5, 2026',
     items: [

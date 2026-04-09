@@ -3,12 +3,15 @@
 // See LICENSE file in the project root for full license text.
 
 // StorageStatusChip — Option C split pill showing storage mode and auth state.
-// Cloud signed-in: avatar initial + first name | cloud icon → Settings.
-// Local / signed-out: lock icon + "Local only" | "Sign in" → Settings.
+// v14.0: Unified single-button click target. Signed in → account popover with Sign Out.
+// Signed out / local → opens Settings (existing sign-in flow).
 
+import { useState, useEffect } from 'react';
 import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { sanitizeFirebaseError } from '../utils/validation';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface StorageStatusChipProps {
   onSettingsClick: () => void;
@@ -35,9 +38,13 @@ function LockIcon() {
 }
 
 export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
-  const { mode } = useStorage();
-  const { user } = useAuth();
+  const { mode, switchMode } = useStorage();
+  const { user, signOut } = useAuth();
   const { colors } = useTheme();
+
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
 
@@ -46,10 +53,8 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
   const rawDisplayName = user?.displayName ?? '';
   let firstName: string;
   if (rawDisplayName.includes(',')) {
-    // "Last, First" → take the part after the comma
     firstName = rawDisplayName.split(',')[1]?.trim().split(' ')[0] ?? '';
   } else {
-    // "First Last" → take the first word
     firstName = rawDisplayName.split(' ')[0] ?? '';
   }
   if (!firstName) {
@@ -59,7 +64,44 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
 
   const borderColor = colors.border ?? '#D1D5DB';
 
-  const pillStyle: React.CSSProperties = {
+  // Escape key closes popover (no-op while signing out)
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (signingOut) return;
+      setPopoverOpen(false);
+      setError(null);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [popoverOpen, signingOut]);
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setError(null);
+    try {
+      // Mirror SettingsTab.handleSignOut exactly
+      if (mode === 'cloud') {
+        await switchMode('local');
+      }
+      await signOut();
+      setPopoverOpen(false);
+    } catch (err) {
+      setError(sanitizeFirebaseError(err));
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (signingOut) return;
+    setPopoverOpen(false);
+    setError(null);
+  };
+
+  const pillButtonStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     borderRadius: '999px',
@@ -68,6 +110,14 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
     overflow: 'hidden',
     lineHeight: 1,
     whiteSpace: 'nowrap',
+    padding: 0,
+    margin: 0,
+    font: 'inherit',
+    color: 'inherit',
+    cursor: 'pointer',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    outline: 'none',
   };
 
   const dividerStyle: React.CSSProperties = {
@@ -76,84 +126,133 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
     backgroundColor: borderColor,
   };
 
-  const rightButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '4px 10px',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    borderTopRightRadius: '999px',
-    borderBottomRightRadius: '999px',
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    outline: 'none',
-  };
-
   if (isCloudSignedIn) {
     return (
-      <div style={pillStyle} title={`Signed in as ${user?.email ?? 'cloud user'}`}>
-        {/* Left segment: avatar + first name */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+      <>
+        <button
+          type="button"
+          onClick={() => setPopoverOpen(true)}
+          style={pillButtonStyle}
+          title={`Signed in as ${user?.email ?? 'cloud user'}`}
+          aria-haspopup="dialog"
+          aria-expanded={popoverOpen}
+          aria-label="Account menu"
+        >
+          {/* Left segment: avatar + first name */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                backgroundColor: '#0070f3',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: 500,
+                flexShrink: 0,
+                lineHeight: 1,
+              }}
+              aria-hidden="true"
+            >
+              {initial}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+              {firstName}
+            </span>
+          </span>
+          {/* Vertical divider */}
+          <span style={dividerStyle} aria-hidden="true" />
+          {/* Right segment: cloud icon (visual only) */}
           <span
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '26px',
-              height: '26px',
-              borderRadius: '50%',
-              backgroundColor: '#0070f3',
-              color: 'white',
-              fontSize: '11px',
-              fontWeight: 500,
-              flexShrink: 0,
-              lineHeight: 1,
+              padding: '4px 10px',
             }}
             aria-hidden="true"
           >
-            {initial}
+            <CloudIcon />
           </span>
-          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
-            {firstName}
-          </span>
-        </div>
-        {/* Vertical divider */}
-        <div style={dividerStyle} />
-        {/* Right segment: cloud icon → Settings */}
-        <button
-          onClick={onSettingsClick}
-          style={rightButtonStyle}
-          aria-label="Open settings"
-        >
-          <CloudIcon />
         </button>
-      </div>
+
+        {popoverOpen && (
+          <ConfirmDialog
+            modal
+            title="Account"
+            colors={colors}
+            message={
+              <div>
+                <p style={{ margin: 0, color: colors.text, fontWeight: 600 }}>
+                  {user?.displayName ?? firstName}
+                </p>
+                {user?.email && (
+                  <p style={{ margin: '0.25rem 0 0 0', color: colors.textSecondary, fontSize: '0.9rem' }}>
+                    {user.email}
+                  </p>
+                )}
+                {error && (
+                  <p style={{ margin: '0.75rem 0 0 0', color: '#e53e3e', fontSize: '0.85rem' }}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            }
+            buttons={[
+              {
+                label: signingOut ? 'Signing out…' : 'Sign Out',
+                onClick: handleSignOut,
+                variant: 'danger',
+                disabled: signingOut,
+              },
+              {
+                label: 'Cancel',
+                onClick: handleCancel,
+                variant: 'secondary',
+                disabled: signingOut,
+              },
+            ]}
+          />
+        )}
+      </>
     );
   }
 
+  // Signed out / local mode
   return (
-    <div style={pillStyle} title="Using local storage">
+    <button
+      type="button"
+      onClick={onSettingsClick}
+      style={pillButtonStyle}
+      title="Using local storage"
+      aria-label="Sign in"
+    >
       {/* Left segment: lock icon + "Local only" */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px' }}>
         <LockIcon />
         <span style={{ fontSize: '13px', color: '#9CA3AF' }}>
           Local only
         </span>
-      </div>
+      </span>
       {/* Vertical divider */}
-      <div style={dividerStyle} />
-      {/* Right segment: "Sign in" → Settings */}
-      <button
-        onClick={onSettingsClick}
-        style={rightButtonStyle}
-        aria-label="Sign in"
+      <span style={dividerStyle} aria-hidden="true" />
+      {/* Right segment: "Sign in" (visual only) */}
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '4px 10px',
+        }}
+        aria-hidden="true"
       >
         <span style={{ fontSize: '12px', fontWeight: 500, color: '#0070f3' }}>
           Sign in
         </span>
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }

@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 14.0 (2026-04-09)
+- UX: Unified the header auth chip into a single click target. Clicking anywhere on the pill (avatar, name, or cloud icon) now opens an account popover when signed in to cloud storage
+- UX: Account popover shows display name + email and exposes a Sign Out button directly from the header — no more navigating to Settings to sign out
+- UX: Signed-out chip behavior unchanged: clicking anywhere on the pill opens the Settings tab to start the sign-in flow
+- A11y: Chip is now a single `<button>` with `aria-haspopup`, `aria-expanded`, and a descriptive `aria-label`; Escape dismisses the popover
+- Reliability: Sign Out uses a loading state with re-entry guards so the popover cannot be dismissed mid-await
+
 ## Version 13.7 (2026-04-02)
 - UX: Added amber warning banner on every app load when using local storage mode, reminding users to export their data; dismissible per session via "Got it" button
 - Settings: New "Notifications" section with a checkbox to permanently suppress the local storage warning banner (visible only in local storage mode)

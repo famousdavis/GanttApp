@@ -398,4 +398,81 @@ describe('ReleasesTab', () => {
       });
     });
   });
+
+  describe('work-week warnings (v15.0)', () => {
+    it('shows no warnings when effectiveWorkDays is undefined', async () => {
+      // No globalWorkDays in seeded data — feature is not configured
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [],
+      });
+
+      renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
+
+      // Set Start Date to a Saturday (2026-01-03)
+      const dateInputs = document.querySelectorAll('input[type="date"]');
+      fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
+
+      // No warning should appear because globalWorkDays is undefined
+      expect(screen.queryByText(/Saturday/)).toBeNull();
+    });
+
+    it('shows a warning when a release date is on a non-workday', async () => {
+      // globalWorkDays: Mon–Fri configured
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [],
+        globalWorkDays: [1, 2, 3, 4, 5],
+      });
+
+      renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
+
+      // Set Start Date to a Saturday (2026-01-03)
+      const dateInputs = document.querySelectorAll('input[type="date"]');
+      fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
+
+      // Warning should appear with amber text mentioning Saturday
+      await waitFor(() => {
+        expect(screen.getByText(/Saturday/)).toBeTruthy();
+      });
+    });
+
+    it('Save button remains enabled during warning state', async () => {
+      // globalWorkDays: Mon–Fri configured
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [],
+        globalWorkDays: [1, 2, 3, 4, 5],
+      });
+
+      renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
+
+      // Fill in valid release data with a Saturday start date
+      fireEvent.change(screen.getByPlaceholderText('Release name'), { target: { value: 'Sprint 1' } });
+
+      const dateInputs = document.querySelectorAll('input[type="date"]');
+      // 2026-01-03 is Saturday, 2026-03-01 is Sunday, 2026-06-01 is Monday
+      fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
+      fireEvent.change(dateInputs[1], { target: { value: '2026-03-02' } });
+      fireEvent.change(dateInputs[2], { target: { value: '2026-06-01' } });
+
+      // Verify warning is shown (non-workday)
+      await waitFor(() => {
+        expect(screen.getByText(/Saturday/)).toBeTruthy();
+      });
+
+      // Add Release button should still be enabled (warnings are non-blocking)
+      const addButton = screen.getByText('Add Release');
+      expect(addButton.closest('button')?.disabled).toBe(false);
+    });
+  });
 });

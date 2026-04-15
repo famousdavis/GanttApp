@@ -145,5 +145,16 @@ describe('firestore-save-executor', () => {
       const withAttr = { ...base, exportAttribution: { name: 'A', identifier: 'B' } };
       expect(settingsChanged(withAttr, { ...withAttr })).toBe(false);
     });
+
+    it('detects globalWorkDays change', () => {
+      expect(settingsChanged(base, {
+        ...base, globalWorkDays: [1, 2, 3, 4, 5],
+      })).toBe(true);
+    });
+
+    it('does not flag identical globalWorkDays as changed', () => {
+      const withDays = { ...base, globalWorkDays: [1, 2, 3, 4, 5] };
+      expect(settingsChanged(withDays, { ...withDays, globalWorkDays: [1, 2, 3, 4, 5] })).toBe(false);
+    });
   });
 });

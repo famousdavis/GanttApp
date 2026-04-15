@@ -34,10 +34,12 @@ export function useSnapshots(selectedProjectId: string) {
     return () => { cancelled = true; };
   }, [storage]);
 
-  // Reset to Current view when project changes
-  useEffect(() => {
+  // Reset to Current view when project changes (render-time derivation, React's getDerivedStateFromProps pattern)
+  const [prevProjectId, setPrevProjectId] = useState(selectedProjectId);
+  if (prevProjectId !== selectedProjectId) {
+    setPrevProjectId(selectedProjectId);
     setActiveSnapshotId(null);
-  }, [selectedProjectId]);
+  }
 
   // Snapshots for the current project, sorted by timestamp ascending
   const snapshots = useMemo(
@@ -53,12 +55,10 @@ export function useSnapshots(selectedProjectId: string) {
 
   const isViewingSnapshot = activeSnapshot !== null;
 
-  // If active snapshot was deleted externally, reset to Current
-  useEffect(() => {
-    if (activeSnapshotId && !snapshots.some(s => s.id === activeSnapshotId)) {
-      setActiveSnapshotId(null);
-    }
-  }, [snapshots, activeSnapshotId]);
+  // If active snapshot was deleted externally, reset to Current (render-time derivation)
+  if (activeSnapshotId && !snapshots.some(s => s.id === activeSnapshotId)) {
+    setActiveSnapshotId(null);
+  }
 
   // Save a new snapshot
   const saveSnapshot = useCallback(async (params: SaveSnapshotParams) => {

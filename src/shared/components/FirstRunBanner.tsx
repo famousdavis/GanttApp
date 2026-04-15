@@ -14,10 +14,12 @@ export function FirstRunBanner() {
   const { colors, resolvedTheme } = useTheme();
   const [visible, setVisible] = useState(false);
 
+  // SSR hydration pattern: must start false (matching server render), then check localStorage on client.
+  // A lazy initializer would cause a hydration mismatch since server has no localStorage.
   useEffect(() => {
     const seen = localStorage.getItem(FIRST_RUN_KEY);
     if (seen !== 'true') {
-      setVisible(true);
+      setVisible(true); // eslint-disable-line react-hooks/set-state-in-effect -- SSR hydration pattern
     }
   }, []);
 

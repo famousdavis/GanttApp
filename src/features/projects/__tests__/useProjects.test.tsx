@@ -495,4 +495,98 @@ describe('useProjects', () => {
       expect(result.current.editingProjectId).toBeNull();
     });
   });
+
+  describe('projectWorkDays (v15.0)', () => {
+    it('projectWorkDays state initializes as undefined', () => {
+      const { result } = renderHook(() => useProjects(), { wrapper });
+      expect(result.current.projectWorkDays).toBeUndefined();
+    });
+
+    it('addProject includes workDays when set', () => {
+      const { result } = renderHook(() => useProjects(), { wrapper });
+      const setSelectedProjectId = vi.fn();
+
+      act(() => {
+        result.current.setProjectName('Work Days Project');
+        result.current.setProjectWorkDays([1, 2, 3, 4, 5]);
+      });
+
+      act(() => {
+        result.current.addProject('', setSelectedProjectId);
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].workDays).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('addProject omits workDays when undefined', () => {
+      const { result } = renderHook(() => useProjects(), { wrapper });
+      const setSelectedProjectId = vi.fn();
+
+      act(() => {
+        result.current.setProjectName('No Work Days');
+      });
+
+      act(() => {
+        result.current.addProject('', setSelectedProjectId);
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].workDays).toBeUndefined();
+    });
+
+    it('updateProject clears workDays when state is undefined', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Has Days', workDays: [1, 2, 3] })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+
+      await waitFor(() => {
+        expect(result.current.data.projects.length).toBe(1);
+      });
+
+      act(() => {
+        result.current.startEditProject(makeProject({ id: 'p1', name: 'Has Days', workDays: [1, 2, 3] }));
+      });
+
+      act(() => {
+        result.current.setProjectWorkDays(undefined);
+      });
+
+      act(() => {
+        result.current.updateProject();
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].workDays).toBeUndefined();
+    });
+
+    it('startEditProject populates projectWorkDays from project.workDays', () => {
+      const { result } = renderHook(() => useProjects(), { wrapper });
+
+      act(() => {
+        result.current.startEditProject(makeProject({ id: 'p1', name: 'Custom Week', workDays: [0, 1, 2, 3, 4] }));
+      });
+
+      expect(result.current.projectWorkDays).toEqual([0, 1, 2, 3, 4]);
+    });
+
+    it('cancelEditProject resets projectWorkDays to undefined', () => {
+      const { result } = renderHook(() => useProjects(), { wrapper });
+
+      act(() => {
+        result.current.startEditProject(makeProject({ id: 'p1', name: 'Custom', workDays: [1, 2, 3] }));
+      });
+
+      expect(result.current.projectWorkDays).toEqual([1, 2, 3]);
+
+      act(() => {
+        result.current.cancelEditProject();
+      });
+
+      expect(result.current.projectWorkDays).toBeUndefined();
+    });
+  });
 });

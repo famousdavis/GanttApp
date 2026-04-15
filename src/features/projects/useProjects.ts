@@ -16,6 +16,7 @@ export function useProjects() {
   const { storage } = useStorage();
   const [projectName, setProjectName] = useState('');
   const [projectFinishDate, setProjectFinishDate] = useState('');
+  const [projectWorkDays, setProjectWorkDays] = useState<number[] | undefined>(undefined);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const addProject = (selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
@@ -23,12 +24,14 @@ export function useProjects() {
     const newProject: Project = {
       id: generateId(),
       name: sanitizeString(projectName),
-      ...(projectFinishDate && { finishDate: projectFinishDate })
+      ...(projectFinishDate && { finishDate: projectFinishDate }),
+      ...(projectWorkDays && projectWorkDays.length > 0 && { workDays: projectWorkDays })
     };
     const newData = { ...data, projects: [...data.projects, newProject] };
     updateData(newData);
     setProjectName('');
     setProjectFinishDate('');
+    setProjectWorkDays(undefined);
     if (!selectedProjectId) {
       setSelectedProjectId(newProject.id);
     }
@@ -42,13 +45,17 @@ export function useProjects() {
         p.id === editingProjectId ? {
           ...p,
           name: sanitizeString(projectName),
-          ...(projectFinishDate ? { finishDate: projectFinishDate } : { finishDate: undefined })
+          ...(projectFinishDate ? { finishDate: projectFinishDate } : { finishDate: undefined }),
+          ...(projectWorkDays && projectWorkDays.length > 0
+            ? { workDays: projectWorkDays }
+            : { workDays: undefined })
         } : p
       )
     };
     updateData(newData);
     setProjectName('');
     setProjectFinishDate('');
+    setProjectWorkDays(undefined);
     setEditingProjectId(null);
   };
 
@@ -70,12 +77,14 @@ export function useProjects() {
   const startEditProject = (project: Project) => {
     setProjectName(project.name);
     setProjectFinishDate(project.finishDate || '');
+    setProjectWorkDays(project.workDays);
     setEditingProjectId(project.id);
   };
 
   const cancelEditProject = () => {
     setProjectName('');
     setProjectFinishDate('');
+    setProjectWorkDays(undefined);
     setEditingProjectId(null);
   };
 
@@ -84,6 +93,8 @@ export function useProjects() {
     setProjectName,
     projectFinishDate,
     setProjectFinishDate,
+    projectWorkDays,
+    setProjectWorkDays,
     editingProjectId,
     addProject,
     updateProject,

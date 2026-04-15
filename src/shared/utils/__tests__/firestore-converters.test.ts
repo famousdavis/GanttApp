@@ -431,4 +431,76 @@ describe('firestore-converters', () => {
       expect(roundTripped.mostLikelyFinishDate).toBe(mockRelease.mostLikelyFinishDate);
     });
   });
+
+  // --- Work-week fields (v15.0) ---
+
+  describe('projectToFirestoreMeta — workDays', () => {
+    it('includes workDays when set', () => {
+      const project: Project = { id: 'p1', name: 'P', workDays: [1, 2, 3] };
+      const meta = projectToFirestoreMeta(project, 'u1');
+      expect(meta.workDays).toEqual([1, 2, 3]);
+    });
+
+    it('omits workDays when undefined', () => {
+      const project: Project = { id: 'p1', name: 'P' };
+      const meta = projectToFirestoreMeta(project, 'u1');
+      expect(meta.workDays).toBeUndefined();
+    });
+
+    it('omits workDays when empty array', () => {
+      const project: Project = { id: 'p1', name: 'P', workDays: [] };
+      const meta = projectToFirestoreMeta(project, 'u1');
+      expect(meta.workDays).toBeUndefined();
+    });
+  });
+
+  describe('firestoreToProject — workDays', () => {
+    it('sanitizes and includes workDays', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'P', owner: 'u1', members: { u1: 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+        workDays: [0, 5, 6],
+      };
+      const project = firestoreToProject('p1', meta);
+      expect(project.workDays).toEqual([0, 5, 6]);
+    });
+
+    it('drops invalid workDays from Firestore meta', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'P', owner: 'u1', members: { u1: 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+        workDays: [99, -1] as number[],
+      };
+      const project = firestoreToProject('p1', meta);
+      expect(project.workDays).toBeUndefined();
+    });
+  });
+
+  describe('appDataToUserSettings — globalWorkDays', () => {
+    it('includes globalWorkDays when set', () => {
+      const data: AppData = { projects: [], releases: [], globalWorkDays: [1, 2, 3, 4, 5] };
+      const settings = appDataToUserSettings(data);
+      expect(settings.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('omits globalWorkDays when undefined', () => {
+      const data: AppData = { projects: [], releases: [] };
+      const settings = appDataToUserSettings(data);
+      expect(settings.globalWorkDays).toBeUndefined();
+    });
+  });
+
+  describe('userSettingsToAppData — globalWorkDays', () => {
+    it('sanitizes and includes globalWorkDays', () => {
+      const settings = { globalWorkDays: [0, 6] } as FirestoreUserSettings;
+      const partial = userSettingsToAppData(settings);
+      expect(partial.globalWorkDays).toEqual([0, 6]);
+    });
+
+    it('drops invalid globalWorkDays', () => {
+      const settings = { globalWorkDays: ['bad'] as unknown as number[] } as FirestoreUserSettings;
+      const partial = userSettingsToAppData(settings);
+      expect(partial.globalWorkDays).toBeUndefined();
+    });
+  });
 });

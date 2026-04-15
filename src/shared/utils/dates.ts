@@ -85,6 +85,22 @@ export function formatDateISO(timestamp: number): string {
 }
 
 /**
+ * Check whether a date (YYYY-MM-DD) falls on one of the configured work days.
+ * Returns true for invalid/empty inputs or an empty workDays array (feature's opt-out semantics),
+ * so this function never double-reports format errors already surfaced by isValidDateFormat.
+ * @param dateStr ISO date string
+ * @param workDays Array of day-of-week indices (0=Sun ... 6=Sat)
+ */
+export function isWorkDay(dateStr: string, workDays: number[]): boolean {
+  // Opt-out: no workDays configured
+  if (!workDays || workDays.length === 0) return true;
+  // Lightweight format guard (inlined to avoid a circular import from validation.ts)
+  if (!dateStr || dateStr.length !== 10 || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return true;
+  const dow = new Date(parseDateLocal(dateStr)).getDay();
+  return workDays.includes(dow);
+}
+
+/**
  * Calculate quarter boundaries for a date range
  * Returns array of Date objects representing quarter starts (Jan 1, Apr 1, Jul 1, Oct 1)
  */

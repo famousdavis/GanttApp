@@ -3,7 +3,8 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings } from '../validation';
+import type { Project } from '../../types/models';
 
 describe('isValidDateFormat', () => {
   it('accepts valid dates within 2000-2050 range', () => {
@@ -426,5 +427,167 @@ describe('sanitizeFirebaseError', () => {
   it('returns generic message for unknown Firebase error codes', () => {
     const err = Object.assign(new Error('Some internal Firebase error details'), { code: 'unknown/internal-error' });
     expect(sanitizeFirebaseError(err)).toBe('An error occurred. Please try again.');
+  });
+});
+
+// --- Work-week validation (v15.0) ---
+
+describe('sanitizeWorkDays', () => {
+  it('accepts a valid array of day indices', () => {
+    expect(sanitizeWorkDays([1, 2, 3, 4, 5])).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('sorts the result ascending', () => {
+    expect(sanitizeWorkDays([5, 1, 3, 2, 4])).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('dedupes the result', () => {
+    expect(sanitizeWorkDays([1, 1, 2, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it('filters out non-integers', () => {
+    expect(sanitizeWorkDays([1, 2.5, 3, NaN])).toEqual([1, 3]);
+  });
+
+  it('filters out out-of-range values', () => {
+    expect(sanitizeWorkDays([-1, 0, 6, 7, 8])).toEqual([0, 6]);
+  });
+
+  it('returns undefined for non-arrays', () => {
+    expect(sanitizeWorkDays(null)).toBeUndefined();
+    expect(sanitizeWorkDays(undefined)).toBeUndefined();
+    expect(sanitizeWorkDays({})).toBeUndefined();
+    expect(sanitizeWorkDays('1,2,3')).toBeUndefined();
+  });
+
+  it('returns undefined for empty array', () => {
+    expect(sanitizeWorkDays([])).toBeUndefined();
+  });
+
+  it('returns undefined for arrays with >7 items after dedup', () => {
+    // 8 distinct valid values — impossible, only 0-6 exist (7 max)
+    // Test with 7 valid + 1 out-of-range: filter leaves 7, which is OK
+    expect(sanitizeWorkDays([0, 1, 2, 3, 4, 5, 6])).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('returns undefined when all values get filtered out', () => {
+    expect(sanitizeWorkDays([-1, 7, 'foo'])).toBeUndefined();
+  });
+});
+
+describe('getEffectiveWorkDays', () => {
+  it('returns project override when set', () => {
+    const project: Project = { id: '1', name: 'P', workDays: [1, 2, 3] };
+    expect(getEffectiveWorkDays(project, [1, 2, 3, 4, 5])).toEqual([1, 2, 3]);
+  });
+
+  it('falls back to global when project override is undefined', () => {
+    const project: Project = { id: '1', name: 'P' };
+    expect(getEffectiveWorkDays(project, [1, 2, 3, 4, 5])).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('falls back to global when project override is empty array', () => {
+    const project: Project = { id: '1', name: 'P', workDays: [] };
+    expect(getEffectiveWorkDays(project, [0, 6])).toEqual([0, 6]);
+  });
+
+  it('returns undefined when both are undefined', () => {
+    expect(getEffectiveWorkDays(undefined, undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when project is undefined and global is empty', () => {
+    expect(getEffectiveWorkDays(undefined, [])).toBeUndefined();
+  });
+});
+
+describe('getWorkDayWarning', () => {
+  it('returns empty string when workDays is undefined', () => {
+    expect(getWorkDayWarning('2026-06-13', undefined)).toBe('');
+  });
+
+  it('returns empty string when workDays is empty', () => {
+    expect(getWorkDayWarning('2026-06-13', [])).toBe('');
+  });
+
+  it('returns empty string for a workday', () => {
+    // 2026-06-15 = Monday
+    expect(getWorkDayWarning('2026-06-15', [1, 2, 3, 4, 5])).toBe('');
+  });
+
+  it('returns a warning string for a non-workday', () => {
+    // 2026-06-13 = Saturday
+    const result = getWorkDayWarning('2026-06-13', [1, 2, 3, 4, 5]);
+    expect(result).toContain('Saturday');
+    expect(result).toContain('outside your work week');
+  });
+
+  it('names the correct day for each day of week', () => {
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    // 2026-06-07 = Sunday through 2026-06-13 = Saturday
+    for (let d = 7; d <= 13; d++) {
+      const dateStr = `2026-06-${String(d).padStart(2, '0')}`;
+      const result = getWorkDayWarning(dateStr, []); // empty = opt-out
+      expect(result).toBe(''); // empty workDays always returns ''
+    }
+    // With workDays excluding weekends
+    for (let d = 7; d <= 13; d++) {
+      const dateStr = `2026-06-${String(d).padStart(2, '0')}`;
+      const dow = d - 7; // 0=Sun through 6=Sat
+      const result = getWorkDayWarning(dateStr, [1, 2, 3, 4, 5]);
+      if (dow >= 1 && dow <= 5) {
+        expect(result).toBe('');
+      } else {
+        expect(result).toContain(dayNames[dow]);
+      }
+    }
+  });
+});
+
+describe('getDateWarnings', () => {
+  const monFri = [1, 2, 3, 4, 5];
+  // 2026-06-13 = Saturday, 2026-06-17 = Wednesday, 2026-06-20 = Saturday
+  const sat = '2026-06-13';
+  const wed = '2026-06-17';
+  const sat2 = '2026-06-20';
+
+  it('returns all empty when workDays is undefined', () => {
+    expect(getDateWarnings(sat, wed, sat2, '', undefined)).toEqual({
+      startDate: '', earlyFinish: '', lateFinish: '', mostLikely: '',
+    });
+  });
+
+  it('emits warnings for any valid non-workday date regardless of touched state', () => {
+    const result = getDateWarnings(sat, wed, sat2, '', monFri);
+    expect(result.startDate).toContain('Saturday');
+    expect(result.earlyFinish).toBe(''); // Wednesday is a workday
+    expect(result.lateFinish).toContain('Saturday');
+    expect(result.mostLikely).toBe(''); // empty date
+  });
+
+  it('does NOT emit a warning when dateStr fails isValidDateFormat', () => {
+    // Partial / invalid input should produce '', confirming isValidDateFormat gate works
+    const result = getDateWarnings('2026-06', '', '2026-13-01', 'not-a-date', monFri);
+    expect(result.startDate).toBe('');
+    expect(result.earlyFinish).toBe('');
+    expect(result.lateFinish).toBe('');
+    expect(result.mostLikely).toBe('');
+  });
+
+  it('emits per-field warnings independently', () => {
+    const result = getDateWarnings(sat, wed, sat2, wed, monFri);
+    expect(result.startDate).toContain('Saturday');
+    expect(result.earlyFinish).toBe('');
+    expect(result.lateFinish).toContain('Saturday');
+    expect(result.mostLikely).toBe(''); // Wednesday is a workday
+  });
+
+  it('emits warning for mostLikely when it is a non-workday', () => {
+    const result = getDateWarnings(wed, wed, sat2, sat, monFri);
+    expect(result.mostLikely).toContain('Saturday');
+  });
+
+  it('skips warnings when the date is invalid (length !== 10)', () => {
+    const result = getDateWarnings('2026-06', wed, sat2, '', monFri);
+    expect(result.startDate).toBe('');
   });
 });

@@ -14,6 +14,7 @@ import {
   getQuarterBoundaries,
   getMonthBoundaries,
   generateId,
+  isWorkDay,
 } from '../dates';
 
 describe('parseDateLocal', () => {
@@ -302,5 +303,42 @@ describe('getMonthBoundaries', () => {
 
     expect(boundaries).toHaveLength(1);
     expect(boundaries[0].getMonth()).toBe(5); // June
+  });
+});
+
+// --- Work-week utilities (v15.0) ---
+
+describe('isWorkDay', () => {
+  it('returns true when day-of-week is in workDays', () => {
+    // 2026-06-15 is a Monday (dow=1)
+    expect(isWorkDay('2026-06-15', [1, 2, 3, 4, 5])).toBe(true);
+  });
+
+  it('returns false when day-of-week is not in workDays', () => {
+    // 2026-06-13 is a Saturday (dow=6)
+    expect(isWorkDay('2026-06-13', [1, 2, 3, 4, 5])).toBe(false);
+  });
+
+  it('returns true for every day when workDays has all 7', () => {
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    // 2026-06-07 (Sun) through 2026-06-13 (Sat)
+    for (let d = 7; d <= 13; d++) {
+      expect(isWorkDay(`2026-06-${String(d).padStart(2, '0')}`, allDays)).toBe(true);
+    }
+  });
+
+  it('returns true (opt-out) when workDays is empty', () => {
+    expect(isWorkDay('2026-06-13', [])).toBe(true);
+  });
+
+  it('returns true (opt-out) when dateStr is invalid', () => {
+    expect(isWorkDay('not-a-date', [1, 2, 3, 4, 5])).toBe(true);
+    expect(isWorkDay('', [1, 2, 3, 4, 5])).toBe(true);
+  });
+
+  it('handles 2000-01-01 correctly (Saturday)', () => {
+    // 2000-01-01 is a Saturday (dow=6)
+    expect(isWorkDay('2000-01-01', [1, 2, 3, 4, 5])).toBe(false);
+    expect(isWorkDay('2000-01-01', [0, 6])).toBe(true);
   });
 });

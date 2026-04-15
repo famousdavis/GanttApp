@@ -45,7 +45,8 @@ export function settingsChanged(prev: AppData | null, curr: AppData): boolean {
     JSON.stringify(prev.chartDisplaySettings) !== JSON.stringify(curr.chartDisplaySettings) ||
     prev.preparedBy !== curr.preparedBy ||
     prev.showPreparedBy !== curr.showPreparedBy ||
-    JSON.stringify(prev.exportAttribution) !== JSON.stringify(curr.exportAttribution)
+    JSON.stringify(prev.exportAttribution) !== JSON.stringify(curr.exportAttribution) ||
+    JSON.stringify(prev.globalWorkDays) !== JSON.stringify(curr.globalWorkDays)
   );
 }
 
@@ -105,10 +106,14 @@ export async function executeFirestoreSave(
     const projectRef = doc(db, `ganttapp_projects/${project.id}`);
 
     if (!newProjectIds.has(project.id)) {
-      // Existing project — check if name/finishDate/order changed
+      // Existing project — check if name/finishDate/workDays/order changed
       const prevProject = prev?.projects.find(p => p.id === project.id);
       const prevProjectIndex = prev?.projects.findIndex(p => p.id === project.id) ?? -1;
-      const contentChanged = prevProject && (prevProject.name !== project.name || prevProject.finishDate !== project.finishDate);
+      const contentChanged = prevProject && (
+        prevProject.name !== project.name ||
+        prevProject.finishDate !== project.finishDate ||
+        JSON.stringify(prevProject.workDays) !== JSON.stringify(project.workDays)
+      );
       const orderChanged = prevProjectIndex !== projectIndex;
 
       if (contentChanged || orderChanged) {

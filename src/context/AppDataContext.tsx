@@ -6,7 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAttribution } from '../shared/types';
-import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../shared/utils';
+import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays } from '../shared/utils';
 import { useStorage } from './StorageContext';
 import type { CloudGanttStorageService } from '../shared/storage';
 
@@ -55,6 +55,10 @@ interface AppDataContextType {
   // Export Attribution
   exportAttribution: ExportAttribution | undefined;
   setExportAttribution: (attr: ExportAttribution) => void;
+
+  // Work Week (v15.0)
+  globalWorkDays: number[] | undefined;
+  setGlobalWorkDays: (days: number[] | undefined) => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -96,6 +100,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Export Attribution
   const [exportAttribution, setExportAttribution] = useState<ExportAttribution | undefined>(undefined);
+
+  // Work Week (v15.0)
+  const [globalWorkDays, setGlobalWorkDays] = useState<number[] | undefined>(undefined);
 
   // Load data from storage on mount (or when storage service changes)
   useEffect(() => {
@@ -168,6 +175,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             if (loadedData.exportAttribution && typeof loadedData.exportAttribution === 'object') {
               setExportAttribution(loadedData.exportAttribution);
             }
+
+            // Load global work days (v15.0)
+            if (Array.isArray(loadedData.globalWorkDays)) {
+              const sanitized = sanitizeWorkDays(loadedData.globalWorkDays);
+              if (sanitized) setGlobalWorkDays(sanitized);
+            }
           }
         }
       } catch (error) {
@@ -203,11 +216,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         showFinishDateLine,
         showMostLikelyLine,
         showMonths,
-        ...(exportAttribution ? { exportAttribution } : {})
+        ...(exportAttribution ? { exportAttribution } : {}),
+        ...(globalWorkDays && globalWorkDays.length > 0 ? { globalWorkDays } : {})
       };
       storage.saveAppData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, data, loading, storage]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
 
   // Real-time sync: subscribe to Firestore changes in cloud mode
   // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
@@ -290,7 +304,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     showPreparedBy,
     setShowPreparedBy,
     exportAttribution,
-    setExportAttribution
+    setExportAttribution,
+    globalWorkDays,
+    setGlobalWorkDays
   };
 
   return <AppDataContext value={value}>{children}</AppDataContext>;

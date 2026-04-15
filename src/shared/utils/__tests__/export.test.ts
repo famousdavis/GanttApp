@@ -254,3 +254,36 @@ describe('parseImportedData', () => {
     expect(result!.appData.showTodayLine).toBeUndefined();
   });
 });
+
+describe('parseImportedData — work week fields (v15.0)', () => {
+  it('preserves project.workDays on import', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test', workDays: [1, 2, 3, 4, 5] }],
+      releases: [],
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.projects[0].workDays).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('preserves globalWorkDays on import', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      globalWorkDays: [0, 6],
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.globalWorkDays).toEqual([0, 6]);
+  });
+
+  it('silently drops invalid workDays on import', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test', workDays: ['foo', 99, -1] }],
+      releases: [],
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.projects[0].workDays).toBeUndefined();
+  });
+});

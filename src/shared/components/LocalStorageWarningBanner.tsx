@@ -17,16 +17,11 @@ export function LocalStorageWarningBanner() {
   const { colors, resolvedTheme } = useTheme();
   const [visible, setVisible] = useState(false);
 
+  // SSR hydration + mode-dependent: must start false (matching server render), then evaluate
+  // on client. Can't use a lazy initializer because this re-evaluates when mode changes.
   useEffect(() => {
-    if (mode !== 'local') {
-      setVisible(false);
-      return;
-    }
-    if (localStorage.getItem(SUPPRESS_KEY) === 'true') {
-      setVisible(false);
-      return;
-    }
-    setVisible(true);
+    const shouldShow = mode === 'local' && localStorage.getItem(SUPPRESS_KEY) !== 'true';
+    setVisible(shouldShow); // eslint-disable-line react-hooks/set-state-in-effect -- SSR hydration: must match server (false), then set on client
   }, [mode]);
 
   const handleDismiss = () => {

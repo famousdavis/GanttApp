@@ -8,7 +8,7 @@ import { useState, useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, formatDateLocale } from '../../shared/utils';
+import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, formatDateLocale } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
@@ -30,7 +30,7 @@ export function ReleasesTab({
   onReleaseDragOver,
   onReleaseDragEnd
 }: ReleasesTabProps) {
-  const { data } = useAppData();
+  const { data, globalWorkDays } = useAppData();
   const { colors } = useTheme();
   const {
     releaseName,
@@ -64,6 +64,12 @@ export function ReleasesTab({
   const mostLikelyError = mostLikelyFinish ? getMostLikelyDateError(earlyFinish, lateFinish, mostLikelyFinish) : '';
   const mostLikelyErrorVisible = touchedFields.mostLikelyFinish ? mostLikelyError : '';
   const isValid = isReleaseValid(releaseName, startDate, earlyFinish, lateFinish) && !errorMessage && !mostLikelyError;
+
+  // Work-week warnings (v15.0). Warnings never block save — they're informational.
+  // No touched-field gate: <input type="date"> only fires onChange with complete valid input,
+  // and getDateWarnings internally checks isValidDateFormat() before emitting.
+  const effectiveWorkDays = getEffectiveWorkDays(selectedProject, globalWorkDays);
+  const warnings = getDateWarnings(startDate, earlyFinish, lateFinish, mostLikelyFinish, effectiveWorkDays);
 
   // Determine which fields have errors for highlighting
   const startDateInvalid = touchedFields.startDate && startDate.length === 10 && (startDate < '2000-01-01' || startDate > '2050-12-31');
@@ -138,6 +144,11 @@ export function ReleasesTab({
               color: colors.text
             }}
           />
+          {warnings.startDate && !errorMessage && (
+            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              ⚠ {warnings.startDate}
+            </div>
+          )}
         </div>
         <div>
           <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
@@ -160,6 +171,11 @@ export function ReleasesTab({
               color: colors.text
             }}
           />
+          {warnings.earlyFinish && !errorMessage && (
+            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              ⚠ {warnings.earlyFinish}
+            </div>
+          )}
         </div>
         <div>
           <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
@@ -182,6 +198,11 @@ export function ReleasesTab({
               color: colors.text
             }}
           />
+          {warnings.lateFinish && !errorMessage && (
+            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              ⚠ {warnings.lateFinish}
+            </div>
+          )}
         </div>
         <div>
           <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
@@ -204,6 +225,11 @@ export function ReleasesTab({
               color: colors.text
             }}
           />
+          {warnings.mostLikely && !mostLikelyErrorVisible && (
+            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              ⚠ {warnings.mostLikely}
+            </div>
+          )}
         </div>
       </div>
 

@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(isFirebaseAvailable);
 
-  /* eslint-disable react-hooks/rules-of-hooks */
   useEffect(() => {
     if (!isFirebaseAvailable || !auth) return;
 
@@ -83,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return unsubscribe;
   }, []);
-  /* eslint-enable react-hooks/rules-of-hooks */
 
   const signInWithGoogle = useCallback(async () => {
     if (!isFirebaseAvailable || !auth) {

@@ -183,6 +183,7 @@ interface Project {
   id: string;           // Unique ID (timestamp-based)
   name: string;         // Display name (max 100 chars)
   finishDate?: string;  // Optional YYYY-MM-DD
+  workDays?: number[];  // Optional per-project work-week override (v15.0). Array of 0=Sun..6=Sat. Undefined = use global default.
 }
 
 // Release - a time-boxed work item
@@ -256,6 +257,7 @@ interface AppData {
   preparedBy?: string;
   showPreparedBy?: boolean;
   exportAttribution?: ExportAttribution; // v11.0
+  globalWorkDays?: number[];  // Optional global work-week setting (v15.0). Same encoding as Project.workDays. Undefined = feature not configured.
 }
 ```
 
@@ -311,11 +313,11 @@ Key behaviors:
 ### Firestore Structure (Cloud Mode)
 
 ```
-ganttapp_projects/{projectId}/   ← one document per project (name, owner, members, finishDate, _originRef, _changeLog)
+ganttapp_projects/{projectId}/   ← one document per project (name, owner, members, finishDate, workDays, _originRef, _changeLog)
   releases/{releaseId}           ← one doc per release with explicit `order` field
   snapshots/{snapshotId}         ← embedded releases array (same shape as local)
 ganttapp_profiles/{uid}          ← displayName, email, createdAt, lastLogin
-ganttapp_settings/{uid}          ← chartColors, displaySettings, toggles, legendLabels, preparedBy
+ganttapp_settings/{uid}          ← chartColors, displaySettings, toggles, legendLabels, preparedBy, globalWorkDays
 ```
 
 Top-level collections use underscore-separated names (`ganttapp_projects`, not `ganttapp/projects`) because Firestore's `doc()` requires an even number of path segments.

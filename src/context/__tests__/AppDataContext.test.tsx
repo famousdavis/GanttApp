@@ -355,4 +355,82 @@ describe('AppDataContext', () => {
       expect(result.current.data.projects[0].name).toBe('Test');
     });
   });
+
+  describe('globalWorkDays (v15.0)', () => {
+    it('hydrates globalWorkDays from loaded data', async () => {
+      const savedData: AppData = {
+        projects: [],
+        releases: [],
+        globalWorkDays: [1, 2, 3, 4, 5],
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
+      });
+    });
+
+    it('context exposes setGlobalWorkDays', () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      act(() => {
+        result.current.setGlobalWorkDays([0, 6]);
+      });
+
+      expect(result.current.globalWorkDays).toEqual([0, 6]);
+    });
+
+    it('save effect includes globalWorkDays when defined', async () => {
+      const savedData: AppData = {
+        projects: [{ id: 'p1', name: 'Test' }],
+        releases: [],
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.data.projects).toHaveLength(1);
+      });
+
+      act(() => {
+        result.current.setGlobalWorkDays([1, 2, 3]);
+      });
+
+      // The save effect writes to localStorage — check that globalWorkDays is present
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.globalWorkDays).toEqual([1, 2, 3]);
+      });
+    });
+
+    it('save effect omits globalWorkDays when undefined', async () => {
+      const savedData: AppData = {
+        projects: [{ id: 'p1', name: 'Test' }],
+        releases: [],
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.data.projects).toHaveLength(1);
+      });
+
+      // Trigger a save by changing a different setting (globalWorkDays stays undefined)
+      act(() => {
+        result.current.setShowTodayLine(false);
+      });
+
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.showTodayLine).toBe(false);
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.globalWorkDays).toBeUndefined();
+    });
+  });
 });

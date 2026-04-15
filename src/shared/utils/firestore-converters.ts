@@ -16,7 +16,7 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
-import { sanitizeId, sanitizeString } from './validation';
+import { sanitizeId, sanitizeString, sanitizeWorkDays } from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -34,6 +34,9 @@ export function projectToFirestoreMeta(
     members: existingMeta?.members ?? { [uid]: 'owner' },
     ...(project.finishDate ? { finishDate: project.finishDate } : { finishDate: null }),
     ...(order !== undefined && { order }),
+    // NOTE: Full set() is required for field-deletion semantics (e.g., clearing Project.workDays).
+    // Do NOT change Firestore writes to { merge: true } without also adding FieldValue.deleteField() handling.
+    ...(project.workDays && project.workDays.length > 0 && { workDays: project.workDays }),
     schemaVersion: 1,
     _originRef: existingMeta?._originRef ?? `uid:${uid}`,
     _changeLog: existingMeta?._changeLog ?? [],
@@ -70,6 +73,7 @@ export function appDataToUserSettings(data: AppData): FirestoreUserSettings {
     ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
     ...(data.showPreparedBy !== undefined && { showPreparedBy: data.showPreparedBy }),
     ...(data.exportAttribution && { exportAttribution: data.exportAttribution }),
+    ...(data.globalWorkDays && data.globalWorkDays.length > 0 && { globalWorkDays: data.globalWorkDays }),
   };
 }
 
@@ -93,10 +97,12 @@ export function firestoreToProject(
   projectId: string,
   meta: FirestoreProjectMeta
 ): Project {
+  const sanitizedWorkDays = sanitizeWorkDays(meta.workDays);
   return {
     id: projectId,
     name: sanitizeString(meta.name),
     ...(meta.finishDate && { finishDate: meta.finishDate }),
+    ...(sanitizedWorkDays && { workDays: sanitizedWorkDays }),
     owner: sanitizeId(meta.owner),
   };
 }
@@ -123,6 +129,7 @@ export function firestoreReleasesToFlat(
 
 /** Convert Firestore user settings back to the relevant AppData fields. */
 export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<AppData> {
+  const sanitizedGlobalWorkDays = sanitizeWorkDays(settings.globalWorkDays);
   return {
     ...(settings.chartColors && { chartColors: settings.chartColors as ChartColors }),
     ...(settings.activePreset && { activePreset: settings.activePreset }),
@@ -135,6 +142,7 @@ export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<
     ...(settings.preparedBy !== undefined && { preparedBy: settings.preparedBy }),
     ...(settings.showPreparedBy !== undefined && { showPreparedBy: settings.showPreparedBy }),
     ...(settings.exportAttribution && { exportAttribution: settings.exportAttribution }),
+    ...(sanitizedGlobalWorkDays && { globalWorkDays: sanitizedGlobalWorkDays }),
   };
 }
 

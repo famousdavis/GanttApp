@@ -4,7 +4,7 @@
 
 // Projects Tab component with form and list
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useProjects } from './useProjects';
 import { ShareDialog } from './ShareDialog';
 import { useAppData } from '../../context/AppDataContext';
@@ -16,6 +16,7 @@ import { isProjectNameValid } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { WorkWeekSelector } from '../../shared/components/WorkWeekSelector';
 import { TabType } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 import type { CloudGanttStorageService } from '../../shared/storage';
@@ -51,6 +52,8 @@ export function ProjectsTab({
     setProjectName,
     projectFinishDate,
     setProjectFinishDate,
+    projectWorkDays,
+    setProjectWorkDays,
     editingProjectId,
     addProject,
     updateProject,
@@ -67,7 +70,8 @@ export function ProjectsTab({
     });
   };
 
-  const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData>; fileInput: HTMLInputElement } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData> } | null>(null);
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -79,8 +83,9 @@ export function ProjectsTab({
 
       if (imported) {
         const hasExistingData = data.projects.length > 0 || data.releases.length > 0;
+        fileInputRef.current = event.target;
         if (hasExistingData) {
-          setImportConfirm({ imported, fileInput: event.target });
+          setImportConfirm({ imported });
           return;
         }
         applyImport(imported, event.target);
@@ -168,7 +173,7 @@ export function ProjectsTab({
               opacity: data.projects.length === 0 ? 0.5 : 1
             }}
           >
-            📥 Export
+            📥 Export All
           </button>
           <label style={{
             padding: '0.5rem 1rem',
@@ -217,7 +222,7 @@ export function ProjectsTab({
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Project Finish Date (Optional)
+              Finish Date (Optional)
             </label>
             <input
               type="date"
@@ -247,6 +252,19 @@ export function ProjectsTab({
                 </div>
               )}
             </div>
+          </div>
+          <div style={{ flex: '1 1 auto' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+              Work Week (Optional Override)
+            </label>
+            <WorkWeekSelector
+              value={projectWorkDays}
+              onChange={setProjectWorkDays}
+              colors={colors}
+              placeholder="Uses global default"
+              allowReset={projectWorkDays !== undefined}
+              onReset={() => setProjectWorkDays(undefined)}
+            />
           </div>
         </div>
         <div>
@@ -335,7 +353,8 @@ export function ProjectsTab({
                   <strong style={{ fontSize: '1.1rem', color: colors.text }}>{project.name}</strong>
                   <span style={{ marginLeft: '1rem', color: colors.textMuted, fontSize: '0.9rem' }}>
                     ({data.releases.filter(r => r.projectId === project.id).length} releases
-                    {project.finishDate && `, finish: ${formatDateMDY(project.finishDate)}`})
+                    {project.finishDate && `, finish: ${formatDateMDY(project.finishDate)}`}
+                    {project.workDays && project.workDays.length > 0 && `, custom work week`})
                   </span>
                 </div>
               </div>
@@ -460,15 +479,15 @@ export function ProjectsTab({
               label: 'Cancel',
               variant: 'secondary',
               onClick: () => {
-                importConfirm.fileInput.value = '';
                 setImportConfirm(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
               },
             },
             {
               label: 'Replace',
               variant: 'danger',
               onClick: () => {
-                applyImport(importConfirm.imported!, importConfirm.fileInput);
+                applyImport(importConfirm.imported!, fileInputRef.current!);
                 setImportConfirm(null);
               },
             },

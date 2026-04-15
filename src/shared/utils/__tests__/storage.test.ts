@@ -225,4 +225,38 @@ describe('storage utilities', () => {
       expect(loaded.showMostLikelyLine).toBe(true);
     });
   });
+
+  describe('work week fields (v15.0)', () => {
+    it('preserves workDays on a project', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Test', workDays: [1, 2, 3, 4, 5] }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].workDays).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('drops invalid workDays on a project', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Test', workDays: ['foo', 99] as unknown as number[] }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].workDays).toBeUndefined();
+    });
+
+    it('preserves globalWorkDays on AppData', () => {
+      const data = makeTestData({ globalWorkDays: [0, 6] });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.globalWorkDays).toEqual([0, 6]);
+    });
+
+    it('drops invalid globalWorkDays', () => {
+      const data = makeTestData({ globalWorkDays: 'not-an-array' as unknown as number[] });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.globalWorkDays).toBeUndefined();
+    });
+  });
 });

@@ -5,7 +5,7 @@
 // Settings Tab — orchestrates storage mode and export attribution sections
 // v13.0: Intercepts sign-in to show ToS consent modal before Firebase Auth.
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useStorage } from '../../context/StorageContext';
@@ -16,6 +16,7 @@ import { sanitizeFirebaseError } from '../../shared/utils/validation';
 import { StorageSection } from './StorageSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
 import { TosConsentModal } from './TosConsentModal';
+import { WorkWeekSection } from './WorkWeekSection';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
@@ -28,21 +29,17 @@ export function SettingsTab() {
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
   } = useStorage();
-  const { exportAttribution, setExportAttribution } = useAppData();
+  const { exportAttribution, setExportAttribution, globalWorkDays, setGlobalWorkDays } = useAppData();
 
   const [authError, setAuthError] = useState<string | null>(null);
   const [showTosModal, setShowTosModal] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
 
   const SUPPRESS_KEY = 'ganttapp-suppress-local-warning';
-  const [warnOnLocal, setWarnOnLocal] = useState(true);
-
-  useEffect(() => {
-    const suppressed = localStorage.getItem(SUPPRESS_KEY);
-    if (suppressed === 'true') {
-      setWarnOnLocal(false);
-    }
-  }, []);
+  const [warnOnLocal, setWarnOnLocal] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(SUPPRESS_KEY) !== 'true';
+  });
 
   const handleWarnOnLocalChange = (checked: boolean) => {
     setWarnOnLocal(checked);
@@ -155,6 +152,13 @@ export function SettingsTab() {
         colors={colors}
         exportAttribution={exportAttribution}
         onChangeAttribution={setExportAttribution}
+      />
+
+      <WorkWeekSection
+        colors={colors}
+        globalWorkDays={globalWorkDays}
+        onChange={setGlobalWorkDays}
+        onReset={() => setGlobalWorkDays(undefined)}
       />
 
       {mode === 'local' && (

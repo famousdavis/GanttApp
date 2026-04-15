@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '15.0',
+    date: 'April 15, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; Added a global work-week setting in the Settings tab &mdash; pick which days of the week count as workdays using a toggleable 7-chip selector (S&nbsp;M&nbsp;T&nbsp;W&nbsp;T&nbsp;F&nbsp;S)</>,
+      <><strong>Feature</strong> &mdash; Added a per-project work-week override in the Project form, falling back to the global default when not set</>,
+      <><strong>UX</strong> &mdash; Release date fields in the Releases tab now show an amber warning when a date falls outside your work week; saves are still allowed &mdash; warnings are informational</>,
+      <><strong>Component</strong> &mdash; New <code>WorkWeekSelector</code> shared component: round day-chips with accessible labels (<code>aria-pressed</code>, <code>aria-label</code>), enforces at least one day selected</>,
+      <><strong>Data</strong> &mdash; Work-week data persists in both local and cloud storage and round-trips through JSON export/import</>,
+      <><strong>UX</strong> &mdash; Project form layout: work-week chips sit inline beside the finish date instead of on a separate row</>,
+      <><strong>UX</strong> &mdash; Renamed &ldquo;Project Finish Date&rdquo; label to &ldquo;Finish Date&rdquo; and &ldquo;Export&rdquo; button to &ldquo;Export All&rdquo; for clarity</>,
+      <><strong>Code quality</strong> &mdash; Fixed all pre-existing lint errors (8 issues across 6 files): removed stale eslint directives, converted effect-based derived state to render-time derivation, replaced setState-in-effect with lazy initializers where SSR-safe</>,
+    ],
+  },
+  {
     version: '14.0',
     date: 'April 9, 2026',
     items: [

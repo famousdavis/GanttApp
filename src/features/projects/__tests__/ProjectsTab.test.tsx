@@ -505,4 +505,38 @@ describe('ProjectsTab', () => {
       alertSpy.mockRestore();
     });
   });
+
+  describe('work week selector (v15.0)', () => {
+    it('renders WorkWeekSelector in the Add Project form', () => {
+      renderProjectsTab();
+      const group = screen.getByRole('group', { name: /work week/i });
+      expect(group).toBeTruthy();
+    });
+
+    it('renders "custom work week" indicator in list row when project.workDays is set', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [1, 2, 3] })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+      expect(screen.getByText(/custom work week/)).toBeTruthy();
+    });
+
+    it('does NOT render "custom work week" indicator when workDays is undefined', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+      expect(screen.queryByText(/custom work week/)).toBeNull();
+    });
+  });
 });

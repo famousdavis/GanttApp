@@ -5,7 +5,7 @@
 // localStorage utilities for GanttApp
 
 import { AppData } from '../types/app';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, VALID_PRESET_NAMES } from './validation';
 
 const STORAGE_KEY = 'ganttAppData';
 
@@ -40,12 +40,14 @@ export function validateLoadedData(data: unknown): AppData | null {
     if (p && typeof p === 'object') {
       const proj = p as Record<string, unknown>;
       if (typeof proj.id === 'string' && typeof proj.name === 'string') {
+        const sanitizedWorkDays = sanitizeWorkDays(proj.workDays);
         const sanitized = {
           id: sanitizeId(proj.id),
           name: sanitizeString(proj.name),
           ...(typeof proj.finishDate === 'string' && isValidDateFormat(proj.finishDate)
             ? { finishDate: proj.finishDate }
-            : {})
+            : {}),
+          ...(sanitizedWorkDays ? { workDays: sanitizedWorkDays } : {})
         };
         if (sanitized.id && sanitized.name) {
           validProjects.push(sanitized);
@@ -114,6 +116,12 @@ export function validateLoadedData(data: unknown): AppData | null {
   // Validate optional export attribution
   if (d.exportAttribution) {
     result.exportAttribution = sanitizeExportAttribution(d.exportAttribution);
+  }
+
+  // Validate optional global work days (v15.0)
+  if (Array.isArray(d.globalWorkDays)) {
+    const sanitized = sanitizeWorkDays(d.globalWorkDays);
+    if (sanitized) result.globalWorkDays = sanitized;
   }
 
   return result;

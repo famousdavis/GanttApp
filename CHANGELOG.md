@@ -1,5 +1,17 @@
 # Change Log
 
+## Version 15.0 (2026-04-15)
+### Work Week Configuration
+- Feature: Added a global work-week setting in the Settings tab — pick which days of the week count as workdays using a toggleable 7-chip selector (S M T W T F S)
+- Feature: Added a per-project work-week override in the Project form, falling back to the global default when not set
+- UX: Release date fields in the Releases tab now show an amber warning when a date falls outside your work week; saves are still allowed — warnings are informational
+- Component: New `WorkWeekSelector` shared component with accessible labels (aria-pressed, aria-label) and a "last chip disabled" invariant ensuring at least one day is always selected
+- Data: Work-week data (`Project.workDays`, `AppData.globalWorkDays`) persists in both local and cloud storage and round-trips through JSON export/import
+- Firestore: `workDays` field added to `ganttapp_projects/{projectId}`; `globalWorkDays` added to `ganttapp_settings/{uid}`. No security-rule changes required (document-level auth, not field-level)
+- UX: Project form layout — work-week chips sit inline beside the finish date instead of on a separate row
+- UX: Renamed "Project Finish Date" label to "Finish Date" and "Export" button to "Export All" for clarity
+- Code quality: Fixed all pre-existing lint errors (8 issues across 6 files) — removed stale eslint directives, converted effect-based derived state to render-time derivation, replaced setState-in-effect with lazy initializers where SSR-safe
+
 ## Version 14.0 (2026-04-09)
 - UX: Unified the header auth chip into a single click target. Clicking anywhere on the pill (avatar, name, or cloud icon) now opens an account popover when signed in to cloud storage
 - UX: Account popover shows display name + email and exposes a Sign Out button directly from the header — no more navigating to Settings to sign out

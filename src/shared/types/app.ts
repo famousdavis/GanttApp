@@ -26,6 +26,8 @@ export interface AppData {
   preparedBy?: string;
   showPreparedBy?: boolean;
   exportAttribution?: ExportAttribution;
+  /** Optional global work-week setting (v15.0). Array of day-of-week integers (0=Sun ... 6=Sat). Undefined = feature not configured, no warnings. */
+  globalWorkDays?: number[];
 }
 
 export type TabType = 'projects' | 'releases' | 'chart' | 'settings' | 'about' | 'changelog';

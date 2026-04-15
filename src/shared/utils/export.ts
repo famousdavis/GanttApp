@@ -7,7 +7,7 @@
 import { AppData } from '../types/app';
 import { Project } from '../types/models';
 import { Snapshot } from '../types/snapshots';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, VALID_PRESET_NAMES } from './validation';
 import { validateSnapshot } from './snapshots';
 
 // Maximum limits for imported data to prevent DoS via large files
@@ -103,6 +103,12 @@ export function parseImportedData(fileContent: string): ImportResult | null {
         }
       }
 
+      // Validate optional work days override (v15.0)
+      if (Array.isArray(project.workDays)) {
+        const sanitizedDays = sanitizeWorkDays(project.workDays);
+        if (sanitizedDays) sanitizedProject.workDays = sanitizedDays;
+      }
+
       // Reject if sanitized ID or name is empty
       if (!sanitizedProject.id || !sanitizedProject.name) {
         return null;
@@ -172,6 +178,12 @@ export function parseImportedData(fileContent: string): ImportResult | null {
     // Sanitize optional export attribution
     if (imported.exportAttribution) {
       sanitizedData.exportAttribution = sanitizeExportAttribution(imported.exportAttribution);
+    }
+
+    // Sanitize optional global work days (v15.0)
+    if (Array.isArray(imported.globalWorkDays)) {
+      const sanitized = sanitizeWorkDays(imported.globalWorkDays);
+      if (sanitized) sanitizedData.globalWorkDays = sanitized;
     }
 
     // Parse optional snapshots array

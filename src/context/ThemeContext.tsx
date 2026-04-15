@@ -63,9 +63,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const resolvedTheme = mode === 'system' ? (systemDark ? 'dark' : 'light') : mode;
   const colors = resolvedTheme === 'dark' ? DARK_THEME : LIGHT_THEME;
 
-  // Mark as mounted after first render (client-side only)
+  // Mark as mounted after first render (client-side only).
+  // This is the canonical SSR hydration pattern: start false (matches server), flip true on client.
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- SSR hydration: must match server render (false), then flip on client
   }, []);
 
   // Apply data-theme attribute to document (this is syncing with an external system, which is allowed)

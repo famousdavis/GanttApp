@@ -4,8 +4,8 @@
 
 // Validation utilities for GanttApp
 
-import { Release, ChartColors, ChartDisplaySettings } from '../types/models';
-import { parseDateLocal } from './dates';
+import { Project, Release, ChartColors, ChartDisplaySettings } from '../types/models';
+import { parseDateLocal, isWorkDay } from './dates';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
 
 // Security constants
@@ -346,6 +346,76 @@ export function sanitizeExportAttribution(attr: unknown): { name: string; identi
   const identifier = typeof a.identifier === 'string' ? sanitizeString(a.identifier, 100) : '';
   if (!name && !identifier) return undefined;
   return { name, identifier };
+}
+
+// --- Work-week validation (v15.0) ---
+
+const WORK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+
+/**
+ * Sanitize an unknown value into a valid work-days array.
+ * Accepts only arrays of integers 0..6; dedupes, sorts, and enforces 1..7 length.
+ * Returns undefined for anything that can't be normalized.
+ */
+export function sanitizeWorkDays(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const valid = value.filter((n): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 6);
+  const deduped = Array.from(new Set(valid));
+  if (deduped.length === 0 || deduped.length > 7) return undefined;
+  return deduped.sort((a, b) => a - b);
+}
+
+/**
+ * Resolve the effective work-days given a project-level override and a global default.
+ * Precedence: project.workDays (if non-empty) → globalWorkDays (if non-empty) → undefined.
+ * Undefined means the feature is not configured at either scope.
+ */
+export function getEffectiveWorkDays(
+  project: Project | undefined,
+  globalWorkDays: number[] | undefined
+): number[] | undefined {
+  if (project?.workDays && project.workDays.length > 0) return project.workDays;
+  if (globalWorkDays && globalWorkDays.length > 0) return globalWorkDays;
+  return undefined;
+}
+
+/**
+ * Returns a user-facing warning string if the date falls outside the configured work-week,
+ * or '' if the date is a workday, or workDays is unset/empty, or the date is invalid/empty.
+ */
+export function getWorkDayWarning(dateStr: string, workDays: number[] | undefined): string {
+  if (!workDays || workDays.length === 0) return '';
+  if (!dateStr) return '';
+  if (isWorkDay(dateStr, workDays)) return '';
+  // At this point dateStr is a non-workday per isWorkDay — but isWorkDay also returns true for malformed input,
+  // so reaching here guarantees we can parse it safely.
+  const dow = new Date(parseDateLocal(dateStr)).getDay();
+  return `Falls on ${WORK_DAY_NAMES[dow]}, which is outside your work week.`;
+}
+
+/**
+ * Compute per-field work-day warnings for the release form.
+ * Returns empty strings for all fields when workDays is undefined (feature's opt-out state).
+ * Emits warnings whenever a field passes date-format validation. No touched-field gate is
+ * needed because <input type="date"> only fires onChange with a complete valid date — there
+ * is no mid-typing state to suppress.
+ */
+export function getDateWarnings(
+  startDate: string,
+  earlyFinish: string,
+  lateFinish: string,
+  mostLikely: string,
+  workDays: number[] | undefined
+): { startDate: string; earlyFinish: string; lateFinish: string; mostLikely: string } {
+  const empty = { startDate: '', earlyFinish: '', lateFinish: '', mostLikely: '' };
+  if (!workDays || workDays.length === 0) return empty;
+
+  return {
+    startDate: isValidDateFormat(startDate) ? getWorkDayWarning(startDate, workDays) : '',
+    earlyFinish: isValidDateFormat(earlyFinish) ? getWorkDayWarning(earlyFinish, workDays) : '',
+    lateFinish: isValidDateFormat(lateFinish) ? getWorkDayWarning(lateFinish, workDays) : '',
+    mostLikely: isValidDateFormat(mostLikely) ? getWorkDayWarning(mostLikely, workDays) : '',
+  };
 }
 
 /**

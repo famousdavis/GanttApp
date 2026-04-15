@@ -9,6 +9,8 @@ export interface Project {
   name: string;
   finishDate?: string;
   owner?: string;       // Firebase uid — only populated in cloud mode (v11.2)
+  /** Optional per-project override of the work-week. Array of day-of-week integers (0=Sun ... 6=Sat). Undefined = use global default. */
+  workDays?: number[];
 }
 
 export interface Release {

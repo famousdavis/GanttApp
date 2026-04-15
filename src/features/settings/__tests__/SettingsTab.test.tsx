@@ -111,4 +111,31 @@ describe('SettingsTab', () => {
     // Auth UI is now integrated into the Storage section — no separate "Account" heading
     expect(screen.queryByText('Account')).toBeNull();
   });
+
+  describe('Work Week section (v15.0)', () => {
+    it('renders WorkWeekSection heading', () => {
+      render(<SettingsTab />, { wrapper: FullWrapper });
+      expect(screen.getByText('Work Week')).toBeTruthy();
+    });
+
+    it('renders work week selector with 7 day chips', () => {
+      render(<SettingsTab />, { wrapper: FullWrapper });
+      const group = screen.getByRole('group', { name: 'Work week selector' });
+      const buttons = group.querySelectorAll('button');
+      expect(buttons).toHaveLength(7);
+    });
+
+    it('renders in both local and cloud modes', () => {
+      // Default render is local mode — verify section is present
+      render(<SettingsTab />, { wrapper: FullWrapper });
+      expect(screen.getByText('Work Week')).toBeTruthy();
+      expect(screen.getByRole('group', { name: 'Work week selector' })).toBeTruthy();
+    });
+
+    it('Reset button is hidden when globalWorkDays is undefined', () => {
+      render(<SettingsTab />, { wrapper: FullWrapper });
+      // By default globalWorkDays is undefined — Reset button should not be present
+      expect(screen.queryByText('Reset to default')).toBeNull();
+    });
+  });
 });

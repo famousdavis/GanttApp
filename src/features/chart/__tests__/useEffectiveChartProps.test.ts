@@ -30,7 +30,8 @@ const snapshotColors = {
   hatchedBar: '#00ff00',
   todayLine: '#0000ff',
   finishDateLine: '#ffff00',
-  mostLikelyLine: '#000000'
+  mostLikelyLine: '#000000',
+  completedBar: '#90ee90'
 };
 
 const mockSnapshot: Snapshot = {

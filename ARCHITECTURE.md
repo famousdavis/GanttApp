@@ -518,7 +518,7 @@ The GanttChart component renders an SVG with:
 - **Component Tests**: UI components with React Testing Library
 - **Storage Tests**: StorageDriver and GanttStorageService implementations (mocked Firestore)
 - **Context Tests**: AuthContext, StorageContext, AppDataContext providers
-- **581 total tests** across 38 test files
+- **808 total tests** across 49 test files
 
 ## Build & Deployment
 

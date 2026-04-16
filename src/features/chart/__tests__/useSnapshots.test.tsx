@@ -129,8 +129,8 @@ describe('useSnapshots', () => {
     await waitFor(() => {
       expect(result.current.snapshots).toHaveLength(2);
     });
-    expect(result.current.snapshots[0].name).toBe('Sprint 1 Review');
-    expect(result.current.snapshots[1].name).toBe('Sprint 2 Review');
+    expect(result.current.snapshots[0].name).toBe('Sprint 2 Review');
+    expect(result.current.snapshots[1].name).toBe('Sprint 1 Review');
   });
 
   it('filters snapshots by project ID', async () => {
@@ -222,7 +222,7 @@ describe('useSnapshots', () => {
     await act(async () => {
       await result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: 'William'
       });
@@ -240,7 +240,7 @@ describe('useSnapshots', () => {
     await act(async () => {
       await result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: ''
       });
@@ -283,9 +283,49 @@ describe('useSnapshots', () => {
     expect(result.current.allSnapshots).toHaveLength(3); // All snapshots stored
   });
 
-  it('sorts snapshots by timestamp ascending', async () => {
-    // Store in reverse order
-    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot2, testSnapshot]));
+  it('accumulates multiple snapshots without overwriting', async () => {
+    let promptCall = 0;
+    vi.spyOn(window, 'prompt').mockImplementation(() => {
+      promptCall += 1;
+      return `Snapshot ${promptCall}`;
+    });
+    localStorageMock.setItem('ganttAppData', JSON.stringify({
+      projects: [{ id: 'p1', name: 'Project 1' }],
+      releases: []
+    }));
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    const saveParams = {
+      releases: [],
+      chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
+      legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
+      preparedBy: 'William'
+    };
+
+    // Save first snapshot
+    await act(async () => {
+      await result.current.saveSnapshot(saveParams);
+    });
+
+    expect(result.current.snapshots).toHaveLength(1);
+    expect(result.current.snapshots[0].name).toBe('Snapshot 1');
+
+    // Save second snapshot
+    await act(async () => {
+      await result.current.saveSnapshot(saveParams);
+    });
+
+    // Both snapshots must be present with distinct IDs
+    expect(result.current.snapshots).toHaveLength(2);
+    expect(result.current.snapshots[0].name).toBe('Snapshot 2'); // newest first
+    expect(result.current.snapshots[1].name).toBe('Snapshot 1');
+    expect(result.current.snapshots[0].id).not.toBe(result.current.snapshots[1].id);
+  });
+
+  it('sorts snapshots by timestamp descending (newest first)', async () => {
+    // Store in chronological order
+    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([testSnapshot, testSnapshot2]));
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
@@ -293,7 +333,7 @@ describe('useSnapshots', () => {
       expect(result.current.snapshots).toHaveLength(2);
     });
 
-    expect(result.current.snapshots[0].id).toBe('snap1'); // Earlier timestamp first
-    expect(result.current.snapshots[1].id).toBe('snap2');
+    expect(result.current.snapshots[0].id).toBe('snap2'); // Later timestamp first
+    expect(result.current.snapshots[1].id).toBe('snap1');
   });
 });

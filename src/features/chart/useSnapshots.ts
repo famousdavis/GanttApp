@@ -41,7 +41,7 @@ export function useSnapshots(selectedProjectId: string) {
     setActiveSnapshotId(null);
   }
 
-  // Snapshots for the current project, sorted by timestamp ascending
+  // Snapshots for the current project, sorted by timestamp descending (newest first)
   const snapshots = useMemo(
     () => getSnapshotsForProject(allSnapshots, selectedProjectId),
     [allSnapshots, selectedProjectId]
@@ -84,14 +84,18 @@ export function useSnapshots(selectedProjectId: string) {
     if (result === null) {
       alert('Snapshot limit reached. Delete old snapshots to save new ones.');
     } else {
-      setAllSnapshots(result);
+      // Optimistic update: append to existing state rather than replacing
+      // with cloud service's return array (avoids Firestore cache staleness)
+      setAllSnapshots(prev => [...prev, snapshot]);
     }
   }, [selectedProjectId, storage]);
 
   // Delete a snapshot (caller is responsible for confirmation UI)
   const handleDeleteSnapshot = useCallback(async (snapshotId: string) => {
-    const updated = await storage.deleteSnapshot(snapshotId);
-    setAllSnapshots(updated);
+    await storage.deleteSnapshot(snapshotId);
+    // Optimistic update: remove from existing state rather than replacing
+    // with cloud service's return array (avoids Firestore cache staleness)
+    setAllSnapshots(prev => prev.filter(s => s.id !== snapshotId));
     setActiveSnapshotId(null);
   }, [storage]);
 

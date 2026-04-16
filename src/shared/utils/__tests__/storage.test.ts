@@ -77,6 +77,7 @@ describe('storage utilities', () => {
           todayLine: '#222222',
           finishDateLine: '#333333',
           mostLikelyLine: '#444444',
+          completedBar: '#90ee90',
         },
         activePreset: 'Professional',
       });

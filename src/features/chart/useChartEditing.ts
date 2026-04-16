@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAppData } from '../../context/AppDataContext';
-import { validateReleaseDateChange, sanitizeString, resolveLabel } from '../../shared/utils/validation';
+import { validateReleaseDateChange, sanitizeString, resolveLabel, DEFAULT_LEGEND_LABELS } from '../../shared/utils/validation';
 import type { ProjectLegendLabels } from '../../shared/types/models';
 
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
@@ -47,15 +47,17 @@ export function useChartEditing(activeProjectId?: string) {
     setEditingLegendLabel(type);
     // Start the edit input at the EFFECTIVE value (project override if present, else global).
     // Uses resolveLabel — the single source of truth shared with useEffectiveChartProps.
+    // v16.2: global state can be '' (uncustomized) — fall back to DEFAULT_LEGEND_LABELS
+    // so the edit input opens with what the user sees on the chart, never empty.
     const project = activeProjectId ? data.projects.find(p => p.id === activeProjectId) : undefined;
     const projectLabels = project?.legendLabels;
     const key = LEGEND_TYPE_TO_KEY[type];
     const globalLabel =
-      type === 'solid' ? solidBarLabel
-      : type === 'hatched' ? hatchedBarLabel
-      : type === 'finishDate' ? finishDateLabel
-      : type === 'mostLikelyLine' ? mostLikelyLineLabel
-      : inProgressLabel;
+      type === 'solid' ? (solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar)
+      : type === 'hatched' ? (hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar)
+      : type === 'finishDate' ? (finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine)
+      : type === 'mostLikelyLine' ? (mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine)
+      : (inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress);
     setTempLabelValue(resolveLabel(key, projectLabels, globalLabel));
   };
 

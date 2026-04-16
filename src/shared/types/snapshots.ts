@@ -15,8 +15,8 @@ export interface Snapshot {
   projectFinishDate?: string;   // Project finish date at snapshot time
   chartColors?: ChartColors;    // Colors at snapshot time
   legendLabels?: {
-    solidBar: string;
-    hatchedBar: string;
+    solidBar?: string;
+    hatchedBar?: string;
     finishDateLine?: string;
     mostLikelyLine?: string;
     inProgress?: string;

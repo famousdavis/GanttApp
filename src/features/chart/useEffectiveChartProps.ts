@@ -58,7 +58,11 @@ export function useEffectiveChartProps(
       colors: activeSnapshot.chartColors ?? live.chartColors,
       // Precedence: snapshot frozen labels → project override → global. When a snapshot
       // has no frozen labels, fall through to the merged project-override-or-global set.
-      labels: activeSnapshot.legendLabels ?? mergedLabels,
+      // v16.2: snapshot.legendLabels fields are all optional — spread mergedLabels as
+      // the base (all 5 strings guaranteed) and let snapshot keys override where defined.
+      labels: activeSnapshot.legendLabels
+        ? { ...mergedLabels, ...activeSnapshot.legendLabels }
+        : mergedLabels,
       preparedBy: activeSnapshot.preparedBy ?? live.preparedBy,
       finishDate: activeSnapshot.projectFinishDate ?? live.finishDate,
       datePreparedOverride: new Date(activeSnapshot.timestamp).toLocaleDateString('en-US', {

@@ -17,6 +17,7 @@ import { StorageSection } from './StorageSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
 import { TosConsentModal } from './TosConsentModal';
 import { WorkWeekSection } from './WorkWeekSection';
+import { DefaultLegendLabelsSection } from './DefaultLegendLabelsSection';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
@@ -29,7 +30,15 @@ export function SettingsTab() {
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
   } = useStorage();
-  const { exportAttribution, setExportAttribution, globalWorkDays, setGlobalWorkDays } = useAppData();
+  const {
+    exportAttribution, setExportAttribution,
+    globalWorkDays, setGlobalWorkDays,
+    solidBarLabel, setSolidBarLabel,
+    hatchedBarLabel, setHatchedBarLabel,
+    finishDateLabel, setFinishDateLabel,
+    mostLikelyLineLabel, setMostLikelyLineLabel,
+    inProgressLabel, setInProgressLabel,
+  } = useAppData();
 
   const [authError, setAuthError] = useState<string | null>(null);
   const [showTosModal, setShowTosModal] = useState(false);
@@ -159,6 +168,20 @@ export function SettingsTab() {
         globalWorkDays={globalWorkDays}
         onChange={setGlobalWorkDays}
         onReset={() => setGlobalWorkDays(undefined)}
+      />
+
+      <DefaultLegendLabelsSection
+        colors={colors}
+        solidBarLabel={solidBarLabel}
+        setSolidBarLabel={setSolidBarLabel}
+        hatchedBarLabel={hatchedBarLabel}
+        setHatchedBarLabel={setHatchedBarLabel}
+        finishDateLabel={finishDateLabel}
+        setFinishDateLabel={setFinishDateLabel}
+        mostLikelyLineLabel={mostLikelyLineLabel}
+        setMostLikelyLineLabel={setMostLikelyLineLabel}
+        inProgressLabel={inProgressLabel}
+        setInProgressLabel={setInProgressLabel}
       />
 
       {mode === 'local' && (

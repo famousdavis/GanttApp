@@ -334,26 +334,43 @@ export function sanitizeRelease(rel: unknown): Release | null {
 /**
  * Sanitize legend labels from untrusted data
  */
-export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string } {
-  if (!labels || typeof labels !== 'object') {
-    return { solidBar: 'Design, Code, Test', hatchedBar: 'Delivery Uncertainty' };
-  }
+export function sanitizeLegendLabels(labels: unknown): {
+  solidBar?: string;
+  hatchedBar?: string;
+  finishDateLine?: string;
+  mostLikelyLine?: string;
+  inProgress?: string;
+} {
+  // v16.2: no more hardcoded default substitution — absent/invalid fields are omitted
+  // from the return value. Consumers compute effective values via DEFAULT_LEGEND_LABELS.
+  if (!labels || typeof labels !== 'object') return {};
   const l = labels as Record<string, unknown>;
-  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string } = {
-    solidBar: typeof l.solidBar === 'string' ? sanitizeString(l.solidBar, 50) : 'Design, Code, Test',
-    hatchedBar: typeof l.hatchedBar === 'string' ? sanitizeString(l.hatchedBar, 50) : 'Delivery Uncertainty'
-  };
-  if (typeof l.finishDateLine === 'string') {
-    result.finishDateLine = sanitizeString(l.finishDateLine, 50);
-  }
-  if (typeof l.mostLikelyLine === 'string') {
-    result.mostLikelyLine = sanitizeString(l.mostLikelyLine, 50);
-  }
-  if (typeof l.inProgress === 'string') {
-    result.inProgress = sanitizeString(l.inProgress, 50);
-  }
+  const result: {
+    solidBar?: string; hatchedBar?: string; finishDateLine?: string;
+    mostLikelyLine?: string; inProgress?: string;
+  } = {};
+  if (typeof l.solidBar === 'string') result.solidBar = sanitizeString(l.solidBar, 50);
+  if (typeof l.hatchedBar === 'string') result.hatchedBar = sanitizeString(l.hatchedBar, 50);
+  if (typeof l.finishDateLine === 'string') result.finishDateLine = sanitizeString(l.finishDateLine, 50);
+  if (typeof l.mostLikelyLine === 'string') result.mostLikelyLine = sanitizeString(l.mostLikelyLine, 50);
+  if (typeof l.inProgress === 'string') result.inProgress = sanitizeString(l.inProgress, 50);
   return result;
 }
+
+/**
+ * Hardcoded default legend labels (v16.2).
+ * Used as the placeholder hint in Settings inputs and the final fallback
+ * when a user's global label state is empty (not customized).
+ * Per-project overrides in ProjectLegendLabels fall through to these
+ * defaults when the global state is also empty.
+ */
+export const DEFAULT_LEGEND_LABELS = {
+  solidBar: 'Design, Code, Test',
+  hatchedBar: 'Delivery Uncertainty',
+  finishDateLine: 'Project Finish Date',
+  mostLikelyLine: 'Most Likely Finish',
+  inProgress: 'In Progress',
+} as const;
 
 /**
  * Sanitize per-project legend label overrides from untrusted data (v16.1).

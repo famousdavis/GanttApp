@@ -75,10 +75,16 @@ describe('useEffectiveChartProps', () => {
 
     expect(result.current.releases).toBe(mockSnapshot.releases);
     expect(result.current.colors).toBe(snapshotColors);
+    // v16.2: snapshot.legendLabels is spread over mergedLabels — snapshot keys override
+    // per-key, and absent snapshot keys fall through to the live merged labels (which are
+    // themselves project-override-over-global via resolveLabel). The 3 snapshot keys win;
+    // the remaining 2 come from liveData.labels (no project override in this test).
     expect(result.current.labels).toEqual({
       solidBar: 'Snap Design',
       hatchedBar: 'Snap Uncertainty',
-      finishDateLine: 'Snap Finish'
+      finishDateLine: 'Snap Finish',
+      mostLikelyLine: 'Most Likely Finish',
+      inProgress: 'In Progress',
     });
     expect(result.current.preparedBy).toBe('Jane');
     expect(result.current.finishDate).toBe('2026-05-15');
@@ -214,6 +220,51 @@ describe('useEffectiveChartProps', () => {
 
       expect(result.current.labels.solidBar).toBe('Design');
       expect(result.current.labels.hatchedBar).toBe('Uncertainty');
+    });
+  });
+
+  // --- v16.2: partial snapshot labels spread over merged labels ---
+
+  describe('partial snapshot labels (v16.2)', () => {
+    it('snapshot with only some legend keys spreads over mergedLabels for the missing keys', () => {
+      // v16.2 changed the snapshot branch from `snapshot.legendLabels ?? mergedLabels`
+      // to `{ ...mergedLabels, ...snapshot.legendLabels }`. When a snapshot has a partial
+      // legendLabels object (e.g. only 3 of 5 keys), the missing keys must come from
+      // mergedLabels (project-override-or-global), NOT be undefined. This guards against
+      // regression to the old `??` behavior that would have dropped the fallback chain.
+      const partialSnapshot: Snapshot = {
+        ...mockSnapshot,
+        // Only solidBar and hatchedBar — mostLikelyLine, finishDateLine, inProgress absent
+        legendLabels: { solidBar: 'Snap Solid', hatchedBar: 'Snap Hatched' },
+      };
+      const projectOverride = { inProgress: 'Project InProgress' };
+      const { result } = renderHook(() => useEffectiveChartProps(partialSnapshot, liveData, projectOverride));
+
+      // Snapshot keys win where defined
+      expect(result.current.labels.solidBar).toBe('Snap Solid');
+      expect(result.current.labels.hatchedBar).toBe('Snap Hatched');
+      // Absent snapshot keys fall through to mergedLabels
+      // inProgress: from project override
+      expect(result.current.labels.inProgress).toBe('Project InProgress');
+      // finishDateLine and mostLikelyLine: no project override, no snapshot value → global
+      expect(result.current.labels.finishDateLine).toBe('Finish');
+      expect(result.current.labels.mostLikelyLine).toBe('Most Likely Finish');
+    });
+
+    it('all 5 snapshot label keys are always defined in the returned labels (no undefined leakage)', () => {
+      // Even when a snapshot omits certain legendLabels keys, callers should be able
+      // to trust that all 5 label strings are present and defined in result.labels.
+      const partialSnapshot: Snapshot = {
+        ...mockSnapshot,
+        legendLabels: { solidBar: 'Only Solid' },
+      };
+      const { result } = renderHook(() => useEffectiveChartProps(partialSnapshot, liveData, undefined));
+
+      expect(typeof result.current.labels.solidBar).toBe('string');
+      expect(typeof result.current.labels.hatchedBar).toBe('string');
+      expect(typeof result.current.labels.finishDateLine).toBe('string');
+      expect(typeof result.current.labels.mostLikelyLine).toBe('string');
+      expect(typeof result.current.labels.inProgress).toBe('string');
     });
   });
 });

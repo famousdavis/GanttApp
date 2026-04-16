@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings, migrateReleaseStatus, sanitizeProjectLegendLabels, resolveLabel } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings, migrateReleaseStatus, sanitizeProjectLegendLabels, resolveLabel, DEFAULT_LEGEND_LABELS } from '../validation';
 import type { Project } from '../../types/models';
 
 describe('isValidDateFormat', () => {
@@ -337,6 +337,49 @@ describe('sanitizeLegendLabels - mostLikelyLine', () => {
       hatchedBar: 'Hatched'
     });
     expect(result.mostLikelyLine).toBeUndefined();
+  });
+});
+
+describe('sanitizeLegendLabels - v16.2 behavior (no hardcoded default substitution)', () => {
+  it('returns empty object for null input (no default substitution)', () => {
+    // v16.1 and earlier returned { solidBar: 'Design, Code, Test', hatchedBar: 'Delivery Uncertainty' }.
+    // v16.2 returns {} — defaults are applied at consumption via DEFAULT_LEGEND_LABELS.
+    expect(sanitizeLegendLabels(null)).toEqual({});
+  });
+
+  it('returns empty object for undefined input', () => {
+    expect(sanitizeLegendLabels(undefined)).toEqual({});
+  });
+
+  it('returns empty object for non-object input (string, number)', () => {
+    expect(sanitizeLegendLabels('a string')).toEqual({});
+    expect(sanitizeLegendLabels(42)).toEqual({});
+  });
+
+  it('returns empty object when no fields match the expected types', () => {
+    // v16.2: all 5 fields are optional; non-string values are silently dropped.
+    expect(sanitizeLegendLabels({ solidBar: 42, hatchedBar: null })).toEqual({});
+  });
+
+  it('returns only the provided string fields (partial object)', () => {
+    const result = sanitizeLegendLabels({ solidBar: 'Custom' });
+    expect(result).toEqual({ solidBar: 'Custom' });
+    expect(result.hatchedBar).toBeUndefined();
+  });
+});
+
+describe('DEFAULT_LEGEND_LABELS constant', () => {
+  it('contains all 5 expected default values (v16.2 regression guard)', () => {
+    // These are the hardcoded defaults shown as placeholders in the Settings UI
+    // and used as the ultimate fallback at the chart render path and edit-box starting value.
+    // Changing any of these strings requires coordinated updates to user-facing copy.
+    expect(DEFAULT_LEGEND_LABELS).toEqual({
+      solidBar: 'Design, Code, Test',
+      hatchedBar: 'Delivery Uncertainty',
+      finishDateLine: 'Project Finish Date',
+      mostLikelyLine: 'Most Likely Finish',
+      inProgress: 'In Progress',
+    });
   });
 });
 

@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import { ChartLegend } from '../ChartLegend';
@@ -9,7 +10,7 @@ import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../../../shared/
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 
 // ChartLegend uses useTheme() — wrap all renders in ThemeProvider (v16.1).
-const render: typeof rtlRender = (ui, options) =>
+const render = (ui: ReactElement, options?: Parameters<typeof rtlRender>[1]) =>
   rtlRender(ui, { wrapper: ThemeWrapper, ...options });
 
 describe('ChartLegend', () => {
@@ -296,7 +297,10 @@ describe('ChartLegend', () => {
   // --- v16.1: per-project legend label overrides ---
 
   describe('per-project override UI (v16.1)', () => {
-    it('renders label in italic when project override is active for that key', () => {
+    it('renders overridden label in the same font style as non-overridden labels (v16.2)', () => {
+      // v16.2: italic differentiation was removed — the ↺ reset button is the sole
+      // visual indicator of an active project override. A mixed-italic legend row
+      // looked inconsistent. This test guards against the italic behavior creeping back.
       render(
         <ChartLegend
           {...defaultProps}
@@ -304,16 +308,9 @@ describe('ChartLegend', () => {
           projectLegendLabels={{ solidBar: 'Custom Solid' }}
         />
       );
-      const span = screen.getByText('Custom Solid');
-      expect(span).toHaveStyle({ fontStyle: 'italic' });
-    });
-
-    it('renders label in normal style when no project override is active', () => {
-      render(
-        <ChartLegend {...defaultProps} projectLegendLabels={undefined} />
-      );
-      const span = screen.getByText('Design, Code, Test');
-      expect(span).toHaveStyle({ fontStyle: 'normal' });
+      const overriddenSpan = screen.getByText('Custom Solid');
+      // Assert no italic applied (the span's style does not set fontStyle at all now)
+      expect(overriddenSpan.style.fontStyle).toBe('');
     });
 
     it('shows ↺ reset button when project override is active', () => {

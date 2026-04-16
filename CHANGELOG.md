@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 16.2 (2026-04-16)
+### Default Legend Labels Editor + State-Model Refactor
+- Feature: New "Default Legend Labels" section in Settings lets you customize the 5 global chart legend defaults (Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, In Progress). Closes the v16.1 UX gap where globals were unreachable once any project existed
+- UX: Settings inputs start empty with hardcoded defaults shown as HTML placeholders. Clearing an input reverts to the placeholder default — no explicit reset button
+- UX: Chart legend scope hint updated to reference "Settings → Default Legend Labels" for global edits
+- UX: Italic styling removed on overridden legend labels. The ↺ reset button is the sole visual indicator of an active project override — mixed-italic rows looked inconsistent
+- UX: Per-project reset buttons and the scope hint are now excluded from the "Copy Chart as Image" capture via the existing `copy-image-button` pattern
+- Data: State model refactor — uncustomized global labels are no longer stored literally. First-time users have no `legendLabels` entries in local/cloud storage until they customize. Existing customizations load and render identically to v16.1
+- Types: `sanitizeLegendLabels` return type relaxed (all 5 fields optional); `AppData.legendLabels`, `FirestoreSnapshot.legendLabels`, `FirestoreUserSettings.legendLabels`, and `Snapshot.legendLabels` sub-fields now optional
+- New constant: `DEFAULT_LEGEND_LABELS` exported from `validation.ts` — single source of truth for placeholders + rendering fallback
+- Risk-1 mitigation: `handleSaveSnapshot` now builds `legendLabels` from `raw || DEFAULT_LEGEND_LABELS.key` so snapshots freeze the effective displayed label, never empty strings. Dedicated regression test in `useSnapshots.test.tsx`
+- Wave 1 gate: `npx tsc --noEmit` enforced before the state-model refactor. Caught a third `legendLabels` type occurrence (Snapshot.legendLabels) the plan missed, and a latent test-wrapper typing issue in v16.1
+- 908 tests across 52 test files, all passing (15 net new tests); TypeScript type-check clean (0 errors)
+
 ## Version 16.1 (2026-04-16)
 ### Per-Project Legend Label Overrides
 - Feature: Each project can now override any of the five chart legend labels (Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, In Progress). Global labels remain the baseline

@@ -10,6 +10,7 @@ import { useTheme } from '../src/context/ThemeContext';
 import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { ProjectLegendLabels } from '../src/shared/types/models';
+import { DEFAULT_LEGEND_LABELS } from '../src/shared/utils/validation';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
@@ -145,7 +146,16 @@ function AppContent() {
   const effective = useEffectiveChartProps(activeSnapshot, {
     releases: visibleReleases,
     chartColors,
-    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel, inProgress: inProgressLabel },
+    // v16.2: raw state may be '' (uncustomized) — fall back to DEFAULT_LEGEND_LABELS
+    // here, at the boundary between context and chart. Hook contract is that labels
+    // entering the hook are already effective strings, never empty.
+    labels: {
+      solidBar: solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar,
+      hatchedBar: hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar,
+      finishDateLine: finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine,
+      mostLikelyLine: mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine,
+      inProgress: inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
+    },
     preparedBy,
     finishDate: selectedProject?.finishDate
   }, selectedProject?.legendLabels);
@@ -167,13 +177,22 @@ function AppContent() {
     });
   }, [data, selectedProjectId, updateData]);
 
-  // Save snapshot callback — passes current chart state to the hook
+  // Save snapshot callback — passes current chart state to the hook.
+  // v16.2 (Risk 1 mitigation): snapshots must freeze the EFFECTIVE displayed label,
+  // not the raw state. A snapshot taken today with empty global state should display
+  // "Design, Code, Test" forever — not an empty string.
   const handleSaveSnapshot = useCallback(() => {
     snapshotState.saveSnapshot({
       releases: visibleReleases,
       projectFinishDate: selectedProject?.finishDate,
       chartColors,
-      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel, inProgress: inProgressLabel },
+      legendLabels: {
+        solidBar: solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar,
+        hatchedBar: hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar,
+        finishDateLine: finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine,
+        mostLikelyLine: mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine,
+        inProgress: inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
+      },
       preparedBy
     });
   }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy]);

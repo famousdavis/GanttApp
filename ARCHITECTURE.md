@@ -221,7 +221,7 @@ interface Snapshot {
   releases: Release[];         // Deep copy of releases at snapshot time
   projectFinishDate?: string;
   chartColors?: ChartColors;
-  legendLabels?: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string };
+  legendLabels?: { solidBar?: string; hatchedBar?: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };  // v16.2: all fields optional
   preparedBy?: string;
 }
 
@@ -259,11 +259,17 @@ interface AppData {
   chartColors?: ChartColors;
   activePreset?: string;
   legendLabels?: {
-    solidBar: string;
-    hatchedBar: string;
+    solidBar?: string;            // v16.2: optional (empty/absent = use DEFAULT_LEGEND_LABELS.solidBar)
+    hatchedBar?: string;          // v16.2: optional (same)
     finishDateLine?: string;
-    mostLikelyLine?: string;     // v8.0
+    mostLikelyLine?: string;      // v8.0
+    inProgress?: string;          // v16.0
   };
+  // v16.2: DEFAULT_LEGEND_LABELS constant in validation.ts is the single source of truth
+  // for the 5 hardcoded defaults. Used as HTML placeholder in Settings inputs AND as the
+  // `||` fallback at every consumption point (useEffectiveChartProps, useChartEditing,
+  // handleSaveSnapshot). First-time users have no legendLabels entries in storage at all —
+  // the field is stripped by AppDataContext when the payload is empty.
   showTodayLine?: boolean;        // v8.0 (persisted, was transient)
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;   // v8.0

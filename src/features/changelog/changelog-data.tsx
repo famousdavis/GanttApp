@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '15.2',
+    date: 'April 15, 2026',
+    items: [
+      <><strong>Refactor</strong> &mdash; Extracted <code>ReleaseFormFields</code> component from <code>ReleasesTab</code> (506 &rarr; 360 LOC), making the 5-field release form independently testable and reducing token cost for AI-assisted edits</>,
+      <><strong>UX</strong> &mdash; Unbolded parenthetical text in &ldquo;Finish Date (Optional)&rdquo; and &ldquo;Work Week (Optional Override)&rdquo; labels for clearer visual hierarchy</>,
+      <><strong>Code quality</strong> &mdash; Reviewed all post-v13.0 modules (WorkWeekSelector, WorkWeekSection, useSnapshots, SnapshotBar) &mdash; no issues found; all infrastructure dependencies audited against 60-day stability window</>,
+    ],
+  },
+  {
     version: '15.1',
     date: 'April 15, 2026',
     items: [

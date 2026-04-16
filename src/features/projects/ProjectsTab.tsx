@@ -222,7 +222,7 @@ export function ProjectsTab({
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Finish Date (Optional)
+              Finish Date <span style={{ fontWeight: 'normal' }}>(Optional)</span>
             </label>
             <input
               type="date"
@@ -255,7 +255,7 @@ export function ProjectsTab({
           </div>
           <div style={{ flex: '1 1 auto' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-              Work Week (Optional Override)
+              Work Week <span style={{ fontWeight: 'normal' }}>(Optional Override)</span>
             </label>
             <WorkWeekSelector
               value={projectWorkDays}

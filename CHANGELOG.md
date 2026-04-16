@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 15.2 (2026-04-15)
+### Refactoring & Label Fix
+- Refactor: Extracted ReleaseFormFields component from ReleasesTab (506 → 360 LOC) for independent testability and reduced token cost
+- UX: Unbolded parenthetical text in "Finish Date (Optional)" and "Work Week (Optional Override)" labels
+- Code quality: Reviewed all post-v13.0 modules; audited all dependencies against 60-day stability window (no upgrades — all within window)
+- 813 tests across 50 test files, all passing; TypeScript type-check clean (0 errors)
+
 ## Version 15.1 (2026-04-15)
 ### Snapshot Bar Fixes
 - UX: Moved Save Snapshot and Delete Snapshot buttons to the left side of the snapshot bar so they are always visible without scrolling

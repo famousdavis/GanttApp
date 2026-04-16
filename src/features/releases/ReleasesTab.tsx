@@ -6,6 +6,7 @@
 
 import { useState, useMemo } from 'react';
 import { useReleases } from './useReleases';
+import { ReleaseFormFields } from './ReleaseFormFields';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, formatDateLocale } from '../../shared/utils';
@@ -71,11 +72,6 @@ export function ReleasesTab({
   const effectiveWorkDays = getEffectiveWorkDays(selectedProject, globalWorkDays);
   const warnings = getDateWarnings(startDate, earlyFinish, lateFinish, mostLikelyFinish, effectiveWorkDays);
 
-  // Determine which fields have errors for highlighting
-  const startDateInvalid = touchedFields.startDate && startDate.length === 10 && (startDate < '2000-01-01' || startDate > '2050-12-31');
-  const earlyFinishInvalid = touchedFields.earlyFinish && earlyFinish.length === 10 && (earlyFinish < '2000-01-01' || earlyFinish > '2050-12-31');
-  const lateFinishInvalid = touchedFields.lateFinish && lateFinish.length === 10 && (lateFinish < '2000-01-01' || lateFinish > '2050-12-31');
-
   // Keyboard shortcuts for Releases tab
   const shortcuts = useMemo(() => ({
     'escape': () => {
@@ -98,157 +94,15 @@ export function ReleasesTab({
     return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
   }
 
-  // Shared release form fields (used by both Add and inline Edit forms)
-  const renderFormFields = () => (
-    <>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Release Name
-          </label>
-          <input
-            type="text"
-            placeholder="Release name"
-            value={releaseName}
-            onChange={(e) => setReleaseName(e.target.value)}
-            maxLength={100}
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Start Date<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            className={startDate ? 'has-value' : ''}
-            onChange={(e) => setStartDate(e.target.value)}
-            min="2000-01-01"
-            max="2050-12-31"
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: startDateInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-          {warnings.startDate && !errorMessage && (
-            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              ⚠ {warnings.startDate}
-            </div>
-          )}
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Early Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-          </label>
-          <input
-            type="date"
-            value={earlyFinish}
-            className={earlyFinish ? 'has-value' : ''}
-            onChange={(e) => setEarlyFinish(e.target.value)}
-            min="2000-01-01"
-            max="2050-12-31"
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: earlyFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-          {warnings.earlyFinish && !errorMessage && (
-            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              ⚠ {warnings.earlyFinish}
-            </div>
-          )}
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
-          </label>
-          <input
-            type="date"
-            value={lateFinish}
-            className={lateFinish ? 'has-value' : ''}
-            onChange={(e) => setLateFinish(e.target.value)}
-            min="2000-01-01"
-            max="2050-12-31"
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: lateFinishInvalid ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-          {warnings.lateFinish && !errorMessage && (
-            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              ⚠ {warnings.lateFinish}
-            </div>
-          )}
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
-          </label>
-          <input
-            type="date"
-            value={mostLikelyFinish}
-            className={mostLikelyFinish ? 'has-value' : ''}
-            onChange={(e) => setMostLikelyFinish(e.target.value)}
-            min="2000-01-01"
-            max="2050-12-31"
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-          {warnings.mostLikely && !mostLikelyErrorVisible && (
-            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              ⚠ {warnings.mostLikely}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {(errorMessage || mostLikelyErrorVisible) && (
-        <div style={{
-          color: '#dc3545',
-          fontSize: '0.9rem',
-          marginTop: '0.75rem',
-          marginBottom: '0.75rem',
-          padding: '0.5rem',
-          background: '#f8d7da',
-          borderRadius: '4px',
-          border: '1px solid #f5c6cb'
-        }}>
-          {errorMessage || mostLikelyErrorVisible}
-        </div>
-      )}
-    </>
-  );
+  // Form fields props — shared between Add and inline Edit forms
+  const formFieldsProps = {
+    releaseName, setReleaseName,
+    startDate, setStartDate,
+    earlyFinish, setEarlyFinish,
+    lateFinish, setLateFinish,
+    mostLikelyFinish, setMostLikelyFinish,
+    touchedFields, errorMessage, mostLikelyErrorVisible, warnings, colors,
+  };
 
   return (
     <div>
@@ -279,7 +133,7 @@ export function ReleasesTab({
       {/* Add Release form — hidden when editing inline */}
       {!editingReleaseId && (
         <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-          {renderFormFields()}
+          <ReleaseFormFields {...formFieldsProps} />
           <button
             onClick={() => addRelease(selectedProjectId)}
             disabled={!isValid}
@@ -435,7 +289,7 @@ export function ReleasesTab({
                   border: '2px solid #0070f3',
                   borderTop: `1px solid ${colors.border}`
                 }}>
-                  {renderFormFields()}
+                  <ReleaseFormFields {...formFieldsProps} />
                   <button
                     onClick={updateRelease}
                     disabled={!isValid}

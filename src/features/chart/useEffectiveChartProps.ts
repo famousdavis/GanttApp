@@ -6,7 +6,9 @@
 
 import { useMemo } from 'react';
 import { Release, ChartColors } from '../../shared/types';
+import { ProjectLegendLabels } from '../../shared/types/models';
 import { Snapshot } from '../../shared/types/snapshots';
+import { resolveLabel } from '../../shared/utils/validation';
 
 interface LiveChartData {
   releases: Release[];
@@ -27,14 +29,25 @@ interface EffectiveChartProps {
 
 export function useEffectiveChartProps(
   activeSnapshot: Snapshot | null,
-  live: LiveChartData
+  live: LiveChartData,
+  projectLegendLabels: ProjectLegendLabels | undefined
 ): EffectiveChartProps {
   return useMemo(() => {
+    // Merge project-level overrides onto global labels (v16.1).
+    // Single source of truth: resolveLabel — called here and in useChartEditing.startEditLabel.
+    const mergedLabels = {
+      solidBar: resolveLabel('solidBar', projectLegendLabels, live.labels.solidBar),
+      hatchedBar: resolveLabel('hatchedBar', projectLegendLabels, live.labels.hatchedBar),
+      finishDateLine: resolveLabel('finishDateLine', projectLegendLabels, live.labels.finishDateLine),
+      mostLikelyLine: resolveLabel('mostLikelyLine', projectLegendLabels, live.labels.mostLikelyLine),
+      inProgress: resolveLabel('inProgress', projectLegendLabels, live.labels.inProgress),
+    };
+
     if (!activeSnapshot) {
       return {
         releases: live.releases,
         colors: live.chartColors,
-        labels: live.labels,
+        labels: mergedLabels,
         preparedBy: live.preparedBy,
         finishDate: live.finishDate
       };
@@ -43,12 +56,14 @@ export function useEffectiveChartProps(
     return {
       releases: activeSnapshot.releases,
       colors: activeSnapshot.chartColors ?? live.chartColors,
-      labels: activeSnapshot.legendLabels ?? live.labels,
+      // Precedence: snapshot frozen labels → project override → global. When a snapshot
+      // has no frozen labels, fall through to the merged project-override-or-global set.
+      labels: activeSnapshot.legendLabels ?? mergedLabels,
       preparedBy: activeSnapshot.preparedBy ?? live.preparedBy,
       finishDate: activeSnapshot.projectFinishDate ?? live.finishDate,
       datePreparedOverride: new Date(activeSnapshot.timestamp).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
       })
     };
-  }, [activeSnapshot, live.releases, live.chartColors, live.labels, live.preparedBy, live.finishDate]);
+  }, [activeSnapshot, live.releases, live.chartColors, live.labels, live.preparedBy, live.finishDate, projectLegendLabels]);
 }

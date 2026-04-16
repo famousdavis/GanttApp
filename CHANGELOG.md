@@ -1,5 +1,15 @@
 # Change Log
 
+## Version 16.1 (2026-04-16)
+### Per-Project Legend Label Overrides
+- Feature: Each project can now override any of the five chart legend labels (Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, In Progress). Global labels remain the baseline
+- UX: Labels with project overrides render in italic with a ↺ reset button. One-line hint above the legend clarifies edit scope when a project is selected
+- UX: Edits save to the current project when a project is selected; save globally when no project is selected. Edit boxes open with the effective value — project override if present, otherwise global
+- Data: Per-project overrides persist in local and cloud storage; round-trip through JSON export/import; projects without overrides behave identically to v16.0
+- Resolver: New `resolveLabel` utility — single source of truth for precedence (snapshot → project override → global). Used by both render path and edit UI so the two can never disagree
+- Risk mitigation: `contentChanged` in `firestore-save-executor.ts` updated to compare `legendLabels` — prevents silent write-skip in cloud mode (same class as v12.5 reorder and v15.0 workDays bugs). 6 dedicated regression tests added
+- 893 tests across 51 test files, all passing (49 net new tests); TypeScript type-check clean (0 errors)
+
 ## Version 16.0 (2026-04-16)
 ### Release Status (three-state) + Today's Date Label
 - Feature: Replaced two-state completed toggle with three-state release status — Not Started, In Progress, and Complete — exposed via a segmented control in the release list

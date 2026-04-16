@@ -6,6 +6,14 @@
 
 export type ReleaseStatus = 'not-started' | 'in-progress' | 'complete';
 
+export interface ProjectLegendLabels {
+  solidBar?: string;
+  hatchedBar?: string;
+  finishDateLine?: string;
+  mostLikelyLine?: string;
+  inProgress?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -13,6 +21,8 @@ export interface Project {
   owner?: string;       // Firebase uid — only populated in cloud mode (v11.2)
   /** Optional per-project override of the work-week. Array of day-of-week integers (0=Sun ... 6=Sat). Undefined = use global default. */
   workDays?: number[];
+  /** Optional per-project legend label overrides (v16.1). Absent keys fall through to the global AppData.legendLabels. */
+  legendLabels?: ProjectLegendLabels;
 }
 
 export interface Release {

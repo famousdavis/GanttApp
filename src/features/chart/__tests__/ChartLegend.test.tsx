@@ -3,9 +3,14 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import { ChartLegend } from '../ChartLegend';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../../../shared/utils/colors';
+import { ThemeWrapper } from '../../../test/ThemeWrapper';
+
+// ChartLegend uses useTheme() — wrap all renders in ThemeProvider (v16.1).
+const render: typeof rtlRender = (ui, options) =>
+  rtlRender(ui, { wrapper: ThemeWrapper, ...options });
 
 describe('ChartLegend', () => {
   const defaultProps = {
@@ -29,7 +34,10 @@ describe('ChartLegend', () => {
     onSaveLabelEdit: vi.fn(),
     onCancelLabelEdit: vi.fn(),
     onTempLabelChange: vi.fn(),
-    readOnly: false
+    readOnly: false,
+    projectLegendLabels: undefined,
+    onClearProjectLabelOverride: vi.fn(),
+    hasActiveProject: false,
   };
 
   it('renders solid bar label', () => {
@@ -283,5 +291,127 @@ describe('ChartLegend', () => {
 
     fireEvent.click(screen.getByText('Most Likely Finish'));
     expect(onStart).toHaveBeenCalledWith('mostLikelyLine');
+  });
+
+  // --- v16.1: per-project legend label overrides ---
+
+  describe('per-project override UI (v16.1)', () => {
+    it('renders label in italic when project override is active for that key', () => {
+      render(
+        <ChartLegend
+          {...defaultProps}
+          solidBarLabel="Custom Solid"
+          projectLegendLabels={{ solidBar: 'Custom Solid' }}
+        />
+      );
+      const span = screen.getByText('Custom Solid');
+      expect(span).toHaveStyle({ fontStyle: 'italic' });
+    });
+
+    it('renders label in normal style when no project override is active', () => {
+      render(
+        <ChartLegend {...defaultProps} projectLegendLabels={undefined} />
+      );
+      const span = screen.getByText('Design, Code, Test');
+      expect(span).toHaveStyle({ fontStyle: 'normal' });
+    });
+
+    it('shows ↺ reset button when project override is active', () => {
+      render(
+        <ChartLegend
+          {...defaultProps}
+          solidBarLabel="Custom Solid"
+          projectLegendLabels={{ solidBar: 'Custom Solid' }}
+        />
+      );
+      // Query by title attribute since the button content is ↺
+      const buttons = screen.getAllByTitle('Reset to global label');
+      expect(buttons).toHaveLength(1);
+    });
+
+    it('calls onClearProjectLabelOverride with correct key when reset button clicked', () => {
+      const onClear = vi.fn();
+      render(
+        <ChartLegend
+          {...defaultProps}
+          solidBarLabel="Custom Solid"
+          projectLegendLabels={{ solidBar: 'Custom Solid' }}
+          onClearProjectLabelOverride={onClear}
+        />
+      );
+      fireEvent.click(screen.getByTitle('Reset to global label'));
+      expect(onClear).toHaveBeenCalledWith('solidBar');
+    });
+
+    it('does not show reset button when readOnly', () => {
+      render(
+        <ChartLegend
+          {...defaultProps}
+          solidBarLabel="Custom Solid"
+          projectLegendLabels={{ solidBar: 'Custom Solid' }}
+          readOnly={true}
+        />
+      );
+      expect(screen.queryByTitle('Reset to global label')).not.toBeInTheDocument();
+    });
+
+    it('shows project-scope editing hint when hasActiveProject is true', () => {
+      render(
+        <ChartLegend {...defaultProps} hasActiveProject={true} />
+      );
+      expect(screen.getByText(/Editing labels saves to this project only/i)).toBeInTheDocument();
+    });
+
+    it('does not show editing hint when readOnly', () => {
+      render(
+        <ChartLegend {...defaultProps} hasActiveProject={true} readOnly={true} />
+      );
+      expect(screen.queryByText(/Editing labels saves to this project only/i)).not.toBeInTheDocument();
+    });
+
+    it('does not show editing hint when no active project', () => {
+      render(
+        <ChartLegend {...defaultProps} hasActiveProject={false} />
+      );
+      expect(screen.queryByText(/Editing labels saves to this project only/i)).not.toBeInTheDocument();
+    });
+
+    it('reset button passes correct key for each of the five label types', () => {
+      const onClear = vi.fn();
+      render(
+        <ChartLegend
+          {...defaultProps}
+          showFinishDateLine={true}
+          hasProjectFinishDate={true}
+          showMostLikelyLine={true}
+          hasMostLikelyReleases={true}
+          hasInProgressReleases={true}
+          solidBarLabel="S"
+          hatchedBarLabel="H"
+          finishDateLabel="F"
+          mostLikelyLineLabel="M"
+          inProgressLabel="I"
+          projectLegendLabels={{
+            solidBar: 'S',
+            hatchedBar: 'H',
+            finishDateLine: 'F',
+            mostLikelyLine: 'M',
+            inProgress: 'I',
+          }}
+          onClearProjectLabelOverride={onClear}
+        />
+      );
+      const buttons = screen.getAllByTitle('Reset to global label');
+      expect(buttons).toHaveLength(5);
+      // Clicking each in order should pass the correct key.
+      // Legend order: Completed → In Progress → Solid → Hatched → Today → Finish Date → Most Likely
+      // (Completed is not editable so buttons are: In Progress, Solid, Hatched, Finish Date, Most Likely)
+      buttons.forEach(b => fireEvent.click(b));
+      const calls = onClear.mock.calls.map(c => c[0]);
+      // Assert set of keys (order is based on JSX order in legend)
+      expect(new Set(calls)).toEqual(
+        new Set(['inProgress', 'solidBar', 'hatchedBar', 'finishDateLine', 'mostLikelyLine'])
+      );
+    });
   });
 });

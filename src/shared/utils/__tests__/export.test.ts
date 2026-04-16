@@ -287,4 +287,34 @@ describe('parseImportedData — work week fields (v15.0)', () => {
     expect(result).not.toBeNull();
     expect(result!.appData.projects[0].workDays).toBeUndefined();
   });
+
+  // v16.1 — per-project legend label overrides
+  it('round-trips project legendLabels through parseImportedData', () => {
+    const json = JSON.stringify({
+      projects: [{
+        id: 'p1',
+        name: 'With Labels',
+        legendLabels: { solidBar: 'Build', hatchedBar: 'Risk', inProgress: 'Active' },
+      }],
+      releases: [],
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.projects[0].legendLabels).toEqual({
+      solidBar: 'Build',
+      hatchedBar: 'Risk',
+      inProgress: 'Active',
+    });
+  });
+
+  it('silently drops invalid project legendLabels on import', () => {
+    const json = JSON.stringify({
+      projects: [{ id: 'p1', name: 'Test', legendLabels: { solidBar: 42 } }],
+      releases: [],
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    // Invalid field dropped; result is undefined if no valid fields remain
+    expect(result!.appData.projects[0].legendLabels).toBeUndefined();
+  });
 });

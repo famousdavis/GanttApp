@@ -178,12 +178,22 @@ AuthProvider > StorageProvider > ThemeProvider > AppDataProvider
 ## Core Data Models
 
 ```typescript
+// Per-project legend label overrides (v16.1). Absent keys fall through to the global AppData.legendLabels.
+interface ProjectLegendLabels {
+  solidBar?: string;
+  hatchedBar?: string;
+  finishDateLine?: string;
+  mostLikelyLine?: string;
+  inProgress?: string;
+}
+
 // Project - a container for releases
 interface Project {
   id: string;           // Unique ID (timestamp-based)
   name: string;         // Display name (max 100 chars)
   finishDate?: string;  // Optional YYYY-MM-DD
   workDays?: number[];  // Optional per-project work-week override (v15.0). Array of 0=Sun..6=Sat. Undefined = use global default.
+  legendLabels?: ProjectLegendLabels;  // v16.1 — per-project overrides. Precedence: snapshot → project override → global. Resolved via resolveLabel() in validation.ts.
 }
 
 // Release status (v16.0 — replaces v9.0 completed boolean)

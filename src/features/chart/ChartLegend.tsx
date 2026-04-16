@@ -5,6 +5,8 @@
 // Chart legend component with editable labels
 
 import { ChartColors, ChartDisplaySettings } from '../../shared/types';
+import { ProjectLegendLabels } from '../../shared/types/models';
+import { useTheme } from '../../context/ThemeContext';
 import { LegendLabelType } from './useChartEditing';
 
 interface ChartLegendProps {
@@ -29,6 +31,34 @@ interface ChartLegendProps {
   onCancelLabelEdit: () => void;
   onTempLabelChange: (value: string) => void;
   readOnly?: boolean;
+  /** v16.1: per-project legend label overrides currently active for this project, if any */
+  projectLegendLabels?: ProjectLegendLabels;
+  /** v16.1: called when the user clicks a ↺ reset button next to a label with a project override */
+  onClearProjectLabelOverride?: (key: keyof ProjectLegendLabels) => void;
+  /** v16.1: true when a project is selected — drives the "editing will save to this project" hint */
+  hasActiveProject: boolean;
+}
+
+/** Inline ↺ reset button shown next to labels with an active project override. */
+function ResetOverrideButton({ onReset }: { onReset: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onReset}
+      title="Reset to global label"
+      style={{
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '0.85rem',
+        padding: '0 0.25rem',
+        color: 'inherit',
+        opacity: 0.7,
+      }}
+    >
+      ↺
+    </button>
+  );
 }
 
 function EditableLabelInput({
@@ -91,12 +121,40 @@ export function ChartLegend({
   onSaveLabelEdit,
   onCancelLabelEdit,
   onTempLabelChange,
-  readOnly = false
+  readOnly = false,
+  projectLegendLabels,
+  onClearProjectLabelOverride,
+  hasActiveProject,
 }: ChartLegendProps) {
+  const { colors } = useTheme();
+
+  // v16.1: italic when project override is active for this key
+  const italicIfOverridden = (key: keyof ProjectLegendLabels) =>
+    projectLegendLabels?.[key] !== undefined ? ('italic' as const) : ('normal' as const);
+
+  // v16.1: render a ↺ reset button only when an override exists AND not readOnly AND handler available
+  const renderReset = (key: keyof ProjectLegendLabels) =>
+    projectLegendLabels?.[key] !== undefined && !readOnly && onClearProjectLabelOverride
+      ? <ResetOverrideButton onReset={() => onClearProjectLabelOverride(key)} />
+      : null;
+
   return (
     <div style={{ marginTop: '2rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.9rem' }}>
       {/* Legend order reads status-progression left-to-right:
           Completed → In Progress → Not Started (solid + hatched) → lines. */}
+
+      {/* v16.1: subtle scope hint when a project is selected and legend is editable */}
+      {hasActiveProject && !readOnly && (
+        <div style={{
+          width: '100%',
+          fontSize: '0.75rem',
+          color: colors.textMuted,
+          fontStyle: 'italic',
+          marginBottom: '-0.5rem',
+        }}>
+          Editing labels saves to this project only. Use ↺ to reset to the global label.
+        </div>
+      )}
 
       {/* Completed legend — shown only when completed releases exist */}
       {hasCompletedReleases && (
@@ -118,13 +176,16 @@ export function ChartLegend({
               onCancel={onCancelLabelEdit}
             />
           ) : (
-            <span
-              onClick={readOnly ? undefined : () => onStartEditLabel('inProgress')}
-              style={{ cursor: readOnly ? 'default' : 'pointer' }}
-              title={readOnly ? undefined : 'Click to edit'}
-            >
-              {inProgressLabel}
-            </span>
+            <>
+              <span
+                onClick={readOnly ? undefined : () => onStartEditLabel('inProgress')}
+                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('inProgress') }}
+                title={readOnly ? undefined : 'Click to edit'}
+              >
+                {inProgressLabel}
+              </span>
+              {renderReset('inProgress')}
+            </>
           )}
         </div>
       )}
@@ -140,13 +201,16 @@ export function ChartLegend({
             onCancel={onCancelLabelEdit}
           />
         ) : (
-          <span
-            onClick={readOnly ? undefined : () => onStartEditLabel('solid')}
-            style={{ cursor: readOnly ? 'default' : 'pointer' }}
-            title={readOnly ? undefined : 'Click to edit'}
-          >
-            {solidBarLabel}
-          </span>
+          <>
+            <span
+              onClick={readOnly ? undefined : () => onStartEditLabel('solid')}
+              style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('solidBar') }}
+              title={readOnly ? undefined : 'Click to edit'}
+            >
+              {solidBarLabel}
+            </span>
+            {renderReset('solidBar')}
+          </>
         )}
       </div>
 
@@ -168,13 +232,16 @@ export function ChartLegend({
             onCancel={onCancelLabelEdit}
           />
         ) : (
-          <span
-            onClick={readOnly ? undefined : () => onStartEditLabel('hatched')}
-            style={{ cursor: readOnly ? 'default' : 'pointer' }}
-            title={readOnly ? undefined : 'Click to edit'}
-          >
-            {hatchedBarLabel}
-          </span>
+          <>
+            <span
+              onClick={readOnly ? undefined : () => onStartEditLabel('hatched')}
+              style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('hatchedBar') }}
+              title={readOnly ? undefined : 'Click to edit'}
+            >
+              {hatchedBarLabel}
+            </span>
+            {renderReset('hatchedBar')}
+          </>
         )}
       </div>
 
@@ -208,13 +275,16 @@ export function ChartLegend({
               onCancel={onCancelLabelEdit}
             />
           ) : (
-            <span
-              onClick={readOnly ? undefined : () => onStartEditLabel('finishDate')}
-              style={{ cursor: readOnly ? 'default' : 'pointer' }}
-              title={readOnly ? undefined : 'Click to edit'}
-            >
-              {finishDateLabel}
-            </span>
+            <>
+              <span
+                onClick={readOnly ? undefined : () => onStartEditLabel('finishDate')}
+                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('finishDateLine') }}
+                title={readOnly ? undefined : 'Click to edit'}
+              >
+                {finishDateLabel}
+              </span>
+              {renderReset('finishDateLine')}
+            </>
           )}
         </div>
       )}
@@ -236,13 +306,16 @@ export function ChartLegend({
               onCancel={onCancelLabelEdit}
             />
           ) : (
-            <span
-              onClick={readOnly ? undefined : () => onStartEditLabel('mostLikelyLine')}
-              style={{ cursor: readOnly ? 'default' : 'pointer' }}
-              title={readOnly ? undefined : 'Click to edit'}
-            >
-              {mostLikelyLineLabel}
-            </span>
+            <>
+              <span
+                onClick={readOnly ? undefined : () => onStartEditLabel('mostLikelyLine')}
+                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('mostLikelyLine') }}
+                title={readOnly ? undefined : 'Click to edit'}
+              >
+                {mostLikelyLineLabel}
+              </span>
+              {renderReset('mostLikelyLine')}
+            </>
           )}
         </div>
       )}

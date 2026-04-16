@@ -112,7 +112,8 @@ export async function executeFirestoreSave(
       const contentChanged = prevProject && (
         prevProject.name !== project.name ||
         prevProject.finishDate !== project.finishDate ||
-        JSON.stringify(prevProject.workDays) !== JSON.stringify(project.workDays)
+        JSON.stringify(prevProject.workDays) !== JSON.stringify(project.workDays) ||
+        JSON.stringify(prevProject.legendLabels) !== JSON.stringify(project.legendLabels)
       );
       const orderChanged = prevProjectIndex !== projectIndex;
 

@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.1',
+    date: 'April 16, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; Per-project legend label overrides: each project can now have its own custom label text for Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, and In Progress. Global labels remain the baseline and apply to any project that doesn&apos;t set its own override</>,
+      <><strong>UX</strong> &mdash; In the chart legend, labels with project-scope overrides render in italic with a &ldquo;&#8634;&rdquo; reset button to revert to the global label. A one-line hint appears above the legend when a project is selected to clarify edit scope</>,
+      <><strong>UX</strong> &mdash; Legend label edits save to the current project&apos;s scope when a project is selected. When no project is selected, edits save globally (existing behavior). Edit boxes open with the effective value &mdash; project override if present, otherwise global</>,
+      <><strong>Data</strong> &mdash; Per-project labels persist in both local and cloud storage and round-trip through JSON export/import. Nothing breaks for existing data; projects without overrides behave identically to v16.0</>,
+      <><strong>Resolver</strong> &mdash; New <code>resolveLabel</code> utility is the single source of truth for label precedence (snapshot &rarr; project override &rarr; global). Used by both the render path and the edit UI&apos;s starting value so the two can never disagree</>,
+      <><strong>Risk mitigation</strong> &mdash; Firestore <code>contentChanged</code> diff check updated to compare <code>legendLabels</code>. Without this, a project label override change in cloud mode wouldn&apos;t trigger a Firestore write (same class as v12.5 reorder and v15.0 workDays bugs). Dedicated regression test added</>,
+    ],
+  },
+  {
     version: '16.0',
     date: 'April 16, 2026',
     items: [

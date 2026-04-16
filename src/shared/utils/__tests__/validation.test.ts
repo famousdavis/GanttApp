@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings, migrateReleaseStatus } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings, migrateReleaseStatus, sanitizeProjectLegendLabels, resolveLabel } from '../validation';
 import type { Project } from '../../types/models';
 
 describe('isValidDateFormat', () => {
@@ -651,5 +651,83 @@ describe('sanitizeChartColors - inProgressBar', () => {
       inProgressBar: 'not-a-color'
     });
     expect(result.inProgressBar).toBe('#f59e0b');
+  });
+});
+
+// --- v16.1 ---
+
+describe('sanitizeProjectLegendLabels', () => {
+  it('returns undefined for null input', () => {
+    expect(sanitizeProjectLegendLabels(null)).toBeUndefined();
+  });
+
+  it('returns undefined for non-object input', () => {
+    expect(sanitizeProjectLegendLabels('not an object')).toBeUndefined();
+    expect(sanitizeProjectLegendLabels(42)).toBeUndefined();
+    expect(sanitizeProjectLegendLabels(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when all fields absent', () => {
+    expect(sanitizeProjectLegendLabels({})).toBeUndefined();
+  });
+
+  it('returns partial object when only some fields present', () => {
+    const result = sanitizeProjectLegendLabels({ solidBar: 'Custom Solid' });
+    expect(result).toEqual({ solidBar: 'Custom Solid' });
+    expect(result?.hatchedBar).toBeUndefined();
+    expect(result?.finishDateLine).toBeUndefined();
+    expect(result?.mostLikelyLine).toBeUndefined();
+    expect(result?.inProgress).toBeUndefined();
+  });
+
+  it('sanitizes all five fields when all present', () => {
+    const result = sanitizeProjectLegendLabels({
+      solidBar: 'A',
+      hatchedBar: 'B',
+      finishDateLine: 'C',
+      mostLikelyLine: 'D',
+      inProgress: 'E',
+    });
+    expect(result).toEqual({
+      solidBar: 'A',
+      hatchedBar: 'B',
+      finishDateLine: 'C',
+      mostLikelyLine: 'D',
+      inProgress: 'E',
+    });
+  });
+
+  it('truncates strings longer than 50 chars', () => {
+    const longString = 'x'.repeat(60);
+    const result = sanitizeProjectLegendLabels({ solidBar: longString });
+    expect(result?.solidBar).toHaveLength(50);
+  });
+
+  it('skips invalid (non-string) fields but keeps valid ones', () => {
+    const result = sanitizeProjectLegendLabels({ solidBar: 42, hatchedBar: 'Valid' });
+    expect(result).toEqual({ hatchedBar: 'Valid' });
+  });
+});
+
+describe('resolveLabel', () => {
+  it('returns project override when present', () => {
+    expect(resolveLabel('solidBar', { solidBar: 'Proj' }, 'Glob')).toBe('Proj');
+  });
+
+  it('returns global label when project labels undefined', () => {
+    expect(resolveLabel('solidBar', undefined, 'Glob')).toBe('Glob');
+  });
+
+  it('returns global label when key absent from project labels', () => {
+    expect(resolveLabel('solidBar', { hatchedBar: 'Other' }, 'Glob')).toBe('Glob');
+  });
+
+  it('returns project override for each of the five keys independently', () => {
+    const projectLabels = { solidBar: 'S', hatchedBar: 'H', finishDateLine: 'F', mostLikelyLine: 'M', inProgress: 'I' };
+    expect(resolveLabel('solidBar', projectLabels, 'G')).toBe('S');
+    expect(resolveLabel('hatchedBar', projectLabels, 'G')).toBe('H');
+    expect(resolveLabel('finishDateLine', projectLabels, 'G')).toBe('F');
+    expect(resolveLabel('mostLikelyLine', projectLabels, 'G')).toBe('M');
+    expect(resolveLabel('inProgress', projectLabels, 'G')).toBe('I');
   });
 });

@@ -104,8 +104,8 @@ describe('firestore-converters', () => {
       expect(result.hidden).toBe(false);
       expect(result.completed).toBe(true);
       expect(result.mostLikelyFinishDate).toBe('2026-03-15');
-      expect((result as Record<string, unknown>).id).toBeUndefined();
-      expect((result as Record<string, unknown>).projectId).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).id).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).projectId).toBeUndefined();
     });
 
     it('omits undefined optional fields', () => {
@@ -345,8 +345,8 @@ describe('firestore-converters', () => {
       expect(result.releases[0].order).toBe(0);
       expect(result.preparedBy).toBe('William');
       // Should not have id or projectId
-      expect((result as Record<string, unknown>).id).toBeUndefined();
-      expect((result as Record<string, unknown>).projectId).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).id).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).projectId).toBeUndefined();
     });
 
     it('includes empty-string preparedBy', () => {

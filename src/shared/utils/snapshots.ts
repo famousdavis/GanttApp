@@ -155,12 +155,12 @@ export function deleteSnapshot(snapshotId: string): Snapshot[] {
 }
 
 /**
- * Get snapshots for a specific project, sorted by timestamp ascending
+ * Get snapshots for a specific project, sorted by timestamp descending (newest first)
  */
 export function getSnapshotsForProject(snapshots: Snapshot[], projectId: string): Snapshot[] {
   return snapshots
     .filter(s => s.projectId === projectId)
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 /**

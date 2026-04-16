@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '15.1',
+    date: 'April 15, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Moved the Save Snapshot and Delete Snapshot buttons to the left side of the snapshot bar so they are always visible without scrolling</>,
+      <><strong>UX</strong> &mdash; Snapshots now sort newest-first so the most recent snapshot always appears immediately after &ldquo;Current&rdquo;</>,
+      <><strong>Fix</strong> &mdash; Fixed horizontal scrollbar overlapping snapshot bar chips by adding padding for the scrollbar track</>,
+      <><strong>Fix</strong> &mdash; Fixed cloud storage mode overwriting snapshots instead of accumulating them by using optimistic state updates</>,
+    ],
+  },
+  {
     version: '15.0',
     date: 'April 15, 2026',
     items: [

@@ -13,9 +13,9 @@ const mockWriteBatch = vi.fn(() => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  doc: (...args: unknown[]) => mockDoc(...args),
-  writeBatch: (...args: unknown[]) => mockWriteBatch(...args),
+  getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
+  doc: (...args: Parameters<typeof mockDoc>) => mockDoc(...args),
+  writeBatch: (...args: Parameters<typeof mockWriteBatch>) => mockWriteBatch(...args),
 }));
 
 // Mock the local storage service — must be a real class for `new` to work

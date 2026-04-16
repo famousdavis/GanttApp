@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 15.1 (2026-04-15)
+### Snapshot Bar Fixes
+- UX: Moved Save Snapshot and Delete Snapshot buttons to the left side of the snapshot bar so they are always visible without scrolling
+- UX: Snapshots now sort newest-first so the most recent snapshot always appears immediately after "Current"
+- Fix: Fixed horizontal scrollbar overlapping snapshot bar chips by adding padding for the scrollbar track
+- Fix: Fixed cloud storage mode overwriting snapshots instead of accumulating them by using optimistic state updates (state-level bug — Firestore documents were always unique)
+- Fix: Resolved all pre-existing TypeScript type-check errors in test files (missing ChartColors properties, spread argument types, type casts)
+- 808 tests across 49 test files, all passing; TypeScript type-check clean (0 errors)
+
 ## Version 15.0 (2026-04-15)
 ### Work Week Configuration
 - Feature: Added a global work-week setting in the Settings tab — pick which days of the week count as workdays using a toggleable 7-chip selector (S M T W T F S)

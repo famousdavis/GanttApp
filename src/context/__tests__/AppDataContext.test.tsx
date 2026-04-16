@@ -145,6 +145,7 @@ describe('AppDataContext', () => {
         todayLine: '#0000ff',
         finishDateLine: '#ffff00',
         mostLikelyLine: '#000000',
+        completedBar: '#90ee90',
       };
 
       act(() => {
@@ -221,6 +222,7 @@ describe('AppDataContext', () => {
           todayLine: '#333333',
           finishDateLine: '#444444',
           mostLikelyLine: '#555555',
+          completedBar: '#90ee90',
         },
         legendLabels: {
           solidBar: 'Saved Solid',

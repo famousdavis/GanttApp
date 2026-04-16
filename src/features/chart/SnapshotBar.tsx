@@ -48,7 +48,7 @@ export function SnapshotBar({
   };
 
   return (
-    <div className="copy-image-button" style={{ marginBottom: '0.75rem', height: '2.5rem' }}>
+    <div className="copy-image-button" style={{ marginBottom: '0.75rem', height: '3rem', paddingBottom: '0.5rem' }}>
       {/* Navigation chips */}
       <div style={{
         display: 'flex',
@@ -58,34 +58,7 @@ export function SnapshotBar({
         whiteSpace: 'nowrap',
         height: '2.5rem'
       }}>
-        {/* Current chip */}
-        <button
-          onClick={() => onSelectSnapshot(null)}
-          style={chipStyle(isCurrentView)}
-          title="View current release plan"
-        >
-          Current{isCurrentView ? ' \u2713' : ''}
-        </button>
-
-        {/* Snapshot chips */}
-        {snapshots.map(snapshot => {
-          const isActive = activeSnapshotId === snapshot.id;
-          return (
-            <button
-              key={snapshot.id}
-              onClick={() => onSelectSnapshot(snapshot.id)}
-              style={chipStyle(isActive)}
-              title={`${snapshot.name} — ${formatSnapshotDate(snapshot.timestamp)}`}
-            >
-              {snapshot.name}
-            </button>
-          );
-        })}
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* Save Snapshot button — only in Current view */}
+        {/* Save Snapshot button — only in Current view, pinned left */}
         {isCurrentView && (
           <button
             onClick={onSaveSnapshot}
@@ -108,7 +81,7 @@ export function SnapshotBar({
           </button>
         )}
 
-        {/* Delete button — only when viewing a historical snapshot */}
+        {/* Delete button — only when viewing a historical snapshot, pinned left */}
         {!isCurrentView && activeSnapshotId && (
           <button
             onClick={() => setDeleteConfirmSnapshotId(activeSnapshotId)}
@@ -130,6 +103,30 @@ export function SnapshotBar({
             🗑️
           </button>
         )}
+
+        {/* Current chip */}
+        <button
+          onClick={() => onSelectSnapshot(null)}
+          style={chipStyle(isCurrentView)}
+          title="View current release plan"
+        >
+          Current{isCurrentView ? ' \u2713' : ''}
+        </button>
+
+        {/* Snapshot chips — newest first */}
+        {snapshots.map(snapshot => {
+          const isActive = activeSnapshotId === snapshot.id;
+          return (
+            <button
+              key={snapshot.id}
+              onClick={() => onSelectSnapshot(snapshot.id)}
+              style={chipStyle(isActive)}
+              title={`${snapshot.name} — ${formatSnapshotDate(snapshot.timestamp)}`}
+            >
+              {snapshot.name}
+            </button>
+          );
+        })}
       </div>
 
       {/* Delete snapshot confirmation modal */}

@@ -593,7 +593,7 @@ describe('useReleases', () => {
         result.current.setStartDate('2026-01-01');
         result.current.setEarlyFinish('2026-03-01');
         result.current.setLateFinish('2026-06-01');
-        result.current.setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true });
+        result.current.setTouchedFields({ startDate: true, earlyFinish: true, lateFinish: true, mostLikelyFinish: true });
       });
 
       act(() => {

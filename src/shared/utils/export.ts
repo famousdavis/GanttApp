@@ -7,7 +7,7 @@
 import { AppData } from '../types/app';
 import { Project } from '../types/models';
 import { Snapshot } from '../types/snapshots';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES } from './validation';
 import { validateSnapshot } from './snapshots';
 
 // Maximum limits for imported data to prevent DoS via large files
@@ -107,6 +107,12 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       if (Array.isArray(project.workDays)) {
         const sanitizedDays = sanitizeWorkDays(project.workDays);
         if (sanitizedDays) sanitizedProject.workDays = sanitizedDays;
+      }
+
+      // Validate optional per-project legend labels (v16.1)
+      if (project.legendLabels) {
+        const sanitizedLabels = sanitizeProjectLegendLabels(project.legendLabels);
+        if (sanitizedLabels) sanitizedProject.legendLabels = sanitizedLabels;
       }
 
       // Reject if sanitized ID or name is empty

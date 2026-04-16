@@ -261,4 +261,44 @@ describe('storage utilities', () => {
       expect(loaded.globalWorkDays).toBeUndefined();
     });
   });
+
+  describe('per-project legend labels (v16.1)', () => {
+    it('preserves project legendLabels through validateLoadedData', () => {
+      const data = makeTestData({
+        projects: [{
+          id: 'p1',
+          name: 'Alpha',
+          legendLabels: { solidBar: 'Build Phase', inProgress: 'Active Work' },
+        }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].legendLabels).toEqual({
+        solidBar: 'Build Phase',
+        inProgress: 'Active Work',
+      });
+    });
+
+    it('strips invalid legendLabels fields during load', () => {
+      const data = makeTestData({
+        projects: [{
+          id: 'p1',
+          name: 'Alpha',
+          legendLabels: { solidBar: 42 as unknown as string, hatchedBar: 'Valid' },
+        }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].legendLabels).toEqual({ hatchedBar: 'Valid' });
+    });
+
+    it('drops legendLabels entirely when object is empty', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Alpha', legendLabels: {} }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].legendLabels).toBeUndefined();
+    });
+  });
 });

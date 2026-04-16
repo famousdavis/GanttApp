@@ -4,6 +4,8 @@
 
 // Firestore document schemas for cloud storage mode
 
+import type { ProjectLegendLabels } from './models';
+
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
 
 export interface ChangeLogEntry {
@@ -20,6 +22,7 @@ export interface FirestoreProjectMeta {
   finishDate?: string | null;           // YYYY-MM-DD or null if not set
   order?: number;                       // Display order (0-based), added v12.5
   workDays?: number[];                  // Optional per-project work-week override (v15.0), array of 0..6
+  legendLabels?: ProjectLegendLabels;   // Optional per-project legend label overrides (v16.1)
   schemaVersion: number;                // starts at 1
   _originRef?: string;                  // e.g., "uid:abc123"
   _changeLog?: ChangeLogEntry[];        // capped at 50 entries per project (oldest trimmed on overflow)

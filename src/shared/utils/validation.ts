@@ -4,7 +4,7 @@
 
 // Validation utilities for GanttApp
 
-import { Project, Release, ReleaseStatus, ChartColors, ChartDisplaySettings } from '../types/models';
+import { Project, Release, ReleaseStatus, ChartColors, ChartDisplaySettings, ProjectLegendLabels } from '../types/models';
 import { parseDateLocal, isWorkDay } from './dates';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
 
@@ -353,6 +353,37 @@ export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatch
     result.inProgress = sanitizeString(l.inProgress, 50);
   }
   return result;
+}
+
+/**
+ * Sanitize per-project legend label overrides from untrusted data (v16.1).
+ * All five fields are optional. Returns undefined when no valid fields present —
+ * this keeps the model clean (never writes legendLabels: {} to storage).
+ */
+export function sanitizeProjectLegendLabels(labels: unknown): ProjectLegendLabels | undefined {
+  if (!labels || typeof labels !== 'object') return undefined;
+  const l = labels as Record<string, unknown>;
+  const result: ProjectLegendLabels = {};
+  if (typeof l.solidBar === 'string') result.solidBar = sanitizeString(l.solidBar, 50);
+  if (typeof l.hatchedBar === 'string') result.hatchedBar = sanitizeString(l.hatchedBar, 50);
+  if (typeof l.finishDateLine === 'string') result.finishDateLine = sanitizeString(l.finishDateLine, 50);
+  if (typeof l.mostLikelyLine === 'string') result.mostLikelyLine = sanitizeString(l.mostLikelyLine, 50);
+  if (typeof l.inProgress === 'string') result.inProgress = sanitizeString(l.inProgress, 50);
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Resolve the effective legend label for a given key (v16.1).
+ * Single source of truth for project-override-vs-global precedence.
+ * Called from both the render path (useEffectiveChartProps) and the edit UI
+ * starting-value path (useChartEditing.startEditLabel) — both must use this function.
+ */
+export function resolveLabel(
+  key: keyof ProjectLegendLabels,
+  projectLabels: ProjectLegendLabels | undefined,
+  globalLabel: string
+): string {
+  return projectLabels?.[key] ?? globalLabel;
 }
 
 /**

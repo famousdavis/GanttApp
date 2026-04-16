@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useChartEditing } from '../useChartEditing';
-import { AppDataProvider } from '../../../context/AppDataContext';
+import { AppDataProvider, useAppData } from '../../../context/AppDataContext';
 import { StorageProvider } from '../../../context/StorageContext';
 import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
@@ -270,6 +270,156 @@ describe('useChartEditing', () => {
     it('is false when no editors are open', () => {
       const { result } = renderHook(() => useChartEditing(), { wrapper });
       expect(result.current.hasActiveEditor).toBe(false);
+    });
+  });
+
+  // --- v16.1: project-scope legend label saves ---
+
+  describe('project-scope label save (v16.1)', () => {
+    // Helper: render useChartEditing with activeProjectId and access AppDataContext
+    // through its useAppData hook to seed/inspect project state.
+    const renderBothHooks = (activeProjectId?: string) => {
+      const useCombined = () => {
+        const editing = useChartEditing(activeProjectId);
+        const appData = useAppData();
+        return { editing, appData };
+      };
+      return renderHook(useCombined, { wrapper });
+    };
+
+    it('starts edit with effective label (project override) when activeProjectId is set', () => {
+      const { result } = renderBothHooks('p1');
+
+      // Seed a project override
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1', legendLabels: { solidBar: 'Custom Build' } }],
+        });
+      });
+
+      act(() => {
+        result.current.editing.startEditLabel('solid');
+      });
+
+      expect(result.current.editing.tempLabelValue).toBe('Custom Build');
+    });
+
+    it('starts edit with global label when activeProjectId has no override for that key', () => {
+      const { result } = renderBothHooks('p1');
+
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1', legendLabels: { hatchedBar: 'Custom' } }],
+        });
+      });
+
+      // solidBar has no override — should fall through to global
+      act(() => {
+        result.current.editing.startEditLabel('solid');
+      });
+
+      expect(result.current.editing.tempLabelValue).toBe('Design, Code, Test');
+    });
+
+    it('saves label to project scope when activeProjectId is set', () => {
+      const { result } = renderBothHooks('p1');
+
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1' }],
+        });
+      });
+
+      act(() => {
+        result.current.editing.startEditLabel('solid');
+      });
+      act(() => {
+        result.current.editing.setTempLabelValue('Project Build Phase');
+      });
+      act(() => {
+        result.current.editing.saveLabelEdit();
+      });
+
+      // Project legendLabels should now contain the override
+      const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+      expect(project?.legendLabels?.solidBar).toBe('Project Build Phase');
+      // Global state should be UNCHANGED
+      expect(result.current.appData.solidBarLabel).toBe('Design, Code, Test');
+    });
+
+    it('saves label to global scope when activeProjectId is undefined', () => {
+      const { result } = renderBothHooks(undefined);
+
+      act(() => {
+        result.current.editing.startEditLabel('solid');
+      });
+      act(() => {
+        result.current.editing.setTempLabelValue('New Global');
+      });
+      act(() => {
+        result.current.editing.saveLabelEdit();
+      });
+
+      // Global state updated
+      expect(result.current.appData.solidBarLabel).toBe('New Global');
+    });
+
+    it('appends to existing project legendLabels rather than replacing', () => {
+      const { result } = renderBothHooks('p1');
+
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1', legendLabels: { hatchedBar: 'Existing Hatched' } }],
+        });
+      });
+
+      act(() => {
+        result.current.editing.startEditLabel('solid');
+      });
+      act(() => {
+        result.current.editing.setTempLabelValue('New Solid');
+      });
+      act(() => {
+        result.current.editing.saveLabelEdit();
+      });
+
+      const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+      // Both keys should be present
+      expect(project?.legendLabels?.solidBar).toBe('New Solid');
+      expect(project?.legendLabels?.hatchedBar).toBe('Existing Hatched');
+    });
+
+    it('maps all five LegendLabelType values to correct ProjectLegendLabels keys', () => {
+      // Regression test for the silent-fallthrough bug class in typeToKey mapping.
+      // Verifies each LegendLabelType saves to the correct project key.
+      const cases: Array<[import('../useChartEditing').LegendLabelType, string]> = [
+        ['solid', 'solidBar'],
+        ['hatched', 'hatchedBar'],
+        ['finishDate', 'finishDateLine'],
+        ['mostLikelyLine', 'mostLikelyLine'],
+        ['inProgress', 'inProgress'],
+      ];
+
+      for (const [legendType, expectedKey] of cases) {
+        const { result } = renderBothHooks('p1');
+        act(() => {
+          result.current.appData.updateData({
+            ...result.current.appData.data,
+            projects: [{ id: 'p1', name: 'Project 1' }],
+          });
+        });
+        act(() => { result.current.editing.startEditLabel(legendType); });
+        act(() => { result.current.editing.setTempLabelValue(`Val-${expectedKey}`); });
+        act(() => { result.current.editing.saveLabelEdit(); });
+
+        const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+        expect(project?.legendLabels?.[expectedKey as keyof NonNullable<typeof project.legendLabels>])
+          .toBe(`Val-${expectedKey}`);
+      }
     });
   });
 });

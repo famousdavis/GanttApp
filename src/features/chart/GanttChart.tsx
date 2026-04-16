@@ -6,6 +6,7 @@
 
 import { useState, useRef } from 'react';
 import { Project, Release, ChartColors, ChartDisplaySettings, Snapshot } from '../../shared/types';
+import { ProjectLegendLabels } from '../../shared/types/models';
 import { useTheme } from '../../context/ThemeContext';
 import { getTodayFormatted, formatDateShort, getTodayString } from '../../shared/utils/dates';
 import { ChartLegend } from './ChartLegend';
@@ -91,6 +92,10 @@ interface GanttChartProps {
   snapshot: ChartSnapshotProps;
   labels: ChartLabelProps;
   settings: ChartSettingsGroupProps;
+  /** v16.1: per-project legend label overrides for the currently selected project */
+  projectLegendLabels?: ProjectLegendLabels;
+  /** v16.1: clear a single per-project legend label override (↺ button) */
+  onClearProjectLabelOverride?: (key: keyof ProjectLegendLabels) => void;
 }
 
 export function GanttChart({
@@ -103,6 +108,8 @@ export function GanttChart({
   snapshot,
   labels,
   settings,
+  projectLegendLabels,
+  onClearProjectLabelOverride,
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -379,6 +386,9 @@ export function GanttChart({
           hasMostLikelyReleases={hasMostLikelyReleases}
           hasCompletedReleases={hasCompletedReleases}
           hasInProgressReleases={hasInProgressReleases}
+          projectLegendLabels={projectLegendLabels}
+          onClearProjectLabelOverride={onClearProjectLabelOverride}
+          hasActiveProject={!!selectedProjectId}
           editingLegendLabel={editing.editingLegendLabel}
           tempLabelValue={editing.tempLabelValue}
           onStartEditLabel={editing.startEditLabel}

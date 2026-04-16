@@ -9,6 +9,7 @@ import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
 import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
+import { ProjectLegendLabels } from '../src/shared/types/models';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
@@ -71,8 +72,9 @@ function AppContent() {
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [draggedReleaseId, setDraggedReleaseId] = useState<string | null>(null);
 
-  // Chart editing state (legend labels, release names, dates)
-  const chartEditing = useChartEditing();
+  // Chart editing state (legend labels, release names, dates).
+  // Pass selectedProjectId so project-scope saves target the right project when a project is selected.
+  const chartEditing = useChartEditing(selectedProjectId || undefined);
 
   // Snapshot state
   const snapshotState = useSnapshots(selectedProjectId);
@@ -146,7 +148,24 @@ function AppContent() {
     labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel, inProgress: inProgressLabel },
     preparedBy,
     finishDate: selectedProject?.finishDate
-  });
+  }, selectedProject?.legendLabels);
+
+  // v16.1: clear a single per-project legend label override (↺ button handler)
+  const handleClearProjectLabelOverride = useCallback((key: keyof ProjectLegendLabels) => {
+    if (!selectedProjectId) return;
+    const project = data.projects.find(p => p.id === selectedProjectId);
+    if (!project?.legendLabels) return;
+    const newLabels = { ...project.legendLabels };
+    delete newLabels[key];
+    // When all overrides cleared, strip the field entirely (undefined → field-deletion via full set())
+    const updatedProject = Object.keys(newLabels).length === 0
+      ? { ...project, legendLabels: undefined }
+      : { ...project, legendLabels: newLabels };
+    updateData({
+      ...data,
+      projects: data.projects.map(p => p.id === selectedProjectId ? updatedProject : p),
+    });
+  }, [data, selectedProjectId, updateData]);
 
   // Save snapshot callback — passes current chart state to the hook
   const handleSaveSnapshot = useCallback(() => {
@@ -316,6 +335,8 @@ function AppContent() {
                 showMonths,
                 setShowMonths
               }}
+              projectLegendLabels={selectedProject?.legendLabels}
+              onClearProjectLabelOverride={handleClearProjectLabelOverride}
             />
           )}
 

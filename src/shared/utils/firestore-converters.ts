@@ -16,7 +16,7 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
-import { sanitizeId, sanitizeString, sanitizeWorkDays, migrateReleaseStatus } from './validation';
+import { sanitizeId, sanitizeString, sanitizeWorkDays, sanitizeProjectLegendLabels, migrateReleaseStatus } from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -34,9 +34,10 @@ export function projectToFirestoreMeta(
     members: existingMeta?.members ?? { [uid]: 'owner' },
     ...(project.finishDate ? { finishDate: project.finishDate } : { finishDate: null }),
     ...(order !== undefined && { order }),
-    // NOTE: Full set() is required for field-deletion semantics (e.g., clearing Project.workDays).
+    // NOTE: Full set() is required for field-deletion semantics (e.g., clearing Project.workDays or Project.legendLabels).
     // Do NOT change Firestore writes to { merge: true } without also adding FieldValue.deleteField() handling.
     ...(project.workDays && project.workDays.length > 0 && { workDays: project.workDays }),
+    ...(project.legendLabels && Object.keys(project.legendLabels).length > 0 && { legendLabels: project.legendLabels }),
     schemaVersion: 1,
     _originRef: existingMeta?._originRef ?? `uid:${uid}`,
     _changeLog: existingMeta?._changeLog ?? [],
@@ -98,11 +99,13 @@ export function firestoreToProject(
   meta: FirestoreProjectMeta
 ): Project {
   const sanitizedWorkDays = sanitizeWorkDays(meta.workDays);
+  const sanitizedLegendLabels = sanitizeProjectLegendLabels(meta.legendLabels);
   return {
     id: projectId,
     name: sanitizeString(meta.name),
     ...(meta.finishDate && { finishDate: meta.finishDate }),
     ...(sanitizedWorkDays && { workDays: sanitizedWorkDays }),
+    ...(sanitizedLegendLabels && { legendLabels: sanitizedLegendLabels }),
     owner: sanitizeId(meta.owner),
   };
 }

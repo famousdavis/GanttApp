@@ -5,7 +5,7 @@
 // localStorage utilities for GanttApp
 
 import { AppData } from '../types/app';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES } from './validation';
 
 const STORAGE_KEY = 'ganttAppData';
 
@@ -41,13 +41,15 @@ export function validateLoadedData(data: unknown): AppData | null {
       const proj = p as Record<string, unknown>;
       if (typeof proj.id === 'string' && typeof proj.name === 'string') {
         const sanitizedWorkDays = sanitizeWorkDays(proj.workDays);
+        const sanitizedLegendLabels = sanitizeProjectLegendLabels(proj.legendLabels);
         const sanitized = {
           id: sanitizeId(proj.id),
           name: sanitizeString(proj.name),
           ...(typeof proj.finishDate === 'string' && isValidDateFormat(proj.finishDate)
             ? { finishDate: proj.finishDate }
             : {}),
-          ...(sanitizedWorkDays ? { workDays: sanitizedWorkDays } : {})
+          ...(sanitizedWorkDays ? { workDays: sanitizedWorkDays } : {}),
+          ...(sanitizedLegendLabels ? { legendLabels: sanitizedLegendLabels } : {})
         };
         if (sanitized.id && sanitized.name) {
           validProjects.push(sanitized);

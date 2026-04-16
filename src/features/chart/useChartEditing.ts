@@ -6,17 +6,27 @@
 
 import { useState, useCallback } from 'react';
 import { useAppData } from '../../context/AppDataContext';
-import { validateReleaseDateChange, sanitizeString } from '../../shared/utils/validation';
+import { validateReleaseDateChange, sanitizeString, resolveLabel } from '../../shared/utils/validation';
+import type { ProjectLegendLabels } from '../../shared/types/models';
 
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
 export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | 'inProgress';
+
+/** Map LegendLabelType (UI terminology) → keyof ProjectLegendLabels (storage terminology). */
+const LEGEND_TYPE_TO_KEY: Record<LegendLabelType, keyof ProjectLegendLabels> = {
+  solid: 'solidBar',
+  hatched: 'hatchedBar',
+  finishDate: 'finishDateLine',
+  mostLikelyLine: 'mostLikelyLine',
+  inProgress: 'inProgress',
+};
 
 interface DateEditInfo {
   releaseId: string;
   dateType: DateType;
 }
 
-export function useChartEditing() {
+export function useChartEditing(activeProjectId?: string) {
   const { data, updateData, solidBarLabel, setSolidBarLabel, hatchedBarLabel, setHatchedBarLabel, finishDateLabel, setFinishDateLabel, mostLikelyLineLabel, setMostLikelyLineLabel, inProgressLabel, setInProgressLabel } = useAppData();
 
   // Legend label editing
@@ -35,11 +45,18 @@ export function useChartEditing() {
   // Legend label handlers
   const startEditLabel = (type: LegendLabelType) => {
     setEditingLegendLabel(type);
-    if (type === 'solid') setTempLabelValue(solidBarLabel);
-    else if (type === 'hatched') setTempLabelValue(hatchedBarLabel);
-    else if (type === 'finishDate') setTempLabelValue(finishDateLabel);
-    else if (type === 'mostLikelyLine') setTempLabelValue(mostLikelyLineLabel);
-    else if (type === 'inProgress') setTempLabelValue(inProgressLabel);
+    // Start the edit input at the EFFECTIVE value (project override if present, else global).
+    // Uses resolveLabel — the single source of truth shared with useEffectiveChartProps.
+    const project = activeProjectId ? data.projects.find(p => p.id === activeProjectId) : undefined;
+    const projectLabels = project?.legendLabels;
+    const key = LEGEND_TYPE_TO_KEY[type];
+    const globalLabel =
+      type === 'solid' ? solidBarLabel
+      : type === 'hatched' ? hatchedBarLabel
+      : type === 'finishDate' ? finishDateLabel
+      : type === 'mostLikelyLine' ? mostLikelyLineLabel
+      : inProgressLabel;
+    setTempLabelValue(resolveLabel(key, projectLabels, globalLabel));
   };
 
   const saveLabelEdit = () => {
@@ -49,11 +66,28 @@ export function useChartEditing() {
       cancelLabelEdit();
       return;
     }
-    if (editingLegendLabel === 'solid') setSolidBarLabel(sanitized);
-    else if (editingLegendLabel === 'hatched') setHatchedBarLabel(sanitized);
-    else if (editingLegendLabel === 'finishDate') setFinishDateLabel(sanitized);
-    else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(sanitized);
-    else if (editingLegendLabel === 'inProgress') setInProgressLabel(sanitized);
+
+    const key = editingLegendLabel ? LEGEND_TYPE_TO_KEY[editingLegendLabel] : undefined;
+
+    if (activeProjectId && key) {
+      // Project-scope save — write to project.legendLabels; preserve other keys.
+      const project = data.projects.find(p => p.id === activeProjectId);
+      if (project) {
+        const newLabels: ProjectLegendLabels = { ...(project.legendLabels ?? {}), [key]: sanitized };
+        const updatedProject = { ...project, legendLabels: newLabels };
+        updateData({
+          ...data,
+          projects: data.projects.map(p => p.id === activeProjectId ? updatedProject : p),
+        });
+      }
+    } else {
+      // Global-scope save (unchanged behavior when no project selected).
+      if (editingLegendLabel === 'solid') setSolidBarLabel(sanitized);
+      else if (editingLegendLabel === 'hatched') setHatchedBarLabel(sanitized);
+      else if (editingLegendLabel === 'finishDate') setFinishDateLabel(sanitized);
+      else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(sanitized);
+      else if (editingLegendLabel === 'inProgress') setInProgressLabel(sanitized);
+    }
     setEditingLegendLabel(null);
   };
 

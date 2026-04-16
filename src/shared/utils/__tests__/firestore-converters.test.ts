@@ -92,6 +92,25 @@ describe('firestore-converters', () => {
       const meta = projectToFirestoreMeta(mockProject, 'uid-1');
       expect(meta.order).toBeUndefined();
     });
+
+    // v16.1 — per-project legend label overrides
+    it('includes legendLabels when non-empty', () => {
+      const project: Project = { id: 'p-lbl', name: 'With Labels', legendLabels: { solidBar: 'Custom', inProgress: 'Active' } };
+      const meta = projectToFirestoreMeta(project, 'uid-1');
+      expect(meta.legendLabels).toEqual({ solidBar: 'Custom', inProgress: 'Active' });
+    });
+
+    it('omits legendLabels when undefined', () => {
+      const project: Project = { id: 'p-no-lbl', name: 'No Labels' };
+      const meta = projectToFirestoreMeta(project, 'uid-1');
+      expect(meta.legendLabels).toBeUndefined();
+    });
+
+    it('omits legendLabels when empty object', () => {
+      const project: Project = { id: 'p-empty', name: 'Empty Labels', legendLabels: {} };
+      const meta = projectToFirestoreMeta(project, 'uid-1');
+      expect(meta.legendLabels).toBeUndefined();
+    });
   });
 
   // --- releaseToFirestore ---
@@ -184,6 +203,43 @@ describe('firestore-converters', () => {
       };
       const project = firestoreToProject('p2', meta);
       expect(project).toEqual({ id: 'p2', name: 'Beta', owner: 'uid-1' });
+    });
+
+    // v16.1 — per-project legend label overrides
+    it('returns legendLabels when present in meta', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'WithLabels', owner: 'uid-1', members: { 'uid-1': 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+        legendLabels: { solidBar: 'Build', inProgress: 'Active' },
+      };
+      const project = firestoreToProject('p-lbl', meta);
+      expect(project.legendLabels).toEqual({ solidBar: 'Build', inProgress: 'Active' });
+    });
+
+    it('omits legendLabels when absent from meta', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'NoLabels', owner: 'uid-1', members: { 'uid-1': 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+      const project = firestoreToProject('p-no-lbl', meta);
+      expect(project.legendLabels).toBeUndefined();
+    });
+
+    it('round-trips legendLabels through projectToFirestoreMeta → firestoreToProject', () => {
+      const original: Project = {
+        id: 'p-rt',
+        name: 'Round Trip',
+        legendLabels: {
+          solidBar: 'Build',
+          hatchedBar: 'Risk',
+          finishDateLine: 'Due',
+          mostLikelyLine: 'Target',
+          inProgress: 'Active',
+        },
+      };
+      const meta = projectToFirestoreMeta(original, 'uid-1');
+      const restored = firestoreToProject(original.id, meta);
+      expect(restored.legendLabels).toEqual(original.legendLabels);
     });
 
     // v12.2: Security — owner field sanitization

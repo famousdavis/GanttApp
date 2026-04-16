@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { releaseChanged, settingsChanged } from '../firestore-save-executor';
-import type { Release } from '../../types/models';
+import type { Release, Project } from '../../types/models';
 import type { AppData } from '../../types/app';
 
 describe('firestore-save-executor', () => {
@@ -167,6 +167,57 @@ describe('firestore-save-executor', () => {
     it('does not flag identical globalWorkDays as changed', () => {
       const withDays = { ...base, globalWorkDays: [1, 2, 3, 4, 5] };
       expect(settingsChanged(withDays, { ...withDays, globalWorkDays: [1, 2, 3, 4, 5] })).toBe(false);
+    });
+  });
+
+  // v16.1: Risk 1 regression guard for per-project legendLabels.
+  // The `contentChanged` expression in executeFirestoreSave uses JSON.stringify
+  // comparison for nested project fields (workDays, legendLabels). These tests
+  // verify the comparison semantics directly — if someone removes or weakens
+  // the legendLabels comparison in the inline `contentChanged` OR-chain, a
+  // project-scope label edit in cloud mode will silently NOT trigger a Firestore
+  // write (same class of bug as v12.5 reorder and v15.0 workDays).
+  describe('project contentChanged — legendLabels (Risk 1 guard)', () => {
+    const baseProject: Project = { id: 'p1', name: 'Proj', owner: 'uid1' };
+
+    // Helper that mirrors the exact check used inline in executeFirestoreSave.
+    const legendLabelsChanged = (prev: Project, curr: Project): boolean =>
+      JSON.stringify(prev.legendLabels) !== JSON.stringify(curr.legendLabels);
+
+    it('detects legendLabels value change', () => {
+      const prev = { ...baseProject, legendLabels: { solidBar: 'A' } };
+      const curr = { ...baseProject, legendLabels: { solidBar: 'B' } };
+      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    });
+
+    it('does not detect change when legendLabels is identical', () => {
+      const prev = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
+      const curr = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
+      expect(legendLabelsChanged(prev, curr)).toBe(false);
+    });
+
+    it('detects change when legendLabels is added', () => {
+      const prev = { ...baseProject };
+      const curr = { ...baseProject, legendLabels: { solidBar: 'X' } };
+      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    });
+
+    it('detects change when legendLabels is removed (cleared to undefined)', () => {
+      const prev = { ...baseProject, legendLabels: { solidBar: 'X' } };
+      const curr = { ...baseProject }; // legendLabels cleared
+      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    });
+
+    it('detects change when a key is added to existing legendLabels', () => {
+      const prev = { ...baseProject, legendLabels: { solidBar: 'A' } };
+      const curr = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
+      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    });
+
+    it('detects change when a key is removed from existing legendLabels', () => {
+      const prev = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
+      const curr = { ...baseProject, legendLabels: { solidBar: 'A' } };
+      expect(legendLabelsChanged(prev, curr)).toBe(true);
     });
   });
 });

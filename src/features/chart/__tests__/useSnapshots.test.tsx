@@ -316,10 +316,11 @@ describe('useSnapshots', () => {
       await result.current.saveSnapshot(saveParams);
     });
 
-    // Both snapshots must be present with distinct IDs
+    // Both snapshots must be present with distinct IDs (order not asserted —
+    // timestamps may be identical when created in rapid succession)
     expect(result.current.snapshots).toHaveLength(2);
-    expect(result.current.snapshots[0].name).toBe('Snapshot 2'); // newest first
-    expect(result.current.snapshots[1].name).toBe('Snapshot 1');
+    const names = result.current.snapshots.map(s => s.name).sort();
+    expect(names).toEqual(['Snapshot 1', 'Snapshot 2']);
     expect(result.current.snapshots[0].id).not.toBe(result.current.snapshots[1].id);
   });
 

@@ -155,14 +155,14 @@ export function firestoreSnapshotToFlat(
   return {
     id: snapshotId,
     projectId,
-    name: data.name,
+    name: sanitizeString(data.name),
     timestamp: data.timestamp,
     releases: data.releases
       .sort((a, b) => a.order - b.order)
       .map((r, i) => ({
         id: `${snapshotId}-r${i}`,
         projectId,
-        name: r.name,
+        name: sanitizeString(r.name),
         startDate: r.startDate,
         earlyFinishDate: r.earlyFinishDate,
         lateFinishDate: r.lateFinishDate,

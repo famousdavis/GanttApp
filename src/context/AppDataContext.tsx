@@ -184,7 +184,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('Error loading data:', error instanceof Error ? error.message : 'Unknown error');
       } finally {
         if (!cancelled) {
           setLoading(false);

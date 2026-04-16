@@ -16,7 +16,7 @@ export function saveData(data: AppData): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
-    console.error('Error saving data to localStorage:', error);
+    console.error('Error saving data to localStorage:', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -140,7 +140,7 @@ export function loadData(): AppData | null {
     }
     return null;
   } catch (error) {
-    console.error('Error loading data from localStorage:', error);
+    console.error('Error loading data from localStorage:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -152,6 +152,6 @@ export function clearData(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.error('Error clearing data from localStorage:', error);
+    console.error('Error clearing data from localStorage:', error instanceof Error ? error.message : 'Unknown error');
   }
 }

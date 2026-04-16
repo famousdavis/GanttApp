@@ -57,6 +57,10 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const handleShare = async () => {
     const sanitizedEmail = sanitizeString(email, 254);
     if (!sanitizedEmail) return;
+    if (!sanitizedEmail.includes('@')) {
+      setError('Enter a valid email address');
+      return;
+    }
     setError(null);
     setActionLoading(true);
     try {

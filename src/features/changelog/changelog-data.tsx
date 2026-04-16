@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '15.3',
+    date: 'April 15, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Sanitized Firestore-loaded snapshot names and release names in <code>firestoreSnapshotToFlat()</code> via <code>sanitizeString()</code>, matching the existing pattern in project and release converters</>,
+      <><strong>Security</strong> &mdash; Replaced full error object logging with sanitized messages across 14 <code>console.error()</code> call sites (7 files); Firestore errors use <code>sanitizeFirebaseError()</code>, localStorage errors use <code>instanceof Error</code> guard</>,
+      <><strong>Security</strong> &mdash; Added email format validation (<code>@</code> check) in ShareDialog before Firestore lookup for immediate user feedback on invalid input</>,
+    ],
+  },
+  {
     version: '15.2',
     date: 'April 15, 2026',
     items: [

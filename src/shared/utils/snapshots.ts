@@ -106,7 +106,7 @@ export function loadSnapshots(): Snapshot[] {
     }
     return validated;
   } catch (error) {
-    console.error('Error loading snapshots from localStorage:', error);
+    console.error('Error loading snapshots from localStorage:', error instanceof Error ? error.message : 'Unknown error');
     return [];
   }
 }
@@ -118,7 +118,7 @@ export function saveSnapshots(snapshots: Snapshot[]): void {
   try {
     localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
   } catch (error) {
-    console.error('Error saving snapshots to localStorage:', error);
+    console.error('Error saving snapshots to localStorage:', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 

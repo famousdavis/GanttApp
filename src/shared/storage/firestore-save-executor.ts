@@ -26,7 +26,7 @@ export function releaseChanged(prev: Release | undefined, curr: Release): boolea
     prev.earlyFinishDate !== curr.earlyFinishDate ||
     prev.lateFinishDate !== curr.lateFinishDate ||
     prev.hidden !== curr.hidden ||
-    prev.completed !== curr.completed ||
+    prev.status !== curr.status ||
     prev.mostLikelyFinishDate !== curr.mostLikelyFinishDate
   );
 }

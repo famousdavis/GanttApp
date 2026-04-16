@@ -235,7 +235,7 @@ describe('useChartCalculations', () => {
       const releases = [makeRelease()];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
 
-      const colors = result.current.getReleaseColors(makeRelease(), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90' });
+      const colors = result.current.getReleaseColors(makeRelease(), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90', inProgressBar: '#f59e0b' });
       expect(colors.solidBar).toBe('#0070f3');
     });
 
@@ -243,7 +243,7 @@ describe('useChartCalculations', () => {
       const releases = [makeRelease()];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
 
-      const colors = result.current.getReleaseColors(makeRelease({ completed: true }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90' });
+      const colors = result.current.getReleaseColors(makeRelease({ status: 'complete' }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90', inProgressBar: '#f59e0b' });
       expect(colors.solidBar).toBe('#90ee90');
       expect(colors.hatchedBar).toMatch(/^#[0-9a-f]{6}$/);
     });
@@ -252,8 +252,17 @@ describe('useChartCalculations', () => {
       const releases = [makeRelease()];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
 
-      const colors = result.current.getReleaseColors(makeRelease({ completed: true }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#ff0000' });
+      const colors = result.current.getReleaseColors(makeRelease({ status: 'complete' }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#ff0000', inProgressBar: '#f59e0b' });
       expect(colors.solidBar).toBe('#ff0000');
+    });
+
+    it('returns inProgressBar color for in-progress releases', () => {
+      const releases = [makeRelease()];
+      const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
+
+      const colors = result.current.getReleaseColors(makeRelease({ status: 'in-progress' }), { solidBar: '#0070f3', hatchedBar: '#0070f3', completedBar: '#90ee90', inProgressBar: '#f59e0b' });
+      expect(colors.solidBar).toBe('#f59e0b');
+      expect(colors.hatchedBar).toBe('#0070f3');
     });
   });
 });

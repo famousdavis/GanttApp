@@ -4,6 +4,8 @@
 
 // Core data models for GanttApp
 
+export type ReleaseStatus = 'not-started' | 'in-progress' | 'complete';
+
 export interface Project {
   id: string;
   name: string;
@@ -21,7 +23,7 @@ export interface Release {
   earlyFinishDate: string;
   lateFinishDate: string;
   hidden?: boolean;
-  completed?: boolean;
+  status?: ReleaseStatus;
   mostLikelyFinishDate?: string;  // Optional YYYY-MM-DD, must be >= earlyFinishDate and <= lateFinishDate
 }
 
@@ -32,6 +34,7 @@ export interface ChartColors {
   finishDateLine: string;
   mostLikelyLine: string;
   completedBar: string;
+  inProgressBar: string;
 }
 
 export interface ChartDisplaySettings {

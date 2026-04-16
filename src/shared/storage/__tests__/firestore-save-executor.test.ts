@@ -42,8 +42,20 @@ describe('firestore-save-executor', () => {
       expect(releaseChanged(base, { ...base, hidden: true })).toBe(true);
     });
 
-    it('detects completed change', () => {
-      expect(releaseChanged(base, { ...base, completed: true })).toBe(true);
+    it('detects status change', () => {
+      expect(releaseChanged(base, { ...base, status: 'in-progress' as const })).toBe(true);
+    });
+
+    it('detects status change from undefined to in-progress', () => {
+      const prev = { ...base };
+      const curr = { ...base, status: 'in-progress' as const };
+      expect(releaseChanged(prev, curr)).toBe(true);
+    });
+
+    it('does not detect change when status is same', () => {
+      const prev = { ...base, status: 'complete' as const };
+      const curr = { ...base, status: 'complete' as const };
+      expect(releaseChanged(prev, curr)).toBe(false);
     });
 
     it('detects mostLikelyFinishDate change', () => {
@@ -101,7 +113,7 @@ describe('firestore-save-executor', () => {
   describe('settingsChanged', () => {
     const base: AppData = {
       projects: [], releases: [],
-      chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555' },
+      chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555', inProgressBar: '#f59e0b' },
       activePreset: 'Default',
       showTodayLine: true,
       showFinishDateLine: false,

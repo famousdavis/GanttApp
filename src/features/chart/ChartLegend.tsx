@@ -14,12 +14,14 @@ interface ChartLegendProps {
   hatchedBarLabel: string;
   finishDateLabel: string;
   mostLikelyLineLabel: string;
+  inProgressLabel: string;
   showTodayLine: boolean;
   showFinishDateLine: boolean;
   showMostLikelyLine: boolean;
   hasProjectFinishDate: boolean;
   hasMostLikelyReleases: boolean;
   hasCompletedReleases: boolean;
+  hasInProgressReleases: boolean;
   editingLegendLabel: LegendLabelType | null;
   tempLabelValue: string;
   onStartEditLabel: (type: LegendLabelType) => void;
@@ -75,12 +77,14 @@ export function ChartLegend({
   hatchedBarLabel,
   finishDateLabel,
   mostLikelyLineLabel,
+  inProgressLabel,
   showTodayLine,
   showFinishDateLine,
   showMostLikelyLine,
   hasProjectFinishDate,
   hasMostLikelyReleases,
   hasCompletedReleases,
+  hasInProgressReleases,
   editingLegendLabel,
   tempLabelValue,
   onStartEditLabel,
@@ -90,8 +94,42 @@ export function ChartLegend({
   readOnly = false
 }: ChartLegendProps) {
   return (
-    <div style={{ marginTop: '2rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
-      {/* Solid bar legend */}
+    <div style={{ marginTop: '2rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.9rem' }}>
+      {/* Legend order reads status-progression left-to-right:
+          Completed → In Progress → Not Started (solid + hatched) → lines. */}
+
+      {/* Completed legend — shown only when completed releases exist */}
+      {hasCompletedReleases && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '30px', height: '20px', background: chartColors.completedBar, borderRadius: '4px' }}></div>
+          <span>Completed</span>
+        </div>
+      )}
+
+      {/* In Progress legend — shown only when in-progress releases exist */}
+      {hasInProgressReleases && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '30px', height: '20px', background: chartColors.inProgressBar, borderRadius: '4px' }}></div>
+          {editingLegendLabel === 'inProgress' ? (
+            <EditableLabelInput
+              value={tempLabelValue}
+              onChange={onTempLabelChange}
+              onSave={onSaveLabelEdit}
+              onCancel={onCancelLabelEdit}
+            />
+          ) : (
+            <span
+              onClick={readOnly ? undefined : () => onStartEditLabel('inProgress')}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
+              title={readOnly ? undefined : 'Click to edit'}
+            >
+              {inProgressLabel}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Solid bar legend — represents Not Started */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <div style={{ width: '30px', height: '20px', background: chartColors.solidBar, borderRadius: '4px' }}></div>
         {editingLegendLabel === 'solid' ? (
@@ -112,7 +150,7 @@ export function ChartLegend({
         )}
       </div>
 
-      {/* Hatched bar legend */}
+      {/* Hatched bar legend — delivery uncertainty */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <svg width="30" height="20">
           <defs>
@@ -139,14 +177,6 @@ export function ChartLegend({
           </span>
         )}
       </div>
-
-      {/* Completed legend — shown only when completed releases exist */}
-      {hasCompletedReleases && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ width: '30px', height: '20px', background: chartColors.completedBar, borderRadius: '4px' }}></div>
-          <span>Completed</span>
-        </div>
-      )}
 
       {/* Today line legend */}
       {showTodayLine && (

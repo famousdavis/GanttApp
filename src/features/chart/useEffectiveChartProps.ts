@@ -11,7 +11,7 @@ import { Snapshot } from '../../shared/types/snapshots';
 interface LiveChartData {
   releases: Release[];
   chartColors: ChartColors;
-  labels: { solidBar: string; hatchedBar: string; finishDateLine: string; mostLikelyLine: string };
+  labels: { solidBar: string; hatchedBar: string; finishDateLine: string; mostLikelyLine: string; inProgress: string };
   preparedBy: string;
   finishDate?: string;
 }
@@ -19,7 +19,7 @@ interface LiveChartData {
 interface EffectiveChartProps {
   releases: Release[];
   colors: ChartColors;
-  labels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string };
+  labels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };
   preparedBy: string;
   finishDate?: string;
   datePreparedOverride?: string;

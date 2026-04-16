@@ -79,7 +79,7 @@ export function ChartReleaseBar({
         </text>
       )}
 
-      {release.completed ? (
+      {release.status === 'complete' ? (
         /* Completed: single solid bar from start to late (no uncertainty) */
         <rect
           x={startX} y={y} width={lateX - startX} height={barHeight}
@@ -139,7 +139,7 @@ export function ChartReleaseBar({
       )}
 
       {/* Early finish date label (hidden for completed releases — no uncertainty) */}
-      {!release.completed && showEarlyLabel && (
+      {release.status !== 'complete' && showEarlyLabel && (
         !readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'early' ? (
           <foreignObject x={earlyX - 70} y={y + barHeight + 2} width={140} height={28}>
             <InlineDateEditor
@@ -185,7 +185,7 @@ export function ChartReleaseBar({
       )}
 
       {/* Most Likely Finish date label (hidden for completed releases) */}
-      {!release.completed && showMostLikelyLine && showMlLabel && mlDate && (
+      {release.status !== 'complete' && showMostLikelyLine && showMlLabel && mlDate && (
         !readOnly && editing.editingDateInfo?.releaseId === release.id && editing.editingDateInfo?.dateType === 'mostLikely' ? (
           <foreignObject x={mlX! - 70} y={y + barHeight + 2} width={140} height={28}>
             <InlineDateEditor

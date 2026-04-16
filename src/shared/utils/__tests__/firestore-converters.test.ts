@@ -36,7 +36,7 @@ const mockRelease: Release = {
   earlyFinishDate: '2026-03-01',
   lateFinishDate: '2026-04-01',
   hidden: false,
-  completed: true,
+  status: 'complete' as const,
   mostLikelyFinishDate: '2026-03-15',
 };
 
@@ -102,7 +102,7 @@ describe('firestore-converters', () => {
       expect(result.name).toBe('Release 1');
       expect(result.order).toBe(0);
       expect(result.hidden).toBe(false);
-      expect(result.completed).toBe(true);
+      expect(result.status).toBe('complete');
       expect(result.mostLikelyFinishDate).toBe('2026-03-15');
       expect((result as unknown as Record<string, unknown>).id).toBeUndefined();
       expect((result as unknown as Record<string, unknown>).projectId).toBeUndefined();
@@ -116,7 +116,7 @@ describe('firestore-converters', () => {
       const result = releaseToFirestore(minimal, 3);
       expect(result.order).toBe(3);
       expect(result.hidden).toBeUndefined();
-      expect(result.completed).toBeUndefined();
+      expect(result.status).toBeUndefined();
       expect(result.mostLikelyFinishDate).toBeUndefined();
     });
   });
@@ -128,7 +128,7 @@ describe('firestore-converters', () => {
       const data: AppData = {
         projects: [],
         releases: [],
-        chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555' },
+        chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555', inProgressBar: '#f59e0b' },
         activePreset: 'Default',
         showTodayLine: true,
         preparedBy: 'William',
@@ -234,7 +234,7 @@ describe('firestore-converters', () => {
   describe('userSettingsToAppData', () => {
     it('converts settings to AppData fields', () => {
       const settings: FirestoreUserSettings = {
-        chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555' },
+        chartColors: { solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333', mostLikelyLine: '#444', completedBar: '#555', inProgressBar: '#f59e0b' },
         showTodayLine: false,
         preparedBy: 'Test',
       };
@@ -427,8 +427,51 @@ describe('firestore-converters', () => {
       expect(roundTripped.earlyFinishDate).toBe(mockRelease.earlyFinishDate);
       expect(roundTripped.lateFinishDate).toBe(mockRelease.lateFinishDate);
       expect(roundTripped.hidden).toBe(mockRelease.hidden);
-      expect(roundTripped.completed).toBe(mockRelease.completed);
+      expect(roundTripped.status).toBe(mockRelease.status);
       expect(roundTripped.mostLikelyFinishDate).toBe(mockRelease.mostLikelyFinishDate);
+    });
+  });
+
+  // --- Legacy completed → status migration (v16.0) ---
+
+  describe('firestoreReleasesToFlat — completed migration', () => {
+    it('migrates completed: true to status: complete', () => {
+      const entries: { id: string; data: FirestoreRelease }[] = [
+        {
+          id: 'r1',
+          data: {
+            name: 'Legacy',
+            startDate: '2026-01-01',
+            earlyFinishDate: '2026-02-01',
+            lateFinishDate: '2026-03-01',
+            order: 0,
+            completed: true,
+          } as any,
+        },
+      ];
+      const releases = firestoreReleasesToFlat('p1', entries);
+      expect(releases[0].status).toBe('complete');
+    });
+  });
+
+  describe('firestoreSnapshotToFlat — completed migration', () => {
+    it('migrates completed: true to status: complete in snapshot releases', () => {
+      const fsSnapshot: FirestoreSnapshot = {
+        name: 'Legacy Snapshot',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [
+          {
+            name: 'R1',
+            startDate: '2026-01-01',
+            earlyFinishDate: '2026-02-01',
+            lateFinishDate: '2026-03-01',
+            order: 0,
+            completed: true,
+          } as any,
+        ],
+      };
+      const snap = firestoreSnapshotToFlat('snap1', 'p1', fsSnapshot);
+      expect(snap.releases[0].status).toBe('complete');
     });
   });
 

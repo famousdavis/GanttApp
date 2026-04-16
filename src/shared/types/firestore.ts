@@ -33,7 +33,7 @@ export interface FirestoreRelease {
   earlyFinishDate: string;
   lateFinishDate: string;
   hidden?: boolean;
-  completed?: boolean;
+  status?: 'not-started' | 'in-progress' | 'complete';
   mostLikelyFinishDate?: string;
   order: number;                        // explicit ordering (0-based)
 }
@@ -50,12 +50,14 @@ export interface FirestoreSnapshot {
     finishDateLine: string;
     mostLikelyLine: string;
     completedBar: string;
+    inProgressBar: string;
   };
   legendLabels?: {
     solidBar: string;
     hatchedBar: string;
     finishDateLine?: string;
     mostLikelyLine?: string;
+    inProgress?: string;
   };
   preparedBy?: string;
 }
@@ -75,6 +77,7 @@ export interface FirestoreUserSettings {
     finishDateLine: string;
     mostLikelyLine: string;
     completedBar: string;
+    inProgressBar: string;
   };
   activePreset?: string;
   legendLabels?: {
@@ -82,6 +85,7 @@ export interface FirestoreUserSettings {
     hatchedBar: string;
     finishDateLine?: string;
     mostLikelyLine?: string;
+    inProgress?: string;
   };
   showTodayLine?: boolean;
   showFinishDateLine?: boolean;

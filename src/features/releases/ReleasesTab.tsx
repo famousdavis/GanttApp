@@ -7,6 +7,7 @@
 import { useState, useMemo } from 'react';
 import { useReleases } from './useReleases';
 import { ReleaseFormFields } from './ReleaseFormFields';
+import { ReleaseStatusControl } from './ReleaseStatusControl';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, formatDateLocale } from '../../shared/utils';
@@ -53,7 +54,7 @@ export function ReleasesTab({
     mostLikelyFinish,
     setMostLikelyFinish,
     toggleReleaseHidden,
-    toggleReleaseCompleted,
+    setReleaseStatus,
     duplicateRelease
   } = useReleases();
 
@@ -219,22 +220,11 @@ export function ReleasesTab({
                     />
                     <span>Show</span>
                   </label>
-                  <button
-                    onClick={() => toggleReleaseCompleted(release.id)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      minWidth: '105px',
-                      background: release.completed ? '#28a745' : colors.buttonBg,
-                      border: release.completed ? '1px solid #28a745' : `1px solid ${colors.buttonBorder}`,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: '500',
-                      color: release.completed ? 'white' : colors.buttonText
-                    }}
-                  >
-                    {release.completed ? '✓ Done' : 'Mark Done'}
-                  </button>
+                  <ReleaseStatusControl
+                    value={release.status ?? 'not-started'}
+                    onChange={(s) => setReleaseStatus(release.id, s)}
+                    colors={colors}
+                  />
                   <button
                     onClick={() => duplicateRelease(release.id)}
                     style={{

@@ -656,8 +656,8 @@ describe('useReleases', () => {
     });
   });
 
-  describe('toggleReleaseCompleted', () => {
-    it('toggles completed from undefined/false to true', async () => {
+  describe('setReleaseStatus', () => {
+    it('sets status to in-progress', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
@@ -670,17 +670,17 @@ describe('useReleases', () => {
       });
 
       act(() => {
-        result.current.toggleReleaseCompleted('r1');
+        result.current.setReleaseStatus('r1', 'in-progress');
       });
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.releases[0].completed).toBe(true);
+      expect(stored.releases[0].status).toBe('in-progress');
     });
 
-    it('toggles completed from true to false', async () => {
+    it('sets status to complete', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
-        releases: [makeRelease({ id: 'r1', completed: true })],
+        releases: [makeRelease({ id: 'r1' })],
       });
 
       const { result } = renderReleasesHook();
@@ -690,11 +690,51 @@ describe('useReleases', () => {
       });
 
       act(() => {
-        result.current.toggleReleaseCompleted('r1');
+        result.current.setReleaseStatus('r1', 'complete');
       });
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.releases[0].completed).toBe(false);
+      expect(stored.releases[0].status).toBe('complete');
+    });
+
+    it('omits status field when set to not-started', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [makeRelease({ id: 'r1', status: 'complete' as const })],
+      });
+
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
+
+      act(() => {
+        result.current.setReleaseStatus('r1', 'not-started');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.releases[0].status).toBeUndefined();
+    });
+
+    it('transitions from complete back to in-progress', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [makeRelease({ id: 'r1', status: 'complete' as const })],
+      });
+
+      const { result } = renderReleasesHook();
+
+      await waitFor(() => {
+        expect(result.current.data.releases.length).toBe(1);
+      });
+
+      act(() => {
+        result.current.setReleaseStatus('r1', 'in-progress');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.releases[0].status).toBe('in-progress');
     });
   });
 });

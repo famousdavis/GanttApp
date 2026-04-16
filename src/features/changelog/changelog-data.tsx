@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.0',
+    date: 'April 16, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; Added three-state release status: Not Started, In Progress, and Complete. Replaces the previous two-state completed toggle with a segmented control in the release list</>,
+      <><strong>Feature</strong> &mdash; Added a customizable In Progress bar color to Chart Settings and all 10 color presets (default: amber)</>,
+      <><strong>Feature</strong> &mdash; Added today&apos;s date label above the Today vertical line on the Gantt chart, using the line&apos;s color and formatted as a short date</>,
+      <><strong>UX</strong> &mdash; In Progress legend entry appears on the chart when any release has In Progress status</>,
+      <><strong>UX</strong> &mdash; The &ldquo;In Progress&rdquo; legend label is now editable in place, consistent with the Solid Bar, Hatched Bar, Project Finish Date, and Most Likely Finish labels</>,
+      <><strong>UX</strong> &mdash; Legend entries reorder left-to-right to match status progression: Completed &rarr; In Progress &rarr; Not Started (solid + hatched) &rarr; vertical lines</>,
+      <><strong>Migration</strong> &mdash; Existing releases with completed status are automatically migrated to the new Complete status on load. No manual action required. Snapshots are migrated at read time</>,
+      <><strong>UX</strong> &mdash; Chart legend now wraps gracefully when many entries are visible (gap reduced, flex-wrap added)</>,
+      <><strong>UX</strong> &mdash; Chart Settings color picker grid narrowed to fit the new In Progress swatch without adding a row</>,
+    ],
+  },
+  {
     version: '15.3',
     date: 'April 15, 2026',
     items: [

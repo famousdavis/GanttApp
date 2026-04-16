@@ -15,13 +15,15 @@ describe('ChartLegend', () => {
     hatchedBarLabel: 'Delivery Uncertainty',
     finishDateLabel: 'Project Finish Date',
     mostLikelyLineLabel: 'Most Likely Finish',
+    inProgressLabel: 'In Progress',
     showTodayLine: false,
     showFinishDateLine: false,
     showMostLikelyLine: false,
     hasProjectFinishDate: false,
     hasMostLikelyReleases: false,
     hasCompletedReleases: false,
-    editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | null,
+    hasInProgressReleases: false,
+    editingLegendLabel: null as 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | 'inProgress' | null,
     tempLabelValue: '',
     onStartEditLabel: vi.fn(),
     onSaveLabelEdit: vi.fn(),
@@ -156,6 +158,52 @@ describe('ChartLegend', () => {
     render(<ChartLegend {...defaultProps} hasCompletedReleases={false} />);
 
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('shows In Progress legend when hasInProgressReleases is true', () => {
+    render(<ChartLegend {...defaultProps} hasInProgressReleases={true} />);
+
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
+  });
+
+  it('hides In Progress legend when hasInProgressReleases is false', () => {
+    render(<ChartLegend {...defaultProps} hasInProgressReleases={false} />);
+
+    expect(screen.queryByText('In Progress')).not.toBeInTheDocument();
+  });
+
+  it('renders custom inProgressLabel when hasInProgressReleases is true', () => {
+    render(<ChartLegend {...defaultProps} hasInProgressReleases={true} inProgressLabel="Active Work" />);
+
+    expect(screen.getByText('Active Work')).toBeInTheDocument();
+  });
+
+  it('enters edit mode when In Progress label is clicked', () => {
+    const onStartEditLabel = vi.fn();
+    render(
+      <ChartLegend
+        {...defaultProps}
+        hasInProgressReleases={true}
+        onStartEditLabel={onStartEditLabel}
+      />
+    );
+
+    fireEvent.click(screen.getByText('In Progress'));
+    expect(onStartEditLabel).toHaveBeenCalledWith('inProgress');
+  });
+
+  it('shows edit input for In Progress label when editing', () => {
+    render(
+      <ChartLegend
+        {...defaultProps}
+        hasInProgressReleases={true}
+        editingLegendLabel="inProgress"
+        tempLabelValue="Active Work"
+      />
+    );
+
+    const input = screen.getByDisplayValue('Active Work');
+    expect(input).toBeInTheDocument();
   });
 
   it('shows edit input for finish date label when editing', () => {

@@ -16,7 +16,7 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
-import { sanitizeId, sanitizeString, sanitizeWorkDays } from './validation';
+import { sanitizeId, sanitizeString, sanitizeWorkDays, migrateReleaseStatus } from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -53,7 +53,7 @@ export function releaseToFirestore(release: Release, order: number): FirestoreRe
     earlyFinishDate: release.earlyFinishDate,
     lateFinishDate: release.lateFinishDate,
     ...(release.hidden !== undefined && { hidden: release.hidden }),
-    ...(release.completed !== undefined && { completed: release.completed }),
+    ...(release.status && release.status !== 'not-started' && { status: release.status }),
     ...(release.mostLikelyFinishDate && { mostLikelyFinishDate: release.mostLikelyFinishDate }),
     order,
   };
@@ -114,17 +114,20 @@ export function firestoreReleasesToFlat(
 ): Release[] {
   return releaseEntries
     .sort((a, b) => a.data.order - b.data.order)
-    .map(({ id, data }) => ({
-      id,
-      projectId,
-      name: sanitizeString(data.name),
-      startDate: data.startDate,
-      earlyFinishDate: data.earlyFinishDate,
-      lateFinishDate: data.lateFinishDate,
-      ...(data.hidden !== undefined && { hidden: data.hidden }),
-      ...(data.completed !== undefined && { completed: data.completed }),
-      ...(data.mostLikelyFinishDate && { mostLikelyFinishDate: data.mostLikelyFinishDate }),
-    }));
+    .map(({ id, data }) => {
+      const migratedStatus = migrateReleaseStatus(data as unknown as Record<string, unknown>);
+      return {
+        id,
+        projectId,
+        name: sanitizeString(data.name),
+        startDate: data.startDate,
+        earlyFinishDate: data.earlyFinishDate,
+        lateFinishDate: data.lateFinishDate,
+        ...(data.hidden !== undefined && { hidden: data.hidden }),
+        ...(migratedStatus ? { status: migratedStatus } : {}),
+        ...(data.mostLikelyFinishDate && { mostLikelyFinishDate: data.mostLikelyFinishDate }),
+      };
+    });
 }
 
 /** Convert Firestore user settings back to the relevant AppData fields. */
@@ -159,17 +162,20 @@ export function firestoreSnapshotToFlat(
     timestamp: data.timestamp,
     releases: data.releases
       .sort((a, b) => a.order - b.order)
-      .map((r, i) => ({
-        id: `${snapshotId}-r${i}`,
-        projectId,
-        name: sanitizeString(r.name),
-        startDate: r.startDate,
-        earlyFinishDate: r.earlyFinishDate,
-        lateFinishDate: r.lateFinishDate,
-        ...(r.hidden !== undefined && { hidden: r.hidden }),
-        ...(r.completed !== undefined && { completed: r.completed }),
-        ...(r.mostLikelyFinishDate && { mostLikelyFinishDate: r.mostLikelyFinishDate }),
-      })),
+      .map((r, i) => {
+        const migratedStatus = migrateReleaseStatus(r as unknown as Record<string, unknown>);
+        return {
+          id: `${snapshotId}-r${i}`,
+          projectId,
+          name: sanitizeString(r.name),
+          startDate: r.startDate,
+          earlyFinishDate: r.earlyFinishDate,
+          lateFinishDate: r.lateFinishDate,
+          ...(r.hidden !== undefined && { hidden: r.hidden }),
+          ...(migratedStatus ? { status: migratedStatus } : {}),
+          ...(r.mostLikelyFinishDate && { mostLikelyFinishDate: r.mostLikelyFinishDate }),
+        };
+      }),
     ...(data.projectFinishDate && { projectFinishDate: data.projectFinishDate }),
     ...(data.chartColors && { chartColors: data.chartColors as ChartColors }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),

@@ -222,7 +222,7 @@ describe('useSnapshots', () => {
     await act(async () => {
       await result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: 'William'
       });
@@ -240,7 +240,7 @@ describe('useSnapshots', () => {
     await act(async () => {
       await result.current.saveSnapshot({
         releases: [],
-        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
         legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
         preparedBy: ''
       });
@@ -298,7 +298,7 @@ describe('useSnapshots', () => {
 
     const saveParams = {
       releases: [],
-      chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90' },
+      chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
       legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
       preparedBy: 'William'
     };

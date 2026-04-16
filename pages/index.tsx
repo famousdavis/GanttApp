@@ -49,6 +49,7 @@ function AppContent() {
     setShowPreparedBy,
     mostLikelyLineLabel,
     setMostLikelyLineLabel,
+    inProgressLabel,
     showMostLikelyLine,
     setShowMostLikelyLine,
     showMonths,
@@ -142,7 +143,7 @@ function AppContent() {
   const effective = useEffectiveChartProps(activeSnapshot, {
     releases: visibleReleases,
     chartColors,
-    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel },
+    labels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel, inProgress: inProgressLabel },
     preparedBy,
     finishDate: selectedProject?.finishDate
   });
@@ -153,10 +154,10 @@ function AppContent() {
       releases: visibleReleases,
       projectFinishDate: selectedProject?.finishDate,
       chartColors,
-      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel },
+      legendLabels: { solidBar: solidBarLabel, hatchedBar: hatchedBarLabel, finishDateLine: finishDateLabel, mostLikelyLine: mostLikelyLineLabel, inProgress: inProgressLabel },
       preparedBy
     });
-  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, preparedBy]);
+  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy]);
 
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'settings', 'about'], []);
@@ -291,7 +292,8 @@ function AppContent() {
                 solidBarLabel: effective.labels.solidBar,
                 hatchedBarLabel: effective.labels.hatchedBar,
                 finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel,
-                mostLikelyLineLabel: effective.labels.mostLikelyLine ?? mostLikelyLineLabel
+                mostLikelyLineLabel: effective.labels.mostLikelyLine ?? mostLikelyLineLabel,
+                inProgressLabel: effective.labels.inProgress ?? inProgressLabel
               }}
               settings={{
                 displaySettings,

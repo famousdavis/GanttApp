@@ -20,6 +20,7 @@ describe('DEFAULT_CHART_COLORS', () => {
     expect(DEFAULT_CHART_COLORS).toHaveProperty('todayLine');
     expect(DEFAULT_CHART_COLORS).toHaveProperty('finishDateLine');
     expect(DEFAULT_CHART_COLORS).toHaveProperty('completedBar');
+    expect(DEFAULT_CHART_COLORS).toHaveProperty('inProgressBar');
   });
 
   it('has valid hex color values', () => {
@@ -29,6 +30,7 @@ describe('DEFAULT_CHART_COLORS', () => {
     expect(DEFAULT_CHART_COLORS.todayLine).toMatch(hexRegex);
     expect(DEFAULT_CHART_COLORS.finishDateLine).toMatch(hexRegex);
     expect(DEFAULT_CHART_COLORS.completedBar).toMatch(hexRegex);
+    expect(DEFAULT_CHART_COLORS.inProgressBar).toMatch(hexRegex);
   });
 });
 
@@ -88,7 +90,7 @@ describe('COLOR_PRESETS', () => {
     expect(Object.keys(COLOR_PRESETS)).toHaveLength(10);
   });
 
-  it('each preset has all 6 required color properties', () => {
+  it('each preset has all 7 required color properties', () => {
     Object.entries(COLOR_PRESETS).forEach(([name, colors]) => {
       expect(colors, `Preset "${name}" missing solidBar`).toHaveProperty('solidBar');
       expect(colors, `Preset "${name}" missing hatchedBar`).toHaveProperty('hatchedBar');
@@ -96,6 +98,7 @@ describe('COLOR_PRESETS', () => {
       expect(colors, `Preset "${name}" missing finishDateLine`).toHaveProperty('finishDateLine');
       expect(colors, `Preset "${name}" missing mostLikelyLine`).toHaveProperty('mostLikelyLine');
       expect(colors, `Preset "${name}" missing completedBar`).toHaveProperty('completedBar');
+      expect(colors, `Preset "${name}" missing inProgressBar`).toHaveProperty('inProgressBar');
     });
   });
 
@@ -108,6 +111,7 @@ describe('COLOR_PRESETS', () => {
       expect(colors.finishDateLine, `${name}.finishDateLine`).toMatch(hexRegex);
       expect(colors.mostLikelyLine, `${name}.mostLikelyLine`).toMatch(hexRegex);
       expect(colors.completedBar, `${name}.completedBar`).toMatch(hexRegex);
+      expect(colors.inProgressBar, `${name}.inProgressBar`).toMatch(hexRegex);
     });
   });
 

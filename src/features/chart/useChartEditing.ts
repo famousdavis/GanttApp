@@ -9,7 +9,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { validateReleaseDateChange, sanitizeString } from '../../shared/utils/validation';
 
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
-export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine';
+export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | 'inProgress';
 
 interface DateEditInfo {
   releaseId: string;
@@ -17,7 +17,7 @@ interface DateEditInfo {
 }
 
 export function useChartEditing() {
-  const { data, updateData, solidBarLabel, setSolidBarLabel, hatchedBarLabel, setHatchedBarLabel, finishDateLabel, setFinishDateLabel, mostLikelyLineLabel, setMostLikelyLineLabel } = useAppData();
+  const { data, updateData, solidBarLabel, setSolidBarLabel, hatchedBarLabel, setHatchedBarLabel, finishDateLabel, setFinishDateLabel, mostLikelyLineLabel, setMostLikelyLineLabel, inProgressLabel, setInProgressLabel } = useAppData();
 
   // Legend label editing
   const [editingLegendLabel, setEditingLegendLabel] = useState<LegendLabelType | null>(null);
@@ -39,6 +39,7 @@ export function useChartEditing() {
     else if (type === 'hatched') setTempLabelValue(hatchedBarLabel);
     else if (type === 'finishDate') setTempLabelValue(finishDateLabel);
     else if (type === 'mostLikelyLine') setTempLabelValue(mostLikelyLineLabel);
+    else if (type === 'inProgress') setTempLabelValue(inProgressLabel);
   };
 
   const saveLabelEdit = () => {
@@ -52,6 +53,7 @@ export function useChartEditing() {
     else if (editingLegendLabel === 'hatched') setHatchedBarLabel(sanitized);
     else if (editingLegendLabel === 'finishDate') setFinishDateLabel(sanitized);
     else if (editingLegendLabel === 'mostLikelyLine') setMostLikelyLineLabel(sanitized);
+    else if (editingLegendLabel === 'inProgress') setInProgressLabel(sanitized);
     setEditingLegendLabel(null);
   };
 

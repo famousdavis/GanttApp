@@ -4,7 +4,7 @@
 
 // Validation utilities for GanttApp
 
-import { Project, Release, ChartColors, ChartDisplaySettings } from '../types/models';
+import { Project, Release, ReleaseStatus, ChartColors, ChartDisplaySettings } from '../types/models';
 import { parseDateLocal, isWorkDay } from './dates';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
 
@@ -219,7 +219,8 @@ export function sanitizeChartColors(colors: unknown): ChartColors {
     todayLine: sanitizeColor(c.todayLine as string, DEFAULT_CHART_COLORS.todayLine),
     finishDateLine: sanitizeColor(c.finishDateLine as string, DEFAULT_CHART_COLORS.finishDateLine),
     mostLikelyLine: sanitizeColor(c.mostLikelyLine as string, DEFAULT_CHART_COLORS.mostLikelyLine),
-    completedBar: sanitizeColor(c.completedBar as string, DEFAULT_CHART_COLORS.completedBar)
+    completedBar: sanitizeColor(c.completedBar as string, DEFAULT_CHART_COLORS.completedBar),
+    inProgressBar: sanitizeColor(c.inProgressBar as string, DEFAULT_CHART_COLORS.inProgressBar)
   };
 }
 
@@ -262,6 +263,20 @@ export function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings
 }
 
 /**
+ * Migrate legacy `completed` boolean to the new `status` field.
+ * Reads `status` first (with whitelist check), falls back to `completed === true`.
+ * Returns undefined for not-started so the field is omitted from the object.
+ */
+export function migrateReleaseStatus(r: Record<string, unknown>): ReleaseStatus | undefined {
+  const VALID_STATUSES: ReleaseStatus[] = ['not-started', 'in-progress', 'complete'];
+  if (typeof r.status === 'string' && VALID_STATUSES.includes(r.status as ReleaseStatus)) {
+    return r.status === 'not-started' ? undefined : r.status as ReleaseStatus;
+  }
+  if (r.completed === true) return 'complete';
+  return undefined;
+}
+
+/**
  * Sanitize a single release from untrusted data
  * Returns null if the release is invalid
  */
@@ -283,6 +298,8 @@ export function sanitizeRelease(rel: unknown): Release | null {
     return null;
   }
 
+  const migratedStatus = migrateReleaseStatus(r as Record<string, unknown>);
+
   const sanitized: Release = {
     id: sanitizeId(r.id),
     projectId: sanitizeId(r.projectId),
@@ -291,7 +308,7 @@ export function sanitizeRelease(rel: unknown): Release | null {
     earlyFinishDate: r.earlyFinishDate,
     lateFinishDate: r.lateFinishDate,
     ...(typeof r.hidden === 'boolean' ? { hidden: r.hidden } : {}),
-    ...(typeof r.completed === 'boolean' ? { completed: r.completed } : {}),
+    ...(migratedStatus ? { status: migratedStatus } : {}),
     ...(typeof r.mostLikelyFinishDate === 'string' && isValidDateFormat(r.mostLikelyFinishDate)
       ? { mostLikelyFinishDate: r.mostLikelyFinishDate }
       : {})
@@ -317,12 +334,12 @@ export function sanitizeRelease(rel: unknown): Release | null {
 /**
  * Sanitize legend labels from untrusted data
  */
-export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string } {
+export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string } {
   if (!labels || typeof labels !== 'object') {
     return { solidBar: 'Design, Code, Test', hatchedBar: 'Delivery Uncertainty' };
   }
   const l = labels as Record<string, unknown>;
-  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string } = {
+  const result: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string } = {
     solidBar: typeof l.solidBar === 'string' ? sanitizeString(l.solidBar, 50) : 'Design, Code, Test',
     hatchedBar: typeof l.hatchedBar === 'string' ? sanitizeString(l.hatchedBar, 50) : 'Delivery Uncertainty'
   };
@@ -331,6 +348,9 @@ export function sanitizeLegendLabels(labels: unknown): { solidBar: string; hatch
   }
   if (typeof l.mostLikelyLine === 'string') {
     result.mostLikelyLine = sanitizeString(l.mostLikelyLine, 50);
+  }
+  if (typeof l.inProgress === 'string') {
+    result.inProgress = sanitizeString(l.inProgress, 50);
   }
   return result;
 }

@@ -78,6 +78,7 @@ describe('storage utilities', () => {
           finishDateLine: '#333333',
           mostLikelyLine: '#444444',
           completedBar: '#90ee90',
+          inProgressBar: '#f59e0b',
         },
         activePreset: 'Professional',
       });
@@ -156,6 +157,7 @@ describe('storage utilities', () => {
           finishDateLine: '#ffff00',
           mostLikelyLine: '#000000',
           completedBar: '#90ee90',
+          inProgressBar: '#f59e0b',
         },
         legendLabels: {
           solidBar: 'Custom Solid',
@@ -178,7 +180,7 @@ describe('storage utilities', () => {
       expect(loaded).toEqual(data);
     });
 
-    it('preserves release hidden and completed flags', () => {
+    it('preserves release hidden and status fields', () => {
       const data = makeTestData({
         releases: [
           {
@@ -189,7 +191,6 @@ describe('storage utilities', () => {
             earlyFinishDate: '2026-02-01',
             lateFinishDate: '2026-03-01',
             hidden: true,
-            completed: false,
           },
           {
             id: 'r2',
@@ -199,7 +200,7 @@ describe('storage utilities', () => {
             earlyFinishDate: '2026-02-01',
             lateFinishDate: '2026-03-01',
             hidden: false,
-            completed: true,
+            status: 'complete' as const,
           },
         ],
       });
@@ -207,9 +208,9 @@ describe('storage utilities', () => {
       saveData(data);
       const loaded = loadData()!;
       expect(loaded.releases[0].hidden).toBe(true);
-      expect(loaded.releases[0].completed).toBe(false);
+      expect(loaded.releases[0].status).toBeUndefined();
       expect(loaded.releases[1].hidden).toBe(false);
-      expect(loaded.releases[1].completed).toBe(true);
+      expect(loaded.releases[1].status).toBe('complete');
     });
 
     it('preserves showTodayLine toggle state', () => {

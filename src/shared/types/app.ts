@@ -17,6 +17,7 @@ export interface AppData {
     hatchedBar: string;
     finishDateLine?: string;
     mostLikelyLine?: string;
+    inProgress?: string;
   };
   showTodayLine?: boolean;
   showFinishDateLine?: boolean;

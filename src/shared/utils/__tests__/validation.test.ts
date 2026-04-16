@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings } from '../validation';
+import { isValidDateFormat, isProjectNameValid, isReleaseValid, getDateErrorMessage, getMostLikelyDateError, sanitizeRelease, sanitizeChartColors, sanitizeLegendLabels, validateReleaseDateChange, sanitizeFirebaseError, sanitizeWorkDays, getEffectiveWorkDays, getWorkDayWarning, getDateWarnings, migrateReleaseStatus } from '../validation';
 import type { Project } from '../../types/models';
 
 describe('isValidDateFormat', () => {
@@ -589,5 +589,67 @@ describe('getDateWarnings', () => {
   it('skips warnings when the date is invalid (length !== 10)', () => {
     const result = getDateWarnings('2026-06', wed, sat2, '', monFri);
     expect(result.startDate).toBe('');
+  });
+});
+
+describe('migrateReleaseStatus', () => {
+  it('returns "complete" when completed is true', () => {
+    expect(migrateReleaseStatus({ completed: true })).toBe('complete');
+  });
+
+  it('returns undefined when completed is false', () => {
+    expect(migrateReleaseStatus({ completed: false })).toBeUndefined();
+  });
+
+  it('returns undefined when completed is absent', () => {
+    expect(migrateReleaseStatus({})).toBeUndefined();
+  });
+
+  it('returns "in-progress" when status is "in-progress"', () => {
+    expect(migrateReleaseStatus({ status: 'in-progress' })).toBe('in-progress');
+  });
+
+  it('returns "complete" when status is "complete"', () => {
+    expect(migrateReleaseStatus({ status: 'complete' })).toBe('complete');
+  });
+
+  it('returns undefined when status is "not-started"', () => {
+    expect(migrateReleaseStatus({ status: 'not-started' })).toBeUndefined();
+  });
+
+  it('returns undefined when status is invalid string', () => {
+    expect(migrateReleaseStatus({ status: 'bogus' })).toBeUndefined();
+  });
+
+  it('prefers status over completed when both present', () => {
+    expect(migrateReleaseStatus({ status: 'in-progress', completed: true })).toBe('in-progress');
+  });
+});
+
+describe('sanitizeChartColors - inProgressBar', () => {
+  it('includes inProgressBar from valid input', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626', completedBar: '#90ee90',
+      inProgressBar: '#f59e0b'
+    });
+    expect(result.inProgressBar).toBe('#f59e0b');
+  });
+
+  it('falls back to default when inProgressBar is missing', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626', completedBar: '#90ee90'
+    });
+    expect(result.inProgressBar).toBe('#f59e0b');
+  });
+
+  it('falls back to default when inProgressBar is invalid', () => {
+    const result = sanitizeChartColors({
+      solidBar: '#ff0000', hatchedBar: '#00ff00', todayLine: '#0000ff',
+      finishDateLine: '#ffff00', mostLikelyLine: '#dc2626', completedBar: '#90ee90',
+      inProgressBar: 'not-a-color'
+    });
+    expect(result.inProgressBar).toBe('#f59e0b');
   });
 });

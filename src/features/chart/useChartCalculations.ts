@@ -118,10 +118,13 @@ export function useChartCalculations(
     return Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
   }, [dateInfo.minDate, dateInfo.maxDate]);
 
-  // Get release colors (completed = user-configured color, otherwise chart colors)
-  const getReleaseColors = (release: Release, chartColors: { solidBar: string; hatchedBar: string; completedBar: string }) => {
-    if (release.completed) {
+  // Get release colors based on status (complete, in-progress, or default)
+  const getReleaseColors = (release: Release, chartColors: { solidBar: string; hatchedBar: string; completedBar: string; inProgressBar: string }) => {
+    if (release.status === 'complete') {
       return { solidBar: chartColors.completedBar, hatchedBar: darkenColor(chartColors.completedBar, 0.35) };
+    }
+    if (release.status === 'in-progress') {
+      return { solidBar: chartColors.inProgressBar, hatchedBar: chartColors.hatchedBar };
     }
     return { solidBar: chartColors.solidBar, hatchedBar: chartColors.hatchedBar };
   };

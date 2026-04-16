@@ -33,6 +33,8 @@ interface AppDataContextType {
   setFinishDateLabel: (label: string) => void;
   mostLikelyLineLabel: string;
   setMostLikelyLineLabel: (label: string) => void;
+  inProgressLabel: string;
+  setInProgressLabel: (label: string) => void;
 
   // Toggles
   showTodayLine: boolean;
@@ -86,6 +88,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [hatchedBarLabel, setHatchedBarLabel] = useState('Delivery Uncertainty');
   const [finishDateLabel, setFinishDateLabel] = useState('Project Finish Date');
   const [mostLikelyLineLabel, setMostLikelyLineLabel] = useState('Most Likely Finish');
+  const [inProgressLabel, setInProgressLabel] = useState('In Progress');
 
   // Toggles
   const [showTodayLine, setShowTodayLine] = useState(true);
@@ -141,6 +144,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               }
               if (loadedData.legendLabels.mostLikelyLine) {
                 setMostLikelyLineLabel(loadedData.legendLabels.mostLikelyLine);
+              }
+              if (loadedData.legendLabels.inProgress) {
+                setInProgressLabel(loadedData.legendLabels.inProgress);
               }
             }
 
@@ -207,7 +213,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           solidBar: solidBarLabel,
           hatchedBar: hatchedBarLabel,
           finishDateLine: finishDateLabel,
-          mostLikelyLine: mostLikelyLineLabel
+          mostLikelyLine: mostLikelyLineLabel,
+          inProgress: inProgressLabel
         },
         chartDisplaySettings: displaySettings,
         preparedBy,
@@ -221,7 +228,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       };
       storage.saveAppData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
 
   // Real-time sync: subscribe to Firestore changes in cloud mode
   // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
@@ -289,6 +296,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setFinishDateLabel,
     mostLikelyLineLabel,
     setMostLikelyLineLabel,
+    inProgressLabel,
+    setInProgressLabel,
     showTodayLine,
     setShowTodayLine,
     showFinishDateLine,

@@ -5,7 +5,7 @@
 // Releases CRUD operations hook
 
 import { useState } from 'react';
-import { Release } from '../../shared/types';
+import { Release, ReleaseStatus } from '../../shared/types';
 import { useAppData } from '../../context/AppDataContext';
 import { isValidDateFormat, generateId, parseDateLocal, formatDateISO, validateReleaseDateChange } from '../../shared/utils';
 import { sanitizeString } from '../../shared/utils/validation';
@@ -114,11 +114,13 @@ export function useReleases() {
     updateData(newData);
   };
 
-  const toggleReleaseCompleted = (id: string) => {
+  const setReleaseStatus = (id: string, status: ReleaseStatus) => {
     const newData = {
       ...data,
       releases: data.releases.map(r =>
-        r.id === id ? { ...r, completed: !r.completed } : r
+        r.id === id
+          ? { ...r, ...(status === 'not-started' ? { status: undefined } : { status }) }
+          : r
       )
     };
     updateData(newData);
@@ -147,7 +149,7 @@ export function useReleases() {
       startDate: formatDateISO(newStartMs),
       earlyFinishDate: formatDateISO(newStartMs + earlyOffsetMs),
       lateFinishDate: formatDateISO(newStartMs + lateOffsetMs),
-      // Do NOT copy hidden, completed, or mostLikelyFinishDate - new release starts fresh
+      // Do NOT copy hidden, status, or mostLikelyFinishDate - new release starts fresh
     };
 
     const newData = { ...data, releases: [...data.releases, newRelease] };
@@ -209,7 +211,7 @@ export function useReleases() {
     startEditRelease,
     clearReleaseForm,
     toggleReleaseHidden,
-    toggleReleaseCompleted,
+    setReleaseStatus,
     duplicateRelease,
     updateReleaseDate
   };

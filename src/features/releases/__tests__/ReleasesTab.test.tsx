@@ -357,8 +357,8 @@ describe('ReleasesTab', () => {
     });
   });
 
-  describe('completion toggle', () => {
-    it('renders Mark Done button for each release', async () => {
+  describe('release status control', () => {
+    it('renders status control for each release', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
@@ -366,11 +366,11 @@ describe('ReleasesTab', () => {
 
       renderReleasesTab();
       await waitFor(() => {
-        expect(screen.getByText('Mark Done')).toBeTruthy();
+        expect(screen.getByText('Not Started')).toBeTruthy();
       });
     });
 
-    it('toggles to Done state', async () => {
+    it('sets status to complete when Complete is clicked', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [makeRelease({ id: 'r1' })],
@@ -378,23 +378,23 @@ describe('ReleasesTab', () => {
 
       renderReleasesTab();
       await waitFor(() => {
-        expect(screen.getByText('Mark Done')).toBeTruthy();
+        expect(screen.getByText('Not Started')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Mark Done'));
+      fireEvent.click(screen.getByText('Complete'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.releases[0].completed).toBe(true);
+      expect(stored.releases[0].status).toBe('complete');
     });
 
-    it('shows checkmark when completed', async () => {
+    it('shows Complete segment when status is complete', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
-        releases: [makeRelease({ id: 'r1', completed: true })],
+        releases: [makeRelease({ id: 'r1', status: 'complete' as const })],
       });
 
       renderReleasesTab();
       await waitFor(() => {
-        expect(screen.getByText(/Done/)).toBeTruthy();
+        expect(screen.getByText('Complete')).toBeTruthy();
       });
     });
   });

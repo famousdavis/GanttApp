@@ -16,7 +16,7 @@ interface SaveSnapshotParams {
   releases: Release[];
   projectFinishDate?: string;
   chartColors: ChartColors;
-  legendLabels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string };
+  legendLabels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };
   preparedBy: string;
 }
 

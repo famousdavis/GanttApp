@@ -212,7 +212,7 @@ export function ChartSettings({
 
           {/* Color Settings */}
           <div style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
               <ColorSwatchPicker
                 label="Solid Bar"
                 value={chartColors.solidBar}
@@ -223,6 +223,16 @@ export function ChartSettings({
                 value={chartColors.hatchedBar}
                 onChange={(color) => onColorsChange({ ...chartColors, hatchedBar: color })}
                 hatched
+              />
+              <ColorSwatchPicker
+                label="In Progress"
+                value={chartColors.inProgressBar}
+                onChange={(color) => onColorsChange({ ...chartColors, inProgressBar: color })}
+              />
+              <ColorSwatchPicker
+                label="Completed"
+                value={chartColors.completedBar}
+                onChange={(color) => onColorsChange({ ...chartColors, completedBar: color })}
               />
               <ColorSwatchPicker
                 label="Today's Date"
@@ -241,11 +251,6 @@ export function ChartSettings({
                   onChange={(color) => onColorsChange({ ...chartColors, mostLikelyLine: color })}
                 />
               )}
-              <ColorSwatchPicker
-                label="Completed"
-                value={chartColors.completedBar}
-                onChange={(color) => onColorsChange({ ...chartColors, completedBar: color })}
-              />
             </div>
           </div>
 

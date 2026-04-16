@@ -186,6 +186,9 @@ interface Project {
   workDays?: number[];  // Optional per-project work-week override (v15.0). Array of 0=Sun..6=Sat. Undefined = use global default.
 }
 
+// Release status (v16.0 — replaces v9.0 completed boolean)
+type ReleaseStatus = 'not-started' | 'in-progress' | 'complete';
+
 // Release - a time-boxed work item
 interface Release {
   id: string;
@@ -195,7 +198,7 @@ interface Release {
   earlyFinishDate: string;     // YYYY-MM-DD (optimistic)
   lateFinishDate: string;      // YYYY-MM-DD (pessimistic)
   hidden?: boolean;            // Hide from chart
-  completed?: boolean;         // Render as single solid bar in completedBar color (v9.0)
+  status?: ReleaseStatus;      // v16.0 — undefined treated as 'not-started' at render. In-progress uses split-bar in inProgressBar color; complete renders as single solid bar in completedBar color. Legacy completed:true auto-migrates to status:'complete' at read time via migrateReleaseStatus() in validation.ts
   mostLikelyFinishDate?: string; // Optional YYYY-MM-DD, >= early and <= late (v8.0)
 }
 
@@ -220,6 +223,7 @@ interface ChartColors {
   finishDateLine: string; // Hex color for finish date line
   mostLikelyLine: string; // Hex color for most likely line (v8.0)
   completedBar: string;   // Hex color for completed release bar (v9.0)
+  inProgressBar: string;  // Hex color for in-progress release bar (v16.0)
 }
 
 // Display settings

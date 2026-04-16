@@ -31,7 +31,8 @@ const snapshotColors = {
   todayLine: '#0000ff',
   finishDateLine: '#ffff00',
   mostLikelyLine: '#000000',
-  completedBar: '#90ee90'
+  completedBar: '#90ee90',
+  inProgressBar: '#f59e0b'
 };
 
 const mockSnapshot: Snapshot = {

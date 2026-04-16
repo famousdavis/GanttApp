@@ -7,7 +7,7 @@
 import { useState, useRef } from 'react';
 import { Project, Release, ChartColors, ChartDisplaySettings, Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
-import { getTodayFormatted } from '../../shared/utils/dates';
+import { getTodayFormatted, formatDateShort, getTodayString } from '../../shared/utils/dates';
 import { ChartLegend } from './ChartLegend';
 import { ChartSettings } from './ChartSettings';
 import { ChartReleaseBar } from './ChartReleaseBar';
@@ -54,6 +54,7 @@ export interface ChartLabelProps {
   hatchedBarLabel: string;
   finishDateLabel: string;
   mostLikelyLineLabel: string;
+  inProgressLabel: string;
 }
 
 export interface ChartSettingsGroupProps {
@@ -125,6 +126,8 @@ export function GanttChart({
   // Compute derived flags once for use in Legend and Settings
   const hasProjectFinishDate = !!projectFinishDate;
   const hasMostLikelyReleases = releases.some(r => !!r.mostLikelyFinishDate);
+  const hasCompletedReleases = releases.some(r => r.status === 'complete');
+  const hasInProgressReleases = releases.some(r => r.status === 'in-progress');
 
   if (releases.length === 0) {
     return (
@@ -293,12 +296,24 @@ export function GanttChart({
               });
             })()}
 
-            {/* Today's date line */}
+            {/* Today's date line + label */}
             {showTodayLine && todayX && (
-              <line
-                x1={todayX} y1={topMargin - 10} x2={todayX} y2={chartHeight}
-                stroke={chartColors.todayLine} strokeWidth={displaySettings.verticalLineWidth}
-              />
+              <g>
+                <line
+                  x1={todayX} y1={topMargin - 10} x2={todayX} y2={chartHeight}
+                  stroke={chartColors.todayLine} strokeWidth={displaySettings.verticalLineWidth}
+                />
+                <text
+                  x={todayX}
+                  y={headerLabelY - 14}
+                  fontSize="11"
+                  fill={chartColors.todayLine}
+                  textAnchor="middle"
+                  fontWeight="600"
+                >
+                  {formatDateShort(getTodayString())}
+                </text>
+              </g>
             )}
 
             {/* Project finish date line */}
@@ -356,12 +371,14 @@ export function GanttChart({
           hatchedBarLabel={labels.hatchedBarLabel}
           finishDateLabel={labels.finishDateLabel}
           mostLikelyLineLabel={labels.mostLikelyLineLabel}
+          inProgressLabel={labels.inProgressLabel}
           showTodayLine={showTodayLine}
           showFinishDateLine={showFinishDateLine}
           showMostLikelyLine={showMostLikelyLine}
           hasProjectFinishDate={hasProjectFinishDate}
           hasMostLikelyReleases={hasMostLikelyReleases}
-          hasCompletedReleases={releases.some(r => r.completed)}
+          hasCompletedReleases={hasCompletedReleases}
+          hasInProgressReleases={hasInProgressReleases}
           editingLegendLabel={editing.editingLegendLabel}
           tempLabelValue={editing.tempLabelValue}
           onStartEditLabel={editing.startEditLabel}

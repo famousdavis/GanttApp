@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 16.0 (2026-04-16)
+### Release Status (three-state) + Today's Date Label
+- Feature: Replaced two-state completed toggle with three-state release status — Not Started, In Progress, and Complete — exposed via a segmented control in the release list
+- Feature: Added a customizable In Progress bar color to Chart Settings and all 10 color presets (default: amber #f59e0b)
+- Feature: Added today's date label above the Today vertical line on the Gantt chart, using the line's color and short-format date (e.g. "Apr 15")
+- UX: In Progress legend entry appears on the chart when any release has in-progress status
+- UX: The "In Progress" legend label is now editable in place, consistent with Solid Bar, Hatched Bar, Project Finish Date, and Most Likely Finish
+- UX: Legend entries reorder left-to-right to match status progression: Completed → In Progress → Not Started (solid + hatched) → vertical lines
+- UX: Chart legend wraps gracefully when many entries are visible (gap reduced, flex-wrap added)
+- UX: Chart Settings color picker grid narrowed to fit the new In Progress swatch without adding a row
+- Migration: Existing releases with `completed: true` automatically migrate to `status: 'complete'` on load at all four ingestion points (localStorage, Firestore, JSON import, snapshots). Snapshots migrate at read time — stored data is untouched until rewritten
+- Risk mitigation: `releaseChanged` diff check updated to compare `status` instead of `completed` — without this, a status change in cloud mode wouldn't trigger a Firestore write (same class as v12.5 reorder / v15.0 workDays bugs); dedicated regression test added
+- 844 tests across 51 test files, all passing (31 net new tests); TypeScript type-check clean (0 errors)
+
 ## Version 15.3 (2026-04-15)
 ### Security Audit Fixes
 - Security: Sanitized Firestore-loaded snapshot names and release names in firestoreSnapshotToFlat() via sanitizeString(), matching existing project/release converter pattern

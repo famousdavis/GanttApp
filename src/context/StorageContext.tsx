@@ -118,7 +118,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       setStorage(result.service);
     } catch (error) {
       setSwitchError(sanitizeFirebaseError(error));
-      console.error('Upload prompt confirm error:', error);
+      console.error('Upload prompt confirm error:', sanitizeFirebaseError(error));
     } finally {
       setIsSwitching(false);
     }
@@ -167,7 +167,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       setSwitchError(sanitizeFirebaseError(error));
-      console.error('Mode switch error:', error);
+      console.error('Mode switch error:', sanitizeFirebaseError(error));
     } finally {
       setIsSwitching(false);
     }

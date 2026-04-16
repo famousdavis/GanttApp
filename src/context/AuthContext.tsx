@@ -23,6 +23,7 @@ import {
   setDoc,
   serverTimestamp,
 } from 'firebase/firestore';
+import { sanitizeFirebaseError } from '../shared/utils/validation';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch((err) => {
           // Allow through on errors — don't block the user
-          console.error('[AuthContext] ToS resolution error:', err);
+          console.error('[AuthContext] ToS resolution error:', sanitizeFirebaseError(err));
           setUser(firebaseUser);
         })
         .finally(() => {

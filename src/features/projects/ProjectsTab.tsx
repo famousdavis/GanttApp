@@ -95,7 +95,7 @@ export function ProjectsTab({
       }
     } catch (error) {
       alert('Error importing file');
-      console.error(error);
+      console.error('Error importing file:', error instanceof Error ? error.message : 'Unknown error');
       event.target.value = '';
     }
   };

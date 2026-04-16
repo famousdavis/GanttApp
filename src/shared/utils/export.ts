@@ -206,7 +206,7 @@ export function parseImportedData(fileContent: string): ImportResult | null {
 
     return result;
   } catch (error) {
-    console.error('Error parsing imported data:', error);
+    console.error('Error parsing imported data:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }

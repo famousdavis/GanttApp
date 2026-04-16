@@ -37,6 +37,7 @@ import {
   userSettingsToAppData,
   firestoreSnapshotToFlat,
 } from '../utils/firestore-converters';
+import { sanitizeFirebaseError } from '../utils/validation';
 import { executeFirestoreSave } from './firestore-save-executor';
 import {
   shareProject as shareProjectFn,
@@ -136,7 +137,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       this.lastSavedState = structuredClone(appData);
       return appData;
     } catch (error) {
-      console.error('Failed to load cloud data:', error);
+      console.error('Failed to load cloud data:', sanitizeFirebaseError(error));
       return null;
     }
   }
@@ -185,7 +186,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
       return allSnapshots;
     } catch (error) {
-      console.error('Failed to load cloud snapshots:', error);
+      console.error('Failed to load cloud snapshots:', sanitizeFirebaseError(error));
       return [];
     }
   }
@@ -343,7 +344,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         this.db, this.uid, data, this.lastSavedState
       );
     } catch (error) {
-      console.error('Failed to save cloud data:', error);
+      console.error('Failed to save cloud data:', sanitizeFirebaseError(error));
       if (!this.pendingData) {
         this.pendingData = data;
       }

@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 15.3 (2026-04-15)
+### Security Audit Fixes
+- Security: Sanitized Firestore-loaded snapshot names and release names in firestoreSnapshotToFlat() via sanitizeString(), matching existing project/release converter pattern
+- Security: Replaced full error object logging with sanitized messages across 14 console.error() call sites (7 files); prevents Firestore paths and SDK internals from leaking to browser console
+- Security: Added email format validation (@ check) in ShareDialog before Firestore lookup for immediate feedback on invalid input
+- Audit scope: v15.0 work-week sanitization paths (6 ingestion points verified), v15.1 snapshot optimistic updates (sanitization chain verified), Firestore rules (document-level auth confirmed for new fields), general XSS/injection/secrets scan (no issues)
+
 ## Version 15.2 (2026-04-15)
 ### Refactoring & Label Fix
 - Refactor: Extracted ReleaseFormFields component from ReleasesTab (506 → 360 LOC) for independent testability and reduced token cost

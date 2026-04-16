@@ -39,11 +39,14 @@ interface ChartLegendProps {
   hasActiveProject: boolean;
 }
 
-/** Inline ↺ reset button shown next to labels with an active project override. */
+/** Inline ↺ reset button shown next to labels with an active project override.
+ * v16.2: tagged with `copy-image-button` className so html2canvas excludes it
+ * from captured chart images (matches the existing pattern used by the 📋 toolbar button). */
 function ResetOverrideButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       type="button"
+      className="copy-image-button"
       onClick={onReset}
       title="Reset to global label"
       style={{
@@ -128,9 +131,9 @@ export function ChartLegend({
 }: ChartLegendProps) {
   const { colors } = useTheme();
 
-  // v16.1: italic when project override is active for this key
-  const italicIfOverridden = (key: keyof ProjectLegendLabels) =>
-    projectLegendLabels?.[key] !== undefined ? ('italic' as const) : ('normal' as const);
+  // v16.2: no font-style differentiation for overridden labels — the ↺ reset button
+  // is the sole visual indicator of an active project override. Keeping all labels
+  // in the same font style avoids a jarring mixed-italic legend row.
 
   // v16.1: render a ↺ reset button only when an override exists AND not readOnly AND handler available
   const renderReset = (key: keyof ProjectLegendLabels) =>
@@ -143,16 +146,20 @@ export function ChartLegend({
       {/* Legend order reads status-progression left-to-right:
           Completed → In Progress → Not Started (solid + hatched) → lines. */}
 
-      {/* v16.1: subtle scope hint when a project is selected and legend is editable */}
+      {/* v16.1/v16.2: subtle scope hint when a project is selected and legend is editable.
+          Tagged copy-image-button so html2canvas excludes it from exported chart images. */}
       {hasActiveProject && !readOnly && (
-        <div style={{
-          width: '100%',
-          fontSize: '0.75rem',
-          color: colors.textMuted,
-          fontStyle: 'italic',
-          marginBottom: '-0.5rem',
-        }}>
-          Editing labels saves to this project only. Use ↺ to reset to the global label.
+        <div
+          className="copy-image-button"
+          style={{
+            width: '100%',
+            fontSize: '0.75rem',
+            color: colors.textMuted,
+            fontStyle: 'italic',
+            marginBottom: '-0.5rem',
+          }}
+        >
+          Editing labels saves to this project only. Use ↺ to reset to the global label, or change the global default in Settings → Default Legend Labels.
         </div>
       )}
 
@@ -179,7 +186,7 @@ export function ChartLegend({
             <>
               <span
                 onClick={readOnly ? undefined : () => onStartEditLabel('inProgress')}
-                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('inProgress') }}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
                 title={readOnly ? undefined : 'Click to edit'}
               >
                 {inProgressLabel}
@@ -204,7 +211,7 @@ export function ChartLegend({
           <>
             <span
               onClick={readOnly ? undefined : () => onStartEditLabel('solid')}
-              style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('solidBar') }}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
               title={readOnly ? undefined : 'Click to edit'}
             >
               {solidBarLabel}
@@ -235,7 +242,7 @@ export function ChartLegend({
           <>
             <span
               onClick={readOnly ? undefined : () => onStartEditLabel('hatched')}
-              style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('hatchedBar') }}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
               title={readOnly ? undefined : 'Click to edit'}
             >
               {hatchedBarLabel}
@@ -278,7 +285,7 @@ export function ChartLegend({
             <>
               <span
                 onClick={readOnly ? undefined : () => onStartEditLabel('finishDate')}
-                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('finishDateLine') }}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
                 title={readOnly ? undefined : 'Click to edit'}
               >
                 {finishDateLabel}
@@ -309,7 +316,7 @@ export function ChartLegend({
             <>
               <span
                 onClick={readOnly ? undefined : () => onStartEditLabel('mostLikelyLine')}
-                style={{ cursor: readOnly ? 'default' : 'pointer', fontStyle: italicIfOverridden('mostLikelyLine') }}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
                 title={readOnly ? undefined : 'Click to edit'}
               >
                 {mostLikelyLineLabel}

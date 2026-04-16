@@ -337,4 +337,81 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots[0].id).toBe('snap2'); // Later timestamp first
     expect(result.current.snapshots[1].id).toBe('snap1');
   });
+
+  // --- v16.2 Risk 1 regression guard ---
+  // The snapshot-save code path at pages/index.tsx (handleSaveSnapshot) MUST pass
+  // EFFECTIVE label values to saveSnapshot(), not raw (possibly empty) AppDataContext
+  // state. A snapshot taken today with empty global state should display the hardcoded
+  // defaults forever, not empty strings.
+  //
+  // useSnapshots.saveSnapshot is a pure pass-through of its legendLabels argument —
+  // the regression risk lives in the CALLER (handleSaveSnapshot). pages/index.tsx
+  // isn't unit-testable here, so this test documents the CONTRACT by exercising the
+  // same raw-or-default computation that handleSaveSnapshot performs.
+  it('snapshot save contract: caller builds legendLabels from raw || DEFAULT_LEGEND_LABELS (Risk 1)', async () => {
+    // Import the DEFAULT_LEGEND_LABELS constant used by pages/index.tsx
+    const { DEFAULT_LEGEND_LABELS } = await import('../../../shared/utils/validation');
+
+    // Simulate the state at first-time user time-of-snapshot: raw state is all empty
+    const emptyRawState = {
+      solidBarLabel: '',
+      hatchedBarLabel: '',
+      finishDateLabel: '',
+      mostLikelyLineLabel: '',
+      inProgressLabel: '',
+    };
+
+    // THIS is the exact same computation handleSaveSnapshot performs in pages/index.tsx.
+    // If a future refactor regresses this to pass raw state, the snapshot would freeze
+    // empty strings and render as blank labels — the symptom is invisible until someone
+    // opens that snapshot weeks/months later.
+    const legendLabelsForSnapshot = {
+      solidBar: emptyRawState.solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar,
+      hatchedBar: emptyRawState.hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar,
+      finishDateLine: emptyRawState.finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine,
+      mostLikelyLine: emptyRawState.mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine,
+      inProgress: emptyRawState.inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
+    };
+
+    // Assert the payload that pages/index.tsx produces from empty state is well-formed:
+    // every label is a non-empty string matching the hardcoded default.
+    expect(legendLabelsForSnapshot.solidBar).toBe('Design, Code, Test');
+    expect(legendLabelsForSnapshot.hatchedBar).toBe('Delivery Uncertainty');
+    expect(legendLabelsForSnapshot.finishDateLine).toBe('Project Finish Date');
+    expect(legendLabelsForSnapshot.mostLikelyLine).toBe('Most Likely Finish');
+    expect(legendLabelsForSnapshot.inProgress).toBe('In Progress');
+
+    // Now verify saveSnapshot stores them faithfully (no surprises in the hook):
+    localStorageMock.setItem('ganttAppData', JSON.stringify({
+      projects: [{ id: 'p1', name: 'Project 1' }],
+      releases: [],
+    }));
+    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([]));
+
+    vi.spyOn(window, 'prompt').mockReturnValue('Regression Guard Snapshot');
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await act(async () => {
+      await result.current.saveSnapshot({
+        releases: [],
+        chartColors: {
+          solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545',
+          finishDateLine: '#00ff00', mostLikelyLine: '#000000',
+          completedBar: '#90ee90', inProgressBar: '#f59e0b',
+        },
+        legendLabels: legendLabelsForSnapshot,
+        preparedBy: '',
+      });
+    });
+
+    const saved = result.current.snapshots.find(s => s.name === 'Regression Guard Snapshot');
+    expect(saved).toBeDefined();
+    // Snapshot preserves exactly the effective values — never empty strings.
+    expect(saved?.legendLabels?.solidBar).toBe('Design, Code, Test');
+    expect(saved?.legendLabels?.hatchedBar).toBe('Delivery Uncertainty');
+    expect(saved?.legendLabels?.finishDateLine).toBe('Project Finish Date');
+    expect(saved?.legendLabels?.mostLikelyLine).toBe('Most Likely Finish');
+    expect(saved?.legendLabels?.inProgress).toBe('In Progress');
+  });
 });

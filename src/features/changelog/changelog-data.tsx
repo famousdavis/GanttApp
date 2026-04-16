@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.2',
+    date: 'April 16, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; New &ldquo;Default Legend Labels&rdquo; section in Settings lets you customize the five global chart legend defaults (Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, In Progress). Closes the v16.1 UX gap where global defaults were unreachable once any project existed</>,
+      <><strong>UX</strong> &mdash; Settings inputs start empty with the hardcoded defaults shown as placeholders. Clearing an input reverts to the placeholder default &mdash; no &ldquo;reset&rdquo; button needed. First-time users see placeholders until they type</>,
+      <><strong>UX</strong> &mdash; Updated the chart legend scope hint to point to Settings &rarr; Default Legend Labels, so global-vs-project scope is discoverable from the legend itself</>,
+      <><strong>UX</strong> &mdash; Removed italic styling on overridden legend labels. The &ldquo;&#8634;&rdquo; reset button is the sole visual indicator of an active project override. Mixed-italic legend rows looked inconsistent; all labels now share one font style</>,
+      <><strong>UX</strong> &mdash; Per-project reset buttons and the scope hint are now excluded from the &ldquo;Copy Chart as Image&rdquo; capture (via the existing <code>copy-image-button</code> pattern)</>,
+      <><strong>Data</strong> &mdash; State model change: uncustomized global labels are no longer stored literally. First-time users have no <code>legendLabels</code> entries in localStorage or Firestore until they customize. Existing customizations are unaffected; they continue to load and render identically to v16.1</>,
+    ],
+  },
+  {
     version: '16.1',
     date: 'April 16, 2026',
     items: [

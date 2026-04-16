@@ -132,6 +132,30 @@ describe('useChartEditing', () => {
 
       expect(result.current.hasActiveEditor).toBe(true);
     });
+
+    it('startEditLabel with empty global state and no project opens edit box at DEFAULT_LEGEND_LABELS value (v16.2)', () => {
+      // v16.2: raw global state initializes to '' (uncustomized). startEditLabel must
+      // fall back to DEFAULT_LEGEND_LABELS.<key> so the edit box opens at the visible
+      // effective label, never empty. Regression guard — without the `|| DEFAULT_LEGEND_LABELS.key`
+      // fallback in startEditLabel, the edit box would open with ''.
+      const { result } = renderHook(() => useChartEditing(), { wrapper });
+
+      // All 5 label types start with their hardcoded default when no customization exists
+      act(() => { result.current.startEditLabel('solid'); });
+      expect(result.current.tempLabelValue).toBe('Design, Code, Test');
+
+      act(() => { result.current.startEditLabel('hatched'); });
+      expect(result.current.tempLabelValue).toBe('Delivery Uncertainty');
+
+      act(() => { result.current.startEditLabel('finishDate'); });
+      expect(result.current.tempLabelValue).toBe('Project Finish Date');
+
+      act(() => { result.current.startEditLabel('mostLikelyLine'); });
+      expect(result.current.tempLabelValue).toBe('Most Likely Finish');
+
+      act(() => { result.current.startEditLabel('inProgress'); });
+      expect(result.current.tempLabelValue).toBe('In Progress');
+    });
   });
 
   describe('release name editing', () => {
@@ -346,8 +370,9 @@ describe('useChartEditing', () => {
       // Project legendLabels should now contain the override
       const project = result.current.appData.data.projects.find(p => p.id === 'p1');
       expect(project?.legendLabels?.solidBar).toBe('Project Build Phase');
-      // Global state should be UNCHANGED
-      expect(result.current.appData.solidBarLabel).toBe('Design, Code, Test');
+      // Global raw state should be UNCHANGED — v16.2: empty by default (= "not customized",
+      // render path falls back to DEFAULT_LEGEND_LABELS). Project-scope save must not touch it.
+      expect(result.current.appData.solidBarLabel).toBe('');
     });
 
     it('saves label to global scope when activeProjectId is undefined', () => {

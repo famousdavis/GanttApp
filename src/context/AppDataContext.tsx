@@ -83,12 +83,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
   const [displaySettings, setDisplaySettings] = useState<ChartDisplaySettings>(DEFAULT_DISPLAY_SETTINGS);
 
-  // Legend labels
-  const [solidBarLabel, setSolidBarLabel] = useState('Design, Code, Test');
-  const [hatchedBarLabel, setHatchedBarLabel] = useState('Delivery Uncertainty');
-  const [finishDateLabel, setFinishDateLabel] = useState('Project Finish Date');
-  const [mostLikelyLineLabel, setMostLikelyLineLabel] = useState('Most Likely Finish');
-  const [inProgressLabel, setInProgressLabel] = useState('In Progress');
+  // Legend labels (v16.2: initialize to '' — empty state means "not customized",
+  // and consumers fall through to DEFAULT_LEGEND_LABELS. The Settings inputs bind
+  // to the raw state so empty values render as HTML placeholders.)
+  const [solidBarLabel, setSolidBarLabel] = useState('');
+  const [hatchedBarLabel, setHatchedBarLabel] = useState('');
+  const [finishDateLabel, setFinishDateLabel] = useState('');
+  const [mostLikelyLineLabel, setMostLikelyLineLabel] = useState('');
+  const [inProgressLabel, setInProgressLabel] = useState('');
 
   // Toggles
   const [showTodayLine, setShowTodayLine] = useState(true);
@@ -135,10 +137,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               setActivePreset(loadedData.activePreset);
             }
 
-            // Load legend labels if they exist
+            // Load legend labels if they exist (v16.2: only non-empty strings;
+            // absent/empty fields leave state as '' so render path falls back to
+            // DEFAULT_LEGEND_LABELS for first-time users).
             if (loadedData.legendLabels) {
-              setSolidBarLabel(loadedData.legendLabels.solidBar);
-              setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
+              if (loadedData.legendLabels.solidBar) {
+                setSolidBarLabel(loadedData.legendLabels.solidBar);
+              }
+              if (loadedData.legendLabels.hatchedBar) {
+                setHatchedBarLabel(loadedData.legendLabels.hatchedBar);
+              }
               if (loadedData.legendLabels.finishDateLine) {
                 setFinishDateLabel(loadedData.legendLabels.finishDateLine);
               }
@@ -207,15 +215,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
     if (!loading && !isInitialLoadRef.current) {
+      // v16.2: conditionally spread only non-empty label values into the payload,
+      // then strip the entire legendLabels field when no customizations exist.
+      // Matches the workDays / globalWorkDays / project.legendLabels pattern.
+      const legendLabelsPayload = {
+        ...(solidBarLabel && { solidBar: solidBarLabel }),
+        ...(hatchedBarLabel && { hatchedBar: hatchedBarLabel }),
+        ...(finishDateLabel && { finishDateLine: finishDateLabel }),
+        ...(mostLikelyLineLabel && { mostLikelyLine: mostLikelyLineLabel }),
+        ...(inProgressLabel && { inProgress: inProgressLabel }),
+      };
       const newData = {
         ...data,
-        legendLabels: {
-          solidBar: solidBarLabel,
-          hatchedBar: hatchedBarLabel,
-          finishDateLine: finishDateLabel,
-          mostLikelyLine: mostLikelyLineLabel,
-          inProgress: inProgressLabel
-        },
+        ...(Object.keys(legendLabelsPayload).length > 0 && { legendLabels: legendLabelsPayload }),
         chartDisplaySettings: displaySettings,
         preparedBy,
         showPreparedBy,

@@ -87,12 +87,15 @@ describe('AppDataContext', () => {
       });
     });
 
-    it('initializes with default legend labels', () => {
+    it('initializes with empty legend labels (v16.2: hardcoded defaults applied at render via DEFAULT_LEGEND_LABELS)', () => {
       const { result } = renderHook(() => useAppData(), { wrapper });
 
-      expect(result.current.solidBarLabel).toBe('Design, Code, Test');
-      expect(result.current.hatchedBarLabel).toBe('Delivery Uncertainty');
-      expect(result.current.finishDateLabel).toBe('Project Finish Date');
+      // v16.2: initial state is '' (empty) — consumers fall through to DEFAULT_LEGEND_LABELS
+      // for rendering and edit-box starting values. Settings inputs show the defaults as
+      // HTML placeholders instead of as literal values.
+      expect(result.current.solidBarLabel).toBe('');
+      expect(result.current.hatchedBarLabel).toBe('');
+      expect(result.current.finishDateLabel).toBe('');
     });
 
     it('initializes with default toggle states', () => {
@@ -337,7 +340,8 @@ describe('AppDataContext', () => {
         completedBar: '#90ee90',
         inProgressBar: '#f59e0b',
       });
-      expect(result.current.solidBarLabel).toBe('Design, Code, Test');
+      // v16.2: initial state is '' (uncustomized); rendering falls back to DEFAULT_LEGEND_LABELS
+      expect(result.current.solidBarLabel).toBe('');
       expect(result.current.showFinishDateLine).toBe(true);
     });
   });

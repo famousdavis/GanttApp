@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.4',
+    date: 'April 17, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; The project form&apos;s Work Week selector now reflects the live global setting. Previously it showed a hardcoded Mon&ndash;Fri baseline when no project override was set, so changing the global work week in Settings had no visible effect on the Add Project form until the user explicitly created an override</>,
+      <><strong>API</strong> &mdash; New optional <code>fallbackDays</code> prop on <code>WorkWeekSelector</code>. Caller can pass a fallback (e.g. the live global work days) that displays when <code>value</code> is undefined. Falls through to the hardcoded Mon&ndash;Fri only when both <code>value</code> and <code>fallbackDays</code> are absent</>,
+      <><strong>Docs</strong> &mdash; Updated the Quick Reference Guide PDF (linked from the About tab). Content refreshed to reflect the current feature set</>,
+    ],
+  },
+  {
     version: '16.3',
     date: 'April 16, 2026',
     items: [

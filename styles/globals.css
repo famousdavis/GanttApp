@@ -118,3 +118,11 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #5a6577;
 }
+
+/* Hide scrollbar chrome on the snapshot chip bar while keeping scroll functional */
+.snapshot-bar-scroll {
+  scrollbar-width: none; /* Firefox */
+}
+.snapshot-bar-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}

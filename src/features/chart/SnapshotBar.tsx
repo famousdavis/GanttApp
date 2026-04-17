@@ -48,9 +48,9 @@ export function SnapshotBar({
   };
 
   return (
-    <div className="copy-image-button" style={{ marginBottom: '0.75rem', height: '3rem', paddingBottom: '0.5rem' }}>
+    <div className="copy-image-button" style={{ marginBottom: '0.75rem' }}>
       {/* Navigation chips */}
-      <div style={{
+      <div className="snapshot-bar-scroll" style={{
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',

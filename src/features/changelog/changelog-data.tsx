@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.5',
+    date: 'April 17, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; Hid the horizontal scrollbar chrome on the snapshot chip bar (Gantt Chart tab) so it no longer visually overlays the bottom of the chip buttons when a project has many snapshots. Scrolling by drag/wheel/keyboard still works; partially-visible chips at the edge now signal overflow. Matches the pattern used in SPERT Scheduler v0.37.1</>,
+    ],
+  },
+  {
     version: '16.4',
     date: 'April 17, 2026',
     items: [

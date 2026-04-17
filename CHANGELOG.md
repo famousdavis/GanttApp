@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 16.5 (2026-04-17)
+### Hide SnapshotBar Scrollbar Chrome
+- Fix: The horizontal scrollbar on the Gantt Chart's snapshot chip bar no longer renders as a gray bar overlaying the bottom of the chip buttons when a project has many snapshots. Scrolling by drag/wheel/keyboard still works unchanged; partially-visible chips at the right edge signal overflow
+- Implementation: New `.snapshot-bar-scroll` CSS class in `styles/globals.css` applies `scrollbar-width: none` (Firefox) and `::-webkit-scrollbar { display: none }` (Chrome/Safari/Edge). Applied to the inner scroll viewport in `SnapshotBar.tsx`. Dropped the obsolete outer `height: 3rem` / `paddingBottom: 0.5rem` that v15.1 used to try to reserve space for the scrollbar
+- Pattern: Matches the SPERT Scheduler v0.37.1 fix for the same class of issue on its scenario tab bar
+- Tests: 914 tests pass (no new tests — visual CSS change only; existing `SnapshotBar.test.tsx` covers behavior)
+
 ## Version 16.4 (2026-04-17)
 ### Project Form Reflects Live Global Work Week + QRG Update
 - Fix: The project form's Work Week selector now reflects the live global setting instead of a hardcoded Mon–Fri baseline when no project override exists. Changing Settings → Work Week (e.g. adding Saturday) now immediately shows as Mon–Sat on the Add Project form, not stale Mon–Fri

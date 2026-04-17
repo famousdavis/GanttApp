@@ -366,20 +366,38 @@ describe('AppDataContext', () => {
     });
   });
 
-  describe('globalWorkDays (v15.0)', () => {
+  describe('globalWorkDays (v15.0, v16.3 default Mon–Fri)', () => {
     it('hydrates globalWorkDays from loaded data', async () => {
       const savedData: AppData = {
         projects: [],
         releases: [],
-        globalWorkDays: [1, 2, 3, 4, 5],
+        globalWorkDays: [0, 6], // Saturday + Sunday only — intentionally different from default
       };
       localStorage.setItem('ganttAppData', JSON.stringify(savedData));
 
       const { result } = renderHook(() => useAppData(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
+        expect(result.current.globalWorkDays).toEqual([0, 6]);
       });
+    });
+
+    it('defaults globalWorkDays to Mon–Fri when absent from loaded data (v16.3)', async () => {
+      const savedData: AppData = {
+        projects: [{ id: 'p1', name: 'Test' }],
+        releases: [],
+        // globalWorkDays intentionally omitted — simulates v15.x users who never configured a work week
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.data.projects).toHaveLength(1);
+      });
+
+      // v16.3: initial Mon–Fri default survives load when stored data omits globalWorkDays
+      expect(result.current.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
     });
 
     it('context exposes setGlobalWorkDays', () => {
@@ -416,31 +434,24 @@ describe('AppDataContext', () => {
       });
     });
 
-    it('save effect omits globalWorkDays when undefined', async () => {
-      const savedData: AppData = {
-        projects: [{ id: 'p1', name: 'Test' }],
-        releases: [],
-      };
-      localStorage.setItem('ganttAppData', JSON.stringify(savedData));
-
+    it('save effect persists Mon–Fri default for first-time users (v16.3)', async () => {
+      // First-time user: no localStorage entry at all. After mount + save fires,
+      // the Mon–Fri default should be persisted so warnings work across reloads.
       const { result } = renderHook(() => useAppData(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.data.projects).toHaveLength(1);
+        expect(result.current.loading).toBe(false);
       });
 
-      // Trigger a save by changing a different setting (globalWorkDays stays undefined)
+      // Trigger a save — the default globalWorkDays should land in storage
       act(() => {
         result.current.setShowTodayLine(false);
       });
 
       await waitFor(() => {
         const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-        expect(stored.showTodayLine).toBe(false);
+        expect(stored.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
       });
-
-      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.globalWorkDays).toBeUndefined();
     });
   });
 });

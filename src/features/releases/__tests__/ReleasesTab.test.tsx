@@ -399,9 +399,11 @@ describe('ReleasesTab', () => {
     });
   });
 
-  describe('work-week warnings (v15.0)', () => {
-    it('shows no warnings when effectiveWorkDays is undefined', async () => {
-      // No globalWorkDays in seeded data — feature is not configured
+  describe('work-week warnings (v15.0, v16.3 default Mon–Fri)', () => {
+    it('shows warnings by default (Mon–Fri) when globalWorkDays absent from seed (v16.3)', async () => {
+      // No globalWorkDays in seeded data — v16.3 falls back to Mon–Fri default,
+      // so warnings SHOULD appear (this inverts the pre-v16.3 behavior where the
+      // feature was opt-in and silently did nothing until configured).
       seedData({
         projects: [makeProject({ id: 'p1' })],
         releases: [],
@@ -416,7 +418,27 @@ describe('ReleasesTab', () => {
       const dateInputs = document.querySelectorAll('input[type="date"]');
       fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
 
-      // No warning should appear because globalWorkDays is undefined
+      await waitFor(() => {
+        expect(screen.getByText(/Saturday/)).toBeTruthy();
+      });
+    });
+
+    it('suppresses warnings when project override includes all 7 days', async () => {
+      // Opt-out path: set project.workDays to all 7 days — every date becomes a workday.
+      seedData({
+        projects: [makeProject({ id: 'p1', workDays: [0, 1, 2, 3, 4, 5, 6] })],
+        releases: [],
+      });
+
+      renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.queryByText(/No projects yet/)).toBeNull();
+      });
+
+      const dateInputs = document.querySelectorAll('input[type="date"]');
+      fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
+
+      // No warning — Saturday is a workday under this project's override
       expect(screen.queryByText(/Saturday/)).toBeNull();
     });
 

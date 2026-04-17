@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 16.3 (2026-04-16)
+### Work-Week Warnings Everywhere + Mon–Fri Default
+- Default: `globalWorkDays` now initializes to `[1,2,3,4,5]` (Mon–Fri). First-time users and existing users whose stored data omits `globalWorkDays` receive the default automatically on first save. An explicitly-configured work week is preserved untouched
+- Feature: Non-workday warnings now appear on **release list rows** (⚠ icon next to Start, Early, Late, Most Likely) with a hover tooltip
+- Feature: Non-workday warnings now appear on **project list rows** (⚠ next to Finish Date) with a hover tooltip
+- Feature: The **Project Finish Date** form input now shows an amber warning beneath it when the selected date falls outside the effective work week — parity with the release form
+- Feature: **Chart date labels** (Start, Early, Late, Most Likely) render in amber bold when they fall on non-workdays, with an SVG `<title>` tooltip
+- Feature: The **inline chart date editor** shows a non-workday warning beneath the input as you type, so you see the impact of an edit before saving
+- Utility: New `DEFAULT_WORK_DAYS` constant exported from `validation.ts` — single source of truth for the Mon–Fri baseline, used as the initial state in `AppDataContext` and as the "Reset to default" target in Settings
+- UX: Settings → Work Week description mentions the Mon–Fri default for new accounts; removed stale "(not persisted until you change it)" placeholder
+- Threading: `workDays` prop added to `GanttChart` → `ChartReleaseBar`; `warning` prop added to `InlineDateEditor`
+- Tests: 910 tests across 52 test files, all passing (2 test expectations updated for the new default behavior); TypeScript type-check clean (0 errors)
+
 ## Version 16.2 (2026-04-16)
 ### Default Legend Labels Editor + State-Model Refactor
 - Feature: New "Default Legend Labels" section in Settings lets you customize the 5 global chart legend defaults (Solid Bar, Hatched Bar, Project Finish Date, Most Likely Finish, In Progress). Closes the v16.1 UX gap where globals were unreachable once any project existed

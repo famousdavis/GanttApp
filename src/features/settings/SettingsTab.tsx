@@ -12,7 +12,7 @@ import { useStorage } from '../../context/StorageContext';
 import { useAppData } from '../../context/AppDataContext';
 import { isFirebaseAvailable } from '../../lib/firebase';
 import { TOS_VERSION } from '../../lib/version';
-import { sanitizeFirebaseError } from '../../shared/utils/validation';
+import { sanitizeFirebaseError, DEFAULT_WORK_DAYS } from '../../shared/utils/validation';
 import { StorageSection } from './StorageSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
 import { TosConsentModal } from './TosConsentModal';
@@ -167,7 +167,7 @@ export function SettingsTab() {
         colors={colors}
         globalWorkDays={globalWorkDays}
         onChange={setGlobalWorkDays}
-        onReset={() => setGlobalWorkDays(undefined)}
+        onReset={() => setGlobalWorkDays([...DEFAULT_WORK_DAYS])}
       />
 
       <DefaultLegendLabelsSection

@@ -12,7 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useStorage } from '../../context/StorageContext';
 import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
-import { isProjectNameValid } from '../../shared/utils';
+import { isProjectNameValid, getWorkDayWarning, getEffectiveWorkDays } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
@@ -40,7 +40,7 @@ export function ProjectsTab({
   onProjectDragOver,
   onProjectDragEnd
 }: ProjectsTabProps) {
-  const { data, updateData } = useAppData();
+  const { data, updateData, globalWorkDays } = useAppData();
   const { colors } = useTheme();
   const { user } = useAuth();
   const { storage } = useStorage();
@@ -133,6 +133,16 @@ export function ProjectsTab({
   };
 
   const isValid = isProjectNameValid(projectName) && !finishDateError;
+
+  // Work-week warning for the Finish Date field. Uses the project override (if editing
+  // and one is selected) otherwise the global default. Non-blocking — warnings never
+  // prevent save, matching the pattern in ReleaseFormFields.
+  const formEffectiveWorkDays = (projectWorkDays && projectWorkDays.length > 0)
+    ? projectWorkDays
+    : globalWorkDays;
+  const finishDateWarning = projectFinishDate && !finishDateError
+    ? getWorkDayWarning(projectFinishDate, formEffectiveWorkDays)
+    : '';
 
   // Keyboard shortcuts for Projects tab
   const shortcuts = useMemo(() => ({
@@ -245,10 +255,14 @@ export function ProjectsTab({
                 color: colors.text
               }}
             />
-            <div style={{ height: '1rem', marginTop: '0.25rem' }}>
-              {finishDateError && (
+            <div style={{ minHeight: '1rem', marginTop: '0.25rem' }}>
+              {finishDateError ? (
                 <div style={{ color: '#dc3545', fontSize: '0.75rem' }}>
                   {finishDateError}
+                </div>
+              ) : finishDateWarning && (
+                <div style={{ color: '#d97706', fontSize: '0.75rem' }}>
+                  ⚠ {finishDateWarning}
                 </div>
               )}
             </div>
@@ -327,7 +341,12 @@ export function ProjectsTab({
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Add one to get started!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {data.projects.map(project => (
+          {data.projects.map(project => {
+            const projEffectiveWorkDays = getEffectiveWorkDays(project, globalWorkDays);
+            const projFinishWarning = project.finishDate
+              ? getWorkDayWarning(project.finishDate, projEffectiveWorkDays)
+              : '';
+            return (
             <div
               key={project.id}
               draggable
@@ -353,7 +372,13 @@ export function ProjectsTab({
                   <strong style={{ fontSize: '1.1rem', color: colors.text }}>{project.name}</strong>
                   <span style={{ marginLeft: '1rem', color: colors.textMuted, fontSize: '0.9rem' }}>
                     ({data.releases.filter(r => r.projectId === project.id).length} releases
-                    {project.finishDate && `, finish: ${formatDateMDY(project.finishDate)}`}
+                    {project.finishDate && (
+                      <>, finish: {formatDateMDY(project.finishDate)}
+                        {projFinishWarning && (
+                          <span title={projFinishWarning} style={{ color: '#d97706', marginLeft: '0.25rem' }}>⚠</span>
+                        )}
+                      </>
+                    )}
                     {project.workDays && project.workDays.length > 0 && `, custom work week`})
                   </span>
                 </div>
@@ -422,7 +447,8 @@ export function ProjectsTab({
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

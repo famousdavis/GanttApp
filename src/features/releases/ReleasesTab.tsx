@@ -10,7 +10,7 @@ import { ReleaseFormFields } from './ReleaseFormFields';
 import { ReleaseStatusControl } from './ReleaseStatusControl';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, formatDateLocale } from '../../shared/utils';
+import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, getWorkDayWarning, formatDateLocale } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
@@ -158,7 +158,22 @@ export function ReleasesTab({
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No releases yet. Add one to get started!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {currentReleases.map(release => (
+          {currentReleases.map(release => {
+            // Per-row work-day warnings for each displayed date. `formEffectiveWorkDays`
+            // was computed earlier for the Add/Edit form using the currently-selected
+            // project's override; the release list shows releases for that same project,
+            // so reusing it is correct.
+            const rowWarnings = {
+              start: getWorkDayWarning(release.startDate, effectiveWorkDays),
+              early: getWorkDayWarning(release.earlyFinishDate, effectiveWorkDays),
+              late: getWorkDayWarning(release.lateFinishDate, effectiveWorkDays),
+              ml: release.mostLikelyFinishDate
+                ? getWorkDayWarning(release.mostLikelyFinishDate, effectiveWorkDays)
+                : '',
+            };
+            const warnIcon = (msg: string) =>
+              msg ? <span title={msg} style={{ color: '#d97706', marginLeft: '0.25rem' }}>⚠</span> : null;
+            return (
             <div key={release.id}>
               {/* Release row */}
               <div
@@ -186,15 +201,15 @@ export function ReleasesTab({
                       {release.name}
                     </strong>
                     <div style={{ fontSize: '0.9rem', color: colors.textSecondary }}>
-                      <span>Start: {formatDateLocale(release.startDate)}</span>
+                      <span>Start: {formatDateLocale(release.startDate)}{warnIcon(rowWarnings.start)}</span>
                       <span style={{ margin: '0 1rem' }}>|</span>
-                      <span>Early: {formatDateLocale(release.earlyFinishDate)}</span>
+                      <span>Early: {formatDateLocale(release.earlyFinishDate)}{warnIcon(rowWarnings.early)}</span>
                       <span style={{ margin: '0 1rem' }}>|</span>
-                      <span>Late: {formatDateLocale(release.lateFinishDate)}</span>
+                      <span>Late: {formatDateLocale(release.lateFinishDate)}{warnIcon(rowWarnings.late)}</span>
                       {release.mostLikelyFinishDate && (
                         <>
                           <span style={{ margin: '0 1rem' }}>|</span>
-                          <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}</span>
+                          <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}{warnIcon(rowWarnings.ml)}</span>
                         </>
                       )}
                     </div>
@@ -314,7 +329,8 @@ export function ReleasesTab({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

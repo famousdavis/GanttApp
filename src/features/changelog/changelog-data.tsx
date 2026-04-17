@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.3',
+    date: 'April 16, 2026',
+    items: [
+      <><strong>Default</strong> &mdash; The global Work Week now defaults to Monday&ndash;Friday for all new users and for existing users who never configured one. Previously the feature was opt-in and silently did nothing until you picked days in Settings. You can still customize or override per project</>,
+      <><strong>Feature</strong> &mdash; Non-workday warnings now appear everywhere dates are shown: the release list rows, project list rows next to Finish Date, and the Project Finish Date form field &mdash; not just while typing in the release form</>,
+      <><strong>Feature</strong> &mdash; Chart date labels (Start, Early, Late, Most Likely) that fall on non-workdays render in amber bold with a hover tooltip explaining which day of the week the date lands on</>,
+      <><strong>Feature</strong> &mdash; The inline chart date editor shows a non-workday warning beneath the input as you change a date, so you see the impact of your edit before saving</>,
+      <><strong>UX</strong> &mdash; Updated the Settings &rarr; Work Week description to mention that new accounts start with Mon&ndash;Fri. Removed the &ldquo;not persisted until you change it&rdquo; placeholder copy since the default is now always persisted</>,
+      <><strong>Data</strong> &mdash; First-time users get <code>globalWorkDays: [1,2,3,4,5]</code> persisted on first save. Existing users whose stored data omits <code>globalWorkDays</code> also receive the default on next save. Nothing overwrites an explicitly-configured work week</>,
+    ],
+  },
+  {
     version: '16.2',
     date: 'April 16, 2026',
     items: [

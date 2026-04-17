@@ -11,6 +11,7 @@ import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { ProjectLegendLabels } from '../src/shared/types/models';
 import { DEFAULT_LEGEND_LABELS } from '../src/shared/utils/validation';
+import { getEffectiveWorkDays } from '../src/shared/utils/validation';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
@@ -56,6 +57,7 @@ function AppContent() {
     setShowMostLikelyLine,
     showMonths,
     setShowMonths,
+    globalWorkDays,
     updateData
   } = useAppData();
 
@@ -356,6 +358,7 @@ function AppContent() {
               }}
               projectLegendLabels={selectedProject?.legendLabels}
               onClearProjectLabelOverride={handleClearProjectLabelOverride}
+              workDays={getEffectiveWorkDays(selectedProject, globalWorkDays)}
             />
           )}
 

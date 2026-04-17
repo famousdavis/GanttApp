@@ -25,7 +25,7 @@ export function WorkWeekSection({
     <section style={{ marginBottom: '2rem' }}>
       <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#0070f3' }}>Work Week</h3>
       <p style={{ color: colors.textSecondary, marginBottom: '1rem', lineHeight: '1.6' }}>
-        Pick the days of the week you consider workdays. You&apos;ll see a warning when a release date lands outside this set. Individual projects can override this default.
+        Pick the days of the week you consider workdays. You&apos;ll see a warning when a release date lands outside this set. Individual projects can override this default. New accounts start with Monday&ndash;Friday.
       </p>
       <WorkWeekSelector
         value={globalWorkDays}
@@ -33,7 +33,6 @@ export function WorkWeekSection({
         colors={colors}
         allowReset={true}
         onReset={onReset}
-        placeholder="Using the Mon–Fri default (not persisted until you change it)."
       />
     </section>
   );

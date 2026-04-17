@@ -96,6 +96,8 @@ interface GanttChartProps {
   projectLegendLabels?: ProjectLegendLabels;
   /** v16.1: clear a single per-project legend label override (↺ button) */
   onClearProjectLabelOverride?: (key: keyof ProjectLegendLabels) => void;
+  /** v16.3: effective work days (project override → global → undefined). Used to tint non-workday date labels. */
+  workDays?: number[];
 }
 
 export function GanttChart({
@@ -110,6 +112,7 @@ export function GanttChart({
   settings,
   projectLegendLabels,
   onClearProjectLabelOverride,
+  workDays,
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -365,6 +368,7 @@ export function GanttChart({
                 minLabelSpacing={minLabelSpacing}
                 showMostLikelyLine={showMostLikelyLine}
                 mostLikelyLineColor={chartColors.mostLikelyLine}
+                workDays={workDays}
               />
             ))}
           </svg>

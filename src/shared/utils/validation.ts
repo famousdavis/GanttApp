@@ -421,6 +421,13 @@ export function sanitizeExportAttribution(attr: unknown): { name: string; identi
 const WORK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
 /**
+ * v16.3: Mon–Fri is the baseline workweek applied by default when a user has
+ * not explicitly configured one. Used as the initial state in AppDataContext
+ * and as the "Reset to default" target in the Settings work-week selector.
+ */
+export const DEFAULT_WORK_DAYS: readonly number[] = [1, 2, 3, 4, 5];
+
+/**
  * Sanitize an unknown value into a valid work-days array.
  * Accepts only arrays of integers 0..6; dedupes, sorts, and enforces 1..7 length.
  * Returns undefined for anything that can't be normalized.

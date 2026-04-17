@@ -6,7 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAttribution } from '../shared/types';
-import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays } from '../shared/utils';
+import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays, DEFAULT_WORK_DAYS } from '../shared/utils';
 import { useStorage } from './StorageContext';
 import type { CloudGanttStorageService } from '../shared/storage';
 
@@ -106,8 +106,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Export Attribution
   const [exportAttribution, setExportAttribution] = useState<ExportAttribution | undefined>(undefined);
 
-  // Work Week (v15.0)
-  const [globalWorkDays, setGlobalWorkDays] = useState<number[] | undefined>(undefined);
+  // Work Week (v15.0; v16.3 default to Mon–Fri)
+  // Initial value is Mon–Fri so first-time users get non-workday warnings automatically.
+  // The load effect overwrites this with stored data if present.
+  const [globalWorkDays, setGlobalWorkDays] = useState<number[] | undefined>([...DEFAULT_WORK_DAYS]);
 
   // Load data from storage on mount (or when storage service changes)
   useEffect(() => {

@@ -121,8 +121,11 @@ describe('SettingsTab', () => {
     it('renders work week selector with 7 day chips', () => {
       render(<SettingsTab />, { wrapper: FullWrapper });
       const group = screen.getByRole('group', { name: 'Work week selector' });
-      const buttons = group.querySelectorAll('button');
-      expect(buttons).toHaveLength(7);
+      // Filter to only day-toggle buttons (aria-pressed is set on those, not on Reset).
+      // v16.3: the group also contains a "Reset to default" button when a value is set,
+      // which is always the case now that Mon–Fri is the default.
+      const dayButtons = group.querySelectorAll('button[aria-pressed]');
+      expect(dayButtons).toHaveLength(7);
     });
 
     it('renders in both local and cloud modes', () => {
@@ -132,10 +135,10 @@ describe('SettingsTab', () => {
       expect(screen.getByRole('group', { name: 'Work week selector' })).toBeTruthy();
     });
 
-    it('Reset button is hidden when globalWorkDays is undefined', () => {
+    it('Reset button is visible by default since globalWorkDays defaults to Mon–Fri (v16.3)', () => {
       render(<SettingsTab />, { wrapper: FullWrapper });
-      // By default globalWorkDays is undefined — Reset button should not be present
-      expect(screen.queryByText('Reset to default')).toBeNull();
+      // v16.3: globalWorkDays defaults to [1,2,3,4,5] so Reset is always available
+      expect(screen.getByText('Reset to default')).toBeTruthy();
     });
   });
 });

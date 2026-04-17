@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 16.4 (2026-04-17)
+### Project Form Reflects Live Global Work Week + QRG Update
+- Fix: The project form's Work Week selector now reflects the live global setting instead of a hardcoded Mon–Fri baseline when no project override exists. Changing Settings → Work Week (e.g. adding Saturday) now immediately shows as Mon–Sat on the Add Project form, not stale Mon–Fri
+- API: New optional `fallbackDays` prop on `WorkWeekSelector`. Display priority is now `value ?? fallbackDays ?? [1,2,3,4,5]` — project override wins, else the caller-supplied live fallback, else the hardcoded default
+- Wiring: `ProjectsTab` passes `fallbackDays={globalWorkDays}` so the project form's "no override" state always matches current global
+- Docs: Updated `GanttApp_Quick_Reference_Guide.pdf` (repo root + `public/`) to the latest revision. The About tab links to the GitHub raw copy
+- Tests: 4 new `WorkWeekSelector` fallback tests (fallback displayed, fallback preferred over Mon–Fri, value takes precedence, hardcoded fallback when both absent); 914 tests total, all passing
+
 ## Version 16.3 (2026-04-16)
 ### Work-Week Warnings Everywhere + Mon–Fri Default
 - Default: `globalWorkDays` now initializes to `[1,2,3,4,5]` (Mon–Fri). First-time users and existing users whose stored data omits `globalWorkDays` receive the default automatically on first save. An explicitly-configured work week is preserved untouched

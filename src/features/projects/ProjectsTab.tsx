@@ -278,6 +278,7 @@ export function ProjectsTab({
               placeholder="Uses global default"
               allowReset={projectWorkDays !== undefined}
               onReset={() => setProjectWorkDays(undefined)}
+              fallbackDays={globalWorkDays}
             />
           </div>
         </div>

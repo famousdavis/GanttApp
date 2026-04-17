@@ -8,7 +8,7 @@
 import type { ThemeColors } from '../utils/theme';
 
 export interface WorkWeekSelectorProps {
-  /** Currently selected days (0=Sun ... 6=Sat). Undefined = "use default" (displays Mon–Fri visually but parent has not persisted anything). */
+  /** Currently selected days (0=Sun ... 6=Sat). Undefined = "use fallbackDays" (displays the fallback visually but parent has not persisted anything). */
   value: number[] | undefined;
   /** Called with the new array on every toggle. Array is sorted ascending and deduped. Never called with undefined or empty array. */
   onChange: (days: number[]) => void;
@@ -20,6 +20,8 @@ export interface WorkWeekSelectorProps {
   allowReset?: boolean;
   /** Callback invoked when the user clicks the Reset button. Only relevant when allowReset is true. */
   onReset?: () => void;
+  /** v16.4: fallback days to display when `value` is undefined (e.g. a live global setting the parent wants reflected in a project-override selector). Falls through to Mon–Fri only if this is also undefined. */
+  fallbackDays?: number[];
 }
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
@@ -33,9 +35,12 @@ export function WorkWeekSelector({
   placeholder,
   allowReset = false,
   onReset,
+  fallbackDays,
 }: WorkWeekSelectorProps) {
-  // Visual fallback when the parent has not persisted anything yet
-  const effectiveDays: number[] = value ?? [...DEFAULT_DAYS];
+  // Visual fallback when the parent has not persisted anything yet.
+  // Prefer the caller-supplied fallback (e.g. live global work days) over the
+  // hardcoded Mon–Fri so the selector reflects the actual current baseline.
+  const effectiveDays: number[] = value ?? fallbackDays ?? [...DEFAULT_DAYS];
 
   const toggleDay = (dayIndex: number) => {
     const isSelected = effectiveDays.includes(dayIndex);

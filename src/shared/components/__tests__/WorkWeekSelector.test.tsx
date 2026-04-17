@@ -140,4 +140,45 @@ describe('WorkWeekSelector', () => {
     fireEvent.click(screen.getByLabelText('Sunday'));
     expect(onChange).toHaveBeenCalledWith([0, 1, 5]);
   });
+
+  describe('fallbackDays (v16.4)', () => {
+    it('displays fallbackDays when value is undefined', () => {
+      // Simulates a project-override selector: user set globalWorkDays to Mon–Sat,
+      // project has no override (value undefined) — selector should reflect the live global.
+      render(
+        <WorkWeekSelector value={undefined} onChange={vi.fn()} colors={colors} fallbackDays={[1, 2, 3, 4, 5, 6]} />
+      );
+      expect(screen.getByLabelText('Saturday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Sunday').getAttribute('aria-pressed')).toBe('false');
+      expect(screen.getByLabelText('Monday').getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('prefers fallbackDays over hardcoded Mon–Fri when value is undefined', () => {
+      // User globally configured Sun–Thu (e.g. Middle East work week). Project override unset.
+      render(
+        <WorkWeekSelector value={undefined} onChange={vi.fn()} colors={colors} fallbackDays={[0, 1, 2, 3, 4]} />
+      );
+      expect(screen.getByLabelText('Sunday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Thursday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Friday').getAttribute('aria-pressed')).toBe('false');
+      expect(screen.getByLabelText('Saturday').getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('value takes precedence over fallbackDays', () => {
+      // Project has its own override — it should win, regardless of fallback
+      render(
+        <WorkWeekSelector value={[0, 6]} onChange={vi.fn()} colors={colors} fallbackDays={[1, 2, 3, 4, 5]} />
+      );
+      expect(screen.getByLabelText('Sunday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Saturday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Monday').getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('falls back to hardcoded Mon–Fri when both value and fallbackDays are undefined', () => {
+      render(<WorkWeekSelector value={undefined} onChange={vi.fn()} colors={colors} />);
+      expect(screen.getByLabelText('Monday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Friday').getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByLabelText('Saturday').getAttribute('aria-pressed')).toBe('false');
+    });
+  });
 });

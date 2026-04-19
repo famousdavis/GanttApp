@@ -60,6 +60,12 @@ export interface CloudGanttStorageService extends GanttStorageService {
   getProjectMembers(projectId: string): Promise<{ uid: string; role: ProjectRole; email?: string }[]>;
   createUserProfile(displayName: string, email: string): Promise<void>;
   flushPendingWrites(): Promise<void>;
+  /**
+   * Cancel pending debounced save without executing. Pending edits discarded.
+   * Used by sign-out and cloud→local switch when we want to abandon in-flight
+   * writes rather than commit them with about-to-be-revoked credentials.
+   */
+  cancelPendingSaves(): void;
   dispose(): void;
 }
 
@@ -310,6 +316,20 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     }
   }
 
+  /**
+   * Cancel any pending debounced save without executing it. Pending edits
+   * are intentionally discarded. Idempotent and safe to call after dispose().
+   * Used by sign-out and cloud→local switch when we want to abandon in-flight
+   * writes rather than commit them with about-to-be-revoked credentials.
+   */
+  cancelPendingSaves(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    this.pendingData = null;
+  }
+
   dispose(): void {
     this.disposed = true;
 
@@ -345,7 +365,9 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       );
     } catch (error) {
       console.error('Failed to save cloud data:', sanitizeFirebaseError(error));
-      if (!this.pendingData) {
+      // If disposed, do not re-queue — the caller has moved on (e.g., sign-out
+      // or cloud→local switch) and this data is intentionally dropped.
+      if (!this.disposed && !this.pendingData) {
         this.pendingData = data;
       }
     }

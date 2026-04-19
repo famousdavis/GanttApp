@@ -24,6 +24,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { sanitizeFirebaseError } from '../shared/utils/validation';
+import { runSignOutCleanup } from './signOutCleanupRegistry';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
@@ -132,9 +133,13 @@ async function handleTosResolution(firebaseUser: FirebaseUser): Promise<boolean>
   const writePending = localStorage.getItem(TOS_WRITE_PENDING_KEY);
 
   if (writePending === 'true') {
-    // Branch A: Fresh consent — write acceptance to Firestore
-    localStorage.removeItem(TOS_WRITE_PENDING_KEY);
-
+    // Branch A: Fresh consent — write acceptance to Firestore.
+    // v16.6 (TOS-WRITE-ORPHAN fix): remove TOS_WRITE_PENDING_KEY only AFTER
+    // the Firestore write succeeds. If the write fails (network, transient
+    // Firestore error), leave the pending flag set so the next sign-in
+    // retries Branch A. Previously the flag was cleared before the write,
+    // which orphaned local "accepted" state from the missing Firestore
+    // record across SPERT Suite apps.
     try {
       const userRef = doc(db!, `users/${firebaseUser.uid}`);
       const existingDoc = await getDoc(userRef);
@@ -163,13 +168,15 @@ async function handleTosResolution(firebaseUser: FirebaseUser): Promise<boolean>
         // Case (c): Doc exists, version matches — skip write
       }
 
-      // Cache acceptance locally
+      // Success path: clear pending flag AND cache acceptance.
+      localStorage.removeItem(TOS_WRITE_PENDING_KEY);
       localStorage.setItem(TOS_ACCEPTED_KEY, TOS_VERSION);
     } catch (err) {
-      // Firestore write failed — allow through, log error
-      console.error('[AuthContext] ToS Firestore write failed:', err);
-      // Still cache locally since user accepted in the modal
-      localStorage.setItem(TOS_ACCEPTED_KEY, TOS_VERSION);
+      // Firestore write failed — keep TOS_WRITE_PENDING_KEY set so next
+      // sign-in retries Branch A. Do NOT set TOS_ACCEPTED_KEY (would cause
+      // subsequent sign-ins to skip Branch A and skip the retry). Allow
+      // the user through — the app still functions locally.
+      console.error('[AuthContext] ToS Firestore write failed, will retry on next sign-in:', err);
     }
 
     return false; // User was not signed out
@@ -199,7 +206,14 @@ async function handleTosResolution(firebaseUser: FirebaseUser): Promise<boolean>
 
     // Document missing OR version differs — sign out
     console.warn('[AuthContext] ToS version mismatch — signing user out');
-    await firebaseSignOut(auth!);
+    // v16.6: route through the centralized cleanup helper registered by
+    // StorageContext. If the registry is empty (StorageProvider not yet
+    // mounted — early boot edge case), fall back to firebaseSignOut so
+    // the user is still signed out.
+    const cleanup = await runSignOutCleanup();
+    if (!cleanup.wasRegistered && auth) {
+      await firebaseSignOut(auth);
+    }
     localStorage.removeItem(TOS_ACCEPTED_KEY);
     return true; // User was signed out
 

@@ -462,6 +462,12 @@ describe('sanitizeFirebaseError', () => {
     expect(sanitizeFirebaseError(err)).toBe('Sign-in was cancelled.');
   });
 
+  // v16.6 D1: concurrent sign-in popup collision
+  it('maps auth/cancelled-popup-request to friendly message', () => {
+    const err = Object.assign(new Error('This operation has been cancelled due to another conflicting popup being opened.'), { code: 'auth/cancelled-popup-request' });
+    expect(sanitizeFirebaseError(err)).toBe('Another sign-in is already in progress. Please complete or cancel it first.');
+  });
+
   it('maps unavailable to friendly message', () => {
     const err = Object.assign(new Error('The service is currently unavailable'), { code: 'unavailable' });
     expect(sanitizeFirebaseError(err)).toBe('Service temporarily unavailable. Please try again later.');

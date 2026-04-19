@@ -24,13 +24,16 @@ const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
 
 export function SettingsTab() {
   const { colors } = useTheme();
-  const { user, isAuthenticated, signInWithGoogle, signInWithMicrosoft, signOut, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, signInWithGoogle, signInWithMicrosoft, loading: authLoading } = useAuth();
   const {
     storage, mode, switchMode, isSwitching, switchError,
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
+    performSignOutWithCleanup,
+    needsCloudToLocalPrompt, confirmKeepLocalCopy, confirmDiscardCloudData,
   } = useStorage();
   const {
+    data,
     exportAttribution, setExportAttribution,
     globalWorkDays, setGlobalWorkDays,
     solidBarLabel, setSolidBarLabel,
@@ -109,11 +112,10 @@ export function SettingsTab() {
   const handleSignOut = async () => {
     setAuthError(null);
     try {
-      // v12.0: switchMode('local') no longer downloads data — just flushes and disposes
-      if (mode === 'cloud') {
-        await switchMode('local');
-      }
-      await signOut();
+      // v16.6: centralized helper handles cancelPendingSaves, clearAllData,
+      // dispose, mode reset, storage swap, and firebaseSignOut in the
+      // correct order.
+      await performSignOutWithCleanup();
     } catch (error) {
       setAuthError(sanitizeFirebaseError(error));
     }
@@ -121,7 +123,9 @@ export function SettingsTab() {
 
   const handleModeChange = async (newMode: 'local' | 'cloud') => {
     if (newMode === mode) return;
-    await switchMode(newMode);
+    // v16.6 (UX-2): pass in-memory project count so switchMode can decide
+    // whether to fire the Keep/Discard prompt on cloud→local.
+    await switchMode(newMode, data.projects.length);
   };
 
   return (
@@ -155,6 +159,11 @@ export function SettingsTab() {
         onConfirmUploadPrompt={confirmUploadPrompt}
         onCancelUploadPrompt={cancelUploadPrompt}
         storage={storage}
+        localProjectCount={data.projects.length}
+        currentAppData={data}
+        needsCloudToLocalPrompt={needsCloudToLocalPrompt}
+        onConfirmKeepLocalCopy={confirmKeepLocalCopy}
+        onConfirmDiscardCloudData={confirmDiscardCloudData}
       />
 
       <ExportAttributionSection

@@ -225,4 +225,79 @@ describe('StorageContext', () => {
 
     expect(result.current.switchError).toBeNull();
   });
+
+  // v16.6 — centralized sign-out helper
+  describe('performSignOutWithCleanup', () => {
+    it('exposes performSignOutWithCleanup on the context', () => {
+      const { result } = renderHook(() => useStorage(), { wrapper });
+      expect(typeof result.current.performSignOutWithCleanup).toBe('function');
+    });
+
+    it('resets STORAGE_MODE_KEY to "local" even when starting in local mode', async () => {
+      // Seed with cloud to prove the helper forces a reset
+      localStorage.setItem('ganttapp-storage-mode', 'cloud');
+      const { result } = renderHook(() => useStorage(), { wrapper });
+
+      await act(async () => {
+        await result.current.performSignOutWithCleanup();
+      });
+
+      expect(localStorage.getItem('ganttapp-storage-mode')).toBe('local');
+    });
+
+    it('removes the dead HAS_UPLOADED_KEY as one-time migration', async () => {
+      localStorage.setItem('ganttapp-has-uploaded-to-cloud', 'true');
+      const { result } = renderHook(() => useStorage(), { wrapper });
+
+      await act(async () => {
+        await result.current.performSignOutWithCleanup();
+      });
+
+      expect(localStorage.getItem('ganttapp-has-uploaded-to-cloud')).toBeNull();
+    });
+
+    it('clears transition state (uploadResult, needsUploadPrompt)', async () => {
+      const { result } = renderHook(() => useStorage(), { wrapper });
+
+      await act(async () => {
+        await result.current.performSignOutWithCleanup();
+      });
+
+      expect(result.current.uploadResult).toBeNull();
+      expect(result.current.needsUploadPrompt).toBeNull();
+    });
+
+    it('swaps to a new local service instance', async () => {
+      const { result } = renderHook(() => useStorage(), { wrapper });
+      const before = result.current.storage;
+
+      await act(async () => {
+        await result.current.performSignOutWithCleanup();
+      });
+
+      expect(result.current.storage).not.toBe(before);
+      expect(result.current.storage.mode).toBe('local');
+    });
+
+    it('is safe to call when auth is null (local-only mode)', async () => {
+      const { result } = renderHook(() => useStorage(), { wrapper });
+
+      await expect(
+        result.current.performSignOutWithCleanup()
+      ).resolves.toBeUndefined();
+    });
+
+    it('registry invocation (runSignOutCleanup) performs the same cleanup', async () => {
+      // This proves StorageProvider registered its helper with the module-level
+      // registry so AuthContext's ToS-failure path can reach it.
+      const { runSignOutCleanup } = await import('../signOutCleanupRegistry');
+      localStorage.setItem('ganttapp-storage-mode', 'cloud');
+      renderHook(() => useStorage(), { wrapper });
+
+      const res = await runSignOutCleanup();
+
+      expect(res.wasRegistered).toBe(true);
+      expect(localStorage.getItem('ganttapp-storage-mode')).toBe('local');
+    });
+  });
 });

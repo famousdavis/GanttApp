@@ -454,4 +454,83 @@ describe('AppDataContext', () => {
       });
     });
   });
+
+  describe('clearAllData (v16.6)', () => {
+    it('resets all exposed fields to initial values', async () => {
+      const seeded: AppData = {
+        projects: [{ id: 'p1', name: 'Project 1' }],
+        releases: [{
+          id: 'r1', projectId: 'p1', name: 'R1',
+          startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        }],
+        preparedBy: 'Alice',
+        showPreparedBy: true,
+        exportAttribution: { name: 'Alice', identifier: 'team-42' },
+        legendLabels: { solidBar: 'Custom Solid', hatchedBar: 'Custom Hatched' },
+        showMostLikelyLine: true,
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(seeded));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // Pre-check: loaded values are present
+      expect(result.current.data.projects.length).toBe(1);
+      expect(result.current.preparedBy).toBe('Alice');
+      expect(result.current.solidBarLabel).toBe('Custom Solid');
+      expect(result.current.showMostLikelyLine).toBe(true);
+      expect(result.current.exportAttribution).toEqual({ name: 'Alice', identifier: 'team-42' });
+
+      act(() => {
+        result.current.clearAllData();
+      });
+
+      // All fields back to initial values
+      expect(result.current.data).toEqual({ projects: [], releases: [] });
+      expect(result.current.preparedBy).toBe('');
+      expect(result.current.showPreparedBy).toBe(false);
+      expect(result.current.solidBarLabel).toBe('');
+      expect(result.current.hatchedBarLabel).toBe('');
+      expect(result.current.finishDateLabel).toBe('');
+      expect(result.current.mostLikelyLineLabel).toBe('');
+      expect(result.current.inProgressLabel).toBe('');
+      expect(result.current.showTodayLine).toBe(true);
+      expect(result.current.showFinishDateLine).toBe(true);
+      expect(result.current.showMostLikelyLine).toBe(false);
+      expect(result.current.showMonths).toBe(false);
+      expect(result.current.showColorSettings).toBe(false);
+      expect(result.current.exportAttribution).toBeUndefined();
+      expect(result.current.globalWorkDays).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('does NOT write cleared defaults to localStorage (save effect suppressed)', async () => {
+      const seeded: AppData = {
+        projects: [{ id: 'p1', name: 'Project 1' }],
+        releases: [],
+        preparedBy: 'Alice',
+      };
+      localStorage.setItem('ganttAppData', JSON.stringify(seeded));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.clearAllData();
+      });
+
+      // localStorage still has Alice's seeded data — save effect did not overwrite it
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toEqual([{ id: 'p1', name: 'Project 1' }]);
+      expect(stored.preparedBy).toBe('Alice');
+    });
+
+    // Note: save-effect re-enable after clearAllData requires a subsequent
+    // storage swap (which triggers the load effect's finally block that
+    // lowers isResettingRef). That flow is exercised end-to-end by PHASE 1
+    // integration tests (StorageContext.test.tsx performSignOutWithCleanup).
+    // Unit-testing it here would require manually swapping the storage
+    // instance through the StorageContext wrapper, which isn't worth the
+    // scaffold cost.
+  });
 });

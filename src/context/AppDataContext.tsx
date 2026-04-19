@@ -4,11 +4,12 @@
 
 // Global application data context
 
-import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
 import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAttribution } from '../shared/types';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays, DEFAULT_WORK_DAYS } from '../shared/utils';
 import { useStorage } from './StorageContext';
 import type { CloudGanttStorageService } from '../shared/storage';
+import { registerAppDataReset } from './appDataResetRegistry';
 
 interface AppDataContextType {
   data: AppData;
@@ -61,6 +62,11 @@ interface AppDataContextType {
   // Work Week (v15.0)
   globalWorkDays: number[] | undefined;
   setGlobalWorkDays: (days: number[] | undefined) => void;
+
+  // v16.6 — reset all in-memory state to initial values. Used by the
+  // centralized sign-out helper. Does NOT write to localStorage; the save
+  // effect is suppressed during the reset tick via `isResettingRef`.
+  clearAllData: () => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -73,6 +79,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Suppress save-on-load: the save effect fires when loading becomes false,
   // which would write the just-loaded data back. This ref prevents that.
   const isInitialLoadRef = useRef(true);
+
+  // v16.6 — suppress save effect while clearAllData() is clearing state.
+  // Set true at the start of clearAllData; cleared at the end of the load
+  // effect that runs on the subsequent storage swap. This ties the window
+  // to "between clearAllData() and the next load-effect settlement" so the
+  // cleared defaults don't get written back to localStorage on sign-out.
+  const isResettingRef = useRef(false);
 
   // Track current data for the data-loss guard (closures in async effects see stale state)
   const dataRef = useRef(data);
@@ -206,6 +219,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           // Allow save effect to run on subsequent changes (not the initial hydration)
           isInitialLoadRef.current = false;
+          // v16.6 — end the reset suppression window; save effect re-enables
+          // for subsequent user edits.
+          isResettingRef.current = false;
         }
       }
     };
@@ -216,7 +232,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
-    if (!loading && !isInitialLoadRef.current) {
+    if (!loading && !isInitialLoadRef.current && !isResettingRef.current) {
       // v16.2: conditionally spread only non-empty label values into the payload,
       // then strip the entire legendLabels field when no customizations exist.
       // Matches the workDays / globalWorkDays / project.legendLabels pattern.
@@ -291,6 +307,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     storage.saveAppData(newData);
   };
 
+  // v16.6 — reset every exposed field to its initial value. The save effect
+  // is suppressed for the duration of this call + the next load effect via
+  // isResettingRef, so the cleared defaults are NOT written to localStorage.
+  // The centralized sign-out helper in StorageContext invokes this via the
+  // appDataResetRegistry (provider-order bridge).
+  const clearAllData = useCallback(() => {
+    isResettingRef.current = true;
+    setData({ projects: [], releases: [] });
+    setChartColors(DEFAULT_CHART_COLORS);
+    setActivePreset(undefined);
+    setDisplaySettings(DEFAULT_DISPLAY_SETTINGS);
+    setSolidBarLabel('');
+    setHatchedBarLabel('');
+    setFinishDateLabel('');
+    setMostLikelyLineLabel('');
+    setInProgressLabel('');
+    setShowTodayLine(true);
+    setShowFinishDateLine(true);
+    setShowMostLikelyLine(false);
+    setShowMonths(false);
+    setShowColorSettings(false);
+    setPreparedBy('');
+    setShowPreparedBy(false);
+    setExportAttribution(undefined);
+    setGlobalWorkDays([...DEFAULT_WORK_DAYS]);
+  }, []);
+
+  // Register clearAllData in the module-level registry so StorageContext's
+  // performSignOutWithCleanup can invoke it despite the provider ordering
+  // (AppDataProvider is inside StorageProvider — no useAppData from there).
+  useEffect(() => {
+    const deregister = registerAppDataReset(clearAllData);
+    return deregister;
+  }, [clearAllData]);
+
   const value = {
     data,
     setData,
@@ -329,7 +380,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     exportAttribution,
     setExportAttribution,
     globalWorkDays,
-    setGlobalWorkDays
+    setGlobalWorkDays,
+    clearAllData
   };
 
   return <AppDataContext value={value}>{children}</AppDataContext>;

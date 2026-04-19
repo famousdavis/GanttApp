@@ -29,6 +29,7 @@ const mockStorage: GanttStorageService = {
   addSnapshot: vi.fn(),
   deleteSnapshot: vi.fn(),
   deleteSnapshotsForProject: vi.fn(),
+  cancelPendingSaves: vi.fn(),
 };
 
 function renderSection(overrides: Record<string, unknown> = {}) {

@@ -95,4 +95,10 @@ export class LocalGanttStorageService implements GanttStorageService {
     await this.saveSnapshots(filtered);
     return filtered;
   }
+
+  // No-op: local mode has no debounce. Present to satisfy the interface
+  // so consumers can call cancelPendingSaves() without mode-checking.
+  cancelPendingSaves(): void {
+    // intentionally empty
+  }
 }

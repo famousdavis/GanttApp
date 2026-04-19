@@ -193,6 +193,47 @@ describe('FirestoreGanttStorageService', () => {
     });
   });
 
+  describe('cancelPendingSaves', () => {
+    it('clears the debounce timer before it fires (no batch commit)', async () => {
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.loadAppData();
+
+      await service.saveAppData({ projects: [], releases: [] });
+      expect(batchMock.commit).not.toHaveBeenCalled();
+
+      service.cancelPendingSaves();
+
+      // Advance past the 500ms debounce — nothing should fire.
+      await vi.advanceTimersByTimeAsync(600);
+      expect(batchMock.commit).not.toHaveBeenCalled();
+    });
+
+    it('nulls pendingData so a subsequent flush is a no-op', async () => {
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.loadAppData();
+
+      await service.saveAppData({ projects: [], releases: [] });
+      service.cancelPendingSaves();
+
+      // A follow-up flush should not commit anything.
+      await service.flushPendingWrites();
+      expect(batchMock.commit).not.toHaveBeenCalled();
+    });
+
+    it('is safe to call after dispose() — does not throw', () => {
+      service.dispose();
+      expect(() => service.cancelPendingSaves()).not.toThrow();
+    });
+
+    it('is idempotent — repeated calls do not throw', () => {
+      service.cancelPendingSaves();
+      service.cancelPendingSaves();
+      expect(() => service.cancelPendingSaves()).not.toThrow();
+    });
+  });
+
   describe('subscribeToProject', () => {
     it('sets up onSnapshot listener and returns unsubscribe', () => {
       const unsubFn = vi.fn();

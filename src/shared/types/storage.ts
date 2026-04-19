@@ -58,4 +58,13 @@ export interface GanttStorageService {
 
   /** Delete all snapshots for a project. Returns updated list. */
   deleteSnapshotsForProject(projectId: string): Promise<Snapshot[]>;
+
+  /**
+   * Cancel any pending debounced save without executing it. Pending edits
+   * are intentionally discarded. Idempotent and safe to call after dispose.
+   * Local mode is a no-op (no debounce). Cloud mode clears the debounce
+   * timer and nulls pendingData. Used by the centralized sign-out helper
+   * to discard in-flight cloud writes at sign-out (discard-on-signout UX).
+   */
+  cancelPendingSaves(): void;
 }

@@ -52,6 +52,12 @@ function renderSection(overrides: Record<string, unknown> = {}) {
     onConfirmUploadPrompt: vi.fn(),
     onCancelUploadPrompt: vi.fn(),
     storage: mockStorage,
+    // v16.6 (C3 + UX-2)
+    localProjectCount: 0,
+    currentAppData: { projects: [], releases: [] },
+    needsCloudToLocalPrompt: null,
+    onConfirmKeepLocalCopy: vi.fn(),
+    onConfirmDiscardCloudData: vi.fn(),
   };
   const props = { ...defaultProps, ...overrides };
   return render(<StorageSection {...props} />);
@@ -108,11 +114,9 @@ describe('StorageSection', () => {
 
   // === Upload confirmation (radio-click flow) ===
 
-  it('shows upload confirmation when clicking Cloud radio with local data', () => {
-    // Simulate local data in localStorage
-    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
-
-    renderSection({ user: mockUser, isAuthenticated: true });
+  it('shows upload confirmation when clicking Cloud radio with in-memory projects (v16.6 C3)', () => {
+    // v16.6 C3: project count comes from the localProjectCount prop, not localStorage
+    renderSection({ user: mockUser, isAuthenticated: true, localProjectCount: 1 });
     const radios = screen.getAllByRole('radio');
     const cloudRadio = radios.find(r => (r as HTMLInputElement).value === 'cloud') as HTMLInputElement;
 
@@ -120,6 +124,23 @@ describe('StorageSection', () => {
 
     expect(screen.getByText('Upload to Cloud')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('does NOT show upload confirmation when localStorage has data but localProjectCount is 0 (v16.6 C3)', () => {
+    // Regression: after sign-out, localStorage may still hold user A's data
+    // but in-memory is cleared. The prompt must NOT fire.
+    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
+    const onModeChange = vi.fn();
+
+    renderSection({ user: mockUser, isAuthenticated: true, localProjectCount: 0, onModeChange });
+    const radios = screen.getAllByRole('radio');
+    const cloudRadio = radios.find(r => (r as HTMLInputElement).value === 'cloud') as HTMLInputElement;
+
+    fireEvent.click(cloudRadio);
+
+    // No dialog; goes straight to switchMode
+    expect(screen.queryByText('Upload to Cloud')).not.toBeInTheDocument();
+    expect(onModeChange).toHaveBeenCalledWith('cloud');
   });
 
   it('calls onModeChange when clicking Cloud radio with no local data', () => {
@@ -135,10 +156,9 @@ describe('StorageSection', () => {
   });
 
   it('calls onModeChange when Upload to Cloud is clicked in upload confirmation', async () => {
-    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
     const onModeChange = vi.fn();
 
-    renderSection({ user: mockUser, isAuthenticated: true, onModeChange });
+    renderSection({ user: mockUser, isAuthenticated: true, onModeChange, localProjectCount: 1 });
 
     // Click Cloud radio to show confirmation
     const radios = screen.getAllByRole('radio');
@@ -154,10 +174,9 @@ describe('StorageSection', () => {
   });
 
   it('dismisses dialog and stays in local mode when Cancel is clicked (v12.3 fix)', () => {
-    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
     const onModeChange = vi.fn();
 
-    renderSection({ user: mockUser, isAuthenticated: true, onModeChange });
+    renderSection({ user: mockUser, isAuthenticated: true, onModeChange, localProjectCount: 1 });
 
     // Click Cloud radio to show confirmation
     const radios = screen.getAllByRole('radio');
@@ -331,5 +350,54 @@ describe('StorageSection', () => {
   it('shows auth loading message when authLoading is true', () => {
     renderSection({ authLoading: true, isFirebaseAvailable: true });
     expect(screen.getByText('Loading authentication...')).toBeInTheDocument();
+  });
+
+  // v16.6 UX-2: Cloud→Local keep-or-discard prompt
+  describe('cloud→local keep-or-discard prompt (UX-2)', () => {
+    it('does not render dialog when needsCloudToLocalPrompt is null', () => {
+      renderSection({ needsCloudToLocalPrompt: null });
+      expect(screen.queryByText('Keep Local Copy')).not.toBeInTheDocument();
+      expect(screen.queryByText(/cloud project/)).not.toBeInTheDocument();
+    });
+
+    it('renders the dialog with project count when needsCloudToLocalPrompt is set', () => {
+      renderSection({ needsCloudToLocalPrompt: { projectCount: 2 } });
+      expect(screen.getByText(/Keep a local copy of your/)).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText('Keep Local Copy')).toBeInTheDocument();
+      expect(screen.getByText('Discard')).toBeInTheDocument();
+    });
+
+    it('calls onConfirmKeepLocalCopy with currentAppData when Keep Local Copy is clicked', async () => {
+      const onConfirmKeepLocalCopy = vi.fn().mockResolvedValue(undefined);
+      const currentAppData = { projects: [{ id: 'p1', name: 'P1' }], releases: [] };
+
+      renderSection({
+        needsCloudToLocalPrompt: { projectCount: 1 },
+        currentAppData,
+        onConfirmKeepLocalCopy,
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Keep Local Copy'));
+      });
+
+      expect(onConfirmKeepLocalCopy).toHaveBeenCalledWith(currentAppData);
+    });
+
+    it('calls onConfirmDiscardCloudData when Discard is clicked', async () => {
+      const onConfirmDiscardCloudData = vi.fn().mockResolvedValue(undefined);
+
+      renderSection({
+        needsCloudToLocalPrompt: { projectCount: 3 },
+        onConfirmDiscardCloudData,
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Discard'));
+      });
+
+      expect(onConfirmDiscardCloudData).toHaveBeenCalled();
+    });
   });
 });

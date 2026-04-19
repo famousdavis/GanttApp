@@ -9,6 +9,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { signOut as firebaseSignOut } from 'firebase/auth';
+import type { AppData } from '../shared/types/app';
 import type { GanttStorageService, StorageMode } from '../shared/types/storage';
 import { LocalGanttStorageService } from '../shared/storage/local-gantt-storage-service';
 import { FirestoreGanttStorageServiceImpl } from '../shared/storage/firestore-gantt-storage-service';
@@ -31,7 +32,7 @@ export interface UploadResult {
 interface StorageContextType {
   storage: GanttStorageService;
   mode: StorageMode;
-  switchMode: (mode: StorageMode) => Promise<UploadResult | void>;
+  switchMode: (mode: StorageMode, inMemoryProjectCount?: number) => Promise<UploadResult | void>;
   isSwitching: boolean;
   switchError: string | null;
   uploadResult: UploadResult | null;
@@ -47,6 +48,25 @@ interface StorageContextType {
    * then signs out of Firebase. Zero arguments (ARCH-2).
    */
   performSignOutWithCleanup: () => Promise<void>;
+
+  /**
+   * v16.6 (UX-2) — cloud→local transition prompt. When the user clicks
+   * Local while signed in with in-memory cloud projects, switchMode sets
+   * this instead of swapping immediately. The caller (StorageSection)
+   * renders a dialog offering "Keep Local Copy" or "Discard".
+   */
+  needsCloudToLocalPrompt: { projectCount: number } | null;
+  /**
+   * v16.6 — "Keep Local Copy" handler. Takes the current AppData snapshot
+   * from the caller (ARCH-1 — no snapshot registry), writes it to a new
+   * LocalGanttStorageService, then disposes the cloud service and swaps.
+   */
+  confirmKeepLocalCopy: (currentAppData: AppData) => Promise<void>;
+  /**
+   * v16.6 — "Discard" handler. Disposes the cloud service and swaps to a
+   * fresh LocalGanttStorageService without persisting cloud data.
+   */
+  confirmDiscardCloudData: () => Promise<void>;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -63,6 +83,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [needsUploadPrompt, setNeedsUploadPrompt] = useState<{ projectCount: number } | null>(null);
+  // v16.6 (UX-2): cloud→local keep-or-discard prompt.
+  const [needsCloudToLocalPrompt, setNeedsCloudToLocalPrompt] = useState<{ projectCount: number } | null>(null);
   const restoredRef = useRef(false);
 
   const clearUploadResult = useCallback(() => setUploadResult(null), []);
@@ -204,7 +226,10 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     return deregister;
   }, [performSignOutWithCleanup]);
 
-  const switchMode = useCallback(async (newMode: StorageMode): Promise<UploadResult | void> => {
+  const switchMode = useCallback(async (
+    newMode: StorageMode,
+    inMemoryProjectCount?: number
+  ): Promise<UploadResult | void> => {
     setIsSwitching(true);
     setSwitchError(null);
 
@@ -225,11 +250,21 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         return { uploaded: result.uploaded, skipped: result.skipped };
 
       } else {
-        // Switch to local — no data download (cloud is source of truth, v12.0)
+        // v16.6 (UX-2): cloud → local with in-memory projects → prompt.
+        // Don't dispose the cloud service yet — the Keep-Local-Copy branch
+        // needs it alive so it can call cancelPendingSaves + dispose AFTER
+        // the snapshot is written to localStorage.
+        if (storage.mode === 'cloud' && (inMemoryProjectCount ?? 0) > 0) {
+          setNeedsCloudToLocalPrompt({ projectCount: inMemoryProjectCount as number });
+          setIsSwitching(false);
+          return;
+        }
+
+        // No projects to preserve (or already local). Use sign-out-style
+        // cleanup semantics: cancel pending (v16.6) instead of flushing.
         if (storage.mode === 'cloud') {
-          // Flush pending writes and dispose cloud service
           const cloudService = storage as CloudGanttStorageService;
-          await cloudService.flushPendingWrites();
+          cloudService.cancelPendingSaves();
           cloudService.dispose();
         }
 
@@ -246,6 +281,60 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
   }, [storage, user]);
 
+  // v16.6 (UX-2): Keep a local copy of in-memory cloud projects, then swap.
+  // currentAppData is passed by the caller (SettingsTab/StorageSection via
+  // useAppData()) — no snapshot registry (ARCH-1).
+  const confirmKeepLocalCopy = useCallback(async (currentAppData: AppData): Promise<void> => {
+    const cloudService = storage as CloudGanttStorageService;
+
+    // Step 1: write the current cloud snapshot to a fresh local service.
+    // Do this BEFORE cancel/dispose so we never lose the projects to an
+    // error-path short-circuit.
+    const localService = new LocalGanttStorageService();
+    await localService.saveAppData(currentAppData);
+
+    // Step 2: cancel pending cloud writes (consistent with sign-out semantics).
+    if (storage.mode === 'cloud') {
+      cloudService.cancelPendingSaves();
+    }
+
+    // Step 3: dispose the cloud service.
+    if (storage.mode === 'cloud') {
+      cloudService.dispose();
+    }
+
+    // Step 4: clear in-memory state (save effect suppressed via isResettingRef).
+    runAppDataReset();
+
+    // Step 5: swap to the already-populated local service. The [storage]
+    // load effect will read the just-written localStorage data back into
+    // AppDataContext state.
+    setStorage(localService);
+
+    // Step 6: persist mode + clear transition state.
+    localStorage.setItem(STORAGE_MODE_KEY, 'local');
+    setNeedsCloudToLocalPrompt(null);
+    setIsSwitching(false);
+  }, [storage]);
+
+  // v16.6 (UX-2): Discard in-memory cloud data. Does not write to
+  // localStorage. The new local service loads whatever is already on disk
+  // (possibly stale pre-cloud data, possibly empty).
+  const confirmDiscardCloudData = useCallback(async (): Promise<void> => {
+    const cloudService = storage as CloudGanttStorageService;
+
+    if (storage.mode === 'cloud') {
+      cloudService.cancelPendingSaves();
+      cloudService.dispose();
+    }
+
+    runAppDataReset();
+    setStorage(new LocalGanttStorageService());
+    localStorage.setItem(STORAGE_MODE_KEY, 'local');
+    setNeedsCloudToLocalPrompt(null);
+    setIsSwitching(false);
+  }, [storage]);
+
   return (
     <StorageContext value={{
       storage,
@@ -259,6 +348,9 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       confirmUploadPrompt,
       cancelUploadPrompt,
       performSignOutWithCleanup,
+      needsCloudToLocalPrompt,
+      confirmKeepLocalCopy,
+      confirmDiscardCloudData,
     }}>
       {children}
     </StorageContext>

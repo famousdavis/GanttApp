@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
+import type { AppData } from '../../shared/types/app';
 import type { StorageMode } from '../../shared/types/storage';
 import type { ThemeColors } from '../../shared/utils/theme';
 import type { UploadResult } from '../../context/StorageContext';
@@ -42,6 +43,16 @@ interface StorageSectionProps {
   onCancelUploadPrompt: () => void;
   // v12.0: Download All Projects
   storage: GanttStorageService;
+  // v16.6 (C3): in-memory project count — used for the upload-on-cloud-switch
+  // prompt. Replaces the previous direct localStorage.getItem('ganttAppData')
+  // parse so a stale on-disk copy from a previous user cannot trigger an
+  // upload of their data to the current user's cloud account.
+  localProjectCount: number;
+  // v16.6 (UX-2): cloud→local keep-or-discard prompt.
+  currentAppData: AppData;
+  needsCloudToLocalPrompt: { projectCount: number } | null;
+  onConfirmKeepLocalCopy: (currentAppData: AppData) => Promise<void>;
+  onConfirmDiscardCloudData: () => Promise<void>;
 }
 
 export function StorageSection({
@@ -49,7 +60,9 @@ export function StorageSection({
   user, isAuthenticated, authLoading, authError, onSignIn, onSignOut,
   uploadResult, onClearUploadResult,
   needsUploadPrompt, onConfirmUploadPrompt, onCancelUploadPrompt,
-  storage,
+  storage, localProjectCount,
+  currentAppData, needsCloudToLocalPrompt,
+  onConfirmKeepLocalCopy, onConfirmDiscardCloudData,
 }: StorageSectionProps) {
   // Inline confirmation state — replaces window.confirm() (v12.0.1)
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
@@ -68,22 +81,13 @@ export function StorageSection({
     fontWeight: '600' as const,
   };
 
-  // Count local projects for the upload confirmation message
-  const getLocalProjectCount = (): number => {
-    try {
-      const raw = localStorage.getItem('ganttAppData');
-      if (!raw) return 0;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed.projects) ? parsed.projects.length : 0;
-    } catch {
-      return 0;
-    }
-  };
-
-  // Handle cloud radio selection — show inline confirm if local data exists
+  // Handle cloud radio selection — show inline confirm if local data exists.
+  // v16.6 (C3): project count now comes from AppDataContext in-memory state
+  // via the `localProjectCount` prop (SettingsTab reads from useAppData()).
+  // Prevents a stale localStorage copy from a previous user from triggering
+  // an upload prompt that would dump their data into the current user's cloud.
   const handleCloudSwitch = () => {
-    const localCount = getLocalProjectCount();
-    if (localCount > 0) {
+    if (localProjectCount > 0) {
       setShowUploadConfirm(true);
     } else {
       onModeChange('cloud');
@@ -209,6 +213,28 @@ export function StorageSection({
           buttons={[
             { label: 'Upload to Cloud', onClick: onConfirmUploadPrompt, variant: 'primary', disabled: isSwitching },
             { label: 'Cancel', onClick: onCancelUploadPrompt, variant: 'secondary', disabled: isSwitching },
+          ]}
+        />
+      )}
+
+      {/* v16.6 (UX-2): cloud→local keep-or-discard prompt */}
+      {needsCloudToLocalPrompt && (
+        <ConfirmDialog
+          message={<>Keep a local copy of your <strong>{needsCloudToLocalPrompt.projectCount}</strong> cloud project(s)?</>}
+          colors={colors}
+          buttons={[
+            {
+              label: 'Keep Local Copy',
+              onClick: () => onConfirmKeepLocalCopy(currentAppData),
+              variant: 'primary',
+              disabled: isSwitching,
+            },
+            {
+              label: 'Discard',
+              onClick: onConfirmDiscardCloudData,
+              variant: 'danger',
+              disabled: isSwitching,
+            },
           ]}
         />
       )}

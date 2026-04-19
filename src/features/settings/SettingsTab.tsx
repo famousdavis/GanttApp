@@ -30,8 +30,10 @@ export function SettingsTab() {
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
     performSignOutWithCleanup,
+    needsCloudToLocalPrompt, confirmKeepLocalCopy, confirmDiscardCloudData,
   } = useStorage();
   const {
+    data,
     exportAttribution, setExportAttribution,
     globalWorkDays, setGlobalWorkDays,
     solidBarLabel, setSolidBarLabel,
@@ -121,7 +123,9 @@ export function SettingsTab() {
 
   const handleModeChange = async (newMode: 'local' | 'cloud') => {
     if (newMode === mode) return;
-    await switchMode(newMode);
+    // v16.6 (UX-2): pass in-memory project count so switchMode can decide
+    // whether to fire the Keep/Discard prompt on cloud→local.
+    await switchMode(newMode, data.projects.length);
   };
 
   return (
@@ -155,6 +159,11 @@ export function SettingsTab() {
         onConfirmUploadPrompt={confirmUploadPrompt}
         onCancelUploadPrompt={cancelUploadPrompt}
         storage={storage}
+        localProjectCount={data.projects.length}
+        currentAppData={data}
+        needsCloudToLocalPrompt={needsCloudToLocalPrompt}
+        onConfirmKeepLocalCopy={confirmKeepLocalCopy}
+        onConfirmDiscardCloudData={confirmDiscardCloudData}
       />
 
       <ExportAttributionSection

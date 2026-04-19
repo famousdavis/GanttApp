@@ -134,7 +134,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (loadedData) {
-          // Data-loss guard: don't wipe non-empty local state with empty cloud results
+          // Data-loss guard: don't wipe non-empty local state with empty cloud results.
+          // v16.6: safe post-sign-out — clearAllData() runs before storage swap,
+          // so dataRef.current is empty here. The guard only fires on transient
+          // cloud errors (v12.3 intent), never blocks a new user's load.
           if (loadedData.projects.length === 0 && dataRef.current.projects.length > 0) {
             console.warn(
               `Cloud returned 0 projects but local has ${dataRef.current.projects.length} — skipping replacement to protect local data`
@@ -279,7 +282,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (snapshot.metadata.hasPendingWrites) return;
 
         setData(prev => {
-          // Data-loss guard: don't wipe existing releases with empty cloud results
+          // Data-loss guard: don't wipe existing releases with empty cloud results.
+          // v16.6: safe post-sign-out — clearAllData() clears in-memory before
+          // the real-time listener re-subscribes, so prev.releases is empty.
           const existingCount = prev.releases.filter(r => r.projectId === projectId).length;
           if (releases.length === 0 && existingCount > 0) {
             console.warn(

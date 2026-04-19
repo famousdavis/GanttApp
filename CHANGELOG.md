@@ -1,5 +1,34 @@
 # Change Log
 
+## Version 16.6 (2026-04-19)
+### Auth/Storage Security Audit Wave
+
+**Security:**
+- Centralized sign-out flow clears all in-memory AppData state (projects, releases, Export Attribution, legend labels, Prepared By, chart settings) on every sign-out path, including ToS-version-mismatch auto-signout. Closes the multi-account data-leak vector on shared browsers (findings A1-a, D4)
+- Pending cloud writes are now cancelled (not flushed) at sign-out via new `cancelPendingSaves()` method, instead of committing stale edits with about-to-be-revoked credentials (A3)
+- The switch-to-Cloud upload prompt now reads project count from AppDataContext in-memory state instead of directly from localStorage. Stale on-disk data from a previous user can no longer get silently uploaded to the current user's Firestore account (C3)
+- ToS-version-mismatch auto-signout in AuthContext routes through the same centralized cleanup as user-initiated sign-out via a module-level callback registry (A6)
+- Data-loss guard in AppDataContext now safely interacts with the centralized clear — previously it could preserve user A's data across a sign-out boundary (A1-b, C2)
+
+**UX:**
+- Header account pill gains a fourth state: **signed-in + local**. Avatar + first name + lock icon when the user is signed in but hasn't switched to Cloud. Clicking opens an account popover with "Switch to Cloud Storage" (navigates to Settings), "Sign Out", and "Cancel" (F2-d)
+- Cloud→Local mode switch (while signed in with in-memory projects) now prompts: "Keep a local copy of your N cloud project(s)?" with **Keep Local Copy** and **Discard** buttons. Previously the switch silently persisted cloud data to localStorage (C4)
+- Microsoft accounts whose display name comes back as "Last, First" now render their first name correctly in both signed-in pill states. Name-extraction logic extracted to `src/shared/utils/displayName.ts` as a shared single source of truth
+
+**Fixes:**
+- Concurrent sign-in popup collisions (`auth/cancelled-popup-request`) now show a clear message: "Another sign-in is already in progress. Please complete or cancel it first." (D1). Single-case surgical addition to `sanitizeFirebaseError` — 2 lines added, 0 deleted, no other edits to `validation.ts`
+- Dead `ganttapp-has-uploaded-to-cloud` localStorage key removed. It was written but never read. A one-time migration `removeItem` runs during sign-out so existing v16.5 users get their browser cleaned up (E4)
+- Terms of Service acceptance Firestore write now retries on next sign-in if the initial write fails. Previously a transient network error orphaned the user's local "accepted" state from a missing Firestore record, causing re-consent prompts in other SPERT Suite apps (TOS-WRITE-ORPHAN)
+
+**Internal:**
+- Two new module-level registries (`signOutCleanupRegistry`, `appDataResetRegistry`) bridge the AuthContext/StorageContext/AppDataContext provider layers without violating React's provider ordering. `AuthContext` can invoke `runSignOutCleanup()` from the ToS-failure path without importing `useStorage()`, and StorageContext's `performSignOutWithCleanup` can invoke `runAppDataReset()` without importing `useAppData()`
+- New `cancelPendingSaves()` method on `GanttStorageService` interface. Local is a no-op; cloud clears the debounce timer and nulls pending data
+- New `performSignOutWithCleanup()` on StorageContext. 8-step coordinated sequence: cancel pending cloud writes → clear in-memory state → dispose cloud service → reset storage mode key → swap to fresh local service → clear transition state → remove dead v16.5 key → firebase sign-out
+- `clearAllData()` action on AppDataContext resets every state field; `isResettingRef` flag suppresses the save effect during the reset tick so cleared defaults are NOT written back to localStorage
+- Save-executor error handler tightened: disposed service no longer re-queues `pendingData` on save error (A3-adjacent)
+
+**Tests:** 967 tests passing (up from 931 in v16.5), +36 net new across 4 new test files and 3 modified. All gates green (tsc, test, lint, build). Protected files verified: `GanttChart.tsx` and `firestore-save-executor.ts` untouched; `validation.ts` shows exactly 2 added lines.
+
 ## Version 16.5 (2026-04-17)
 ### Hide SnapshotBar Scrollbar Chrome
 - Fix: The horizontal scrollbar on the Gantt Chart's snapshot chip bar no longer renders as a gray bar overlaying the bottom of the chip buttons when a project has many snapshots. Scrolling by drag/wheel/keyboard still works unchanged; partially-visible chips at the right edge signal overflow

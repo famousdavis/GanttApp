@@ -15,6 +15,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.6',
+    date: 'April 19, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Centralized sign-out flow now clears all in-memory state (projects, releases, Export Attribution, legend labels, Prepared By, chart settings) on every sign-out path, including the ToS-version-mismatch auto-signout. Closes the multi-account data-leak vector on shared browsers</>,
+      <><strong>Security</strong> &mdash; Pending cloud writes are cancelled (not flushed) at sign-out, rather than committing stale edits with about-to-be-revoked credentials</>,
+      <><strong>Security</strong> &mdash; The switch-to-Cloud prompt now reads the project count from in-memory state instead of localStorage. Stale on-disk data from a previous user can no longer get silently uploaded to the current user&apos;s Firestore account</>,
+      <><strong>UX</strong> &mdash; Header account pill now has a fourth state: signed-in-local. When you&apos;re signed in but haven&apos;t switched to Cloud storage, the pill shows your avatar, first name, and a lock icon. Clicking opens an account popover with &ldquo;Switch to Cloud Storage&rdquo;, &ldquo;Sign Out&rdquo;, and &ldquo;Cancel&rdquo;. Previously this state rendered as if you were signed out</>,
+      <><strong>UX</strong> &mdash; Switching from Cloud to Local while signed in now prompts: &ldquo;Keep a local copy of your N cloud project(s)?&rdquo; with Keep Local Copy and Discard options. Previously the switch silently persisted cloud data to localStorage without asking</>,
+      <><strong>UX</strong> &mdash; Microsoft accounts whose display name comes back as &ldquo;Last, First&rdquo; now render their first name correctly in both signed-in pill states. The name-extraction logic is a single shared utility, no duplication across branches</>,
+      <><strong>Fix</strong> &mdash; Concurrent sign-in popup collisions (<code>auth/cancelled-popup-request</code>) now show a clear error message: &ldquo;Another sign-in is already in progress. Please complete or cancel it first.&rdquo;</>,
+      <><strong>Fix</strong> &mdash; Removed the dead <code>ganttapp-has-uploaded-to-cloud</code> localStorage key. It was written but never read. A one-time migration removeItem runs during sign-out so existing users get their browser cleaned up</>,
+      <><strong>Fix</strong> &mdash; Terms of Service acceptance Firestore write now retries on next sign-in if the initial write fails. Previously a transient network error would orphan the user&apos;s local &ldquo;accepted&rdquo; state from a missing Firestore record, causing re-consent prompts in other SPERT Suite apps</>,
+      <><strong>Internal</strong> &mdash; Two new module-level registries (<code>signOutCleanupRegistry</code>, <code>appDataResetRegistry</code>) bridge the AuthContext/StorageContext/AppDataContext provider layers without violating React&apos;s provider ordering. <code>cancelPendingSaves()</code> added to the <code>GanttStorageService</code> interface</>,
+    ],
+  },
+  {
     version: '16.5',
     date: 'April 17, 2026',
     items: [

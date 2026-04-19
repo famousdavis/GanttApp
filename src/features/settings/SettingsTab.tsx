@@ -24,11 +24,12 @@ const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
 
 export function SettingsTab() {
   const { colors } = useTheme();
-  const { user, isAuthenticated, signInWithGoogle, signInWithMicrosoft, signOut, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, signInWithGoogle, signInWithMicrosoft, loading: authLoading } = useAuth();
   const {
     storage, mode, switchMode, isSwitching, switchError,
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
+    performSignOutWithCleanup,
   } = useStorage();
   const {
     exportAttribution, setExportAttribution,
@@ -109,11 +110,10 @@ export function SettingsTab() {
   const handleSignOut = async () => {
     setAuthError(null);
     try {
-      // v12.0: switchMode('local') no longer downloads data — just flushes and disposes
-      if (mode === 'cloud') {
-        await switchMode('local');
-      }
-      await signOut();
+      // v16.6: centralized helper handles cancelPendingSaves, clearAllData,
+      // dispose, mode reset, storage swap, and firebaseSignOut in the
+      // correct order.
+      await performSignOutWithCleanup();
     } catch (error) {
       setAuthError(sanitizeFirebaseError(error));
     }

@@ -38,8 +38,8 @@ function LockIcon() {
 }
 
 export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
-  const { mode, switchMode } = useStorage();
-  const { user, signOut } = useAuth();
+  const { mode, performSignOutWithCleanup } = useStorage();
+  const { user } = useAuth();
   const { colors } = useTheme();
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -82,11 +82,9 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
     setSigningOut(true);
     setError(null);
     try {
-      // Mirror SettingsTab.handleSignOut exactly
-      if (mode === 'cloud') {
-        await switchMode('local');
-      }
-      await signOut();
+      // v16.6: centralized helper — same path as SettingsTab.handleSignOut
+      // and AuthContext ToS-failure. No double sign-out, consistent cleanup.
+      await performSignOutWithCleanup();
       setPopoverOpen(false);
     } catch (err) {
       setError(sanitizeFirebaseError(err));

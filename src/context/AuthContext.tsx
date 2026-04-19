@@ -24,6 +24,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { sanitizeFirebaseError } from '../shared/utils/validation';
+import { runSignOutCleanup } from './signOutCleanupRegistry';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
@@ -199,7 +200,14 @@ async function handleTosResolution(firebaseUser: FirebaseUser): Promise<boolean>
 
     // Document missing OR version differs — sign out
     console.warn('[AuthContext] ToS version mismatch — signing user out');
-    await firebaseSignOut(auth!);
+    // v16.6: route through the centralized cleanup helper registered by
+    // StorageContext. If the registry is empty (StorageProvider not yet
+    // mounted — early boot edge case), fall back to firebaseSignOut so
+    // the user is still signed out.
+    const cleanup = await runSignOutCleanup();
+    if (!cleanup.wasRegistered && auth) {
+      await firebaseSignOut(auth);
+    }
     localStorage.removeItem(TOS_ACCEPTED_KEY);
     return true; // User was signed out
 

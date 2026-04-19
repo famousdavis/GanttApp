@@ -11,6 +11,7 @@ import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { sanitizeFirebaseError } from '../utils/validation';
+import { getFirstName, getInitial } from '../utils/displayName';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface StorageStatusChipProps {
@@ -47,20 +48,14 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
   const [error, setError] = useState<string | null>(null);
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
+  // v16.6 F2(d): new derived state for signed-in + local mode.
+  const isSignedInLocal = mode === 'local' && !!user;
 
-  // Extract first name from displayName.
-  // Microsoft Entra ID may return "Last, First" format — detect the comma and swap.
-  const rawDisplayName = user?.displayName ?? '';
-  let firstName: string;
-  if (rawDisplayName.includes(',')) {
-    firstName = rawDisplayName.split(',')[1]?.trim().split(' ')[0] ?? '';
-  } else {
-    firstName = rawDisplayName.split(' ')[0] ?? '';
-  }
-  if (!firstName) {
-    firstName = user?.email?.split('@')[0] ?? '';
-  }
-  const initial = firstName.charAt(0).toUpperCase() || '?';
+  // v16.6: name extraction is shared between signed-in-cloud and
+  // signed-in-local branches via utils/displayName. Microsoft Entra
+  // "Last, First" reversal happens in there.
+  const firstName = getFirstName(user?.displayName, user?.email);
+  const initial = getInitial(firstName);
 
   const borderColor = colors.border ?? '#D1D5DB';
 
@@ -200,6 +195,116 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
               </div>
             }
             buttons={[
+              {
+                label: signingOut ? 'Signing out…' : 'Sign Out',
+                onClick: handleSignOut,
+                variant: 'danger',
+                disabled: signingOut,
+              },
+              {
+                label: 'Cancel',
+                onClick: handleCancel,
+                variant: 'secondary',
+                disabled: signingOut,
+              },
+            ]}
+          />
+        )}
+      </>
+    );
+  }
+
+  // v16.6 F2(d): signed-in + local mode. Shows avatar + first name + lock
+  // icon. Clicking opens an account popover with "Switch to Cloud Storage"
+  // (per ARCH-4: navigation only, via onSettingsClick) and "Sign Out".
+  if (isSignedInLocal) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setPopoverOpen(true)}
+          style={pillButtonStyle}
+          title={`Signed in as ${user?.email ?? 'local user'}`}
+          aria-haspopup="dialog"
+          aria-expanded={popoverOpen}
+          aria-label="Account menu"
+        >
+          {/* Left segment: avatar + first name */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                backgroundColor: '#0070f3',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: 500,
+                flexShrink: 0,
+                lineHeight: 1,
+              }}
+              aria-hidden="true"
+            >
+              {initial}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+              {firstName}
+            </span>
+          </span>
+          {/* Vertical divider */}
+          <span style={dividerStyle} aria-hidden="true" />
+          {/* Right segment: lock icon (visual only) — signals "data is local only" */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px 10px',
+            }}
+            aria-hidden="true"
+          >
+            <LockIcon />
+          </span>
+        </button>
+
+        {popoverOpen && (
+          <ConfirmDialog
+            modal
+            title="Account"
+            colors={colors}
+            message={
+              <div>
+                <p style={{ margin: 0, color: colors.text, fontWeight: 600 }}>
+                  {user?.displayName ?? firstName}
+                </p>
+                {user?.email && (
+                  <p style={{ margin: '0.25rem 0 0 0', color: colors.textSecondary, fontSize: '0.9rem' }}>
+                    {user.email}
+                  </p>
+                )}
+                {error && (
+                  <p style={{ margin: '0.75rem 0 0 0', color: '#e53e3e', fontSize: '0.85rem' }}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            }
+            buttons={[
+              {
+                label: 'Switch to Cloud Storage',
+                onClick: () => {
+                  // ARCH-4: navigation only. The user clicks the Cloud radio
+                  // in Settings to initiate the mode switch. The chip popover
+                  // is for account management, not mode switching.
+                  setPopoverOpen(false);
+                  onSettingsClick();
+                },
+                variant: 'primary',
+                disabled: signingOut,
+              },
               {
                 label: signingOut ? 'Signing out…' : 'Sign Out',
                 onClick: handleSignOut,

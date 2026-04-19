@@ -8,14 +8,17 @@
 // v12.3: Replaced skip/connectToCloudDirect with cancelUploadPrompt (stays in local mode).
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 import type { GanttStorageService, StorageMode } from '../shared/types/storage';
 import { LocalGanttStorageService } from '../shared/storage/local-gantt-storage-service';
 import { FirestoreGanttStorageServiceImpl } from '../shared/storage/firestore-gantt-storage-service';
 import type { CloudGanttStorageService } from '../shared/storage/firestore-gantt-storage-service';
-import { db, isFirebaseAvailable } from '../lib/firebase';
+import { auth, db, isFirebaseAvailable } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { switchToCloudMode } from './storage-mode-switch';
 import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
+import { registerSignOutCleanup } from './signOutCleanupRegistry';
+import { runAppDataReset } from './appDataResetRegistry';
 
 const STORAGE_MODE_KEY = 'ganttapp-storage-mode';
 const HAS_UPLOADED_KEY = 'ganttapp-has-uploaded-to-cloud';
@@ -36,6 +39,14 @@ interface StorageContextType {
   needsUploadPrompt: { projectCount: number } | null;
   confirmUploadPrompt: () => Promise<void>;
   cancelUploadPrompt: () => void;
+
+  /**
+   * v16.6 — Centralized sign-out helper. Cancels pending cloud writes,
+   * clears in-memory AppData state, disposes the cloud service, resets
+   * storage mode to 'local', swaps to a fresh LocalGanttStorageService,
+   * then signs out of Firebase. Zero arguments (ARCH-2).
+   */
+  performSignOutWithCleanup: () => Promise<void>;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -131,6 +142,68 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_MODE_KEY, 'local');
   }, []);
 
+  /**
+   * v16.6 — Centralized sign-out flow. Step order is load-bearing:
+   *   1. cancelPendingSaves on the cloud service (discard, don't flush).
+   *   2. runAppDataReset() — clears in-memory AppData state; sets the
+   *      isResettingRef flag so the save effect is suppressed during the
+   *      reset + subsequent load effect.
+   *   3. dispose the cloud service (unsubscribe listeners, remove
+   *      beforeunload handler, clear internal state).
+   *   4. Reset STORAGE_MODE_KEY to 'local'.
+   *   5. setStorage(new LocalGanttStorageService()) — triggers the
+   *      [storage] load effect in AppDataContext, which re-lowers
+   *      isResettingRef when it settles.
+   *   6. Clear stale transition state (isSwitching, switchError,
+   *      uploadResult, needsUploadPrompt).
+   *   7. Remove the v16.5 dead localStorage key as a one-time migration.
+   *   8. firebaseSignOut(auth) — only async step.
+   *
+   * Steps 1–7 are synchronous. No awaits until step 8.
+   */
+  const performSignOutWithCleanup = useCallback(async (): Promise<void> => {
+    // Step 1: cancel pending cloud writes
+    if (storage.mode === 'cloud') {
+      (storage as CloudGanttStorageService).cancelPendingSaves();
+    }
+
+    // Step 2: clear in-memory AppData state
+    runAppDataReset();
+
+    // Step 3: dispose cloud service if active
+    if (storage.mode === 'cloud') {
+      (storage as CloudGanttStorageService).dispose();
+    }
+
+    // Step 4: reset storage mode key
+    localStorage.setItem(STORAGE_MODE_KEY, 'local');
+
+    // Step 5: swap to a fresh local service
+    setStorage(new LocalGanttStorageService());
+
+    // Step 6: clear stale transition state
+    setIsSwitching(false);
+    setSwitchError(null);
+    setUploadResult(null);
+    setNeedsUploadPrompt(null);
+
+    // Step 7: remove v16.5 dead key (one-time migration cleanup)
+    localStorage.removeItem(HAS_UPLOADED_KEY);
+
+    // Step 8: Firebase sign-out
+    if (auth) {
+      await firebaseSignOut(auth);
+    }
+  }, [storage]);
+
+  // Register the cleanup helper with the module-level registry so
+  // AuthContext's ToS-failure path can invoke it without violating
+  // the AuthProvider → StorageProvider ordering constraint.
+  useEffect(() => {
+    const deregister = registerSignOutCleanup(performSignOutWithCleanup);
+    return deregister;
+  }, [performSignOutWithCleanup]);
+
   const switchMode = useCallback(async (newMode: StorageMode): Promise<UploadResult | void> => {
     setIsSwitching(true);
     setSwitchError(null);
@@ -185,6 +258,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       needsUploadPrompt,
       confirmUploadPrompt,
       cancelUploadPrompt,
+      performSignOutWithCleanup,
     }}>
       {children}
     </StorageContext>

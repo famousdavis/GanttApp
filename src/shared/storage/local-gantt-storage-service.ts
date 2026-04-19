@@ -19,8 +19,12 @@ const MAX_SNAPSHOTS_PER_PROJECT = 50;
 
 /**
  * Clear only project data and snapshots from localStorage.
- * Preserves: ganttapp-storage-mode, ganttapp-has-uploaded-to-cloud, gantt-theme,
- * ganttapp-workspace-id — these are user preferences, not project data.
+ * Preserves: ganttapp-storage-mode, gantt-theme, ganttapp-workspace-id
+ * — user preferences, not project data.
+ *
+ * v16.6: no longer preserves 'ganttapp-has-uploaded-to-cloud' (removed
+ * from the app entirely as a dead write; the v16.6 sign-out cleanup
+ * actively removes it as a one-time migration for existing users).
  */
 export function clearLocalProjectData(): void {
   localStorage.removeItem(APP_DATA_KEY);

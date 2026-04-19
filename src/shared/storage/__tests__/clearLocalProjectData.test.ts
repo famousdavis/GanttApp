@@ -29,12 +29,8 @@ describe('clearLocalProjectData', () => {
     expect(localStorage.getItem('ganttapp-storage-mode')).toBe('cloud');
   });
 
-  it('preserves ganttapp-has-uploaded-to-cloud', () => {
-    localStorage.setItem('ganttapp-has-uploaded-to-cloud', 'true');
-    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [] }));
-    clearLocalProjectData();
-    expect(localStorage.getItem('ganttapp-has-uploaded-to-cloud')).toBe('true');
-  });
+  // v16.6: HAS_UPLOADED_KEY ('ganttapp-has-uploaded-to-cloud') removed
+  // from the app entirely. No preservation test because no one writes it.
 
   it('preserves gantt-theme', () => {
     localStorage.setItem('gantt-theme', 'dark');

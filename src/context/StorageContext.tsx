@@ -22,7 +22,9 @@ import { registerSignOutCleanup } from './signOutCleanupRegistry';
 import { runAppDataReset } from './appDataResetRegistry';
 
 const STORAGE_MODE_KEY = 'ganttapp-storage-mode';
-const HAS_UPLOADED_KEY = 'ganttapp-has-uploaded-to-cloud';
+// v16.5-migration key: set by earlier versions, never read. Removed as a
+// one-time migration cleanup inside performSignOutWithCleanup step 7.
+const HAS_UPLOADED_KEY_V16_5_LEGACY = 'ganttapp-has-uploaded-to-cloud';
 
 export interface UploadResult {
   uploaded: number;
@@ -146,7 +148,6 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     try {
       const result = await switchToCloudMode(db, user);
       localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
-      localStorage.setItem(HAS_UPLOADED_KEY, 'true');
       setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
       setStorage(result.service);
     } catch (error) {
@@ -209,8 +210,9 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     setUploadResult(null);
     setNeedsUploadPrompt(null);
 
-    // Step 7: remove v16.5 dead key (one-time migration cleanup)
-    localStorage.removeItem(HAS_UPLOADED_KEY);
+    // Step 7: remove v16.5 dead key (one-time migration cleanup for users
+    // upgrading from a version that wrote but never read this flag).
+    localStorage.removeItem(HAS_UPLOADED_KEY_V16_5_LEGACY);
 
     // Step 8: Firebase sign-out
     if (auth) {
@@ -244,7 +246,6 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 
         const result = await switchToCloudMode(db, user);
         localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
-        localStorage.setItem(HAS_UPLOADED_KEY, 'true');
         setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
         setStorage(result.service);
         return { uploaded: result.uploaded, skipped: result.skipped };

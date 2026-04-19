@@ -558,6 +558,8 @@ export function sanitizeFirebaseError(error: unknown): string {
       return 'Request timed out. Please try again.';
     case 'auth/popup-closed-by-user':
       return 'Sign-in was cancelled.';
+    case 'auth/cancelled-popup-request':
+      return 'Another sign-in is already in progress. Please complete or cancel it first.';
     case 'auth/popup-blocked':
       return 'Sign-in popup was blocked. Please allow popups for this site.';
     case 'auth/network-request-failed':

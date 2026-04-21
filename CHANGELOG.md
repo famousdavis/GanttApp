@@ -1,5 +1,26 @@
 # Change Log
 
+## Version 16.8 (2026-04-21)
+### Snapshot Freezes Project-Override Labels
+
+Small fix. When a user customized legend labels while a project was selected, v16.1 wrote the edit to that project's `legendLabels` override instead of to global state. The live chart rendered the override correctly (via `resolveLabel` in `useEffectiveChartProps`), but the snapshot-save path in `pages/index.tsx` `handleSaveSnapshot` pulled from the raw global label state and ignored project overrides. Result: snapshots froze the global baseline instead of what was displayed on screen.
+
+**Fix:**
+- `handleSaveSnapshot` now threads `selectedProject?.legendLabels` through `resolveLabel(key, projectLabels, globalOrDefault)` for all 5 keys. This is the same precedence the live chart uses, so snapshots now freeze exactly what the user sees
+- Preserves v16.2 Risk 1 behavior: if both the project override and the global raw state are empty, the hardcoded `DEFAULT_LEGEND_LABELS` value still wins
+- Dependency array updated to include `selectedProject?.legendLabels`
+
+**Modified files:**
+- Entry: `pages/index.tsx` — `handleSaveSnapshot` uses `resolveLabel`
+- Tests: `src/features/chart/__tests__/useSnapshots.test.tsx` — new regression test alongside the existing v16.2 Risk 1 test, exercising the exact `resolveLabel(key, projectLabels, globalRaw || DEFAULT)` computation
+- Version and docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`
+
+**Protected files:** `GanttChart.tsx`, `firestore-save-executor.ts`, `validation.ts`, `globals.css` — zero edits.
+
+**Tests:** 975 pass (974 + 1). All gates green (tsc, test, lint, build). Manually verified in preview: project with `legendLabels: { solidBar: "Custom Build Phase", mostLikelyLine: "Custom Target Date" }` produces a snapshot that freezes those custom labels, and viewing the snapshot renders `Custom Build Phase` in the legend.
+
+---
+
 ## Version 16.7 (2026-04-20)
 ### SnapshotBar Mouse-Wheel Scroll + Snapshot Import Stale State
 

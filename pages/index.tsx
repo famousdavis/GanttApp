@@ -10,7 +10,7 @@ import { useTheme } from '../src/context/ThemeContext';
 import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { ProjectLegendLabels } from '../src/shared/types/models';
-import { DEFAULT_LEGEND_LABELS } from '../src/shared/utils/validation';
+import { DEFAULT_LEGEND_LABELS, resolveLabel } from '../src/shared/utils/validation';
 import { getEffectiveWorkDays } from '../src/shared/utils/validation';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
@@ -180,24 +180,28 @@ function AppContent() {
   }, [data, selectedProjectId, updateData]);
 
   // Save snapshot callback — passes current chart state to the hook.
-  // v16.2 (Risk 1 mitigation): snapshots must freeze the EFFECTIVE displayed label,
-  // not the raw state. A snapshot taken today with empty global state should display
-  // "Design, Code, Test" forever — not an empty string.
+  // v16.2 (Risk 1): snapshots must freeze the EFFECTIVE displayed label, not the raw
+  // state. A snapshot taken today with empty global state should display "Design, Code,
+  // Test" forever — not an empty string.
+  // v16.8: effective also means project-override-aware. When the selected project has
+  // a legendLabels override (v16.1), the snapshot must capture the override, not the
+  // global baseline. Matches the precedence in useEffectiveChartProps (resolveLabel).
   const handleSaveSnapshot = useCallback(() => {
+    const projectLabels = selectedProject?.legendLabels;
     snapshotState.saveSnapshot({
       releases: visibleReleases,
       projectFinishDate: selectedProject?.finishDate,
       chartColors,
       legendLabels: {
-        solidBar: solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar,
-        hatchedBar: hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar,
-        finishDateLine: finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine,
-        mostLikelyLine: mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine,
-        inProgress: inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
+        solidBar: resolveLabel('solidBar', projectLabels, solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar),
+        hatchedBar: resolveLabel('hatchedBar', projectLabels, hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar),
+        finishDateLine: resolveLabel('finishDateLine', projectLabels, finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine),
+        mostLikelyLine: resolveLabel('mostLikelyLine', projectLabels, mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine),
+        inProgress: resolveLabel('inProgress', projectLabels, inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress),
       },
       preparedBy
     });
-  }, [snapshotState, visibleReleases, selectedProject?.finishDate, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy]);
+  }, [snapshotState, visibleReleases, selectedProject?.finishDate, selectedProject?.legendLabels, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy]);
 
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'settings', 'about'], []);

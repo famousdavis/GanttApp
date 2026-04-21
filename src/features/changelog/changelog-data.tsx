@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.8',
+    date: 'April 21, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; Saving a snapshot now captures any per-project legend label overrides that are active on the chart, not just the global labels from Settings. Previously, if a user customized legend labels while a project was selected (writing to the project-scope override introduced in v16.1), the snapshot froze the global baseline instead of what was actually on screen. Matches the precedence already used by the live chart rendering (<code>resolveLabel</code>)</>,
+    ],
+  },
+  {
     version: '16.7',
     date: 'April 20, 2026',
     items: [

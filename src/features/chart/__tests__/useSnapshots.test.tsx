@@ -414,4 +414,79 @@ describe('useSnapshots', () => {
     expect(saved?.legendLabels?.mostLikelyLine).toBe('Most Likely Finish');
     expect(saved?.legendLabels?.inProgress).toBe('In Progress');
   });
+
+  // --- v16.8 regression guard: project-override labels must be frozen in snapshots ---
+  // Same pattern as v16.2 Risk 1: useSnapshots.saveSnapshot is a pass-through, so the
+  // bug lives in the caller (handleSaveSnapshot in pages/index.tsx). This test exercises
+  // the exact resolveLabel(key, projectLabels, globalOrDefault) computation that the
+  // caller performs. If a future refactor regresses this to pass raw globals, snapshots
+  // will silently freeze the wrong labels and users won't notice until they open an old
+  // snapshot and see Settings-default text instead of their per-project override.
+  it('snapshot save contract: caller uses resolveLabel so project overrides are frozen (v16.8)', async () => {
+    const { resolveLabel, DEFAULT_LEGEND_LABELS } = await import('../../../shared/utils/validation');
+
+    // Simulate live state: global labels customized in Settings, PLUS a project override
+    // on two of the five keys. The snapshot should capture the project override for
+    // those two, and the global value (not the hardcoded default) for the other three.
+    const globalRaw = {
+      solidBarLabel: 'Global Solid',
+      hatchedBarLabel: 'Global Hatched',
+      finishDateLabel: '',                     // empty → falls back to DEFAULT
+      mostLikelyLineLabel: 'Global Likely',
+      inProgressLabel: 'Global In-Progress',
+    };
+    const projectLabels = {
+      solidBar: 'Project Solid Override',
+      mostLikelyLine: 'Project Likely Override',
+    };
+
+    const legendLabelsForSnapshot = {
+      solidBar: resolveLabel('solidBar', projectLabels, globalRaw.solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar),
+      hatchedBar: resolveLabel('hatchedBar', projectLabels, globalRaw.hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar),
+      finishDateLine: resolveLabel('finishDateLine', projectLabels, globalRaw.finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine),
+      mostLikelyLine: resolveLabel('mostLikelyLine', projectLabels, globalRaw.mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine),
+      inProgress: resolveLabel('inProgress', projectLabels, globalRaw.inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress),
+    };
+
+    // Project override wins where present.
+    expect(legendLabelsForSnapshot.solidBar).toBe('Project Solid Override');
+    expect(legendLabelsForSnapshot.mostLikelyLine).toBe('Project Likely Override');
+    // Global wins where no project override exists.
+    expect(legendLabelsForSnapshot.hatchedBar).toBe('Global Hatched');
+    expect(legendLabelsForSnapshot.inProgress).toBe('Global In-Progress');
+    // Hardcoded default wins where both project override AND global are absent/empty.
+    expect(legendLabelsForSnapshot.finishDateLine).toBe('Project Finish Date');
+
+    // Verify saveSnapshot stores the resolved values faithfully.
+    localStorageMock.setItem('ganttAppData', JSON.stringify({
+      projects: [{ id: 'p1', name: 'Project 1', legendLabels: projectLabels }],
+      releases: [],
+    }));
+    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([]));
+
+    vi.spyOn(window, 'prompt').mockReturnValue('v16.8 Override Freeze');
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await act(async () => {
+      await result.current.saveSnapshot({
+        releases: [],
+        chartColors: {
+          solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545',
+          finishDateLine: '#00ff00', mostLikelyLine: '#000000',
+          completedBar: '#90ee90', inProgressBar: '#f59e0b',
+        },
+        legendLabels: legendLabelsForSnapshot,
+        preparedBy: '',
+      });
+    });
+
+    const saved = result.current.snapshots.find(s => s.name === 'v16.8 Override Freeze');
+    expect(saved).toBeDefined();
+    expect(saved?.legendLabels?.solidBar).toBe('Project Solid Override');
+    expect(saved?.legendLabels?.mostLikelyLine).toBe('Project Likely Override');
+    expect(saved?.legendLabels?.hatchedBar).toBe('Global Hatched');
+    expect(saved?.legendLabels?.inProgress).toBe('Global In-Progress');
+    expect(saved?.legendLabels?.finishDateLine).toBe('Project Finish Date');
+  });
 });

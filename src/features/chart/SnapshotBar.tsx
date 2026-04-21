@@ -4,7 +4,7 @@
 
 // Snapshot navigation bar for the Gantt chart
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
@@ -26,7 +26,22 @@ export function SnapshotBar({
 }: SnapshotBarProps) {
   const { colors } = useTheme();
   const [deleteConfirmSnapshotId, setDeleteConfirmSnapshotId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const isCurrentView = activeSnapshotId === null;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (e.deltaX !== 0) return;
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const chipStyle = (isActive: boolean) => ({
     padding: '0.35rem 0.75rem',
@@ -50,7 +65,7 @@ export function SnapshotBar({
   return (
     <div className="copy-image-button" style={{ marginBottom: '0.75rem' }}>
       {/* Navigation chips */}
-      <div className="snapshot-bar-scroll" style={{
+      <div ref={scrollRef} className="snapshot-bar-scroll" style={{
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',

@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '16.7',
+    date: 'April 20, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; SnapshotBar chip row now scrolls horizontally with a standard vertical mouse wheel. On Windows, the browser did not reliably translate <code>deltaY</code> into horizontal scroll on containers whose only overflow axis is X, so users with many snapshots had no way to scroll back to newer chips without Shift-Wheel or a touchpad. A scoped native wheel listener redirects vertical wheel to <code>scrollLeft</code> only when the chip row is actually overflowing and the event has no horizontal component; touchpads with real <code>deltaX</code> still use native scroll</>,
+      <><strong>Fix</strong> &mdash; Importing a JSON file with snapshots now updates the SnapshotBar immediately instead of requiring a page reload. The import path was writing snapshots directly to storage, bypassing the in-memory hook state. Now routed through <code>replaceAllSnapshots</code> so storage and state stay in sync</>,
+      <><strong>Fix</strong> &mdash; Importing a legacy export with no <code>snapshots</code> key (or an empty snapshots array) now clears any pre-existing snapshots in storage. The replace-all import confirmation explicitly covers snapshots, but the previous code skipped the save when imported snapshots were absent, leaving orphaned snapshots under deleted project IDs</>,
+    ],
+  },
+  {
     version: '16.6',
     date: 'April 19, 2026',
     items: [

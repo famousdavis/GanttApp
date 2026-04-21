@@ -1,5 +1,33 @@
 # Change Log
 
+## Version 16.7 (2026-04-20)
+### SnapshotBar Mouse-Wheel Scroll + Snapshot Import Stale State
+
+Two independent snapshot-bar fixes shipped together.
+
+**Issue A — SnapshotBar horizontal mouse-wheel scroll:**
+- On Windows with a standard vertical-wheel mouse, Chromium-family browsers did not reliably translate `deltaY` into horizontal scroll on containers whose only overflow axis is X. Users with many snapshots had no way to scroll back to newer chips without Shift-Wheel, a horizontal trackpad gesture, or clicking a partially-visible chip
+- Fix: scoped native `wheel` listener on the `.snapshot-bar-scroll` viewport in `SnapshotBar.tsx`. When the container has horizontal overflow (`scrollWidth > clientWidth`) and the event has no horizontal component (`deltaX === 0`), redirects `deltaY` into `scrollLeft` and calls `preventDefault()` to stop the page from scrolling vertically
+- Touchpad two-finger horizontal swipes (which emit real `deltaX`) are not intercepted — native horizontal scroll continues to handle them
+- Uses a native `addEventListener('wheel', ..., { passive: false })` (not React's synthetic `onWheel`, which is passive by default and where `preventDefault()` is a no-op). Cleanup registered via `removeEventListener` in the effect return
+
+**Issue B — Snapshot import stale state:**
+- The import path in `applyImport` was calling `storage.saveSnapshots` directly, bypassing the `useSnapshots` hook entirely. Snapshots were persisted correctly but the in-memory `allSnapshots` state stayed stale, so the SnapshotBar UI did not reflect the imported snapshots until a page reload
+- Fix: `ProjectsTab` now accepts an `onReplaceSnapshots` prop; `pages/index.tsx` passes `snapshotState.replaceAllSnapshots` (which was already built for exactly this purpose but had zero call sites). Storage and in-memory state now update atomically
+- Orphan-snapshot fix: when the imported file has no `snapshots` key or an empty array, the code now explicitly clears existing snapshots (`replaceAllSnapshots([])`) rather than skipping the save. The import confirmation modal already authorizes replacement of all data including snapshots, so this aligns behavior with the modal text. Pre-v7.0 exports and legacy backups behave consistently
+
+**Modified files:**
+- Chart: `src/features/chart/SnapshotBar.tsx` (ref + wheel effect), `src/features/chart/__tests__/SnapshotBar.test.tsx` (+4 tests)
+- Projects: `src/features/projects/ProjectsTab.tsx` (new `onReplaceSnapshots` prop, updated `applyImport`), `src/features/projects/__tests__/ProjectsTab.test.tsx` (+3 tests, updated `renderProjectsTab` default)
+- Entry: `pages/index.tsx` (thread `snapshotState.replaceAllSnapshots` to `<ProjectsTab>`)
+- Version and docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`
+
+**Protected-file discipline:** `GanttChart.tsx`, `firestore-save-executor.ts`, `validation.ts`, `styles/globals.css` all have zero edits — verified via `git diff`.
+
+**Tests:** 974 tests passing (up from 967 in v16.6), +7 net new. All gates green (tsc, test, lint, build).
+
+---
+
 ## Version 16.6 (2026-04-19)
 ### Auth/Storage Security Audit Wave
 

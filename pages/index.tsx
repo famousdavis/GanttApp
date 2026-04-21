@@ -297,6 +297,7 @@ function AppContent() {
               onProjectDragStart={handleProjectDragStart}
               onProjectDragOver={handleProjectDragOver}
               onProjectDragEnd={handleProjectDragEnd}
+              onReplaceSnapshots={snapshotState.replaceAllSnapshots}
             />
           )}
 

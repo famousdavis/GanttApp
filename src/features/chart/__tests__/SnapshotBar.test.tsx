@@ -140,4 +140,64 @@ describe('SnapshotBar', () => {
     expect(screen.getByText(/Current/)).toBeInTheDocument();
     expect(screen.getByText('Save Snapshot')).toBeInTheDocument();
   });
+
+  describe('horizontal mouse-wheel scroll (v16.7)', () => {
+    function getScrollEl(container: HTMLElement): HTMLDivElement {
+      return container.querySelector('.snapshot-bar-scroll') as HTMLDivElement;
+    }
+
+    function setOverflow(el: HTMLElement, scrollWidth: number, clientWidth: number) {
+      Object.defineProperty(el, 'scrollWidth', { value: scrollWidth, configurable: true });
+      Object.defineProperty(el, 'clientWidth', { value: clientWidth, configurable: true });
+    }
+
+    it('redirects vertical wheel to scrollLeft on overflowing container', () => {
+      const { container } = renderWithTheme(<SnapshotBar {...defaultProps} />);
+      const el = getScrollEl(container);
+      setOverflow(el, 1000, 300);
+
+      const ev = new WheelEvent('wheel', { deltaY: 150, deltaX: 0, bubbles: true, cancelable: true });
+      el.dispatchEvent(ev);
+
+      expect(el.scrollLeft).toBe(150);
+      expect(ev.defaultPrevented).toBe(true);
+    });
+
+    it('does nothing on non-overflowing container', () => {
+      const { container } = renderWithTheme(<SnapshotBar {...defaultProps} />);
+      const el = getScrollEl(container);
+      setOverflow(el, 200, 300);
+
+      const ev = new WheelEvent('wheel', { deltaY: 150, deltaX: 0, bubbles: true, cancelable: true });
+      el.dispatchEvent(ev);
+
+      expect(el.scrollLeft).toBe(0);
+      expect(ev.defaultPrevented).toBe(false);
+    });
+
+    it('does not intercept horizontal wheel (touchpad deltaX)', () => {
+      const { container } = renderWithTheme(<SnapshotBar {...defaultProps} />);
+      const el = getScrollEl(container);
+      setOverflow(el, 1000, 300);
+
+      const ev = new WheelEvent('wheel', { deltaX: 50, deltaY: 0, bubbles: true, cancelable: true });
+      el.dispatchEvent(ev);
+
+      expect(el.scrollLeft).toBe(0);
+      expect(ev.defaultPrevented).toBe(false);
+    });
+
+    it('removes wheel listener on unmount', () => {
+      const { container, unmount } = renderWithTheme(<SnapshotBar {...defaultProps} />);
+      const el = getScrollEl(container);
+      setOverflow(el, 1000, 300);
+
+      unmount();
+
+      const ev = new WheelEvent('wheel', { deltaY: 150, deltaX: 0, bubbles: true, cancelable: true });
+      expect(() => el.dispatchEvent(ev)).not.toThrow();
+      expect(el.scrollLeft).toBe(0);
+      expect(ev.defaultPrevented).toBe(false);
+    });
+  });
 });

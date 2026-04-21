@@ -87,6 +87,7 @@ function renderProjectsTab(props: Partial<React.ComponentProps<typeof ProjectsTa
     onProjectDragStart: vi.fn(),
     onProjectDragOver: vi.fn(),
     onProjectDragEnd: vi.fn(),
+    onReplaceSnapshots: vi.fn().mockResolvedValue(undefined),
     ...props,
   };
 
@@ -503,6 +504,116 @@ describe('ProjectsTab', () => {
       expect(screen.queryByText('Replace All Data')).toBeNull();
 
       alertSpy.mockRestore();
+    });
+
+    it('calls onReplaceSnapshots with imported snapshots via Replace modal (v16.7)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+      renderProjectsTab({ onReplaceSnapshots });
+
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const snapshot = {
+        id: 'snap1',
+        projectId: 'p2',
+        timestamp: '2026-04-01T10:00:00.000Z',
+        name: 'Sprint 1',
+        releases: [],
+      };
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+        snapshots: [snapshot],
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByText('Replace'));
+
+      await waitFor(() => {
+        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
+      });
+      const passed = onReplaceSnapshots.mock.calls[0][0];
+      expect(passed).toHaveLength(1);
+      expect(passed[0].id).toBe('snap1');
+    });
+
+    it('calls onReplaceSnapshots with [] when imported file has no snapshots (v16.7)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+      renderProjectsTab({ onReplaceSnapshots });
+
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByText('Replace'));
+
+      await waitFor(() => {
+        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
+      });
+      expect(onReplaceSnapshots.mock.calls[0][0]).toEqual([]);
+    });
+
+    it('calls onReplaceSnapshots on no-existing-data skip-modal path (v16.7)', async () => {
+      seedData({ projects: [], releases: [] });
+
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+      renderProjectsTab({ onReplaceSnapshots });
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const snapshot = {
+        id: 'snap1',
+        projectId: 'p2',
+        timestamp: '2026-04-01T10:00:00.000Z',
+        name: 'Sprint 1',
+        releases: [],
+      };
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+        snapshots: [snapshot],
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
+      });
+      const passed = onReplaceSnapshots.mock.calls[0][0];
+      expect(passed).toHaveLength(1);
+      expect(passed[0].id).toBe('snap1');
+      expect(screen.queryByText('Replace All Data')).toBeNull();
     });
   });
 

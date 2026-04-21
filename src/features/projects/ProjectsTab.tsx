@@ -17,7 +17,7 @@ import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { WorkWeekSelector } from '../../shared/components/WorkWeekSelector';
-import { TabType } from '../../shared/types';
+import { TabType, Snapshot } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 import type { CloudGanttStorageService } from '../../shared/storage';
 
@@ -29,6 +29,7 @@ interface ProjectsTabProps {
   onProjectDragStart: (id: string) => void;
   onProjectDragOver: (e: React.DragEvent, id: string) => void;
   onProjectDragEnd: () => void;
+  onReplaceSnapshots: (snapshots: Snapshot[]) => Promise<void>;
 }
 
 export function ProjectsTab({
@@ -38,7 +39,8 @@ export function ProjectsTab({
   draggedProjectId,
   onProjectDragStart,
   onProjectDragOver,
-  onProjectDragEnd
+  onProjectDragEnd,
+  onReplaceSnapshots
 }: ProjectsTabProps) {
   const { data, updateData, globalWorkDays } = useAppData();
   const { colors } = useTheme();
@@ -102,9 +104,7 @@ export function ProjectsTab({
 
   const applyImport = async (imported: NonNullable<ReturnType<typeof parseImportedData>>, fileInput: HTMLInputElement) => {
     updateData(imported.appData);
-    if (imported.snapshots && imported.snapshots.length > 0) {
-      await storage.saveSnapshots(imported.snapshots);
-    }
+    await onReplaceSnapshots(imported.snapshots ?? []);
     if (imported.appData.projects.length > 0) {
       setSelectedProjectId(imported.appData.projects[0].id);
     }

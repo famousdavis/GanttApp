@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "16.6.0",
+  "version": "16.7.0",
   "private": true,
   "engines": {
     "node": "22.x"

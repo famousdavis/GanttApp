@@ -3,19 +3,19 @@
 // See LICENSE file in the project root for full license text.
 
 // StorageStatusChip — Option C split pill showing storage mode and auth state.
-// v14.0: Unified single-button click target. Signed in → account popover with Sign Out.
-// Signed out / local → opens Settings (existing sign-in flow).
+// v17.0: Single click target opens the new CloudStorageModal in all three
+// visual variants. The previous in-chip ConfirmDialog popovers and sign-out
+// logic moved into the modal.
 
-import { useState, useEffect } from 'react';
 import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { sanitizeFirebaseError } from '../utils/validation';
 import { getFirstName, getInitial } from '../utils/displayName';
-import { ConfirmDialog } from './ConfirmDialog';
 
 interface StorageStatusChipProps {
-  onSettingsClick: () => void;
+  /** Open the unified Cloud Storage modal. v17.0: replaces the prior
+   *  `onSettingsClick` prop — all three variants now route here. */
+  onOpenModal: () => void;
 }
 
 function CloudIcon() {
@@ -38,61 +38,18 @@ function LockIcon() {
   );
 }
 
-export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
-  const { mode, performSignOutWithCleanup } = useStorage();
+export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
+  const { mode } = useStorage();
   const { user } = useAuth();
   const { colors } = useTheme();
 
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const isCloudSignedIn = mode === 'cloud' && !!user;
-  // v16.6 F2(d): new derived state for signed-in + local mode.
   const isSignedInLocal = mode === 'local' && !!user;
 
-  // v16.6: name extraction is shared between signed-in-cloud and
-  // signed-in-local branches via utils/displayName. Microsoft Entra
-  // "Last, First" reversal happens in there.
   const firstName = getFirstName(user?.displayName, user?.email);
   const initial = getInitial(firstName);
 
   const borderColor = colors.border ?? '#D1D5DB';
-
-  // Escape key closes popover (no-op while signing out)
-  useEffect(() => {
-    if (!popoverOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (signingOut) return;
-      setPopoverOpen(false);
-      setError(null);
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [popoverOpen, signingOut]);
-
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    setError(null);
-    try {
-      // v16.6: centralized helper — same path as SettingsTab.handleSignOut
-      // and AuthContext ToS-failure. No double sign-out, consistent cleanup.
-      await performSignOutWithCleanup();
-      setPopoverOpen(false);
-    } catch (err) {
-      setError(sanitizeFirebaseError(err));
-    } finally {
-      setSigningOut(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (signingOut) return;
-    setPopoverOpen(false);
-    setError(null);
-  };
 
   const pillButtonStyle: React.CSSProperties = {
     display: 'inline-flex',
@@ -119,208 +76,82 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
     backgroundColor: borderColor,
   };
 
+  const avatarStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '26px',
+    height: '26px',
+    borderRadius: '50%',
+    backgroundColor: '#0070f3',
+    color: 'white',
+    fontSize: '11px',
+    fontWeight: 500,
+    flexShrink: 0,
+    lineHeight: 1,
+  };
+
   if (isCloudSignedIn) {
     return (
-      <>
-        <button
-          type="button"
-          onClick={() => setPopoverOpen(true)}
-          style={pillButtonStyle}
-          title={`Signed in as ${user?.email ?? 'cloud user'}`}
-          aria-haspopup="dialog"
-          aria-expanded={popoverOpen}
-          aria-label="Account menu"
+      <button
+        type="button"
+        onClick={onOpenModal}
+        style={pillButtonStyle}
+        title={`Signed in as ${user?.email ?? 'cloud user'}`}
+        aria-haspopup="dialog"
+        aria-label="Account menu"
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+          <span style={avatarStyle} aria-hidden="true">{initial}</span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+            {firstName}
+          </span>
+        </span>
+        <span style={dividerStyle} aria-hidden="true" />
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px 10px',
+          }}
+          aria-hidden="true"
         >
-          {/* Left segment: avatar + first name */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                backgroundColor: '#0070f3',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 500,
-                flexShrink: 0,
-                lineHeight: 1,
-              }}
-              aria-hidden="true"
-            >
-              {initial}
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
-              {firstName}
-            </span>
-          </span>
-          {/* Vertical divider */}
-          <span style={dividerStyle} aria-hidden="true" />
-          {/* Right segment: cloud icon (visual only) */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '4px 10px',
-            }}
-            aria-hidden="true"
-          >
-            <CloudIcon />
-          </span>
-        </button>
-
-        {popoverOpen && (
-          <ConfirmDialog
-            modal
-            title="Account"
-            colors={colors}
-            message={
-              <div>
-                <p style={{ margin: 0, color: colors.text, fontWeight: 600 }}>
-                  {user?.displayName ?? firstName}
-                </p>
-                {user?.email && (
-                  <p style={{ margin: '0.25rem 0 0 0', color: colors.textSecondary, fontSize: '0.9rem' }}>
-                    {user.email}
-                  </p>
-                )}
-                {error && (
-                  <p style={{ margin: '0.75rem 0 0 0', color: '#e53e3e', fontSize: '0.85rem' }}>
-                    {error}
-                  </p>
-                )}
-              </div>
-            }
-            buttons={[
-              {
-                label: signingOut ? 'Signing out…' : 'Sign Out',
-                onClick: handleSignOut,
-                variant: 'danger',
-                disabled: signingOut,
-              },
-              {
-                label: 'Cancel',
-                onClick: handleCancel,
-                variant: 'secondary',
-                disabled: signingOut,
-              },
-            ]}
-          />
-        )}
-      </>
+          <CloudIcon />
+        </span>
+      </button>
     );
   }
 
-  // v16.6 F2(d): signed-in + local mode. Shows avatar + first name + lock
-  // icon. Clicking opens an account popover with "Switch to Cloud Storage"
-  // (per ARCH-4: navigation only, via onSettingsClick) and "Sign Out".
   if (isSignedInLocal) {
     return (
-      <>
-        <button
-          type="button"
-          onClick={() => setPopoverOpen(true)}
-          style={pillButtonStyle}
-          title={`Signed in as ${user?.email ?? 'local user'}`}
-          aria-haspopup="dialog"
-          aria-expanded={popoverOpen}
-          aria-label="Account menu"
+      <button
+        type="button"
+        onClick={onOpenModal}
+        style={pillButtonStyle}
+        title={`Signed in as ${user?.email ?? 'local user'}`}
+        aria-haspopup="dialog"
+        aria-label="Account menu"
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
+          <span style={avatarStyle} aria-hidden="true">{initial}</span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+            {firstName}
+          </span>
+        </span>
+        <span style={dividerStyle} aria-hidden="true" />
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px 10px',
+          }}
+          aria-hidden="true"
         >
-          {/* Left segment: avatar + first name */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                backgroundColor: '#0070f3',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 500,
-                flexShrink: 0,
-                lineHeight: 1,
-              }}
-              aria-hidden="true"
-            >
-              {initial}
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
-              {firstName}
-            </span>
-          </span>
-          {/* Vertical divider */}
-          <span style={dividerStyle} aria-hidden="true" />
-          {/* Right segment: lock icon (visual only) — signals "data is local only" */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '4px 10px',
-            }}
-            aria-hidden="true"
-          >
-            <LockIcon />
-          </span>
-        </button>
-
-        {popoverOpen && (
-          <ConfirmDialog
-            modal
-            title="Account"
-            colors={colors}
-            message={
-              <div>
-                <p style={{ margin: 0, color: colors.text, fontWeight: 600 }}>
-                  {user?.displayName ?? firstName}
-                </p>
-                {user?.email && (
-                  <p style={{ margin: '0.25rem 0 0 0', color: colors.textSecondary, fontSize: '0.9rem' }}>
-                    {user.email}
-                  </p>
-                )}
-                {error && (
-                  <p style={{ margin: '0.75rem 0 0 0', color: '#e53e3e', fontSize: '0.85rem' }}>
-                    {error}
-                  </p>
-                )}
-              </div>
-            }
-            buttons={[
-              {
-                label: 'Switch to Cloud Storage',
-                onClick: () => {
-                  // ARCH-4: navigation only. The user clicks the Cloud radio
-                  // in Settings to initiate the mode switch. The chip popover
-                  // is for account management, not mode switching.
-                  setPopoverOpen(false);
-                  onSettingsClick();
-                },
-                variant: 'primary',
-                disabled: signingOut,
-              },
-              {
-                label: signingOut ? 'Signing out…' : 'Sign Out',
-                onClick: handleSignOut,
-                variant: 'danger',
-                disabled: signingOut,
-              },
-              {
-                label: 'Cancel',
-                onClick: handleCancel,
-                variant: 'secondary',
-                disabled: signingOut,
-              },
-            ]}
-          />
-        )}
-      </>
+          <LockIcon />
+        </span>
+      </button>
     );
   }
 
@@ -328,21 +159,17 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
   return (
     <button
       type="button"
-      onClick={onSettingsClick}
+      onClick={onOpenModal}
       style={pillButtonStyle}
       title="Using local storage"
+      aria-haspopup="dialog"
       aria-label="Sign in"
     >
-      {/* Left segment: lock icon + "Local only" */}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px' }}>
         <LockIcon />
-        <span style={{ fontSize: '13px', color: '#9CA3AF' }}>
-          Local only
-        </span>
+        <span style={{ fontSize: '13px', color: '#9CA3AF' }}>Local only</span>
       </span>
-      {/* Vertical divider */}
       <span style={dividerStyle} aria-hidden="true" />
-      {/* Right segment: "Sign in" (visual only) */}
       <span
         style={{
           display: 'inline-flex',
@@ -352,9 +179,7 @@ export function StorageStatusChip({ onSettingsClick }: StorageStatusChipProps) {
         }}
         aria-hidden="true"
       >
-        <span style={{ fontSize: '12px', fontWeight: 500, color: '#0070f3' }}>
-          Sign in
-        </span>
+        <span style={{ fontSize: '12px', fontWeight: 500, color: '#0070f3' }}>Sign in</span>
       </span>
     </button>
   );

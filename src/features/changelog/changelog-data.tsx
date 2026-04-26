@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.0',
+    date: 'April 26, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; New <strong>Cloud Storage</strong> modal opens from the header auth chip. Single click target across all three valid auth &times; storage states (signed-out + local, signed-in + local, signed-in + cloud). Replaces the prior in-chip <code>ConfirmDialog</code> popover and the Settings-tab detour for sign-in. Users can sign in, switch storage modes, edit Export Attribution, and toggle the local-storage warning &mdash; all from one dialog without leaving their current view</>,
+      <><strong>Feature</strong> &mdash; Sign-in row uses native full-color Google and Microsoft logos (inline SVG) on a unified primary-blue background, matching the standardized SPERT&reg; Suite look</>,
+      <><strong>Feature</strong> &mdash; Modal uses State 2 (signed-in + local) to expose a &ldquo;Keep using local storage&rdquo; secondary button so users who just signed in have a clear &ldquo;leave me on local&rdquo; action without needing to dismiss via &times; / Escape / backdrop</>,
+      <><strong>UX</strong> &mdash; Sign-in error normalization in the modal: <code>auth/popup-closed-by-user</code> and <code>auth/cancelled-popup-request</code> are silent; <code>auth/popup-blocked</code> shows &ldquo;Allow pop-ups in your browser to sign in.&rdquo;; all others fall through to the standard <code>sanitizeFirebaseError</code> mapping</>,
+      <><strong>UX</strong> &mdash; Identity card uses the new <code>normalizeDisplayName</code> helper so Microsoft Entra ID display names (returned as &ldquo;Last, First MI&rdquo;) render as &ldquo;First MI Last&rdquo; in the modal&apos;s account card. The chip&apos;s first-name segment continues to use the existing <code>getFirstName</code></>,
+      <><strong>Refactor</strong> &mdash; Three prerequisite extractions land with the modal so Settings and the modal share a single source of truth: <code>UploadConfirmFlow</code> (radio-click upload + post-upload cleanup), <code>LocalStorageWarningToggle</code> (notifications checkbox + suppress-key write), and the <code>useSignInWithTosGate</code> hook (centralizes the load-bearing localStorage flag sequencing for Terms-of-Service consent)</>,
+      <><strong>Architecture</strong> &mdash; <code>useSignInWithTosGate</code> lives in <code>src/shared/hooks/</code> rather than <code>src/features/settings/</code> because it&apos;s consumed by both a feature (SettingsTab) and a shared component (CloudStorageModal). Placing it in <code>features/</code> would invert layering &mdash; shared importing from feature</>,
+      <><strong>Refactor</strong> &mdash; <code>StorageStatusChip</code> prop renamed <code>onSettingsClick</code> &rarr; <code>onOpenModal</code>. All popover, sign-out, and ConfirmDialog logic removed from the chip &mdash; it&apos;s now purely a click target. Settings tab retains its full cloud-storage section as a secondary entry point</>,
+      <><strong>UX</strong> &mdash; Export Attribution input placeholders updated: name field shows &ldquo;e.g., Jane Smith&rdquo;; identifier placeholder typo fixed (&ldquo;e.g,&rdquo; &rarr; &ldquo;e.g.,&rdquo;)</>,
+    ],
+  },
+  {
     version: '16.8',
     date: 'April 21, 2026',
     items: [

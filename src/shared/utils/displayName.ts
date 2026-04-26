@@ -35,3 +35,22 @@ export function getFirstName(
 export function getInitial(firstName: string): string {
   return firstName.charAt(0).toUpperCase() || '?';
 }
+
+/**
+ * Normalize a Firebase user's displayName to "First MI Last" for full-name
+ * display in identity cards. Microsoft Entra ID returns "Last, First MI" —
+ * we swap. Google and most providers return "First Last" already — passthrough.
+ *
+ * Empty/null → ''. The caller decides the fallback (typically email local-part).
+ */
+export function normalizeDisplayName(displayName: string | null | undefined): string {
+  const raw = (displayName ?? '').trim();
+  if (!raw) return '';
+  if (!raw.includes(',')) return raw;
+  const parts = raw.split(',').map(s => s.trim());
+  const last = parts[0] ?? '';
+  const firstAndMiddle = parts.slice(1).join(' ').trim();
+  if (!firstAndMiddle) return last;
+  if (!last) return firstAndMiddle;
+  return `${firstAndMiddle} ${last}`;
+}

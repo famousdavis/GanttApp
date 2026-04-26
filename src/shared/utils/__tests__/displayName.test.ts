@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { getFirstName, getInitial } from '../displayName';
+import { getFirstName, getInitial, normalizeDisplayName } from '../displayName';
 
 describe('getFirstName', () => {
   it('extracts first name from "First Last" format (Google)', () => {
@@ -55,5 +55,53 @@ describe('getInitial', () => {
 
   it('handles unicode / non-latin', () => {
     expect(getInitial('émile')).toBe('É');
+  });
+});
+
+describe('normalizeDisplayName', () => {
+  it('passes through "First Last" (Google) unchanged', () => {
+    expect(normalizeDisplayName('William Davis')).toBe('William Davis');
+  });
+
+  it('passes through "First Middle Last" unchanged', () => {
+    expect(normalizeDisplayName('William W Davis')).toBe('William W Davis');
+  });
+
+  it('reverses "Last, First" (Microsoft Entra) to "First Last"', () => {
+    expect(normalizeDisplayName('Davis, William')).toBe('William Davis');
+  });
+
+  it('reverses "Last, First MI" to "First MI Last"', () => {
+    expect(normalizeDisplayName('Davis, William W')).toBe('William W Davis');
+  });
+
+  it('trims whitespace around the comma', () => {
+    expect(normalizeDisplayName('  Davis,   William  ')).toBe('William Davis');
+  });
+
+  it('returns empty string for null', () => {
+    expect(normalizeDisplayName(null)).toBe('');
+  });
+
+  it('returns empty string for undefined', () => {
+    expect(normalizeDisplayName(undefined)).toBe('');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(normalizeDisplayName('')).toBe('');
+    expect(normalizeDisplayName('   ')).toBe('');
+  });
+
+  it('returns just last name when first half is empty after comma', () => {
+    expect(normalizeDisplayName('Davis,')).toBe('Davis');
+    expect(normalizeDisplayName('Davis, ')).toBe('Davis');
+  });
+
+  it('returns just first name when last half is empty before comma', () => {
+    expect(normalizeDisplayName(', William')).toBe('William');
+  });
+
+  it('handles single name with no comma', () => {
+    expect(normalizeDisplayName('William')).toBe('William');
   });
 });

@@ -77,7 +77,7 @@ describe('SettingsTab', () => {
 
   it('renders Name and Identifier input fields', () => {
     render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByPlaceholderText(/Mark Twain/)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Jane Smith/)).toBeTruthy();
     expect(screen.getByPlaceholderText(/student ID, email, or team name/)).toBeTruthy();
   });
 

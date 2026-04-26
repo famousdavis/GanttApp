@@ -8,17 +8,19 @@
 // v12.0.1: Replaced window.confirm() with inline UI (matches SPERT Story Map pattern).
 // v12.1: Uses shared ConfirmDialog component.
 // v12.3: Skip→Cancel — stays in local mode instead of connecting to cloud without uploading.
+// v17.0: Upload-confirm + cleanup-confirm flow extracted to UploadConfirmFlow
+// (shared with the new CloudStorageModal).
 
-import { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { AppData } from '../../shared/types/app';
 import type { StorageMode } from '../../shared/types/storage';
 import type { ThemeColors } from '../../shared/utils/theme';
 import type { UploadResult } from '../../context/StorageContext';
 import type { GanttStorageService } from '../../shared/types/storage';
-import { clearLocalProjectData } from '../../shared/storage/local-gantt-storage-service';
 import { exportAllProjects } from '../../shared/utils/export';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { UploadConfirmFlow, type UploadConfirmFlowHandle } from '../../shared/components/UploadConfirmFlow';
 
 interface StorageSectionProps {
   colors: ThemeColors;
@@ -64,11 +66,9 @@ export function StorageSection({
   currentAppData, needsCloudToLocalPrompt,
   onConfirmKeepLocalCopy, onConfirmDiscardCloudData,
 }: StorageSectionProps) {
-  // Inline confirmation state — replaces window.confirm() (v12.0.1)
-  const [showUploadConfirm, setShowUploadConfirm] = useState(false);
-  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const uploadFlowRef = useRef<UploadConfirmFlowHandle>(null);
   const [exporting, setExporting] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
 
   const labelStyle = { display: 'block', marginBottom: '0.75rem', color: colors.text, cursor: 'pointer' as const };
   const cloudDisabled = isSwitching || !isFirebaseAvailable || !user;
@@ -81,59 +81,19 @@ export function StorageSection({
     fontWeight: '600' as const,
   };
 
-  // Handle cloud radio selection — show inline confirm if local data exists.
-  // v16.6 (C3): project count now comes from AppDataContext in-memory state
-  // via the `localProjectCount` prop (SettingsTab reads from useAppData()).
-  // Prevents a stale localStorage copy from a previous user from triggering
-  // an upload prompt that would dump their data into the current user's cloud.
+  // v17.0: Cloud-radio handler delegates to shared UploadConfirmFlow.
   const handleCloudSwitch = () => {
-    if (localProjectCount > 0) {
-      setShowUploadConfirm(true);
-    } else {
-      onModeChange('cloud');
-    }
-  };
-
-  // User confirmed upload in the radio-click flow
-  const confirmUpload = async () => {
-    setShowUploadConfirm(false);
-    await onModeChange('cloud');
-  };
-
-  // User chose to cancel — stay in local mode (v12.3 fix)
-  const cancelUpload = () => {
-    setShowUploadConfirm(false);
-    // Stay in local mode — do NOT switch to cloud without uploading
-  };
-
-  // Show cleanup confirmation when upload completes with results
-  useEffect(() => {
-    if (!uploadResult) return;
-    const msg = `${uploadResult.uploaded} project(s) uploaded to the cloud` +
-      (uploadResult.skipped > 0 ? ` (${uploadResult.skipped} already existed, skipped)` : '') +
-      '.';
-    setStatusMessage(msg);
-    if (uploadResult.uploaded > 0 || uploadResult.skipped > 0) {
-      setShowCleanupConfirm(true);
-    }
-    onClearUploadResult();
-  }, [uploadResult, onClearUploadResult]);
-
-  // User confirmed clearing local data
-  const confirmCleanup = () => {
-    clearLocalProjectData();
-    setShowCleanupConfirm(false);
-    setStatusMessage(prev => prev ? prev + ' Local data cleared.' : 'Local data cleared.');
+    uploadFlowRef.current?.requestCloudSwitch();
   };
 
   const handleDownloadAll = async () => {
     setExporting(true);
-    setStatusMessage(null);
+    setDownloadStatus(null);
     try {
       const result = await exportAllProjects(storage);
-      setStatusMessage(`${result.exported} project(s) exported successfully.`);
+      setDownloadStatus(`${result.exported} project(s) exported successfully.`);
     } catch (err) {
-      setStatusMessage(`Export failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setDownloadStatus(`Export failed: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setExporting(false);
     }
@@ -180,30 +140,17 @@ export function StorageSection({
         </span>
       </label>
 
-      {/* Upload confirmation — shown when user clicks Cloud radio and has local data */}
-      {showUploadConfirm && (
-        <ConfirmDialog
-          message="You have local projects. Upload them to the cloud?"
-          colors={colors}
-          buttons={[
-            { label: 'Upload to Cloud', onClick: confirmUpload, variant: 'primary', disabled: isSwitching },
-            { label: 'Cancel', onClick: cancelUpload, variant: 'secondary', disabled: isSwitching },
-          ]}
-        />
-      )}
-
-      {/* Cleanup confirmation — shown after successful upload */}
-      {showCleanupConfirm && (
-        <ConfirmDialog
-          message="Your projects are now in the cloud. Clear local copies to prevent duplicates on future sign-ins?"
-          colors={colors}
-          borderColor="#e53e3e"
-          buttons={[
-            { label: 'Clear Local Data', onClick: confirmCleanup, variant: 'danger' },
-            { label: 'Keep Local Copies', onClick: () => setShowCleanupConfirm(false), variant: 'secondary' },
-          ]}
-        />
-      )}
+      {/* v17.0: shared upload-confirm + cleanup-confirm flow */}
+      <UploadConfirmFlow
+        ref={uploadFlowRef}
+        colors={colors}
+        isSwitching={isSwitching}
+        localProjectCount={localProjectCount}
+        uploadResult={uploadResult}
+        storage={storage}
+        onModeChange={async (m) => { await onModeChange(m); }}
+        onClearUploadResult={onClearUploadResult}
+      />
 
       {/* Re-sign-in upload prompt */}
       {needsUploadPrompt && (
@@ -237,18 +184,6 @@ export function StorageSection({
             },
           ]}
         />
-      )}
-
-      {/* Status message — upload results, export results, etc. */}
-      {statusMessage && !isSwitching && (
-        <p style={{
-          color: statusMessage.includes('failed') ? '#e53e3e' : '#38a169',
-          fontSize: '0.85rem',
-          marginTop: '0.5rem',
-          paddingLeft: '1.5rem',
-        }}>
-          {statusMessage}
-        </p>
       )}
 
       {/* Auth UI — sign-in buttons or signed-in user card */}
@@ -326,6 +261,15 @@ export function StorageSection({
           <p style={{ color: colors.textSecondary, fontSize: '0.8rem', marginTop: '0.25rem' }}>
             Export all your cloud projects to a single JSON file for backup.
           </p>
+          {downloadStatus && (
+            <p style={{
+              color: downloadStatus.includes('failed') ? '#e53e3e' : '#38a169',
+              fontSize: '0.85rem',
+              marginTop: '0.25rem',
+            }}>
+              {downloadStatus}
+            </p>
+          )}
         </div>
       )}
 

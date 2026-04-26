@@ -1,5 +1,50 @@
 # Change Log
 
+## Version 17.0 (2026-04-26)
+### Cloud Storage Modal
+
+Standardized SPERT&reg; Suite Cloud Storage modal triggered by the header auth chip. Replaces the prior in-chip `ConfirmDialog` popover and the Settings-tab detour for sign-in. One dialog handles all three valid auth × storage states with sign-in, mode switching, Export Attribution, and the local-storage notification toggle. Settings tab retains its full cloud-storage section as a secondary entry point.
+
+**New shared components and hook:**
+- `src/shared/components/CloudStorageModal.tsx` — three-state modal (signed-out + local, signed-in + local, signed-in + cloud). Hand-rolled shell mirroring `TosConsentModal` (position fixed, backdrop, role=dialog, Escape, backdrop click, × button). Renders a `UploadConfirmFlow`, `<ExportAttributionSection>`, and `<LocalStorageWarningToggle alwaysVisible>` inside one card
+- `src/shared/components/UploadConfirmFlow.tsx` — extracts the radio-click upload-confirm + post-upload cleanup-confirm pair from `StorageSection`. Imperative `requestCloudSwitch()` handle on a forwarded ref so both `StorageSection` and `CloudStorageModal` get identical behavior
+- `src/shared/components/LocalStorageWarningToggle.tsx` — extracts the Notifications checkbox + `ganttapp-suppress-local-warning` write from `SettingsTab`. Optional `alwaysVisible` prop so the modal renders it regardless of storage mode while Settings retains the local-only behavior
+- `src/shared/hooks/useSignInWithTosGate.ts` — encapsulates the load-bearing localStorage flag sequencing for ToS consent (`spert_tos_accepted_version` then `spert_tos_write_pending` then `signInWithPopup`). Optional `normalizeError` callback so the modal can silence `auth/popup-closed-by-user` and customize `auth/popup-blocked`. Placed in `src/shared/hooks/` rather than `src/features/settings/` because it's consumed by both a feature and a shared component — keeps the modal from importing from a feature folder
+
+**Display-name normalization:**
+- `normalizeDisplayName(displayName)` added to `src/shared/utils/displayName.ts`. Microsoft Entra ID returns "Last, First MI"; the helper returns "First MI Last". Used by the modal's identity card. Existing `getFirstName` / `getInitial` are unchanged.
+
+**Sign-in error normalization in the modal:**
+- `auth/popup-closed-by-user` — silent (no message)
+- `auth/cancelled-popup-request` — silent
+- `auth/popup-blocked` — "Allow pop-ups in your browser to sign in."
+- All others fall through to `sanitizeFirebaseError`
+
+**Auth chip rewire:**
+- `StorageStatusChip` prop renamed `onSettingsClick` → `onOpenModal`. All three visual variants now route to the modal — single click target. Removed: `popoverOpen`, `signingOut`, `error` state, the Escape `useEffect`, both `ConfirmDialog` popover blocks, and the chip's direct call to `performSignOutWithCleanup`. Sign-out now lives inside the modal's identity card
+
+**Settings refactor (single source of truth):**
+- `SettingsTab` consumes `useSignInWithTosGate` instead of owning the gate inline. Notifications block replaced with `<LocalStorageWarningToggle colors={colors} />` (still local-mode-only by default)
+- `StorageSection` consumes the new `<UploadConfirmFlow>` via a ref. Removed: inline `showUploadConfirm` / `showCleanupConfirm` / `statusMessage` state and matching `ConfirmDialog` blocks. Re-sign-in upload prompt and cloud→local keep/discard prompt remain as-is — those are global-context flows
+
+**Layout integration:**
+- `pages/index.tsx` hoists `cloudModalOpen` state at the `AppContent` level, passes `onOpenModal` to the chip, and renders `<CloudStorageModal>` after `<LocalStorageWarningBanner>`. The modal is rendered unconditionally and bails on `open=false` to avoid mount/unmount churn
+
+**UX polish:**
+- Export Attribution placeholders updated: name field shows "e.g., Jane Smith"; identifier placeholder typo fixed ("e.g," → "e.g.,"). Both Settings and modal pick up the change automatically (single component reuse)
+- Modal's "Keep using local storage" secondary button (State 2 only) closes the modal without any storage-mode mutation — gives just-signed-in users a clear "leave me on local" affordance
+
+**Modified files:**
+- Auth chip: `src/shared/components/StorageStatusChip.tsx`
+- Settings: `src/features/settings/SettingsTab.tsx`, `src/features/settings/StorageSection.tsx`, `src/features/settings/ExportAttributionSection.tsx`
+- Entry: `pages/index.tsx`
+- Utils: `src/shared/utils/displayName.ts`
+- Version and docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`
+
+**Protected files:** `GanttChart.tsx`, `firestore-save-executor.ts`, `validation.ts`, `styles/globals.css` — zero edits.
+
+---
+
 ## Version 16.8 (2026-04-21)
 ### Snapshot Freezes Project-Override Labels
 

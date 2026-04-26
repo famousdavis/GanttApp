@@ -202,7 +202,8 @@ describe('StorageSection', () => {
 
     expect(screen.getByText(/Clear Local Data/)).toBeInTheDocument();
     expect(screen.getByText(/Keep Local Copies/)).toBeInTheDocument();
-    expect(onClearUploadResult).toHaveBeenCalled();
+    // v17.0: prop is cleared on user click in UploadConfirmFlow, not automatically.
+    expect(onClearUploadResult).not.toHaveBeenCalled();
   });
 
   it('shows status message with upload count', () => {
@@ -230,16 +231,18 @@ describe('StorageSection', () => {
     expect(localStorage.getItem('ganttAppSnapshots')).toBeNull();
   });
 
-  it('dismisses cleanup dialog when Keep Local Copies is clicked', () => {
+  it('calls onClearUploadResult when Keep Local Copies is clicked', () => {
+    // v17.0: cleanup confirm visibility is derived from the uploadResult
+    // prop. Clicking Keep Local Copies calls onClearUploadResult; the parent
+    // is responsible for clearing the prop, which then hides the dialog.
+    const onClearUploadResult = vi.fn();
     renderSection({
       uploadResult: { uploaded: 1, skipped: 0 },
-      onClearUploadResult: vi.fn(),
+      onClearUploadResult,
     });
 
     fireEvent.click(screen.getByText('Keep Local Copies'));
-
-    // Dialog should be gone
-    expect(screen.queryByText('Clear Local Data')).not.toBeInTheDocument();
+    expect(onClearUploadResult).toHaveBeenCalledTimes(1);
   });
 
   // === Re-sign-in upload prompt ===

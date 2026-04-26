@@ -46,7 +46,7 @@ export function ExportAttributionSection({
             name: sanitizeString(e.target.value, 100),
             identifier: exportAttribution?.identifier ?? '',
           })}
-          placeholder="e.g., Mark Twain"
+          placeholder="e.g., Jane Smith"
           maxLength={100}
           style={inputStyle}
         />
@@ -63,7 +63,7 @@ export function ExportAttributionSection({
             name: exportAttribution?.name ?? '',
             identifier: sanitizeString(e.target.value, 100),
           })}
-          placeholder="e.g, student ID, email, or team name"
+          placeholder="e.g., student ID, email, or team name"
           maxLength={100}
           style={inputStyle}
         />

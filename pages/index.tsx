@@ -16,6 +16,7 @@ import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
 import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
+import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ReleasesTab } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
@@ -65,6 +66,7 @@ function AppContent() {
 
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [selectedProjectIdRaw, setSelectedProjectId] = useState<string>('');
+  const [cloudModalOpen, setCloudModalOpen] = useState(false);
 
   // Auto-select first project when none is selected
   const selectedProjectId = (selectedProjectIdRaw && data.projects.some(p => p.id === selectedProjectIdRaw))
@@ -282,12 +284,13 @@ function AppContent() {
             >
               {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
             </button>
-            <StorageStatusChip onSettingsClick={() => setActiveTab('settings')} />
+            <StorageStatusChip onOpenModal={() => setCloudModalOpen(true)} />
           </div>
         </header>
 
         <FirstRunBanner />
         <LocalStorageWarningBanner />
+        <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 

@@ -139,7 +139,7 @@ describe('ShareDialog', () => {
     });
 
     // Owner should not have a Remove button
-    expect(screen.queryByText('Remove')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove member' })).toBeNull();
   });
 
   it('shows Remove button for non-owner members', async () => {
@@ -165,7 +165,7 @@ describe('ShareDialog', () => {
     });
 
     // Non-owner should have a Remove button
-    expect(screen.getByText('Remove')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove member' })).toBeTruthy();
   });
 
   it('shows error when share fails', async () => {

@@ -293,7 +293,7 @@ describe('ReleasesTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete release' }));
 
       expect(screen.getByText('Delete Release')).toBeTruthy();
       expect(screen.getByText(/Delete release "Sprint 1"/)).toBeTruthy();
@@ -309,11 +309,10 @@ describe('ReleasesTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete release' }));
 
       // Click the Delete button in the ConfirmDialog
-      const deleteButtons = screen.getAllByText('Delete');
-      fireEvent.click(deleteButtons[deleteButtons.length - 1]);
+      fireEvent.click(screen.getByText('Delete'));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.releases).toHaveLength(0);

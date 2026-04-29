@@ -1,5 +1,37 @@
 # Change Log
 
+## Version 17.1 (2026-04-28)
+### Trashcan Icon for Destructive List Actions
+
+Replaced the text **Delete** button on the Projects and Releases tabs, the **Remove** button in the project sharing dialog, and the snapshot delete button in the SnapshotBar with a single shared icon button. The trashcan is grayscale by default and turns red — with a soft red background tile — on hover or keyboard focus. Destructive actions now have a lower visual weight, matching the standardized SPERT® Suite look.
+
+**New shared component:**
+- `src/shared/components/TrashIconButton.tsx` — borderless icon button. Inline 20px SVG trashcan (Heroicons-style outline). Default color is theme-aware (`colors.textSecondary`); hover/focus color is `#ef4444` with a soft red background tile (`#fef2f2` light, `rgba(239,68,68,0.15)` dark). Hover state uses `useState` + `onMouseEnter`/`onMouseLeave`/`onFocus`/`onBlur`, matching the codebase's existing inline-style hover pattern (no new CSS). Props: `onClick`, `ariaLabel?`, `title?`, `disabled?`. Disabled state: 50% opacity, no hover transition.
+
+**Call sites migrated (4):**
+- `src/features/projects/ProjectsTab.tsx` — project Delete button (`aria-label="Delete project"`)
+- `src/features/releases/ReleasesTab.tsx` — release Delete button (`aria-label="Delete release"`)
+- `src/features/projects/ShareDialog.tsx` — member Remove button (`aria-label="Remove member"`)
+- `src/features/chart/SnapshotBar.tsx` — Delete Snapshot button, replacing the previous emoji 🗑️ in a chip pill (`aria-label="Delete snapshot"`)
+
+`ConfirmDialog` flows are unchanged at all four call sites — the second-tier safety net stays in place.
+
+**Test updates:**
+- New: `src/shared/components/__tests__/TrashIconButton.test.tsx` — 7 tests (renders SVG, default + custom aria-label/title, fires onClick, hover changes icon color, hover shows red background tile, disabled state)
+- `src/features/projects/__tests__/ProjectsTab.test.tsx` — `getByText('Delete')` → `getByRole('button', { name: 'Delete project' })` for the row button. ConfirmDialog's "Delete" button still queried by text (now unambiguous)
+- `src/features/releases/__tests__/ReleasesTab.test.tsx` — same migration with `name: 'Delete release'`
+- `src/features/projects/__tests__/ShareDialog.test.tsx` — `getByText('Remove')` → `getByRole('button', { name: 'Remove member' })`
+- `src/features/chart/__tests__/SnapshotBar.test.tsx` — unchanged (uses `getByTitle('Delete this snapshot')`, which the new component preserves)
+
+**Verification:**
+- All tests pass
+- TypeScript type-check clean (0 errors)
+- Lint clean
+- Production build succeeds with Turbopack
+- Manual preview confirmed: grayscale → red-on-hover with pink tile background; ConfirmDialog still gates every action; light + dark mode both render correctly
+
+---
+
 ## Version 17.0 (2026-04-26)
 ### Cloud Storage Modal
 

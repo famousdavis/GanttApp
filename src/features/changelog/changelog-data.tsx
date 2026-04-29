@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.1',
+    date: 'April 28, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Replaced the text <strong>Delete</strong> button on the Projects and Releases tabs, the <strong>Remove</strong> button in the project sharing dialog, and the snapshot delete button in the SnapshotBar with a single shared icon button. The trashcan is grayscale by default and turns red &mdash; with a soft red background tile &mdash; on hover or keyboard focus. Destructive actions now have a lower visual weight, matching the standardized SPERT&reg; Suite look. Confirmation dialogs (<code>ConfirmDialog</code>) are unchanged so the second-tier safety net stays in place</>,
+      <><strong>Accessibility</strong> &mdash; Each icon button carries a specific <code>aria-label</code> (&ldquo;Delete project&rdquo;, &ldquo;Delete release&rdquo;, &ldquo;Remove member&rdquo;, &ldquo;Delete snapshot&rdquo;) and a matching <code>title</code> for hover tooltip + screen-reader announcement, so the loss of visible &ldquo;Delete&rdquo; text doesn&apos;t reduce discoverability for assistive tech</>,
+    ],
+  },
+  {
     version: '17.0',
     date: 'April 26, 2026',
     items: [

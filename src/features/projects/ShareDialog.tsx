@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { TrashIconButton } from '../../shared/components/TrashIconButton';
 import { sanitizeString } from '../../shared/utils/validation';
 import type { CloudGanttStorageService } from '../../shared/storage';
 import type { ProjectRole } from '../../shared/types/firestore';
@@ -222,21 +223,12 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
                     </span>
                   </div>
                   {member.role !== 'owner' && (
-                    <button
+                    <TrashIconButton
                       onClick={() => setRemoveMemberUid(member.uid)}
                       disabled={actionLoading}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        background: 'transparent',
-                        border: '1px solid #dc3545',
-                        borderRadius: '4px',
-                        color: '#dc3545',
-                        cursor: actionLoading ? 'not-allowed' : 'pointer',
-                        fontSize: '0.8rem'
-                      }}
-                    >
-                      Remove
-                    </button>
+                      ariaLabel="Remove member"
+                      title="Remove member"
+                    />
                   )}
                 </div>
               ))}

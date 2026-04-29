@@ -259,9 +259,9 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Delete')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Delete project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete project' }));
 
       expect(screen.getByText('Delete Project')).toBeTruthy();
       expect(screen.getByText(/Delete project "Alpha"/)).toBeTruthy();
@@ -275,13 +275,12 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Delete')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Delete project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete project' }));
 
       // Click the Delete button in the ConfirmDialog
-      const deleteButtons = screen.getAllByText('Delete');
-      fireEvent.click(deleteButtons[deleteButtons.length - 1]);
+      fireEvent.click(screen.getByText('Delete'));
 
       await waitFor(() => {
         const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -297,9 +296,9 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Delete')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Delete project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete project' }));
 
       // Click Cancel in the ConfirmDialog
       fireEvent.click(screen.getByText('Cancel'));

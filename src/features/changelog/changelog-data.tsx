@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.2',
+    date: 'April 28, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Lightened the default <code>TrashIconButton</code> color from theme-aware <code>colors.textSecondary</code> (<code>#666</code> in light mode) to a hardcoded soft gray <code>#9ca3af</code> across both themes. The previous shade read too dark next to the blue Edit / View Releases buttons; the lighter gray matches the standardized SPERT&reg; Suite trashcan look. Hover/focus state (red <code>#ef4444</code> + soft red background tile) is unchanged</>,
+    ],
+  },
+  {
     version: '17.1',
     date: 'April 28, 2026',
     items: [

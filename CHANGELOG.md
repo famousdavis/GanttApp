@@ -1,5 +1,24 @@
 # Change Log
 
+## Version 17.2 (2026-04-28)
+### Lighter Default Trashcan Color
+
+Lightened the default `TrashIconButton` color from theme-aware `colors.textSecondary` (`#666` in light mode, `#a0aec0` in dark) to a hardcoded soft gray `#9ca3af` across both themes. The previous shade read too dark in the project / release row next to the blue **Edit** and **View Releases** buttons; the lighter gray matches the standardized SPERT® Suite trashcan look. Hover/focus state (red `#ef4444` icon + soft red background tile) is unchanged.
+
+**Modified Files:**
+- `src/shared/components/TrashIconButton.tsx` — `iconColor` now uses a hardcoded `#9ca3af` instead of `colors.textSecondary`. Removed the now-unused `colors` destructure from `useTheme()`.
+- `src/shared/components/__tests__/TrashIconButton.test.tsx` — updated default-stroke assertion from theme-derived to hardcoded `#9ca3af`.
+- `src/features/changelog/__tests__/ChangelogTab.test.tsx` — version-order expectation updated.
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`.
+
+**Verification:**
+- All tests pass
+- TypeScript type-check clean (0 errors)
+- Production build succeeds with Turbopack
+- Lint clean
+
+---
+
 ## Version 17.1 (2026-04-28)
 ### Trashcan Icon for Destructive List Actions
 

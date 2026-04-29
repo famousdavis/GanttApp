@@ -18,6 +18,7 @@ interface TrashIconButtonProps {
 const HOVER_RED = '#ef4444';
 const HOVER_BG_LIGHT = '#fef2f2';
 const HOVER_BG_DARK = 'rgba(239, 68, 68, 0.15)';
+const DEFAULT_GRAY = '#9ca3af';
 
 export function TrashIconButton({
   onClick,
@@ -25,11 +26,11 @@ export function TrashIconButton({
   title = 'Delete',
   disabled = false
 }: TrashIconButtonProps) {
-  const { colors, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_RED : colors.textSecondary;
+  const iconColor = isHoverActive ? HOVER_RED : DEFAULT_GRAY;
   const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (

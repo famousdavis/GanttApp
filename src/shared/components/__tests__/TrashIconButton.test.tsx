@@ -37,20 +37,18 @@ describe('TrashIconButton', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it('changes icon color on mouse enter (hover red)', () => {
+  it('uses a light gray default and turns red on mouse enter', () => {
     render(<TrashIconButton onClick={() => {}} />);
     const button = screen.getByRole('button');
     const path = button.querySelector('path');
-    const defaultStroke = path?.getAttribute('stroke');
+
+    expect(path?.getAttribute('stroke')).toBe('#9ca3af');
 
     fireEvent.mouseEnter(button);
-    const hoverStroke = button.querySelector('path')?.getAttribute('stroke');
-    expect(hoverStroke).toBe('#ef4444');
-    expect(hoverStroke).not.toBe(defaultStroke);
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#ef4444');
 
     fireEvent.mouseLeave(button);
-    const restoredStroke = button.querySelector('path')?.getAttribute('stroke');
-    expect(restoredStroke).toBe(defaultStroke);
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
   });
 
   it('shows soft red background tile on hover', () => {

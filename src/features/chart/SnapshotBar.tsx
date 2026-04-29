@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Snapshot } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { TrashIconButton } from '../../shared/components/TrashIconButton';
 
 interface SnapshotBarProps {
   snapshots: Snapshot[];
@@ -98,25 +99,11 @@ export function SnapshotBar({
 
         {/* Delete button — only when viewing a historical snapshot, pinned left */}
         {!isCurrentView && activeSnapshotId && (
-          <button
+          <TrashIconButton
             onClick={() => setDeleteConfirmSnapshotId(activeSnapshotId)}
-            style={{
-              padding: '0.35rem 0.75rem',
-              border: `1px solid ${colors.borderLight}`,
-              borderRadius: '20px',
-              background: colors.surface,
-              color: '#dc3545',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              whiteSpace: 'nowrap',
-              display: 'flex',
-              alignItems: 'center',
-              minHeight: '1.6rem'
-            }}
+            ariaLabel="Delete snapshot"
             title="Delete this snapshot"
-          >
-            🗑️
-          </button>
+          />
         )}
 
         {/* Current chip */}

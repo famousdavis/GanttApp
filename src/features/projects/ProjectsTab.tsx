@@ -16,6 +16,7 @@ import { isProjectNameValid, getWorkDayWarning, getEffectiveWorkDays } from '../
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { TrashIconButton } from '../../shared/components/TrashIconButton';
 import { WorkWeekSelector } from '../../shared/components/WorkWeekSelector';
 import { TabType, Snapshot } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
@@ -432,20 +433,11 @@ export function ProjectsTab({
                 >
                   Edit
                 </button>
-                <button
+                <TrashIconButton
                   onClick={() => setDeleteConfirmProjectId(project.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: '1px solid #dc3545',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: '#dc3545'
-                  }}
-                >
-                  Delete
-                </button>
+                  ariaLabel="Delete project"
+                  title="Delete project"
+                />
               </div>
             </div>
             );

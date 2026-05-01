@@ -250,20 +250,30 @@ function AppContent() {
         <title>GanttApp - Version {APP_VERSION}</title>
         <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/spert-favicon-ganttapp.png" />
       </Head>
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
         <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h1 style={{
-              fontSize: '2.1rem',
-              marginBottom: '0.25rem',
-              background: 'linear-gradient(90deg, #0099ff 0%, #0051cc 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolvedTheme === 'dark' ? '/spert-favicon-ganttapp-dark.png' : '/spert-favicon-ganttapp.png'}
+                alt="GanttApp icon"
+                width={28}
+                height={28}
+                style={{ borderRadius: '11%', flexShrink: 0 }}
+              />
+              <h1 style={{
+                fontSize: '2.1rem',
+                marginBottom: '0.25rem',
+                background: 'linear-gradient(90deg, #0099ff 0%, #0051cc 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
+            </div>
             <p style={{ color: colors.textSecondary, fontSize: '0.875rem', fontStyle: 'italic' }}>
               Visualize release date uncertainty in your project timeline
             </p>

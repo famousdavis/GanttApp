@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.3',
+    date: 'May 1, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Added a branded teal SPERT&reg; Suite favicon as both the browser tab icon and a header mark immediately to the left of the &ldquo;GanttApp&trade;&rdquo; title. A charcoal dark-mode variant swaps automatically when the active theme is dark, driven by the existing <code>useTheme()</code> hook</>,
+    ],
+  },
+  {
     version: '17.2',
     date: 'April 28, 2026',
     items: [

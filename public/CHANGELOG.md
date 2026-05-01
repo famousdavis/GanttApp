@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 17.3 (2026-05-01)
+### Branded Favicon and Header Icon
+
+New `spert-favicon-ganttapp.png` (192×192 PNG, teal `#0891b2` panels with rounded corners) replaces the legacy `favicon.ico` as the browser tab icon and now appears immediately to the left of the "GanttApp™" title in the header. A charcoal dark-mode variant (`spert-favicon-ganttapp-dark.png`) auto-swaps when the active theme is dark, driven by the existing `useTheme()` hook (`resolvedTheme === 'dark'`).
+
+---
+
 ## Version 14.0 (2026-04-09)
 - UX: Unified the header auth chip into a single click target. Clicking anywhere on the pill (avatar, name, or cloud icon) now opens an account popover when signed in to cloud storage
 - UX: Account popover shows display name + email and exposes a Sign Out button directly from the header — no more navigating to Settings to sign out

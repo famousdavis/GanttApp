@@ -261,9 +261,7 @@ function AppContent() {
               <img
                 src={resolvedTheme === 'dark' ? '/spert-favicon-ganttapp-dark.png' : '/spert-favicon-ganttapp.png'}
                 alt="GanttApp icon"
-                width={28}
-                height={28}
-                style={{ borderRadius: '11%', flexShrink: 0 }}
+                style={{ marginRight: '0.5rem', height: '1.75rem', width: '1.75rem', borderRadius: '8px' }}
               />
               <h1 style={{
                 fontSize: '2.1rem',

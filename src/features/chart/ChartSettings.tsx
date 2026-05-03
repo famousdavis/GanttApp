@@ -81,6 +81,7 @@ export function ChartSettings({
             <div style={{ display: 'flex', gap: '2rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
+                  name="showTodayLine"
                   type="checkbox"
                   checked={showTodayLine}
                   onChange={(e) => setShowTodayLine(e.target.checked)}
@@ -91,6 +92,7 @@ export function ChartSettings({
               {hasProjectFinishDate && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input
+                    name="showFinishDateLine"
                     type="checkbox"
                     checked={showFinishDateLine}
                     onChange={(e) => setShowFinishDateLine(e.target.checked)}
@@ -102,6 +104,7 @@ export function ChartSettings({
               {hasMostLikelyReleases && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input
+                    name="showMostLikelyLine"
                     type="checkbox"
                     checked={showMostLikelyLine}
                     onChange={(e) => setShowMostLikelyLine(e.target.checked)}
@@ -112,6 +115,7 @@ export function ChartSettings({
               )}
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
+                  name="showMonths"
                   type="checkbox"
                   checked={showMonths}
                   onChange={(e) => setShowMonths(e.target.checked)}
@@ -122,6 +126,7 @@ export function ChartSettings({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   <input
+                    name="showPreparedBy"
                     type="checkbox"
                     checked={showPreparedBy}
                     onChange={(e) => setShowPreparedBy(e.target.checked)}
@@ -130,6 +135,8 @@ export function ChartSettings({
                   <span>Show Prepared By</span>
                 </label>
                 <input
+                  name="preparedBy"
+                  aria-label="Prepared by"
                   type="text"
                   value={preparedBy}
                   onChange={(e) => setPreparedBy(sanitizeString(e.target.value))}

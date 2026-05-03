@@ -24,6 +24,8 @@ export function InlineTextEditor({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <input
+        name="inlineTextEdit"
+        aria-label="Edit text"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -59,6 +59,7 @@ export function LocalStorageWarningToggle({
         cursor: 'pointer',
       }}>
         <input
+          name="warnOnLocal"
           type="checkbox"
           checked={warnOnLocal}
           onChange={(e) => handleChange(e.target.checked)}

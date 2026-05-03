@@ -19,6 +19,8 @@ export function InlineDateEditor({ value, onChange, onSave, onCancel, hasError, 
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
         <input
+          name="inlineDateEdit"
+          aria-label="Edit date"
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}

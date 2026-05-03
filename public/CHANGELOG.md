@@ -1,5 +1,69 @@
 # Change Log
 
+## Version 17.3.3 (2026-05-03)
+### Form-Field Hygiene Residual Sweep
+
+Closes the form-hygiene gaps not covered by v17.3.2. Goal: zero form-field-related entries in Chrome DevTools Issues panel.
+
+**Rule 2 — `id` or `name` on every form control.** Every `<input>`, `<textarea>`, and `<select>` in the codebase now carries a `name` attribute. Stable, semantic camelCase names (e.g. `projectName`, `releaseTargetDate`, `showTodayLine`). 31 inputs and 3 selects touched.
+
+**Rule 3 — Label association.** Every sibling-style `<label>` is now associated with its input via `htmlFor` + matching `id`. `id` values come from `useId()` (per-component instance, suffix-per-field) — collision-free across re-renders and concurrent instances. Pattern adopted in 5 files: `ProjectsTab.tsx` (project name + finish date), `ReleaseFormFields.tsx` (5 release-form fields), `DefaultLegendLabelsSection.tsx` (5 rows in `.map()` with per-row stable key), `ExportAttributionSection.tsx` (Name + Identifier), `ColorSwatchPicker.tsx` (Custom Color).
+
+**Rule 4 — Orphan `<label>` cleanup.** `ProjectsTab.tsx` had a `<label>` for the Work Week section pointing at `WorkWeekSelector` (a custom button-group with no single form input). Converted to a styled `<span>` and added an inline comment explaining why.
+
+**Rule 1 — `autoComplete` (one residual).** Added `autoComplete="name"` to the Export Attribution Name input (placeholder "e.g., Jane Smith" matches the personal-name pattern; user's own name; preemptive hygiene). The Identifier sibling stays free of `autoComplete` because its placeholder "e.g., student ID, email, or team name" is intentionally generic.
+
+**Adjacent accessibility fixes (in passing).** Inputs that lack a surrounding `<label>` got `aria-label` so screen readers don't announce them as nameless edit fields:
+- ChartSettings "Prepared By" text input.
+- ShareDialog email input + role select.
+- ReleasesTab project picker select + GanttChart project picker select.
+- InlineDateEditor, InlineTextEditor, ChartLegend inline-edit input.
+
+**Skipped (intentional, per the playbook's app-domain rule):**
+- Project name, release name, default legend label rows, ChartLegend inline-edit, InlineTextEditor — text inputs collecting app-domain content (titles, labels), not categories the browser knows how to autofill.
+- Export Attribution Identifier — intentionally generic format hint.
+- All `type="date" | "checkbox" | "radio" | "color" | "file"` inputs — excluded from `autoComplete` by rule.
+
+**No shared form wrapper exists.** Verified zero `Field`/`FormField`/`LabeledInput` components in `src/`. All forms compose `<label>` and `<input>` inline. Touching individual call sites was the right move; no refactor opportunity to propagate.
+
+**Reuse callouts:**
+- StorageSection's two radios share `name="storageMode"` (correct radio-group pattern). CloudStorageModal's two radios share `name="cloud-modal-storage-mode"` (same).
+- ProjectsTab and ReleasesTab + GanttChart project pickers got distinct names (`releasesTabSelectedProject`, `chartTabSelectedProject`) — they live on different tabs and never coexist in a real `<form>`, so reuse would have been safe, but distinct names make a future `<form>`-wrapping refactor easier.
+
+**Modified Files (15):**
+- `src/features/projects/ProjectsTab.tsx` — `useId`, two label/input pairs, file-input `name`, orphan label → `<span>`.
+- `src/features/releases/ReleaseFormFields.tsx` — `useId`, five label/input pairs.
+- `src/features/releases/ReleasesTab.tsx` — project select `name` + `aria-label`, visibility-checkbox `name`.
+- `src/features/settings/DefaultLegendLabelsSection.tsx` — `useId` + per-row `key` field on rows array, label/input pairs in `.map()`.
+- `src/features/settings/ExportAttributionSection.tsx` — `useId`, two label/input pairs, `autoComplete="name"` on Name.
+- `src/features/settings/TosConsentModal.tsx` — checkbox `name`.
+- `src/features/chart/ChartSettings.tsx` — `name` on 5 checkboxes + `name`/`aria-label` on Prepared By text input.
+- `src/features/chart/ChartLegend.tsx` — inline-edit input `name` + `aria-label`.
+- `src/features/chart/GanttChart.tsx` — project select `name` + `aria-label`.
+- `src/features/projects/ShareDialog.tsx` — email input `name` + `aria-label`, role select `name` + `aria-label`.
+- `src/shared/components/ColorPickers/ColorSwatchPicker.tsx` — `useId`, label/color-input pair.
+- `src/shared/components/InlineDateEditor.tsx` — `name` + `aria-label`.
+- `src/shared/components/InlineTextEditor.tsx` — `name` + `aria-label`.
+- `src/shared/components/LocalStorageWarningToggle.tsx` — checkbox `name`.
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `public/CHANGELOG.md`.
+
+**DevTools Issues panel verification checklist (post-deploy, manual):**
+1. Visit `/` (Projects tab default). Open DevTools → Issues panel.
+2. Click "Gantt Chart" tab — expand Chart Settings (click the heading).
+3. Click "Releases" tab — pick a project; toggle the Show checkbox; click Edit on a release.
+4. Click "Settings" tab — interact with Storage, Export Attribution, Default Legend Labels, Notifications.
+5. Open ShareDialog (cloud mode only).
+6. Open Cloud Storage modal from the header chip.
+7. Confirm zero entries under "Form field element should have an id or name attribute", "No label associated with a form field", "Incorrect use of `<label for=FORM_ELEMENT>`", "Duplicate id on a page", and "autocomplete attribute valid value".
+
+**Verification:**
+- All 1043 tests pass.
+- TypeScript type-check clean (0 errors).
+- Production build succeeds with Turbopack.
+- Lint clean.
+
+---
+
 ## Version 17.3.2 (2026-05-03)
 ### Surface Cloud Errors + autoComplete Hygiene
 

@@ -38,7 +38,8 @@ export interface SwitchToCloudResult {
  */
 export async function switchToCloudMode(
   firestore: Firestore,
-  user: User
+  user: User,
+  onSaveResult?: (error: string | null) => void
 ): Promise<SwitchToCloudResult> {
   // Load current local data
   const localService = new LocalGanttStorageService();
@@ -46,7 +47,7 @@ export async function switchToCloudMode(
   const localSnapshots = await localService.loadSnapshots();
 
   // Create cloud service
-  const cloudService = new FirestoreGanttStorageServiceImpl(firestore, user.uid);
+  const cloudService = new FirestoreGanttStorageServiceImpl(firestore, user.uid, onSaveResult);
 
   // Create/update user profile (sanitize defense-in-depth, v12.2)
   await cloudService.createUserProfile(

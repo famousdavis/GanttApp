@@ -25,7 +25,7 @@ export function SettingsTab() {
   const { colors } = useTheme();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const {
-    storage, mode, switchMode, isSwitching, switchError,
+    storage, mode, switchMode, isSwitching, switchError, saveError,
     uploadResult, clearUploadResult,
     needsUploadPrompt, confirmUploadPrompt, cancelUploadPrompt,
     performSignOutWithCleanup,
@@ -80,6 +80,7 @@ export function SettingsTab() {
         mode={mode}
         isSwitching={isSwitching}
         switchError={switchError}
+        saveError={saveError}
         isFirebaseAvailable={isFirebaseAvailable}
         onModeChange={handleModeChange}
         user={user}

@@ -37,6 +37,13 @@ interface StorageContextType {
   switchMode: (mode: StorageMode, inMemoryProjectCount?: number) => Promise<UploadResult | void>;
   isSwitching: boolean;
   switchError: string | null;
+  /**
+   * v17.3 — Surfaced from background cloud auto-save failures and from
+   * onSnapshot listener errors. Set by FirestoreGanttStorageServiceImpl via
+   * its onSaveResult callback (cleared on the next successful save).
+   */
+  saveError: string | null;
+  clearSaveError: () => void;
   uploadResult: UploadResult | null;
   clearUploadResult: () => void;
   needsUploadPrompt: { projectCount: number } | null;
@@ -83,6 +90,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   );
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  // v17.3 — surface background cloud auto-save + listener errors.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [needsUploadPrompt, setNeedsUploadPrompt] = useState<{ projectCount: number } | null>(null);
   // v16.6 (UX-2): cloud→local keep-or-discard prompt.
@@ -90,6 +99,13 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   const restoredRef = useRef(false);
 
   const clearUploadResult = useCallback(() => setUploadResult(null), []);
+  const clearSaveError = useCallback(() => setSaveError(null), []);
+  // Stable callback handed to FirestoreGanttStorageServiceImpl: success → null,
+  // failure → sanitized message. Decoupled from React render to avoid
+  // recreating the cloud service every time saveError changes.
+  const handleSaveResult = useCallback((error: string | null) => {
+    setSaveError(error);
+  }, []);
 
   // Mode restoration on mount — sequenced to avoid race conditions (v12.0)
   // 1. Wait for auth to resolve
@@ -129,14 +145,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     } else {
       // No local projects — connect directly to cloud
       // Covers both "returning user" and "fresh browser" scenarios
-      const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid);
+      const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid, handleSaveResult);
       cloudService.createUserProfile(
         sanitizeString(user.displayName ?? 'Unknown'),
         sanitizeString(user.email ?? '')
       ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
       setStorage(cloudService);
     }
-  }, [authLoading, isAuthenticated, user]);
+  }, [authLoading, isAuthenticated, user, handleSaveResult]);
 
   // Handle user confirming the upload prompt
   const confirmUploadPrompt = useCallback(async () => {
@@ -146,7 +162,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     setSwitchError(null);
 
     try {
-      const result = await switchToCloudMode(db, user);
+      const result = await switchToCloudMode(db, user, handleSaveResult);
       localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
       setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
       setStorage(result.service);
@@ -156,7 +172,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSwitching(false);
     }
-  }, [user]);
+  }, [user, handleSaveResult]);
 
   // Handle user cancelling the upload prompt — stay in local mode (v12.3)
   const cancelUploadPrompt = useCallback(() => {
@@ -207,6 +223,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     // Step 6: clear stale transition state
     setIsSwitching(false);
     setSwitchError(null);
+    setSaveError(null);
     setUploadResult(null);
     setNeedsUploadPrompt(null);
 
@@ -244,7 +261,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           throw new Error('You must sign in before switching to cloud storage.');
         }
 
-        const result = await switchToCloudMode(db, user);
+        const result = await switchToCloudMode(db, user, handleSaveResult);
         localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
         setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
         setStorage(result.service);
@@ -280,7 +297,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSwitching(false);
     }
-  }, [storage, user]);
+  }, [storage, user, handleSaveResult]);
 
   // v16.6 (UX-2): Keep a local copy of in-memory cloud projects, then swap.
   // currentAppData is passed by the caller (SettingsTab/StorageSection via
@@ -343,6 +360,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       switchMode,
       isSwitching,
       switchError,
+      saveError,
+      clearSaveError,
       uploadResult,
       clearUploadResult,
       needsUploadPrompt,

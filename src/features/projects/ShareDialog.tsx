@@ -135,6 +135,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
             onKeyDown={(e) => e.key === 'Enter' && handleShare()}
             disabled={actionLoading}
             maxLength={254}
+            autoComplete="off"
             style={{
               flex: 1,
               padding: '0.5rem 0.75rem',

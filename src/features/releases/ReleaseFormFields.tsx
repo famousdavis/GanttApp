@@ -5,6 +5,7 @@
 // ReleaseFormFields — the 5-field release date form used by both Add and inline Edit in ReleasesTab.
 // Extracted from ReleasesTab.tsx in v15.2 for maintainability and independent testability.
 
+import { useId } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
 
 export interface ReleaseFormFieldsProps {
@@ -47,14 +48,26 @@ export function ReleaseFormFields({
   const earlyFinishInvalid = touchedFields.earlyFinish && earlyFinish.length === 10 && (earlyFinish < '2000-01-01' || earlyFinish > '2050-12-31');
   const lateFinishInvalid = touchedFields.lateFinish && lateFinish.length === 10 && (lateFinish < '2000-01-01' || lateFinish > '2050-12-31');
 
+  // Stable, instance-scoped ids for label/input association. The Add-form and
+  // inline-Edit-form never render simultaneously today (Add hides while Edit
+  // is open) but useId() guarantees no duplicate-id collision in either case.
+  const baseFieldId = useId();
+  const releaseNameId = `${baseFieldId}-name`;
+  const startDateId = `${baseFieldId}-start-date`;
+  const earlyFinishId = `${baseFieldId}-early-finish`;
+  const lateFinishId = `${baseFieldId}-late-finish`;
+  const mostLikelyId = `${baseFieldId}-most-likely`;
+
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+          <label htmlFor={releaseNameId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Release Name
           </label>
           <input
+            id={releaseNameId}
+            name="releaseName"
             type="text"
             placeholder="Release name"
             value={releaseName}
@@ -72,10 +85,12 @@ export function ReleaseFormFields({
           />
         </div>
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+          <label htmlFor={startDateId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Start Date<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
           </label>
           <input
+            id={startDateId}
+            name="startDate"
             type="date"
             value={startDate}
             className={startDate ? 'has-value' : ''}
@@ -99,10 +114,12 @@ export function ReleaseFormFields({
           )}
         </div>
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+          <label htmlFor={earlyFinishId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Early Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
           </label>
           <input
+            id={earlyFinishId}
+            name="earlyFinish"
             type="date"
             value={earlyFinish}
             className={earlyFinish ? 'has-value' : ''}
@@ -126,10 +143,12 @@ export function ReleaseFormFields({
           )}
         </div>
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+          <label htmlFor={lateFinishId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
           </label>
           <input
+            id={lateFinishId}
+            name="lateFinish"
             type="date"
             value={lateFinish}
             className={lateFinish ? 'has-value' : ''}
@@ -153,10 +172,12 @@ export function ReleaseFormFields({
           )}
         </div>
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+          <label htmlFor={mostLikelyId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
           </label>
           <input
+            id={mostLikelyId}
+            name="mostLikelyFinish"
             type="date"
             value={mostLikelyFinish}
             className={mostLikelyFinish ? 'has-value' : ''}

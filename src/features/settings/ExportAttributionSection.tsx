@@ -4,6 +4,7 @@
 
 // Export Attribution section — name and identifier fields for JSON exports
 
+import { useId } from 'react';
 import type { ExportAttribution } from '../../shared/types/firestore';
 import type { ThemeColors } from '../../shared/utils/theme';
 import { sanitizeString } from '../../shared/utils/validation';
@@ -17,6 +18,9 @@ interface ExportAttributionSectionProps {
 export function ExportAttributionSection({
   colors, exportAttribution, onChangeAttribution,
 }: ExportAttributionSectionProps) {
+  const baseFieldId = useId();
+  const nameId = `${baseFieldId}-name`;
+  const identifierId = `${baseFieldId}-identifier`;
   const inputStyle = {
     padding: '0.5rem 0.75rem',
     border: `1px solid ${colors.border}`,
@@ -36,10 +40,12 @@ export function ExportAttributionSection({
       </p>
 
       <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', fontWeight: '600', color: colors.text, marginBottom: '0.25rem' }}>
+        <label htmlFor={nameId} style={{ display: 'block', fontWeight: '600', color: colors.text, marginBottom: '0.25rem' }}>
           Name
         </label>
         <input
+          id={nameId}
+          name="exportAttributionName"
           type="text"
           value={exportAttribution?.name ?? ''}
           onChange={(e) => onChangeAttribution({
@@ -48,15 +54,18 @@ export function ExportAttributionSection({
           })}
           placeholder="e.g., Jane Smith"
           maxLength={100}
+          autoComplete="name"
           style={inputStyle}
         />
       </div>
 
       <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', fontWeight: '600', color: colors.text, marginBottom: '0.25rem' }}>
+        <label htmlFor={identifierId} style={{ display: 'block', fontWeight: '600', color: colors.text, marginBottom: '0.25rem' }}>
           Identifier
         </label>
         <input
+          id={identifierId}
+          name="exportAttributionIdentifier"
           type="text"
           value={exportAttribution?.identifier ?? ''}
           onChange={(e) => onChangeAttribution({

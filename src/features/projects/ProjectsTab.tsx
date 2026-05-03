@@ -4,7 +4,7 @@
 
 // Projects Tab component with form and list
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useId } from 'react';
 import { useProjects } from './useProjects';
 import { ShareDialog } from './ShareDialog';
 import { useAppData } from '../../context/AppDataContext';
@@ -47,6 +47,9 @@ export function ProjectsTab({
   const { colors } = useTheme();
   const { user } = useAuth();
   const { storage } = useStorage();
+  const baseFieldId = useId();
+  const projectNameId = `${baseFieldId}-project-name`;
+  const projectFinishDateId = `${baseFieldId}-project-finish-date`;
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
   const isCloudMode = storage.mode === 'cloud';
@@ -199,6 +202,7 @@ export function ProjectsTab({
             📤 Import
             <input
               type="file"
+              name="importJson"
               accept=".json"
               onChange={handleImport}
               style={{ display: 'none' }}
@@ -210,10 +214,12 @@ export function ProjectsTab({
       <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div style={{ flex: '0 0 auto' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            <label htmlFor={projectNameId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Project Name
             </label>
             <input
+              id={projectNameId}
+              name="projectName"
               type="text"
               placeholder="Project name"
               value={projectName}
@@ -232,10 +238,12 @@ export function ProjectsTab({
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            <label htmlFor={projectFinishDateId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Finish Date <span style={{ fontWeight: 'normal' }}>(Optional)</span>
             </label>
             <input
+              id={projectFinishDateId}
+              name="projectFinishDate"
               type="date"
               value={projectFinishDate}
               className={projectFinishDate ? 'has-value' : ''}
@@ -269,9 +277,16 @@ export function ProjectsTab({
             </div>
           </div>
           <div style={{ flex: '1 1 auto' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            {/*
+              <span> rather than <label>: WorkWeekSelector is a button-group
+              custom control with its own aria-label, not a single form input
+              that htmlFor can target. An orphan <label> would trigger the
+              "Form field element should have an id or name attribute" /
+              "No label associated with a form field" warning pair.
+            */}
+            <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
               Work Week <span style={{ fontWeight: 'normal' }}>(Optional Override)</span>
-            </label>
+            </span>
             <WorkWeekSelector
               value={projectWorkDays}
               onChange={setProjectWorkDays}

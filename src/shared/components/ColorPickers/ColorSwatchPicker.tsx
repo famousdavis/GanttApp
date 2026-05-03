@@ -4,7 +4,7 @@
 
 // Color swatch picker with standard colors and custom color input
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { STANDARD_COLORS } from '../../utils/colors';
 import { useTheme } from '../../../context/ThemeContext';
 
@@ -19,6 +19,7 @@ export function ColorSwatchPicker({ value, onChange, label, hatched }: ColorSwat
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const { colors } = useTheme();
+  const customColorInputId = useId();
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -116,16 +117,21 @@ export function ColorSwatchPicker({ value, onChange, label, hatched }: ColorSwat
             ))}
           </div>
           <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '0.75rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              color: colors.textSecondary,
-              marginBottom: '0.5rem'
-            }}>
+            <label
+              htmlFor={customColorInputId}
+              style={{
+                display: 'block',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                color: colors.textSecondary,
+                marginBottom: '0.5rem'
+              }}
+            >
               Custom Color
             </label>
             <input
+              id={customColorInputId}
+              name="customColor"
               type="color"
               value={value}
               onChange={(e) => onChange(e.target.value)}

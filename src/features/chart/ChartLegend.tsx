@@ -78,6 +78,8 @@ function EditableLabelInput({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
       <input
+        name="legendLabelEdit"
+        aria-label="Edit legend label"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

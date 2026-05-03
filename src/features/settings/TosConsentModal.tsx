@@ -92,6 +92,7 @@ export function TosConsentModal({ colors, onAccept, onCancel }: TosConsentModalP
           lineHeight: '1.4',
         }}>
           <input
+            name="tosAccept"
             type="checkbox"
             checked={checked}
             onChange={(e) => setChecked(e.target.checked)}

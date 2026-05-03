@@ -7,6 +7,7 @@
 // Clearing an input reverts to the placeholder default — the chart falls back via
 // `labelRaw || DEFAULT_LEGEND_LABELS.key` at every consumption point.
 
+import { useId } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
 import { sanitizeString, DEFAULT_LEGEND_LABELS } from '../../shared/utils/validation';
 
@@ -26,6 +27,8 @@ interface DefaultLegendLabelsSectionProps {
 
 interface LegendLabelRow {
   label: string;
+  /** Stable per-row key used to derive a unique input id within this component. */
+  key: string;
   placeholder: string;
   value: string;
   setter: (v: string) => void;
@@ -44,12 +47,13 @@ export function DefaultLegendLabelsSection({
   inProgressLabel,
   setInProgressLabel,
 }: DefaultLegendLabelsSectionProps) {
+  const baseFieldId = useId();
   const rows: LegendLabelRow[] = [
-    { label: 'Solid Bar', placeholder: DEFAULT_LEGEND_LABELS.solidBar, value: solidBarLabel, setter: setSolidBarLabel },
-    { label: 'Hatched Bar', placeholder: DEFAULT_LEGEND_LABELS.hatchedBar, value: hatchedBarLabel, setter: setHatchedBarLabel },
-    { label: 'Project Finish Date', placeholder: DEFAULT_LEGEND_LABELS.finishDateLine, value: finishDateLabel, setter: setFinishDateLabel },
-    { label: 'Most Likely Finish', placeholder: DEFAULT_LEGEND_LABELS.mostLikelyLine, value: mostLikelyLineLabel, setter: setMostLikelyLineLabel },
-    { label: 'In Progress', placeholder: DEFAULT_LEGEND_LABELS.inProgress, value: inProgressLabel, setter: setInProgressLabel },
+    { label: 'Solid Bar', key: 'solidBar', placeholder: DEFAULT_LEGEND_LABELS.solidBar, value: solidBarLabel, setter: setSolidBarLabel },
+    { label: 'Hatched Bar', key: 'hatchedBar', placeholder: DEFAULT_LEGEND_LABELS.hatchedBar, value: hatchedBarLabel, setter: setHatchedBarLabel },
+    { label: 'Project Finish Date', key: 'finishDateLine', placeholder: DEFAULT_LEGEND_LABELS.finishDateLine, value: finishDateLabel, setter: setFinishDateLabel },
+    { label: 'Most Likely Finish', key: 'mostLikelyLine', placeholder: DEFAULT_LEGEND_LABELS.mostLikelyLine, value: mostLikelyLineLabel, setter: setMostLikelyLineLabel },
+    { label: 'In Progress', key: 'inProgress', placeholder: DEFAULT_LEGEND_LABELS.inProgress, value: inProgressLabel, setter: setInProgressLabel },
   ];
 
   return (
@@ -59,9 +63,12 @@ export function DefaultLegendLabelsSection({
         Customize the default chart legend labels. Individual projects can still override these defaults from the chart legend. Clearing a field reverts to the shown placeholder.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {rows.map((row) => (
-          <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {rows.map((row) => {
+          const inputId = `${baseFieldId}-${row.key}`;
+          return (
+          <div key={row.key} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <label
+              htmlFor={inputId}
               style={{
                 flex: '0 0 180px',
                 fontSize: '0.9rem',
@@ -72,6 +79,8 @@ export function DefaultLegendLabelsSection({
               {row.label}
             </label>
             <input
+              id={inputId}
+              name={`legendLabel-${row.key}`}
               type="text"
               value={row.value}
               placeholder={row.placeholder}
@@ -88,7 +97,8 @@ export function DefaultLegendLabelsSection({
               }}
             />
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

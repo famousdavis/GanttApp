@@ -192,6 +192,8 @@ export function GanttChart({
         {/* Chart header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
           <select
+            name="chartTabSelectedProject"
+            aria-label="Project shown on the Gantt Chart tab"
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
             style={{

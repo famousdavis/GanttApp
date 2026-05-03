@@ -111,6 +111,8 @@ export function ReleasesTab({
       <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text, display: 'flex', alignItems: 'baseline' }}>
         <span style={{ fontWeight: 'normal' }}>Releases for </span>
         <select
+          name="releasesTabSelectedProject"
+          aria-label="Project shown on the Releases tab"
           value={selectedProjectId}
           onChange={(e) => setSelectedProjectId(e.target.value)}
           style={{
@@ -229,6 +231,7 @@ export function ReleasesTab({
                     color: colors.textSecondary
                   }}>
                     <input
+                      name="releaseVisible"
                       type="checkbox"
                       checked={!release.hidden}
                       onChange={() => toggleReleaseHidden(release.id)}

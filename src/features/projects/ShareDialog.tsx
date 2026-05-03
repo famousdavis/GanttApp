@@ -128,6 +128,8 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
         {/* Add member form */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
           <input
+            name="shareEmail"
+            aria-label="Email address to share with"
             type="email"
             placeholder="Email address"
             value={email}
@@ -147,6 +149,8 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
             }}
           />
           <select
+            name="shareRole"
+            aria-label="Sharing role"
             value={role}
             onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
             disabled={actionLoading}

@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.3.3',
+    date: 'May 3, 2026',
+    items: [
+      <><strong>Accessibility</strong> &mdash; Form-field hygiene residual sweep covering Chrome DevTools Issues panel rules: every <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, and <code>&lt;select&gt;</code> now carries a <code>name</code> attribute, every sibling-style <code>&lt;label&gt;</code> is associated with its input via <code>htmlFor</code> + <code>id</code> (generated with <code>useId()</code> for collision-free uniqueness), and one orphan <code>&lt;label&gt;</code> for the WorkWeekSelector (a custom button-group with no single input target) was converted to a styled <code>&lt;span&gt;</code></>,
+      <><strong>Hygiene</strong> &mdash; Added <code>autoComplete=&quot;name&quot;</code> to the Export Attribution &ldquo;Name&rdquo; input (placeholder &ldquo;e.g., Jane Smith&rdquo; matches the personal-name pattern; user&apos;s own name). The Identifier sibling stays free of <code>autoComplete</code> because its placeholder &ldquo;e.g., student ID, email, or team name&rdquo; is intentionally generic and not a category the browser knows how to autofill</>,
+      <><strong>Accessibility (in passing)</strong> &mdash; Added <code>aria-label</code> to four inputs that lack a surrounding <code>&lt;label&gt;</code> element: ChartSettings &ldquo;Prepared By&rdquo;, ShareDialog email + role select, ReleasesTab + GanttChart project pickers, and the inline date / text / legend-label editors</>,
+    ],
+  },
+  {
     version: '17.3.2',
     date: 'May 3, 2026',
     items: [

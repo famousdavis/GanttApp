@@ -27,6 +27,8 @@ interface StorageSectionProps {
   mode: StorageMode;
   isSwitching: boolean;
   switchError: string | null;
+  // v17.3 — surfaced from background cloud auto-save + listener errors.
+  saveError: string | null;
   isFirebaseAvailable: boolean;
   onModeChange: (mode: StorageMode) => void;
   // Auth props (merged from former AccountSection)
@@ -58,7 +60,7 @@ interface StorageSectionProps {
 }
 
 export function StorageSection({
-  colors, mode, isSwitching, switchError, isFirebaseAvailable, onModeChange,
+  colors, mode, isSwitching, switchError, saveError, isFirebaseAvailable, onModeChange,
   user, isAuthenticated, authLoading, authError, onSignIn, onSignOut,
   uploadResult, onClearUploadResult,
   needsUploadPrompt, onConfirmUploadPrompt, onCancelUploadPrompt,
@@ -300,6 +302,12 @@ export function StorageSection({
       {authError && (
         <p style={{ color: '#e53e3e', fontSize: '0.9rem', marginTop: '0.5rem' }}>
           {authError}
+        </p>
+      )}
+
+      {saveError && (
+        <p style={{ color: '#e53e3e', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+          Cloud sync error: {saveError}
         </p>
       )}
     </section>

@@ -38,6 +38,7 @@ function renderSection(overrides: Record<string, unknown> = {}) {
     mode: 'local' as const,
     isSwitching: false,
     switchError: null,
+    saveError: null,
     isFirebaseAvailable: true,
     onModeChange: vi.fn(),
     user: null as User | null,

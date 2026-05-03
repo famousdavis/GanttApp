@@ -79,10 +79,16 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   private unsubscribers: (() => void)[] = [];
   private beforeUnloadHandler: (() => void) | null = null;
   private disposed = false;
+  private onSaveResult?: (error: string | null) => void;
 
-  constructor(db: Firestore, uid: string) {
+  constructor(
+    db: Firestore,
+    uid: string,
+    onSaveResult?: (error: string | null) => void
+  ) {
     this.db = db;
     this.uid = uid;
+    this.onSaveResult = onSaveResult;
 
     // Register beforeunload to flush pending writes when tab closes
     this.beforeUnloadHandler = () => {
@@ -275,14 +281,26 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const releasesRef = collection(this.db, `ganttapp_projects/${projectId}/releases`);
     const q = query(releasesRef);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const entries = querySnapshot.docs.map(d => ({
-        id: d.id,
-        data: d.data() as FirestoreRelease,
-      }));
-      const releases = firestoreReleasesToFlat(projectId, entries);
-      callback(releases, querySnapshot);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const entries = querySnapshot.docs.map(d => ({
+          id: d.id,
+          data: d.data() as FirestoreRelease,
+        }));
+        const releases = firestoreReleasesToFlat(projectId, entries);
+        callback(releases, querySnapshot);
+      },
+      (error) => {
+        const message = sanitizeFirebaseError(error);
+        console.error('Project subscription error:', message);
+        // Surface the error through the same channel as auto-save failures.
+        // GanttApp does not maintain a doc-keyed listener tracking map, so
+        // there is no entry to remove for re-subscription; a full reconnect
+        // mechanism is deferred.
+        this.onSaveResult?.(message);
+      }
+    );
 
     this.unsubscribers.push(unsubscribe);
     return unsubscribe;
@@ -363,13 +381,17 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       this.lastSavedState = await executeFirestoreSave(
         this.db, this.uid, data, this.lastSavedState
       );
+      // Clear any prior surfaced error after a successful recovery save.
+      this.onSaveResult?.(null);
     } catch (error) {
-      console.error('Failed to save cloud data:', sanitizeFirebaseError(error));
+      const message = sanitizeFirebaseError(error);
+      console.error('Failed to save cloud data:', message);
       // If disposed, do not re-queue — the caller has moved on (e.g., sign-out
       // or cloud→local switch) and this data is intentionally dropped.
       if (!this.disposed && !this.pendingData) {
         this.pendingData = data;
       }
+      this.onSaveResult?.(message);
     }
   }
 }

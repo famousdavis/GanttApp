@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '17.3.2',
+    date: 'May 3, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; Cloud auto-save failures (background debounced writes from <code>FirestoreGanttStorageServiceImpl.executeSave</code>) were previously logged with <code>console.error</code> only and never surfaced to the user. The service now accepts an optional <code>onSaveResult(error | null)</code> callback that <code>StorageContext</code> wires to a new <code>saveError</code> state; the message renders in the Settings &rarr; Storage section using the same red-text pattern as <code>switchError</code> and <code>authError</code>, and clears automatically on the next successful save</>,
+      <><strong>Fix</strong> &mdash; Both Firestore <code>onSnapshot</code> listener sites (<code>FirestoreGanttStorageServiceImpl.subscribeToProject</code> and <code>FirestoreDriver.onRemoteChange</code>) now provide an error callback that logs via <code>sanitizeFirebaseError</code>; <code>subscribeToProject</code> additionally surfaces the error through the same <code>onSaveResult</code> channel as auto-save. Permission revocations and network drops are no longer silent</>,
+      <><strong>Accessibility / Hygiene</strong> &mdash; Added <code>autoComplete=&quot;off&quot;</code> to the share-project email input (avoids autofilling the signed-in user&apos;s own email when inviting another user) and <code>autoComplete=&quot;name&quot;</code> to the chart &ldquo;Prepared By&rdquo; input</>,
+    ],
+  },
+  {
     version: '17.3',
     date: 'May 1, 2026',
     items: [

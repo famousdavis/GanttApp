@@ -15,6 +15,7 @@ import {
   deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
+import { sanitizeFirebaseError } from '../utils/validation';
 
 export class FirestoreDriver implements StorageDriver {
   readonly mode: StorageMode = 'cloud';
@@ -47,12 +48,18 @@ export class FirestoreDriver implements StorageDriver {
 
   onRemoteChange<T>(key: string, callback: (data: T | null) => void): () => void {
     const ref = doc(this.db, key);
-    return onSnapshot(ref, (snap) => {
-      if (snap.exists()) {
-        callback(snap.data() as T);
-      } else {
-        callback(null);
+    return onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          callback(snap.data() as T);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        console.error('Real-time listener error:', sanitizeFirebaseError(error));
       }
-    });
+    );
   }
 }

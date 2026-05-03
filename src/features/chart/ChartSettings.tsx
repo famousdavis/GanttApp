@@ -135,6 +135,7 @@ export function ChartSettings({
                   onChange={(e) => setPreparedBy(sanitizeString(e.target.value))}
                   placeholder="Enter your name"
                   maxLength={100}
+                  autoComplete="name"
                   style={{
                     padding: '0.3rem 0.5rem',
                     border: `1px solid ${colors.inputBorder}`,

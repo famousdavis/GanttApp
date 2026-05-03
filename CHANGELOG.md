@@ -1,5 +1,39 @@
 # Change Log
 
+## Version 17.3.2 (2026-05-03)
+### Surface Cloud Errors + autoComplete Hygiene
+
+Three-category bug-fix wave from a multi-app Statistical PERT® sweep.
+
+**Cloud auto-save errors no longer silent.** `FirestoreGanttStorageServiceImpl.executeSave` previously logged failures with `console.error` and re-queued the data, but the user never saw that their last edit had failed to reach Firestore. The service now accepts an optional `onSaveResult(error: string | null)` callback. `StorageContext` wires it to a new `saveError` state, which renders in **Settings → Storage** using the same red-text pattern as `switchError` and `authError`. The error clears automatically after the next successful save (the same callback fires with `null` on success).
+
+**`onSnapshot` listeners now have error callbacks.** Both call sites — `FirestoreGanttStorageServiceImpl.subscribeToProject` and `FirestoreDriver.onRemoteChange` — previously passed only a success callback. Permission revocations and network drops failed silently. Both now pass an error handler that logs via `sanitizeFirebaseError`; the project-level subscription additionally surfaces the message through the same `onSaveResult` channel as auto-save. GanttApp does not maintain a doc-keyed listener tracking map, so no entry needs to be removed for re-subscription; a full reconnect mechanism is deferred.
+
+**Two `autoComplete` attributes added.**
+- `ShareDialog.tsx` email input → `autoComplete="off"` (collects another user's email, not the signed-in user's — autofilling would be wrong; active browser-warning fix).
+- `ChartSettings.tsx` "Prepared By" text input → `autoComplete="name"` (placeholder "Enter your name" matches the personal-name pattern; preemptive hygiene).
+
+**Note on `FirestoreDriver`.** `FirestoreDriver` has no production caller — it is referenced only by its barrel export and test file. The error-handler addition is symmetric maintenance to keep the storage interface implementation consistent for any future use; the runtime risk reduction comes from the `subscribeToProject` site, which is the listener actually used by `AppDataContext`.
+
+**Modified Files:**
+- `src/shared/storage/firestore-gantt-storage-service.ts` — `onSaveResult` constructor parameter, `executeSave` calls callback on both success (`null`) and failure (sanitized message), `subscribeToProject` now passes an error callback.
+- `src/shared/storage/firestore-driver.ts` — `onRemoteChange` now passes an error callback that logs via `sanitizeFirebaseError`.
+- `src/context/storage-mode-switch.ts` — `switchToCloudMode` accepts and forwards `onSaveResult`.
+- `src/context/StorageContext.tsx` — new `saveError`/`clearSaveError` exposed in context; stable `handleSaveResult` callback passed to both constructor sites; cleared in `performSignOutWithCleanup`.
+- `src/features/settings/StorageSection.tsx` — new `saveError` prop; renders a red `<p>` "Cloud sync error: …" beneath the existing error rows.
+- `src/features/settings/SettingsTab.tsx` — pulls `saveError` from `useStorage()` and forwards it.
+- `src/features/projects/ShareDialog.tsx` — `autoComplete="off"` on email input.
+- `src/features/chart/ChartSettings.tsx` — `autoComplete="name"` on Prepared By input.
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`.
+
+**Verification:**
+- All tests pass.
+- TypeScript type-check clean (0 errors).
+- Production build succeeds with Turbopack.
+- Lint clean.
+
+---
+
 ## Version 17.3 (2026-05-01)
 ### Branded Favicon and Header Icon
 

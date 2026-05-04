@@ -36,12 +36,12 @@ vi.mock('../../shared/storage/local-gantt-storage-service', () => {
   return { LocalGanttStorageService: MockLocalGanttStorageService };
 });
 
-// Mock the Firestore service — must be a real class for `new` to work
-const mockCreateUserProfile = vi.fn().mockResolvedValue(undefined);
+// Mock the Firestore service — must be a real class for `new` to work.
+// v18.0.0 (D2): createUserProfile method removed; profile writes are now
+// performed by writeUserProfile in AuthContext (see AuthContext.test.tsx).
 vi.mock('../../shared/storage/firestore-gantt-storage-service', () => {
   class MockFirestoreGanttStorageServiceImpl {
     mode = 'cloud' as const;
-    createUserProfile = mockCreateUserProfile;
   }
   return { FirestoreGanttStorageServiceImpl: MockFirestoreGanttStorageServiceImpl };
 });
@@ -139,11 +139,8 @@ describe('switchToCloudMode', () => {
     expect(result.service.mode).toBe('cloud');
   });
 
-  it('creates user profile during cloud switch', async () => {
-    mockGetDoc.mockResolvedValue({ exists: () => false });
-
-    await switchToCloudMode(mockFirestore, mockUser);
-
-    expect(mockCreateUserProfile).toHaveBeenCalledWith('Test User', 'test@example.com');
-  });
+  // v18.0.0 (D2): "creates user profile during cloud switch" test removed.
+  // Profile writes are now performed by writeUserProfile in AuthContext on
+  // every auth resolution (not gated on cloud-switch). Coverage lives in
+  // AuthContext.test.tsx — switchToCloudMode no longer calls a profile API.
 });

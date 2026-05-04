@@ -18,15 +18,18 @@ function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): 
     saveSnapshots: vi.fn().mockResolvedValue(undefined),
     subscribeToProject: vi.fn().mockReturnValue(vi.fn()),
     shareProject: vi.fn().mockResolvedValue(undefined),
-    removeProjectMember: vi.fn().mockResolvedValue(undefined),
+    removeCollaborator: vi.fn().mockResolvedValue(undefined),
     getProjectMembers: vi.fn().mockResolvedValue([
       { uid: 'owner-uid', role: 'owner', email: 'owner@example.com' },
     ]),
-    createUserProfile: vi.fn().mockResolvedValue(undefined),
+    listPendingInvites: vi.fn().mockResolvedValue([]),
+    revokeInvite: vi.fn().mockResolvedValue(undefined),
+    resendInvite: vi.fn().mockResolvedValue(undefined),
     flushPendingWrites: vi.fn().mockResolvedValue(undefined),
+    cancelPendingSaves: vi.fn(),
     dispose: vi.fn(),
     ...overrides,
-  } as CloudGanttStorageService;
+  } as unknown as CloudGanttStorageService;
 }
 
 describe('ShareDialog', () => {

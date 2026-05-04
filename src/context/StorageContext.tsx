@@ -17,7 +17,7 @@ import type { CloudGanttStorageService } from '../shared/storage/firestore-gantt
 import { auth, db, isFirebaseAvailable } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { switchToCloudMode } from './storage-mode-switch';
-import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
+import { sanitizeFirebaseError } from '../shared/utils/validation';
 import { registerSignOutCleanup } from './signOutCleanupRegistry';
 import { runAppDataReset } from './appDataResetRegistry';
 
@@ -143,13 +143,11 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       // Don't create cloud driver yet (prevents flash of cloud data)
       setNeedsUploadPrompt({ projectCount: localProjectCount });
     } else {
-      // No local projects — connect directly to cloud
-      // Covers both "returning user" and "fresh browser" scenarios
+      // No local projects — connect directly to cloud.
+      // Covers both "returning user" and "fresh browser" scenarios.
+      // Profile writes are handled by writeUserProfile in AuthContext
+      // (D2, v18.0.0) — no createUserProfile call here.
       const cloudService = new FirestoreGanttStorageServiceImpl(db, user.uid, handleSaveResult);
-      cloudService.createUserProfile(
-        sanitizeString(user.displayName ?? 'Unknown'),
-        sanitizeString(user.email ?? '')
-      ).catch((err) => console.error('[StorageContext] createUserProfile failed:', err));
       setStorage(cloudService);
     }
   }, [authLoading, isAuthenticated, user, handleSaveResult]);

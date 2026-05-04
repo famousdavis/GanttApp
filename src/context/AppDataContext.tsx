@@ -10,6 +10,7 @@ import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays, DEFAU
 import { useStorage } from './StorageContext';
 import type { CloudGanttStorageService } from '../shared/storage';
 import { registerAppDataReset } from './appDataResetRegistry';
+import { INVITATIONS_ENABLED } from '../lib/feature-flags';
 
 interface AppDataContextType {
   data: AppData;
@@ -91,6 +92,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // v18.0.0 — Most-recently-loaded data reference, used by the save effect
+  // to identify "data change came from a load, not a user edit" and skip
+  // the save. Set in the load effect right before setData; consumed (and
+  // cleared) by the save effect on skip. Without this, the spert:models-changed
+  // reload would write the just-loaded cloud data back to Firestore and
+  // could clobber concurrent collaborator edits (LESSONS-LEARNED §17).
+  const loadedDataRef = useRef<AppData | null>(null);
+
   // Chart settings
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
   const [activePreset, setActivePreset] = useState<string | undefined>(undefined);
@@ -124,6 +133,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // The load effect overwrites this with stored data if present.
   const [globalWorkDays, setGlobalWorkDays] = useState<number[] | undefined>([...DEFAULT_WORK_DAYS]);
 
+  // v18.0.0 — bumped to force the load effect to re-run when an invitation
+  // claim transitions a user into a new project's members list. The
+  // 'spert:models-changed' listener (below) bumps this counter; the load
+  // effect's dependency array includes it so the new project shows up
+  // without bypassing the save-suppression flag (LESSONS-LEARNED §17).
+  const [reloadCounter, setReloadCounter] = useState(0);
+
   // Load data from storage on mount (or when storage service changes)
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +159,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               `Cloud returned 0 projects but local has ${dataRef.current.projects.length} — skipping replacement to protect local data`
             );
           } else {
+            // v18.0.0 — record the loaded reference so the save effect can
+            // recognize "this data change is a load, not an edit" and skip.
+            loadedDataRef.current = loadedData;
             setData(loadedData);
 
             // Load chart colors or use defaults
@@ -231,10 +250,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     loadDataFromStorage();
     return () => { cancelled = true; };
+  }, [storage, reloadCounter]);
+
+  // v18.0.0 — Listen for cross-app claim notifications dispatched by
+  // AuthContext.claimPendingInvitationsAndNotify. Registered unconditionally
+  // (gated only on INVITATIONS_ENABLED) so the listener is mounted by the
+  // time the claim event fires immediately after invite-link sign-in.
+  // Mode-check is INSIDE the handler — checking it in the effect gate
+  // would re-create the listener on every storage swap and risk a race.
+  // The reloadCounter pattern triggers loadDataFromStorage via the deps
+  // array above, with isResettingRef.current = true suppressing the save
+  // effect during the reload (LESSONS-LEARNED §17). The load effect's
+  // finally block resets isResettingRef.current = false, so subsequent
+  // user edits save normally.
+  // Event name 'spert:models-changed' is a suite-wide contract — do not rename.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    const handler = () => {
+      if (storage.mode !== 'cloud') return;
+      isResettingRef.current = true;
+      setReloadCounter((n) => n + 1);
+    };
+    window.addEventListener('spert:models-changed', handler);
+    return () => window.removeEventListener('spert:models-changed', handler);
   }, [storage]);
 
   // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
+    // v18.0.0 — if data === loadedDataRef.current, the most recent state
+    // change was a load (initial hydration, storage swap, or claim-event
+    // reload). Skip the save and clear the marker so subsequent user
+    // edits save normally.
+    if (!loading && data === loadedDataRef.current) {
+      loadedDataRef.current = null;
+      return;
+    }
     if (!loading && !isInitialLoadRef.current && !isResettingRef.current) {
       // v16.2: conditionally spread only non-empty label values into the payload,
       // then strip the entire legendLabels field when no customizations exist.

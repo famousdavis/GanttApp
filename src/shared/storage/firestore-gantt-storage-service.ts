@@ -16,6 +16,7 @@ import type {
   FirestoreRelease,
   FirestoreSnapshot,
   FirestoreUserSettings,
+  PendingInvite,
   ProjectRole,
 } from '../types/firestore';
 import type { Firestore, QuerySnapshot } from 'firebase/firestore';
@@ -41,10 +42,11 @@ import { sanitizeFirebaseError } from '../utils/validation';
 import { executeFirestoreSave } from './firestore-save-executor';
 import {
   shareProject as shareProjectFn,
-  removeProjectMember as removeProjectMemberFn,
+  removeCollaborator as removeCollaboratorFn,
   getProjectMembers as getProjectMembersFn,
-  createUserProfile as createUserProfileFn,
+  listPendingInvites as listPendingInvitesFn,
 } from './firestore-sharing';
+import { getRevokeInvite, getResendInvite } from '../../lib/firebase';
 
 const DEBOUNCE_MS = 500;
 const MAX_SNAPSHOTS_TOTAL = 100;
@@ -56,9 +58,15 @@ export interface CloudGanttStorageService extends GanttStorageService {
     callback: (releases: Release[], snapshot: QuerySnapshot) => void
   ): () => void;
   shareProject(projectId: string, targetEmail: string, role: ProjectRole): Promise<void>;
-  removeProjectMember(projectId: string, targetUid: string): Promise<void>;
+  /** Renamed from removeProjectMember in v18.0.0 (D3). */
+  removeCollaborator(projectId: string, targetUid: string): Promise<void>;
   getProjectMembers(projectId: string): Promise<{ uid: string; role: ProjectRole; email?: string }[]>;
-  createUserProfile(displayName: string, email: string): Promise<void>;
+  /** Bulk invitation pending-list query — see firestore-sharing.listPendingInvites. */
+  listPendingInvites(projectId: string): Promise<PendingInvite[]>;
+  /** Revoke a pending invitation by token. Owner-only enforced server-side. */
+  revokeInvite(tokenId: string): Promise<void>;
+  /** Resend an invitation email. Subject to per-invite send-count cap (5). */
+  resendInvite(tokenId: string): Promise<void>;
   flushPendingWrites(): Promise<void>;
   /**
    * Cancel pending debounced save without executing. Pending edits discarded.
@@ -310,16 +318,28 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     return shareProjectFn(this.db, this.uid, projectId, targetEmail, role);
   }
 
-  async removeProjectMember(projectId: string, targetUid: string): Promise<void> {
-    return removeProjectMemberFn(this.db, this.uid, projectId, targetUid);
+  async removeCollaborator(projectId: string, targetUid: string): Promise<void> {
+    return removeCollaboratorFn(this.db, this.uid, projectId, targetUid);
   }
 
   async getProjectMembers(projectId: string): Promise<{ uid: string; role: ProjectRole; email?: string }[]> {
     return getProjectMembersFn(this.db, projectId);
   }
 
-  async createUserProfile(displayName: string, email: string): Promise<void> {
-    return createUserProfileFn(this.db, this.uid, displayName, email);
+  async listPendingInvites(projectId: string): Promise<PendingInvite[]> {
+    return listPendingInvitesFn(this.db, this.uid, projectId);
+  }
+
+  async revokeInvite(tokenId: string): Promise<void> {
+    const callable = getRevokeInvite();
+    if (!callable) throw new Error('Cloud invitations not configured.');
+    await callable({ tokenId });
+  }
+
+  async resendInvite(tokenId: string): Promise<void> {
+    const callable = getResendInvite();
+    if (!callable) throw new Error('Cloud invitations not configured.');
+    await callable({ tokenId });
   }
 
   // --- Lifecycle ---

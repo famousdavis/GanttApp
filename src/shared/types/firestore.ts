@@ -115,3 +115,32 @@ export interface ExportAttribution {
 
 /** Maximum number of changelog entries per project document. */
 export const MAX_CHANGELOG_ENTRIES = 50;
+
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+/**
+ * Client-side shape of a spertsuite_invitations document.
+ * Timestamps are coerced to milliseconds (number) on read.
+ * isVoting included for type correctness — field present in every doc.
+ * Never render isVoting in UI; GanttApp has no voting model.
+ */
+export interface PendingInvite {
+  tokenId: string;
+  appId: string;
+  modelId: string;
+  modelName: string;
+  inviteeEmail: string;
+  role: 'editor' | 'viewer';
+  isVoting: boolean;
+  inviterUid: string;
+  inviterName: string;
+  inviterEmail: string;
+  status: InvitationStatus;
+  createdAt: number;        // millis
+  expiresAt: number;        // millis
+  acceptedAt?: number;
+  acceptedByUid?: string;
+  lastEmailSentAt: number;  // millis
+  emailSendCount: number;
+  updatedAt: number;        // millis
+}

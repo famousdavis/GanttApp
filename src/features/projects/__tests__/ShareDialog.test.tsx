@@ -18,15 +18,18 @@ function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): 
     saveSnapshots: vi.fn().mockResolvedValue(undefined),
     subscribeToProject: vi.fn().mockReturnValue(vi.fn()),
     shareProject: vi.fn().mockResolvedValue(undefined),
-    removeProjectMember: vi.fn().mockResolvedValue(undefined),
+    removeCollaborator: vi.fn().mockResolvedValue(undefined),
     getProjectMembers: vi.fn().mockResolvedValue([
       { uid: 'owner-uid', role: 'owner', email: 'owner@example.com' },
     ]),
-    createUserProfile: vi.fn().mockResolvedValue(undefined),
+    listPendingInvites: vi.fn().mockResolvedValue([]),
+    revokeInvite: vi.fn().mockResolvedValue(undefined),
+    resendInvite: vi.fn().mockResolvedValue(undefined),
     flushPendingWrites: vi.fn().mockResolvedValue(undefined),
+    cancelPendingSaves: vi.fn(),
     dispose: vi.fn(),
     ...overrides,
-  } as CloudGanttStorageService;
+  } as unknown as CloudGanttStorageService;
 }
 
 describe('ShareDialog', () => {
@@ -88,7 +91,7 @@ describe('ShareDialog', () => {
     });
   });
 
-  it('shows email input and role selector', () => {
+  it('shows bulk email textarea and role selector (flag-on, v18.0.0)', () => {
     const mockStorage = createMockCloudStorage();
     render(
       <ShareDialog
@@ -99,8 +102,9 @@ describe('ShareDialog', () => {
       />,
       { wrapper: ThemeWrapper }
     );
-    expect(screen.getByPlaceholderText('Email address')).toBeTruthy();
-    expect(screen.getByText('Share')).toBeTruthy();
+    // INVITATIONS_ENABLED=true: bulk textarea replaces single-email input.
+    expect(screen.getByPlaceholderText('alice@example.com, bob@example.com')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send Invitations' })).toBeTruthy();
   });
 
   it('shows Close button', () => {
@@ -168,11 +172,12 @@ describe('ShareDialog', () => {
     expect(screen.getByRole('button', { name: 'Remove member' })).toBeTruthy();
   });
 
-  it('shows error when share fails', async () => {
-    const mockStorage = createMockCloudStorage({
-      shareProject: vi.fn().mockRejectedValue(new Error('User not found')),
-    });
-
+  it('renders bulk send button — error path covered by mapInvitationError tests (flag-on, v18.0.0)', () => {
+    // Pre-v18.0.0 the flag-off Share button drove the error path through
+    // shareProject. v18.0.0 routes errors through mapInvitationError instead;
+    // unit coverage lives in src/lib/__tests__/invitation-errors.test.ts. This
+    // test only confirms the bulk send button is in the DOM and reachable.
+    const mockStorage = createMockCloudStorage();
     render(
       <ShareDialog
         projectId="p1"
@@ -182,14 +187,6 @@ describe('ShareDialog', () => {
       />,
       { wrapper: ThemeWrapper }
     );
-
-    // Type email and click share
-    const input = screen.getByPlaceholderText('Email address');
-    (input as HTMLInputElement).value = 'nonexistent@test.com';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // The Share button won't be enabled without proper React state change,
-    // but we can verify the component structure is correct
-    expect(screen.getByText('Share')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send Invitations' })).toBeTruthy();
   });
 });

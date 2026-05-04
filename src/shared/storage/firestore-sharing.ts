@@ -5,9 +5,9 @@
 // Firestore sharing operations — extracted from FirestoreGanttStorageServiceImpl.
 // Standalone functions for project sharing, member management, and user profiles.
 
-import type { FirestoreProjectMeta, ProjectRole } from '../types/firestore';
+import type { FirestoreProjectMeta, PendingInvite, ProjectRole } from '../types/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, getDocs, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection, deleteField, query, where, Timestamp } from 'firebase/firestore';
 import { appendChangeLogEntry } from '../utils/firestore-converters';
 
 /** Share a project with another user by email. */
@@ -55,8 +55,13 @@ export async function shareProject(
   await setDoc(projectRef, meta);
 }
 
-/** Remove a member from a project. Cannot remove the project owner. */
-export async function removeProjectMember(
+/**
+ * Remove a member from a project. Cannot remove the project owner.
+ * Renamed from removeProjectMember in v18.0.0 (D3). Uses deleteField()
+ * on the specific members.{uid} key rather than overwriting the full
+ * document — race-safe under concurrent membership changes.
+ */
+export async function removeCollaborator(
   db: Firestore,
   uid: string,
   projectId: string,
@@ -74,16 +79,20 @@ export async function removeProjectMember(
     throw new Error('Cannot remove the project owner');
   }
 
-  delete meta.members[targetUid];
-  meta.updatedAt = new Date().toISOString();
-  meta._changeLog = appendChangeLogEntry(meta._changeLog ?? [], {
+  // _changeLog append stays read-modify-write (owner-only, low concurrency risk).
+  const updatedLog = appendChangeLogEntry(meta._changeLog ?? [], {
     timestamp: new Date().toISOString(),
     uid,
     action: 'delete',
     target: `member:${targetUid}`,
   });
 
-  await setDoc(projectRef, meta);
+  // deleteField() on the specific key — race-safe, no full-doc overwrite (D3).
+  await setDoc(projectRef, {
+    [`members.${targetUid}`]: deleteField(),
+    updatedAt: new Date().toISOString(),
+    _changeLog: updatedLog,
+  }, { merge: true });
 }
 
 /** Get all members of a project with their roles and emails. */
@@ -108,21 +117,59 @@ export async function getProjectMembers(
   return members;
 }
 
-/** Create or update a user profile (called on sign-in). */
-export async function createUserProfile(
+// createUserProfile removed in v18.0.0 (D2). Profile writes are now performed
+// by writeUserProfile in AuthContext, which dual-writes ganttapp_profiles
+// + spertsuite_profiles on every auth resolution. The cross-app
+// spertsuite_profiles write enables email→uid lookup for the bulk
+// invitation flow.
+
+function tsToMillis(v: unknown): number {
+  if (v instanceof Timestamp) return v.toMillis();
+  if (typeof v === 'number') return v;
+  return 0;
+}
+
+/**
+ * List pending invitations where the calling user is the inviter.
+ * Filters status === 'pending' in code (not as a third where clause)
+ * to stay within the existing (inviterUid, modelId, createdAt) composite
+ * index. Note: Firestore uses 'modelId' regardless of GanttApp terminology.
+ */
+export async function listPendingInvites(
   db: Firestore,
   uid: string,
-  displayName: string,
-  email: string
-): Promise<void> {
-  const profileRef = doc(db, `ganttapp_profiles/${uid}`);
-  const existing = await getDoc(profileRef);
-  const now = new Date().toISOString();
-
-  if (existing.exists()) {
-    // Update lastLogin
-    await setDoc(profileRef, { ...existing.data(), lastLogin: now, displayName, email }, { merge: true });
-  } else {
-    await setDoc(profileRef, { displayName, email, createdAt: now, lastLogin: now });
-  }
+  projectId: string,
+): Promise<PendingInvite[]> {
+  const q = query(
+    collection(db, 'spertsuite_invitations'),
+    where('inviterUid', '==', uid),
+    where('modelId', '==', projectId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        tokenId: d.id,
+        appId: data.appId,
+        modelId: data.modelId,
+        modelName: data.modelName,
+        inviteeEmail: data.inviteeEmail,
+        role: data.role,
+        isVoting: data.isVoting ?? false,
+        inviterUid: data.inviterUid,
+        inviterName: data.inviterName,
+        inviterEmail: data.inviterEmail,
+        status: data.status,
+        createdAt: tsToMillis(data.createdAt),
+        expiresAt: tsToMillis(data.expiresAt),
+        acceptedAt: data.acceptedAt ? tsToMillis(data.acceptedAt) : undefined,
+        acceptedByUid: data.acceptedByUid,
+        lastEmailSentAt: tsToMillis(data.lastEmailSentAt),
+        emailSendCount: data.emailSendCount ?? 0,
+        updatedAt: tsToMillis(data.updatedAt),
+      } as PendingInvite;
+    })
+    .filter((inv) => inv.status === 'pending')
+    .sort((a, b) => b.createdAt - a.createdAt);
 }

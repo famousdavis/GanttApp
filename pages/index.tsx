@@ -14,6 +14,7 @@ import { DEFAULT_LEGEND_LABELS, resolveLabel } from '../src/shared/utils/validat
 import { getEffectiveWorkDays } from '../src/shared/utils/validation';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
+import { InvitationBanner } from '../src/shared/components/InvitationBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
 import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
 import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
@@ -296,6 +297,7 @@ function AppContent() {
           </div>
         </header>
 
+        <InvitationBanner />
         <FirstRunBanner />
         <LocalStorageWarningBanner />
         <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />

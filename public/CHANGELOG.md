@@ -1,5 +1,82 @@
 # Change Log
 
+## Version 18.0.0 (2026-05-04)
+### Bulk Invitations
+
+Major feature release: bulk-invitation flow on the Share Project dialog. Project owners paste multiple email addresses, pick a role, and send invitations in one round-trip via the SPERT&reg; Suite Cloud Functions. Existing suite members are auto-added immediately; new users receive a branded invitation email and are auto-claimed on next sign-in.
+
+**New on the Share Project dialog (cloud mode only):**
+- Bulk email textarea — splits on commas, semicolons, and whitespace; lowercases and dedupes.
+- Role selector — Editor or Viewer (the same two roles supported by single-email sharing).
+- Result chip after sending — `Added N: ...`, `Invited N: ...`, `Skipped N: <email> (reason)`.
+- Pending invitations list — shows recipient email, role, and `sent N/5` send-count. Per-row Resend (text button) and Revoke (trashcan icon with `ConfirmDialog`).
+- Server-side caps enforced by Cloud Functions: 25 invitations / user / day; 5 resends per pending invitation.
+
+**New `InvitationBanner` (mounted above `FirstRunBanner`):**
+- Three states: `idle` (hidden), `pre_auth` (URL contains `?invite=<token>` or sessionStorage token survives reload), `claimed` (`spert:models-changed` event fired with one or more claimed models).
+- Pre-auth state shows Google and Microsoft sign-in buttons. Sign-in routes through the existing `useSignInWithTosGate` hook (v17.0); Terms-of-Service consent flow cannot be bypassed.
+- Claimed state shows "You've been added to: &lt;project list&gt;" and the projects appear in the project list automatically.
+
+**Backend prerequisite (already deployed):**
+- `spert-landing` Cloud Functions register `ganttapp` as a supported `appId`. Allowed origins: `https://ganttapp.spertsuite.com` (prod) and `http://localhost:3000` through `http://localhost:3010` (dev). From-line branded as "via GanttApp".
+
+**Architecture changes:**
+- `writeUserProfile` in `AuthContext` dual-writes `ganttapp_profiles/{uid}` + `spertsuite_profiles/{uid}` on every auth resolution. The cross-app `spertsuite_profiles` write enables `sendInvitationEmail`'s email→uid lookup. Microsoft AD "Last, First Middle" displayName format is denormalized to "First Middle Last" via the new `denormalizeLastFirst` helper (mirrors the server-side normalization in `mailHeaders.ts`).
+- `setUserAndClaim` is the single exit point for every authenticated `onAuthStateChanged` callback path. It calls `writeUserProfile` (fire-and-forget), `setUser`, then `claimPendingInvitationsAndNotify`. The latter calls the `claimPendingInvitations` Cloud Function and dispatches a `spert:models-changed` window event with the array of newly-claimed models.
+- `createUserProfile` deleted from `firestore-sharing.ts` and `FirestoreGanttStorageServiceImpl`. Two prior call sites (`StorageContext.tsx` mount-restore branch and `storage-mode-switch.ts` cloud upload) removed. Profile writes are no longer gated on cloud-mode switching.
+- `removeProjectMember` renamed → `removeCollaborator`. Refactored to use `deleteField()` on the specific `members.{uid}` key with `merge: true`, rather than overwriting the full document. Race-safe under concurrent membership changes. Rename applies in both flag states; the flag-off Share input panel JSX is preserved byte-identical.
+- `listPendingInvites(projectId)` query reuses the existing composite index `(inviterUid ASC, modelId ASC, createdAt DESC)` on `spertsuite_invitations`. Status filter (`status === 'pending'`) is applied in code, not in the query, to stay within the deployed index.
+
+**Save-back guard for cross-app claim events:**
+- `AppDataContext` listens for `spert:models-changed` events. When dispatched in cloud mode, the listener bumps a `reloadCounter` state, which is in the load effect's dependency array — triggering `loadAppData()` to refresh the project list with the newly-claimed project.
+- A new `loadedDataRef` mechanism in the save effect short-circuits when `data === loadedDataRef.current`, ensuring the post-load save effect run does NOT write the just-loaded cloud data back to Firestore. Without this, every claim event would trigger a full Firestore write and risk clobbering concurrent collaborator edits on the just-claimed project. Covered by a CI-gated regression test (`src/context/__tests__/AppDataContext.spertModelsChanged.test.tsx`).
+
+**Cloud Functions integration (`src/lib/firebase.ts`):**
+- New `firebase/functions` import. Module-scoped `functionsInstance` initialized when `isFirebaseAvailable === true`. Region `us-central1`.
+- Four typed callable getters: `getSendInvitationEmail`, `getClaimPendingInvitations`, `getRevokeInvite`, `getResendInvite`. Each returns `null` when Firebase is unavailable. The callable `appId` is hardcoded as the string literal `'ganttapp'`, distinct from `APP_ID` in `version.ts` (LESSONS-LEARNED §15).
+
+**New utilities:**
+- `src/lib/auth-name.ts` — `denormalizeLastFirst()` (mirrors `mailHeaders.ts`).
+- `src/lib/invitation-errors.ts` — `mapInvitationError(err, context)` with `'send' | 'resend' | 'revoke'` discriminator. Required because Firebase HttpsError codes are a small enum (`resource-exhausted` means different things in send vs resend; LESSONS-LEARNED §13).
+- `src/shared/utils/parseBulkEmails.ts` — splits on commas/semicolons/whitespace, lowercases, dedupes. Uses `Array.from(new Set(...))` rather than spread (`tsconfig` target is `es5`).
+- `src/lib/feature-flags.ts` — `INVITATIONS_ENABLED` constant.
+
+**New shared components:**
+- `src/shared/components/AuthProviderLogos.tsx` — `GoogleLogo` and `MicrosoftLogo` SVGs extracted verbatim from `CloudStorageModal.tsx` so `InvitationBanner` can reuse them.
+- `src/shared/components/InvitationBanner.tsx` — three-state banner driven by `useInvitationLanding`.
+- `src/shared/hooks/useInvitationLanding.ts` — Pages Router-compatible hook (uses `window.location` / `history.replaceState`; no `<Suspense>` boundary needed because GanttApp does not use the App Router).
+
+**Modified Files (16):**
+- `pages/index.tsx` — mount `InvitationBanner` above `FirstRunBanner`.
+- `src/context/AppDataContext.tsx` — `reloadCounter`, `loadedDataRef`, `spert:models-changed` listener.
+- `src/context/AuthContext.tsx` — `firebaseAvailable` field, `writeUserProfile`, `claimPendingInvitationsAndNotify`, `setUserAndClaim` single-exit-point.
+- `src/context/StorageContext.tsx` — removed `createUserProfile` mount-restore call.
+- `src/context/storage-mode-switch.ts` — removed `createUserProfile` cloud-upload call.
+- `src/features/projects/ShareDialog.tsx` — bulk send, pending list, Resend/Revoke handlers, two-boolean busy-state split (`bulkSending` vs per-invite `actionBusy`).
+- `src/lib/firebase.ts` — `firebase/functions` integration + 4 callable getters.
+- `src/shared/components/CloudStorageModal.tsx` — extracted logos imported from new `AuthProviderLogos.tsx`.
+- `src/shared/storage/firestore-gantt-storage-service.ts` — interface + 4 cloud methods.
+- `src/shared/storage/firestore-sharing.ts` — `removeCollaborator` (renamed + refactored), `listPendingInvites` (new), `createUserProfile` (deleted).
+- `src/shared/storage/index.ts` — barrel export updated.
+- `src/shared/types/firestore.ts` — `PendingInvite` type, `InvitationStatus` union.
+- Tests: 4 new files + 4 updated files; 1076 → 1108 tests across 65+ files.
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`.
+
+**Verification:**
+- All tests pass.
+- TypeScript type-check clean (0 errors).
+- Production build succeeds with Turbopack.
+- Lint clean.
+- CORS smoke-test from `https://ganttapp.spertsuite.com` and `http://localhost:3000` against all three new callables — all returned `HTTP/2 204` with correctly-echoed `access-control-allow-origin`.
+- Composite index `(inviterUid ASC, modelId ASC, createdAt DESC)` on `spertsuite_invitations` already deployed.
+
+**Manual verification (post-deploy, ongoing):**
+- Resend dashboard delivery rate over the first 48 hours.
+- `spertsuite_rate_limits` for unexpected 25/day cap hits.
+- ToS consent flow with a brand-new Google account.
+
+---
+
 ## Version 17.3.3 (2026-05-03)
 ### Form-Field Hygiene Residual Sweep
 

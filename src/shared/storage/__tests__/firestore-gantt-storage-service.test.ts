@@ -274,34 +274,10 @@ describe('FirestoreGanttStorageService', () => {
     });
   });
 
-  describe('createUserProfile', () => {
-    it('creates new profile when none exists', async () => {
-      mockGetDoc.mockResolvedValue({ exists: () => false });
-      mockSetDoc.mockResolvedValue(undefined);
-
-      await service.createUserProfile('Test User', 'test@example.com');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const profileData = mockSetDoc.mock.calls[0][1];
-      expect(profileData.displayName).toBe('Test User');
-      expect(profileData.email).toBe('test@example.com');
-      expect(profileData.createdAt).toBeDefined();
-      expect(profileData.lastLogin).toBeDefined();
-    });
-
-    it('updates existing profile lastLogin', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ displayName: 'Old Name', email: 'old@test.com', createdAt: '2026-01-01T00:00:00.000Z', lastLogin: '2026-01-15T00:00:00.000Z' }),
-      });
-      mockSetDoc.mockResolvedValue(undefined);
-
-      await service.createUserProfile('New Name', 'new@test.com');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const profileData = mockSetDoc.mock.calls[0][1];
-      expect(profileData.displayName).toBe('New Name');
-      expect(profileData.email).toBe('new@test.com');
-    });
-  });
+  // createUserProfile method removed in v18.0.0 (D2). Profile writes are
+  // now performed by writeUserProfile in AuthContext, which dual-writes
+  // ganttapp_profiles + spertsuite_profiles. AuthContext.test.tsx is the
+  // canonical site for profile-write coverage.
 
   describe('addSnapshot', () => {
     it('returns null when total limit reached', async () => {
@@ -405,7 +381,7 @@ describe('FirestoreGanttStorageService', () => {
     });
   });
 
-  describe('removeProjectMember', () => {
+  describe('removeCollaborator', () => {
     it('throws when trying to remove owner', async () => {
       // Service uid (test-uid) must be the owner to pass the owner-role check
       mockGetDoc.mockResolvedValue({
@@ -417,7 +393,7 @@ describe('FirestoreGanttStorageService', () => {
       });
 
       await expect(
-        service.removeProjectMember('p1', mockUid)
+        service.removeCollaborator('p1', mockUid)
       ).rejects.toThrow('Cannot remove the project owner');
     });
   });

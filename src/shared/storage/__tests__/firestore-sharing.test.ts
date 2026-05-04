@@ -10,6 +10,11 @@ const mockGetDocs = vi.fn();
 const mockSetDoc = vi.fn();
 const mockDoc = vi.fn();
 const mockCollection = vi.fn();
+const mockQuery = vi.fn();
+const mockWhere = vi.fn();
+// deleteField returns a sentinel object that Firestore recognizes;
+// in the mock we just stub it as a marker so tests can assert presence.
+const DELETE_FIELD_SENTINEL = { __deleteField: true };
 
 vi.mock('firebase/firestore', () => ({
   doc: (...args: unknown[]) => mockDoc(...args),
@@ -17,13 +22,17 @@ vi.mock('firebase/firestore', () => ({
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   collection: (...args: unknown[]) => mockCollection(...args),
+  query: (...args: unknown[]) => mockQuery(...args),
+  where: (...args: unknown[]) => mockWhere(...args),
+  deleteField: () => DELETE_FIELD_SENTINEL,
+  Timestamp: class { toMillis() { return 0; } },
 }));
 
 import {
   shareProject,
-  removeProjectMember,
+  removeCollaborator,
   getProjectMembers,
-  createUserProfile,
+  listPendingInvites,
 } from '../firestore-sharing';
 
 describe('firestore-sharing', () => {
@@ -88,7 +97,7 @@ describe('firestore-sharing', () => {
     });
   });
 
-  describe('removeProjectMember', () => {
+  describe('removeCollaborator', () => {
     it('throws when non-owner tries to remove member', async () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
@@ -99,7 +108,7 @@ describe('firestore-sharing', () => {
       });
 
       await expect(
-        removeProjectMember(mockDb, mockUid, 'p1', 'other-uid')
+        removeCollaborator(mockDb, mockUid, 'p1', 'other-uid')
       ).rejects.toThrow('Only the project owner can remove members');
     });
 
@@ -113,11 +122,11 @@ describe('firestore-sharing', () => {
       });
 
       await expect(
-        removeProjectMember(mockDb, mockUid, 'p1', mockUid)
+        removeCollaborator(mockDb, mockUid, 'p1', mockUid)
       ).rejects.toThrow('Cannot remove the project owner');
     });
 
-    it('removes non-owner member', async () => {
+    it('removes non-owner member via deleteField on the specific key', async () => {
       mockGetDoc.mockResolvedValueOnce({
         exists: () => true,
         data: () => ({
@@ -127,10 +136,16 @@ describe('firestore-sharing', () => {
       });
       mockSetDoc.mockResolvedValue(undefined);
 
-      await removeProjectMember(mockDb, mockUid, 'p1', 'other-uid');
+      await removeCollaborator(mockDb, mockUid, 'p1', 'other-uid');
       expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const savedMeta = mockSetDoc.mock.calls[0][1];
-      expect(savedMeta.members['other-uid']).toBeUndefined();
+      const savedPayload = mockSetDoc.mock.calls[0][1];
+      // v18.0.0 (D3): payload uses deleteField() on the specific key,
+      // not a full-doc rewrite. The dotted-path key is the fingerprint.
+      expect(savedPayload['members.other-uid']).toBe(DELETE_FIELD_SENTINEL);
+      expect(savedPayload.updatedAt).toBeDefined();
+      expect(savedPayload._changeLog).toBeDefined();
+      // Confirm merge:true is passed (third arg) so other members are preserved.
+      expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
     });
   });
 
@@ -163,30 +178,38 @@ describe('firestore-sharing', () => {
     });
   });
 
-  describe('createUserProfile', () => {
-    it('creates new profile when none exists', async () => {
-      mockGetDoc.mockResolvedValue({ exists: () => false });
-      mockSetDoc.mockResolvedValue(undefined);
+  // createUserProfile removed in v18.0.0 (D2). Profile writes are now
+  // performed by writeUserProfile in AuthContext, which dual-writes
+  // ganttapp_profiles + spertsuite_profiles. AuthContext.test.tsx is the
+  // canonical site for profile-write coverage.
 
-      await createUserProfile(mockDb, mockUid, 'Test User', 'test@example.com');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const profileData = mockSetDoc.mock.calls[0][1];
-      expect(profileData.displayName).toBe('Test User');
-      expect(profileData.email).toBe('test@example.com');
-      expect(profileData.createdAt).toBeDefined();
+  describe('listPendingInvites', () => {
+    it('filters status === pending in code, not as a third where clause', async () => {
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          { id: 't1', data: () => ({ status: 'pending', appId: 'ganttapp', modelId: 'p1', modelName: 'P1', inviteeEmail: 'a@x.com', role: 'editor', isVoting: false, inviterUid: mockUid, inviterName: 'Owner', inviterEmail: 'o@x.com', createdAt: 200, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 0, updatedAt: 0 }) },
+          { id: 't2', data: () => ({ status: 'accepted', appId: 'ganttapp', modelId: 'p1', modelName: 'P1', inviteeEmail: 'b@x.com', role: 'viewer', isVoting: false, inviterUid: mockUid, inviterName: 'Owner', inviterEmail: 'o@x.com', createdAt: 100, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 0, updatedAt: 0 }) },
+        ],
+      });
+
+      const result = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(result).toHaveLength(1);
+      expect(result[0].tokenId).toBe('t1');
+      // Only two where() calls — status filter is in code, not in the query
+      // (keeps us inside the existing composite index per Step 7c).
+      expect(mockWhere).toHaveBeenCalledTimes(2);
     });
 
-    it('updates existing profile', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ displayName: 'Old', email: 'old@test.com', createdAt: '2026-01-01', lastLogin: '2026-01-15' }),
+    it('sorts pending invites newest-first by createdAt', async () => {
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          { id: 'old', data: () => ({ status: 'pending', appId: 'ganttapp', modelId: 'p1', modelName: 'P1', inviteeEmail: 'a@x.com', role: 'editor', isVoting: false, inviterUid: mockUid, inviterName: 'Owner', inviterEmail: 'o@x.com', createdAt: 100, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 0, updatedAt: 0 }) },
+          { id: 'new', data: () => ({ status: 'pending', appId: 'ganttapp', modelId: 'p1', modelName: 'P1', inviteeEmail: 'b@x.com', role: 'editor', isVoting: false, inviterUid: mockUid, inviterName: 'Owner', inviterEmail: 'o@x.com', createdAt: 500, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 0, updatedAt: 0 }) },
+        ],
       });
-      mockSetDoc.mockResolvedValue(undefined);
 
-      await createUserProfile(mockDb, mockUid, 'New', 'new@test.com');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const profileData = mockSetDoc.mock.calls[0][1];
-      expect(profileData.displayName).toBe('New');
+      const result = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(result.map((i) => i.tokenId)).toEqual(['new', 'old']);
     });
   });
 });

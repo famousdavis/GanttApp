@@ -46,14 +46,9 @@ export async function switchToCloudMode(
   const localData = await localService.loadAppData();
   const localSnapshots = await localService.loadSnapshots();
 
-  // Create cloud service
+  // Create cloud service. Profile writes are now handled by writeUserProfile
+  // in AuthContext (D2, v18.0.0) — no createUserProfile call here.
   const cloudService = new FirestoreGanttStorageServiceImpl(firestore, user.uid, onSaveResult);
-
-  // Create/update user profile (sanitize defense-in-depth, v12.2)
-  await cloudService.createUserProfile(
-    sanitizeString(user.displayName ?? 'Unknown'),
-    sanitizeString(user.email ?? '')
-  );
 
   let uploaded = 0;
   let skipped = 0;

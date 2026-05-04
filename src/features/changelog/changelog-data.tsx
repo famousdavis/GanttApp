@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '18.0.0',
+    date: 'May 4, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; Bulk invitations on the Share Project dialog. Project owners can paste multiple email addresses (separated by commas, semicolons, or whitespace), pick a role (Editor / Viewer), and send invitations in one round-trip. Existing SPERT&reg; Suite users are auto-added to the project immediately; new users receive a branded invitation email and are auto-claimed on next sign-in via Google or Microsoft SSO</>,
+      <><strong>Feature</strong> &mdash; Pending invitations list shows the recipient email, role, and email-send count (max 5 resends). Each pending invite has a Resend button (text affordance) and a Revoke button (trashcan icon, with confirmation dialog). Server-side caps enforce the 5-resend limit and the per-user 25/day send limit</>,
+      <><strong>Feature</strong> &mdash; <code>InvitationBanner</code> renders at the top of the app when the URL contains <code>?invite=&lt;token&gt;</code> or after a successful claim. Three states: idle (hidden), pre-auth (sign-in prompt with Google + Microsoft SSO buttons), and claimed (&ldquo;You&apos;ve been added to: &lt;project list&gt;&rdquo;). Sign-in routes through the existing <code>useSignInWithTosGate</code> so the Terms-of-Service consent flow cannot be bypassed</>,
+      <><strong>Architecture</strong> &mdash; Backend prerequisite: <code>spert-landing</code> Cloud Functions (<code>sendInvitationEmail</code>, <code>claimPendingInvitations</code>, <code>resendInvite</code>, <code>revokeInvite</code>) now register <code>ganttapp</code> as a supported <code>appId</code>. CORS allowlist covers the production domain and dev ports 3000&ndash;3010</>,
+      <><strong>Architecture</strong> &mdash; <code>writeUserProfile</code> in <code>AuthContext</code> dual-writes <code>ganttapp_profiles/&#123;uid&#125;</code> + <code>spertsuite_profiles/&#123;uid&#125;</code> on every auth resolution. The cross-app <code>spertsuite_profiles</code> write enables email&rarr;uid lookup for the bulk-send path. <code>createUserProfile</code> deleted &mdash; profile writes are now no longer gated on cloud-mode switching</>,
+      <><strong>Architecture</strong> &mdash; <code>removeProjectMember</code> renamed to <code>removeCollaborator</code> and refactored to use <code>deleteField()</code> on the specific <code>members.&#123;uid&#125;</code> key (race-safe under concurrent membership changes). The flag-off legacy single-email Share input panel is preserved byte-identical; the rename applies in both flag states</>,
+      <><strong>Architecture</strong> &mdash; <code>AppDataContext</code> listens for <code>spert:models-changed</code> custom events dispatched by <code>claimPendingInvitationsAndNotify</code>. A new <code>reloadCounter</code> + <code>loadedDataRef</code> pattern triggers a Firestore reload without invoking the save effect &mdash; concurrent collaborator edits on the just-claimed project are not clobbered. CI-gated regression test covers this path</>,
+    ],
+  },
+  {
     version: '17.3.3',
     date: 'May 3, 2026',
     items: [
@@ -314,7 +327,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       <><strong>Legal</strong> &mdash; Added Terms of Service and Privacy Policy links to persistent footer (browsewrap notice)</>,
       <><strong>Feature</strong> &mdash; First-run informational banner for new users (dismissible, non-blocking)</>,
       <><strong>Feature</strong> &mdash; Clickwrap consent modal required before enabling Cloud Storage (checkbox + agreement links)</>,
-      <><strong>Feature</strong> &mdash; ToS acceptance recorded in Firestore (<code>users/{'{uid}'}</code>) for returning-user version verification</>,
+      <><strong>Feature</strong> &mdash; ToS acceptance recorded in Firestore (<code>users/{'&#123;uid&#125;'}</code>) for returning-user version verification</>,
       <><strong>Improvement</strong> &mdash; Centralized version constants in <code>src/lib/version.ts</code> (APP_VERSION, TOS_VERSION, APP_ID)</>,
     ],
   },

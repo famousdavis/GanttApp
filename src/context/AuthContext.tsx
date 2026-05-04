@@ -7,7 +7,7 @@
 // v13.0: ToS acceptance resolution in onAuthStateChanged (Items 4 & 5).
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { auth, db, isFirebaseAvailable } from '../lib/firebase';
+import { auth, db, isFirebaseAvailable, getClaimPendingInvitations } from '../lib/firebase';
 import { TOS_VERSION, APP_ID } from '../lib/version';
 import {
   onAuthStateChanged,
@@ -23,7 +23,9 @@ import {
   setDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { sanitizeFirebaseError } from '../shared/utils/validation';
+import { sanitizeFirebaseError, sanitizeString } from '../shared/utils/validation';
+import { denormalizeLastFirst } from '../lib/auth-name';
+import { INVITATIONS_ENABLED } from '../lib/feature-flags';
 import { runSignOutCleanup } from './signOutCleanupRegistry';
 
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
@@ -36,6 +38,11 @@ export interface AuthContextType {
   signInWithMicrosoft: () => Promise<void>;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
+  /**
+   * Mirror of isFirebaseAvailable. Used by InvitationBanner (and any other
+   * consumer) to gate sign-in CTAs without re-importing the lib constant.
+   */
+  firebaseAvailable: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -57,6 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isFirebaseAvailable || !auth) return;
 
+    /**
+     * Single-exit-point pattern (v18.0.0 / D2): every auth-state path that
+     * resolves to a signed-in user runs profile write + claim-pending in
+     * the same order. Profile write is fire-and-forget so setUser is not
+     * blocked by Firestore latency.
+     */
+    function setUserAndClaim(firebaseUser: FirebaseUser): void {
+      void writeUserProfile(firebaseUser).catch((err) => {
+        console.error('[AuthContext] writeUserProfile failed:', err);
+      });
+      setUser(firebaseUser);
+      claimPendingInvitationsAndNotify(firebaseUser);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser || !db) {
         setUser(firebaseUser);
@@ -68,14 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       handleTosResolution(firebaseUser)
         .then((signedOut) => {
           if (!signedOut) {
-            setUser(firebaseUser);
+            setUserAndClaim(firebaseUser);
           }
           // If signed out, onAuthStateChanged fires again with null
         })
         .catch((err) => {
           // Allow through on errors — don't block the user
           console.error('[AuthContext] ToS resolution error:', sanitizeFirebaseError(err));
-          setUser(firebaseUser);
+          setUserAndClaim(firebaseUser);
         })
         .finally(() => {
           setLoading(false);
@@ -113,9 +134,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithMicrosoft,
     signOut,
     isAuthenticated: user !== null,
+    firebaseAvailable: isFirebaseAvailable,
   };
 
   return <AuthContext value={value}>{children}</AuthContext>;
+}
+
+/**
+ * Writes the user's profile to ganttapp_profiles + spertsuite_profiles.
+ * Note: callers (see setUserAndClaim) invoke this fire-and-forget — setUser
+ * fires before this Promise resolves. Downstream consumers that depend on
+ * profile existence must read Firestore directly; do not assume
+ * "user is set ⇒ profile exists in ganttapp_profiles."
+ *
+ * Dual-write is the canonical pattern (D2, v18.0.0):
+ *   - ganttapp_profiles/{uid}    — app-specific (legacy, used by ShareDialog email lookup)
+ *   - spertsuite_profiles/{uid}  — suite-wide (used by sendInvitationEmail email→uid resolution)
+ *
+ * displayName is denormalized via auth-name's denormalizeLastFirst() to
+ * fix Microsoft AD's "Last, First" format. Email is lowercased. Both
+ * additionally pass through sanitizeString as defense-in-depth.
+ */
+async function writeUserProfile(firebaseUser: FirebaseUser): Promise<void> {
+  if (!isFirebaseAvailable || !db) return;
+  const normalizedName = sanitizeString(denormalizeLastFirst(firebaseUser.displayName ?? ''));
+  const normalizedEmail = sanitizeString((firebaseUser.email ?? '').toLowerCase());
+  const payload = {
+    displayName: normalizedName,
+    email: normalizedEmail,
+    photoURL: firebaseUser.photoURL ?? null,
+    updatedAt: serverTimestamp(),
+  };
+  // Parallel writes — neither blocks the other on Firestore latency.
+  await Promise.all([
+    setDoc(doc(db, `ganttapp_profiles/${firebaseUser.uid}`), payload, { merge: true }),
+    setDoc(doc(db, `spertsuite_profiles/${firebaseUser.uid}`), payload, { merge: true }),
+  ]);
+}
+
+/**
+ * Fire the bulk-invitation claim callable, then dispatch a custom event
+ * so AppDataContext can reload its project list. No-op when the flag is
+ * off or Firebase is unavailable. Errors are logged with the uid (for
+ * triage) but never bubble — the user's auth flow must not block on this.
+ *
+ * Event name 'spert:models-changed' is a suite-wide contract — do not rename.
+ */
+function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
+  if (!INVITATIONS_ENABLED) return;
+  const callable = getClaimPendingInvitations();
+  if (!callable) return;
+  void callable({})
+    .then((res) => {
+      const claimed = res.data?.claimed ?? [];
+      if (claimed.length > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('spert:models-changed', { detail: { claimed } }),
+        );
+      }
+    })
+    .catch((err: unknown) => {
+      console.error(
+        '[AuthContext] claimPendingInvitations failed for uid', firebaseUser.uid,
+        '— code:', (err as { code?: string }).code ?? 'unknown',
+      );
+    });
 }
 
 /**

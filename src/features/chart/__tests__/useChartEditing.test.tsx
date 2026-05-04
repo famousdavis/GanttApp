@@ -16,6 +16,10 @@ vi.mock('../../../lib/firebase', () => ({
   auth: null,
   db: null,
   isFirebaseAvailable: false,
+  getSendInvitationEmail: () => null,
+  getClaimPendingInvitations: () => null,
+  getRevokeInvite: () => null,
+  getResendInvite: () => null,
 }));
 
 const mockOnAuthStateChanged = vi.fn();

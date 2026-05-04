@@ -15,6 +15,10 @@ vi.mock('../../lib/firebase', () => ({
   auth: { currentUser: null },
   db: {},
   isFirebaseAvailable: true,
+  getSendInvitationEmail: () => null,
+  getClaimPendingInvitations: () => null,
+  getRevokeInvite: () => null,
+  getResendInvite: () => null,
 }));
 
 vi.mock('firebase/firestore', () => ({

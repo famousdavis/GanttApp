@@ -7,4 +7,4 @@
  * INVITATIONS_ENABLED: flip to true in the ship-gate PR after QA.
  * Default is false — safe to merge with flag off.
  */
-export const INVITATIONS_ENABLED = false;
+export const INVITATIONS_ENABLED = true;

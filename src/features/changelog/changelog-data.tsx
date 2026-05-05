@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.21.0',
+    date: 'May 5, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; Cloud projects load again in multi-tenant Firestore. The unconstrained <code>getDocs(collection(&apos;ganttapp_projects&apos;))</code> in <code>loadAppData</code>, <code>loadSnapshots</code>, and <code>saveSnapshots</code> failed with <code>permission-denied</code> as soon as the collection contained any project owned by another user, because Firestore evaluates <code>list</code> rules against the query shape (not per-document) and the rule referenced <code>resource.data.members</code> which is undefined for list operations</>,
+      <><strong>Fix</strong> &mdash; Switched to the canonical SPERT pattern (Story Map v0.14.3): constrained query with <code>where(`members.&#36;&#123;uid&#125;`, &apos;in&apos;, [&apos;owner&apos;, &apos;editor&apos;, &apos;viewer&apos;])</code> in all three methods. Server-side filter now returns only the user&apos;s projects; the client-side membership check is retained as defense-in-depth</>,
+      <><strong>Rules</strong> &mdash; <code>ganttapp_projects/list</code> rule relaxed to <code>if isAuth()</code> only. The per-user filtering is now done by the <code>where()</code> clause server-side. <code>get</code>, <code>create</code>, <code>update</code>, and <code>delete</code> rules unchanged. Subcollection rules (<code>releases</code>, <code>snapshots</code>) unchanged. Matches the suite-wide pattern documented in <code>cloud-storage-guide/ARCHITECTURE.md</code> §6.5 and §7</>,
+      <><strong>Tests</strong> &mdash; +1 regression test asserting <code>where(`members.&#36;&#123;uid&#125;`, &apos;in&apos;, [...])</code> is called during <code>loadAppData</code>. Existing 1165 tests continue to pass</>,
+    ],
+  },
+  {
     version: '0.20.1',
     date: 'May 5, 2026',
     items: [

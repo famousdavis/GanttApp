@@ -29,6 +29,7 @@ import {
   deleteDoc,
   writeBatch,
   query,
+  where,
   onSnapshot,
 } from 'firebase/firestore';
 import {
@@ -112,12 +113,28 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async loadAppData(): Promise<AppData | null> {
     try {
-      // Step 1: List projects (client-side membership filtering)
-      const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
+      // Step 1: List projects (server-side membership filtering via where()).
+      // v0.21.0 — constrained query so the Firestore list rule (which is now
+      // `allow list: if isAuth()`) safely returns only this user's projects.
+      // Previously used an unconstrained getDocs(collection(...)) with the rule
+      // `allow list: if isAuth() && request.auth.uid in resource.data.members`
+      // — that pattern fails as soon as the collection contains any project
+      // the user isn't a member of, because Firestore evaluates list rules
+      // against the query shape, not per-doc, and resource.data is undefined
+      // for list ops. See cloud-storage-guide/ARCHITECTURE.md §6.5.
+      const projectsSnap = await getDocs(
+        query(
+          collection(this.db, 'ganttapp_projects'),
+          where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer'])
+        )
+      );
       const projects: { id: string; meta: FirestoreProjectMeta }[] = [];
 
       for (const docSnap of projectsSnap.docs) {
         const data = docSnap.data() as FirestoreProjectMeta;
+        // Defense-in-depth: server-side where() guarantees membership, but
+        // we keep the client-side check to protect against future query-shape
+        // regressions. Cost is one map lookup per project.
         if (data.members && data.members[this.uid]) {
           projects.push({ id: docSnap.id, meta: data });
         }
@@ -188,9 +205,16 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     try {
       const allSnapshots: Snapshot[] = [];
 
-      const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
+      // v0.21.0 — constrained query (see loadAppData for rationale).
+      const projectsSnap = await getDocs(
+        query(
+          collection(this.db, 'ganttapp_projects'),
+          where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer'])
+        )
+      );
       for (const projectDoc of projectsSnap.docs) {
         const data = projectDoc.data() as FirestoreProjectMeta;
+        // Defense-in-depth client-side membership check (see loadAppData).
         if (!data.members || !data.members[this.uid]) continue;
 
         const snapshotsSnap = await getDocs(
@@ -220,9 +244,16 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
     const batch = writeBatch(this.db);
 
-    const projectsSnap = await getDocs(collection(this.db, 'ganttapp_projects'));
+    // v0.21.0 — constrained query (see loadAppData for rationale).
+    const projectsSnap = await getDocs(
+      query(
+        collection(this.db, 'ganttapp_projects'),
+        where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer'])
+      )
+    );
     for (const projectDoc of projectsSnap.docs) {
       const data = projectDoc.data() as FirestoreProjectMeta;
+      // Defense-in-depth client-side membership check (see loadAppData).
       if (!data.members || !data.members[this.uid]) continue;
 
       const existingSnaps = await getDocs(

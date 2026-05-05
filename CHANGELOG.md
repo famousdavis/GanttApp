@@ -1,5 +1,31 @@
 # Change Log
 
+## Version 0.21.0 (2026-05-05)
+### Fix: Cloud projects load again in multi-tenant Firestore
+
+User reported all cloud project loads failing with `Permission denied` errors after multiple uids accumulated in the `ganttapp_projects` collection (Microsoft + Google profile sessions during v0.20.1 testing). Root cause: the Firestore `list` rule referenced `resource.data.members[request.auth.uid]`, which Firestore cannot evaluate for `list` operations (rules apply to query shape, not per-document). The unconstrained `getDocs(collection(...))` call worked when the user owned every project in the collection, broke as soon as any foreign-owned doc was present.
+
+**App fix:** Three unconstrained collection queries in `firestore-gantt-storage-service.ts` (`loadAppData` line 116, `loadSnapshots` line 191, `saveSnapshots` line 223) now use a constrained `where('members.${uid}', 'in', ['owner', 'editor', 'viewer'])` clause. Server-side filter returns only the user's projects. Client-side membership check kept as defense-in-depth.
+
+**Rules fix:** `ganttapp_projects/list` rule relaxed to `if isAuth()` only. Rules cannot validate dynamic field paths in `where()` clauses, so the suite-wide canonical pattern is to authenticate the list, then trust the constrained `where()` clause to filter results server-side. Matches the pattern adopted by SPERT-Story-Map in v0.14.3 and documented in `cloud-storage-guide/ARCHITECTURE.md` §6.5 + §7.
+
+**Security tradeoff:** authenticated SPERT users could in principle issue an unconstrained `list` to see project metadata (name, owner, members map, finishDate, workDays, legendLabels). No release content or snapshot content is exposed (subcollection rules unchanged — still use `isMemberGet(projectId)`). This is the same security posture every other SPERT app's projects collection already operates under.
+
+**Modified Files:**
+- `src/shared/storage/firestore-gantt-storage-service.ts` — added `where` import; constrained queries in `loadAppData`, `loadSnapshots`, `saveSnapshots`
+- `src/shared/storage/__tests__/firestore-gantt-storage-service.test.ts` — +1 regression test
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`, `CLAUDE.md`
+- (Separate) `spert-landing-page/firestore.rules` — mirror PR after Console deploy
+
+**Verification:**
+- All 1166 tests pass (+1 net new)
+- TypeScript type-check clean
+- Production build succeeds with Turbopack
+- Lint clean
+- Manual post-deploy: Microsoft sign-in loads projects without console errors; Share button (v0.20.1 fix) appears on owned tiles
+
+---
+
 ## Version 0.20.1 (2026-05-05)
 ### Fix: Share button on owned project tiles in cloud mode
 

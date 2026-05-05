@@ -9,6 +9,7 @@ import { Project } from '../../shared/types';
 import type { Snapshot } from '../../shared/types/snapshots';
 import { useAppData } from '../../context/AppDataContext';
 import { useStorage } from '../../context/StorageContext';
+import { useAuth } from '../../context/AuthContext';
 import { generateId } from '../../shared/utils';
 import { sanitizeString } from '../../shared/utils/validation';
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
@@ -16,6 +17,7 @@ import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 export function useProjects() {
   const { data, updateData } = useAppData();
   const { storage } = useStorage();
+  const { user } = useAuth();
   const [projectName, setProjectName] = useState('');
   const [projectFinishDate, setProjectFinishDate] = useState('');
   const [projectWorkDays, setProjectWorkDays] = useState<number[] | undefined>(undefined);
@@ -27,7 +29,8 @@ export function useProjects() {
       id: generateId(),
       name: sanitizeString(projectName),
       ...(projectFinishDate && { finishDate: projectFinishDate }),
-      ...(projectWorkDays && projectWorkDays.length > 0 && { workDays: projectWorkDays })
+      ...(projectWorkDays && projectWorkDays.length > 0 && { workDays: projectWorkDays }),
+      ...(storage.mode === 'cloud' && user && { owner: user.uid }),
     };
     const newData = { ...data, projects: [...data.projects, newProject] };
     updateData(newData);
@@ -117,11 +120,17 @@ export function useProjects() {
       candidateName = `${source.name} - Copy (${suffix})`;
     }
 
-    // Clone the project record.
+    // Clone the project record. Explicit field copy (not bare ...source spread)
+    // so the clone's `owner` is rebound to the current user in cloud mode rather
+    // than inheriting the source's owner uid (which may belong to a different
+    // user when cloning a project that was shared to you).
     const clonedProject: Project = {
-      ...source,
       id: generateId(),
       name: candidateName,
+      ...(source.finishDate && { finishDate: source.finishDate }),
+      ...(source.workDays && { workDays: source.workDays }),
+      ...(source.legendLabels && { legendLabels: source.legendLabels }),
+      ...(storage.mode === 'cloud' && user && { owner: user.uid }),
     };
 
     // Clone releases with new IDs and the cloned project's ID as projectId.

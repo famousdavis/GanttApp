@@ -126,6 +126,24 @@ describe('useProjects', () => {
       expect(stored.projects[0].id).toBeTruthy();
     });
 
+    it('omits owner field in local mode (v0.20.1)', () => {
+      // Regression for v0.20.1: addProject only seeds `owner` in cloud mode.
+      // Local mode stores plain Project objects with no owner.
+      const { result } = renderHook(() => useProjects(), { wrapper });
+      const setSelectedProjectId = vi.fn();
+
+      act(() => {
+        result.current.setProjectName('Local-mode Project');
+      });
+
+      act(() => {
+        result.current.addProject('', setSelectedProjectId);
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].owner).toBeUndefined();
+    });
+
     it('adds project with finish date when provided', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
       const setSelectedProjectId = vi.fn();
@@ -614,6 +632,29 @@ describe('useProjects', () => {
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.projects).toHaveLength(2);
       expect(stored.projects.map((p: Project) => p.name)).toEqual(['Source', 'Source - Copy (1)']);
+    });
+
+    it('does not propagate source.owner to the clone in local mode (v0.20.1)', async () => {
+      // Regression for v0.20.1 Gap C: cloneProject must not blindly carry
+      // source.owner into the clone. In local mode, owner should be omitted.
+      // (In cloud mode it's rebound to the current user.uid, but this test
+      // runs with isFirebaseAvailable=false → local mode.)
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source', owner: 'foreign-uid-from-shared-project' })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      const clone = stored.projects.find((p: Project) => p.name === 'Source - Copy (1)');
+      expect(clone).toBeDefined();
+      expect(clone.owner).toBeUndefined();
     });
 
     it('uses " - Copy (2)" when " - Copy (1)" already exists', async () => {

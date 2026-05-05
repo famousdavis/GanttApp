@@ -1,5 +1,24 @@
 # Change Log
 
+## Version 0.20.1 (2026-05-05)
+### Fix: Share button on owned project tiles in cloud mode
+
+Three related fixes for in-memory `Project.owner` handling, after a user reported the Share button missing on tiles for projects they verifiably owned in Firestore.
+
+**Bug A — `addProject` doesn't seed `owner` (primary cause).** When a project is created in cloud mode, the in-memory `Project` had no `owner` field. Firestore wrote the owner correctly via `projectToFirestoreMeta`, but in-memory state stayed owner-less until the next full reload re-fetched the project. Between creation and reload, the Share button render condition `project.owner === user.uid` evaluated false. Fix: seed `owner` inline in the `newProject` literal when in cloud mode and signed in.
+
+**Gap C — `cloneProject` propagates source's `owner` blindly.** `useProjects.cloneProject` used `...source` spread, so cloning a project shared *to* you carried the original owner's uid into the clone's in-memory state. Firestore overwrote it on save (via `existingMeta?.owner ?? uid`), but in-memory was wrong until reload. Fix: replace bare spread with explicit field copy that excludes `owner`, then conditionally re-add it bound to the current user.
+
+**Bug B — `validateLoadedData` strips `owner` on localStorage round-trip (defense-in-depth).** The localStorage sanitizer dropped the `owner` field. Any path where cloud-mode data round-tripped through the local validator would lose ownership. Fix: preserve `owner` through `sanitizeId()` when present.
+
+**Verification:**
+- All 1171 tests pass (up from 1165, +6 net new)
+- TypeScript type-check clean (0 errors)
+- Production build succeeds with Turbopack
+- Lint clean
+
+---
+
 ## Version 0.20.0 (2026-05-04)
 ### Versioning realignment with SPERT® Suite
 

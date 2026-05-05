@@ -301,4 +301,43 @@ describe('storage utilities', () => {
       expect(loaded.projects[0].legendLabels).toBeUndefined();
     });
   });
+
+  describe('owner field preservation (v0.20.1)', () => {
+    it('preserves project owner through validateLoadedData', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Alpha', owner: 'ERmhrpdzKsh57dVeHp3CQYmK9si1' }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].owner).toBe('ERmhrpdzKsh57dVeHp3CQYmK9si1');
+    });
+
+    it('omits owner when absent from stored data', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Alpha' }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].owner).toBeUndefined();
+    });
+
+    it('strips non-string owner during load', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Alpha', owner: 42 as unknown as string }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      expect(loaded.projects[0].owner).toBeUndefined();
+    });
+
+    it('sanitizes owner string (allows only alphanumeric, hyphens, underscores)', () => {
+      const data = makeTestData({
+        projects: [{ id: 'p1', name: 'Alpha', owner: 'abc<script>123' }],
+      });
+      saveData(data);
+      const loaded = loadData()!;
+      // sanitizeId strips < > / and other unsafe characters
+      expect(loaded.projects[0].owner).toBe('abcscript123');
+    });
+  });
 });

@@ -57,7 +57,8 @@ GanttApp/
 │   │   │   ├── ReleasesTab.tsx
 │   │   │   └── useReleases.ts
 │   │   └── settings/
-│   │       └── SettingsTab.tsx        # Storage mode, auth, export attribution (v11.0)
+│   │       ├── SettingsTab.tsx        # Storage mode, auth, export attribution (v11.0)
+│   │       └── ExportProjectsSection.tsx # Settings export-projects picker (v19.0)
 │   │
 │   ├── lib/
 │   │   └── firebase.ts               # Conditional Firebase init (v11.0)
@@ -72,12 +73,17 @@ GanttApp/
 │   │   │   ├── DragHandle.tsx
 │   │   │   ├── InlineDateEditor.tsx
 │   │   │   ├── InlineTextEditor.tsx
+│   │   │   ├── TrashIconButton.tsx          # Destructive list action (v17.1)
+│   │   │   ├── PencilIconButton.tsx         # Edit list action (v19.0)
+│   │   │   ├── ExportIconButton.tsx         # Per-project export (v19.0)
+│   │   │   ├── CloneIconButton.tsx          # Per-project clone (v19.0)
 │   │   │   └── Tabs.tsx
 │   │   ├── hooks/
 │   │   │   ├── useDragAndDrop.ts
 │   │   │   └── useKeyboardShortcuts.ts
 │   │   ├── storage/                   # Storage abstraction layer (v10.0/v11.0)
 │   │   │   ├── index.ts              # Barrel exports
+│   │   │   ├── snapshot-limits.ts            # Shared snapshot caps (v19.0)
 │   │   │   ├── local-storage-driver.ts      # LocalStorageDriver
 │   │   │   ├── local-gantt-storage-service.ts # LocalGanttStorageService
 │   │   │   ├── firestore-driver.ts          # FirestoreDriver (v11.0)

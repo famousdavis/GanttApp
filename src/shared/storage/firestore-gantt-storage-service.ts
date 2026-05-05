@@ -47,10 +47,9 @@ import {
   listPendingInvites as listPendingInvitesFn,
 } from './firestore-sharing';
 import { getRevokeInvite, getResendInvite } from '../../lib/firebase';
+import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 
 const DEBOUNCE_MS = 500;
-const MAX_SNAPSHOTS_TOTAL = 100;
-const MAX_SNAPSHOTS_PER_PROJECT = 50;
 
 export interface CloudGanttStorageService extends GanttStorageService {
   subscribeToProject(

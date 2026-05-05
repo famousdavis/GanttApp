@@ -41,7 +41,7 @@ export function LocalStorageWarningBanner() {
       padding: '1rem 1.25rem',
       marginBottom: '1rem',
       display: 'flex',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'space-between',
       gap: '1rem',
     }}>

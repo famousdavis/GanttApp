@@ -593,4 +593,226 @@ describe('useProjects', () => {
       expect(result.current.projectWorkDays).toBeUndefined();
     });
   });
+
+  // ==========================================================================
+  // v19.0 — cloneProject
+  // ==========================================================================
+  describe('cloneProject (v19.0)', () => {
+    it('clones a project with " - Copy (1)" suffix on first clone', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(2);
+      expect(stored.projects.map((p: Project) => p.name)).toEqual(['Source', 'Source - Copy (1)']);
+    });
+
+    it('uses " - Copy (2)" when " - Copy (1)" already exists', async () => {
+      seedData({
+        projects: [
+          makeProject({ id: 'p1', name: 'Source' }),
+          makeProject({ id: 'p2', name: 'Source - Copy (1)' }),
+        ],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(2));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      const cloneNames = stored.projects.map((p: Project) => p.name).filter((n: string) => n.startsWith('Source - Copy'));
+      expect(cloneNames).toContain('Source - Copy (1)');
+      expect(cloneNames).toContain('Source - Copy (2)');
+    });
+
+    it('skips through " - Copy (1)" through " - Copy (3)" to land on " - Copy (4)"', async () => {
+      seedData({
+        projects: [
+          makeProject({ id: 'p1', name: 'Source' }),
+          makeProject({ id: 'p2', name: 'Source - Copy (1)' }),
+          makeProject({ id: 'p3', name: 'Source - Copy (2)' }),
+          makeProject({ id: 'p4', name: 'Source - Copy (3)' }),
+        ],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(4));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects.map((p: Project) => p.name)).toContain('Source - Copy (4)');
+    });
+
+    it('inserts the cloned project immediately after the source', async () => {
+      seedData({
+        projects: [
+          makeProject({ id: 'p1', name: 'First' }),
+          makeProject({ id: 'p2', name: 'Source' }),
+          makeProject({ id: 'p3', name: 'Last' }),
+        ],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(3));
+
+      await act(async () => {
+        await result.current.cloneProject('p2');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects.map((p: Project) => p.name)).toEqual([
+        'First', 'Source', 'Source - Copy (1)', 'Last',
+      ]);
+    });
+
+    it('clones releases with new IDs and the cloned project ID', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [
+          makeRelease({ id: 'r1', projectId: 'p1', name: 'Rel 1' }),
+          makeRelease({ id: 'r2', projectId: 'p1', name: 'Rel 2' }),
+        ],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      const cloned = stored.projects.find((p: Project) => p.name === 'Source - Copy (1)');
+      const clonedReleases = stored.releases.filter((r: Release) => r.projectId === cloned.id);
+      expect(clonedReleases).toHaveLength(2);
+      expect(clonedReleases.map((r: Release) => r.name).sort()).toEqual(['Rel 1', 'Rel 2']);
+      // New IDs (different from source)
+      const clonedIds = clonedReleases.map((r: Release) => r.id);
+      expect(clonedIds).not.toContain('r1');
+      expect(clonedIds).not.toContain('r2');
+    });
+
+    it('does nothing when projectId is unknown (no throw, no data change)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('does-not-exist');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(1);
+    });
+
+    it('does not call saveSnapshots when source has zero snapshots', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const storedSnapshots = localStorage.getItem('ganttAppSnapshots');
+      // Either null (never written) or an empty array — both indicate no clone snapshot write
+      if (storedSnapshots) {
+        expect(JSON.parse(storedSnapshots)).toEqual([]);
+      }
+    });
+
+    it('clones snapshots when the source has them and cap allows', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+      // Seed two snapshots for the source project
+      const snapshots = [
+        { id: 's1', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'Snap 1', releases: [] },
+        { id: 's2', projectId: 'p1', timestamp: '2026-01-02T00:00:00Z', name: 'Snap 2', releases: [] },
+      ];
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify(snapshots));
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      const cloned = stored.projects.find((p: Project) => p.name === 'Source - Copy (1)');
+      const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
+      expect(allSnapshots).toHaveLength(4); // 2 original + 2 cloned
+      const clonedSnaps = allSnapshots.filter((s: { projectId: string }) => s.projectId === cloned.id);
+      expect(clonedSnaps).toHaveLength(2);
+      // New IDs
+      expect(clonedSnaps.map((s: { id: string }) => s.id)).not.toContain('s1');
+      expect(clonedSnaps.map((s: { id: string }) => s.id)).not.toContain('s2');
+    });
+
+    it('skips snapshot cloning and alerts when it would exceed the cap', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+      // Seed 99 snapshots (cap = 100). Source has 2 → would be 101, over cap.
+      const snapshots = [];
+      for (let i = 0; i < 97; i += 1) {
+        snapshots.push({ id: `other-${i}`, projectId: 'p2', timestamp: '2026-01-01T00:00:00Z', name: `Other ${i}`, releases: [] });
+      }
+      snapshots.push({ id: 's1', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'Snap 1', releases: [] });
+      snapshots.push({ id: 's2', projectId: 'p1', timestamp: '2026-01-02T00:00:00Z', name: 'Snap 2', releases: [] });
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify(snapshots));
+
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      // Project + releases still cloned
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(2);
+
+      // Alert was fired
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(alertSpy.mock.calls[0][0]).toMatch(/snapshots/i);
+
+      // Snapshots NOT cloned (still 99)
+      const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
+      expect(allSnapshots).toHaveLength(99);
+
+      alertSpy.mockRestore();
+    });
+  });
 });

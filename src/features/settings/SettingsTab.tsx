@@ -17,6 +17,7 @@ import { useSignInWithTosGate } from '../../shared/hooks/useSignInWithTosGate';
 import { LocalStorageWarningToggle } from '../../shared/components/LocalStorageWarningToggle';
 import { StorageSection } from './StorageSection';
 import { ExportAttributionSection } from './ExportAttributionSection';
+import { ExportProjectsSection } from './ExportProjectsSection';
 import { TosConsentModal } from './TosConsentModal';
 import { WorkWeekSection } from './WorkWeekSection';
 import { DefaultLegendLabelsSection } from './DefaultLegendLabelsSection';
@@ -106,6 +107,13 @@ export function SettingsTab() {
         colors={colors}
         exportAttribution={exportAttribution}
         onChangeAttribution={setExportAttribution}
+      />
+
+      <ExportProjectsSection
+        colors={colors}
+        projects={data.projects}
+        data={data}
+        storage={storage}
       />
 
       <WorkWeekSection

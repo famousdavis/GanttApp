@@ -213,4 +213,27 @@ describe('ConfirmDialog', () => {
     expect(btn.style.background).toContain('220, 53, 69');
     expect(btn.style.color).toBe('white');
   });
+
+  // v19.0 — modal-mode 'primary' variant is filled blue (was previously
+  // unhandled and rendered as the secondary outline by accident).
+  it('renders modal primary button as filled blue with white text', () => {
+    render(
+      <ConfirmDialog
+        message="Add these projects?"
+        title="Add Projects to Workspace"
+        buttons={[
+          { label: 'Cancel', onClick: vi.fn(), variant: 'secondary' },
+          { label: 'Add Projects', onClick: vi.fn(), variant: 'primary' },
+        ]}
+        colors={colors}
+        modal
+      />
+    );
+    const primaryBtn = screen.getByRole('button', { name: 'Add Projects' });
+    // #0070f3 → rgb(0, 112, 243)
+    expect(primaryBtn.style.background).toContain('0, 112, 243');
+    expect(primaryBtn.style.color).toBe('white');
+    // jsdom serializes the `border: 'none'` shorthand as borderStyle: 'none'
+    expect(primaryBtn.style.borderStyle).toBe('none');
+  });
 });

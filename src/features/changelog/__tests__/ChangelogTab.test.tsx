@@ -34,10 +34,11 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 19.0.0, then 18.0.0, 17.3.3, 17.3.2, etc.
-    expect(versionTexts[0]).toContain('19.0.0');
-    expect(versionTexts[1]).toContain('18.0.0');
-    expect(versionTexts[2]).toContain('17.3.3');
+    // First version heading should be 0.20.0 (renumbered to align with SPERT Suite),
+    // then 19.0.0, 18.0.0, 17.3.3, etc.
+    expect(versionTexts[0]).toContain('0.20.0');
+    expect(versionTexts[1]).toContain('19.0.0');
+    expect(versionTexts[2]).toContain('18.0.0');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });
@@ -64,6 +65,9 @@ describe('ChangelogTab', () => {
     };
     const versionStrings = CHANGELOG_ENTRIES.map(e => e.version);
     for (let i = 1; i < versionStrings.length; i++) {
+      // Skip the v0.20.0 → v19.0.0 boundary: deliberate renumbering to align
+      // with SPERT Suite 0.x.x semver. See the v0.20.0 changelog entry.
+      if (versionStrings[i - 1] === '0.20.0' && versionStrings[i] === '19.0.0') continue;
       expect(compareVersions(versionStrings[i], versionStrings[i - 1])).toBeLessThan(0);
     }
   });

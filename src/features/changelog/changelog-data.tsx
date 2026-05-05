@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.20.0',
+    date: 'May 4, 2026',
+    items: [
+      <><strong>Versioning</strong> &mdash; Renumbered from <code>19.0.0</code> to <code>0.20.0</code> to align with the rest of the SPERT&reg; Suite, which uses standard <code>0.x.x</code> semver because none of those apps have reached a true 1.0 yet (planned for 2027). GanttApp was the first app in the suite and predated the convention; this is a one-time deliberate jump with zero functional impact. The &ldquo;20&rdquo; preserves the &ldquo;20th release&rdquo; intuition (v19 was last)</>,
+      <><strong>Versioning</strong> &mdash; All historical changelog entries below remain labeled under their original version numbers (v3.0 through v19.0.0) &mdash; we don&apos;t rewrite history</>,
+      <><strong>Versioning</strong> &mdash; Going forward, GanttApp follows standard pre-1.0 semver: <strong>patch</strong> bumps (<code>0.20.1</code>) for bug fixes, security patches, and copy/style tweaks; <strong>minor</strong> bumps (<code>0.21.0</code>) for new features, behavior changes, and refactors that touch user-visible state; no MAJOR bump until the eventual 1.0 launch. This is a behavior change from the prior habit of treating MAJOR as feature-level (e.g. v18.0.0, v19.0.0)</>,
+    ],
+  },
+  {
     version: '19.0.0',
     date: 'May 4, 2026',
     items: [

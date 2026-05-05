@@ -131,6 +131,24 @@ describe('FirestoreGanttStorageService', () => {
       expect(result!.projects).toHaveLength(1);
       expect(result!.projects[0].name).toBe('Mine');
     });
+
+    // v0.21.0 — verify the constrained query is built correctly so the
+    // server-side filter in Firestore (not just client-side) returns only
+    // the user's projects. This is the load-bearing fix that makes the
+    // list rule `allow list: if isAuth()` safe in a multi-tenant collection.
+    it('builds a constrained query with where(`members.${uid}`, in, roles)', async () => {
+      mockGetDocs.mockResolvedValueOnce({ docs: [] });
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+
+      await service.loadAppData();
+
+      expect(mockWhere).toHaveBeenCalledWith(
+        `members.${mockUid}`,
+        'in',
+        ['owner', 'editor', 'viewer']
+      );
+      expect(mockQuery).toHaveBeenCalled();
+    });
   });
 
   describe('saveAppData (debounced)', () => {

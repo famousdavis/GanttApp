@@ -1,5 +1,22 @@
 # Change Log
 
+## Version 0.21.0 (2026-05-05)
+### Fix: Cloud projects load again in multi-tenant Firestore
+
+User reported all cloud project loads failing with `Permission denied` errors after multiple uids accumulated in the `ganttapp_projects` collection. Root cause: the Firestore `list` rule referenced `resource.data.members`, which Firestore cannot evaluate for `list` operations.
+
+**App fix:** Three unconstrained collection queries (`loadAppData`, `loadSnapshots`, `saveSnapshots`) now use a constrained `where('members.${uid}', 'in', ['owner', 'editor', 'viewer'])` clause. Server-side filter returns only the user's projects.
+
+**Rules fix:** `ganttapp_projects/list` rule relaxed to `if isAuth()` only. Suite-wide canonical pattern (matches SPERT-Story-Map v0.14.3 and `cloud-storage-guide/ARCHITECTURE.md` §6.5 + §7).
+
+**Security:** authenticated users could `list` project metadata (name, owner, members, finishDate, workDays, legendLabels). No release/snapshot content exposed (subcollection rules unchanged). Same posture as every other SPERT app.
+
+**Verification:**
+- All 1166 tests pass (+1 net new)
+- TypeScript clean, production build succeeds, lint clean
+
+---
+
 ## Version 0.20.1 (2026-05-05)
 ### Fix: Share button on owned project tiles in cloud mode
 

@@ -6,10 +6,12 @@
 
 import { useState } from 'react';
 import { Project } from '../../shared/types';
+import type { Snapshot } from '../../shared/types/snapshots';
 import { useAppData } from '../../context/AppDataContext';
 import { useStorage } from '../../context/StorageContext';
 import { generateId } from '../../shared/utils';
 import { sanitizeString } from '../../shared/utils/validation';
+import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 
 export function useProjects() {
   const { data, updateData } = useAppData();
@@ -88,6 +90,84 @@ export function useProjects() {
     setEditingProjectId(null);
   };
 
+  /**
+   * Clone a project — duplicate the project record, all releases, and all snapshots
+   * with new IDs. The cloned project is inserted immediately after the source in
+   * the project list with the suffix " - Copy (N)" (collision-checked).
+   *
+   * Selection stays on the original project (no setSelectedProjectId parameter).
+   * The user does not lose their place — the clone simply appears below.
+   *
+   * Snapshot block uses storage.saveSnapshots([...existing, ...cloned]) — single
+   * batched write. Avoids the Promise.all race that calling addSnapshot in a loop
+   * would cause on the cloud implementation. If cloning would exceed the
+   * MAX_SNAPSHOTS_TOTAL workspace cap, the project + releases still clone but
+   * snapshots are skipped with a user-facing alert.
+   */
+  const cloneProject = async (projectId: string) => {
+    const source = data.projects.find(p => p.id === projectId);
+    if (!source) return;
+
+    // Build cloned name with " - Copy (N)" suffix.
+    const existingNames = new Set(data.projects.map(p => p.name));
+    let suffix = 1;
+    let candidateName = `${source.name} - Copy (${suffix})`;
+    while (existingNames.has(candidateName) && suffix < 99) {
+      suffix += 1;
+      candidateName = `${source.name} - Copy (${suffix})`;
+    }
+
+    // Clone the project record.
+    const clonedProject: Project = {
+      ...source,
+      id: generateId(),
+      name: candidateName,
+    };
+
+    // Clone releases with new IDs and the cloned project's ID as projectId.
+    const sourceReleases = data.releases.filter(r => r.projectId === projectId);
+    const clonedReleases = sourceReleases.map(r => ({
+      ...r,
+      id: generateId(),
+      projectId: clonedProject.id,
+    }));
+
+    // Insert cloned project immediately after the source in the list.
+    const sourceIndex = data.projects.findIndex(p => p.id === projectId);
+    const newProjects = [
+      ...data.projects.slice(0, sourceIndex + 1),
+      clonedProject,
+      ...data.projects.slice(sourceIndex + 1),
+    ];
+
+    updateData({
+      ...data,
+      projects: newProjects,
+      releases: [...data.releases, ...clonedReleases],
+    });
+
+    // Snapshot block: load existing, build cloned, write all in one batch.
+    const allSnapshots: Snapshot[] = await storage.loadSnapshots();
+    const sourceSnapshots = allSnapshots.filter(s => s.projectId === projectId);
+    if (sourceSnapshots.length === 0) return;
+
+    if (allSnapshots.length + sourceSnapshots.length > MAX_SNAPSHOTS_TOTAL) {
+      alert(
+        'Project cloned successfully. Snapshots were not copied because the ' +
+        'workspace is near the storage limit.'
+      );
+      return;
+    }
+
+    const clonedSnapshots = sourceSnapshots.map(s => ({
+      ...s,
+      id: generateId(),
+      projectId: clonedProject.id,
+    }));
+
+    await storage.saveSnapshots([...allSnapshots, ...clonedSnapshots]);
+  };
+
   return {
     projectName,
     setProjectName,
@@ -100,6 +180,7 @@ export function useProjects() {
     updateProject,
     deleteProject,
     startEditProject,
-    cancelEditProject
+    cancelEditProject,
+    cloneProject
   };
 }

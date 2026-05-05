@@ -1,5 +1,89 @@
 # Change Log
 
+## Version 19.0.0 (2026-05-04)
+### Per-project export, clone, and merge import
+
+User-facing release. Project tiles get three new icon buttons next to Delete: download (export single project), pencil (edit), and duplicate (clone). The clone copies the project, all releases, and all snapshots; if cloning snapshots would exceed the 100-snapshot workspace cap, the project + releases still clone and the user is told via `alert()` that snapshots were skipped.
+
+Importing a single-project file (anything tagged `_exportType: 'ganttapp-project-export'`) now performs an additive merge instead of a full replace. Projects whose `id` collides with an existing one are skipped with a count reported to the user. Importing an Export-All file (`_exportType: 'ganttapp-all-projects'`) or a legacy file with no `_exportType` still triggers the existing replace-all confirmation dialog — behavior is unchanged for those.
+
+A new **Export Projects** section in Settings lets the user pick one, several, or all projects via checkboxes, with an optional all-or-nothing "Include snapshots" toggle.
+
+The Export All / Import buttons moved out of the page header row into a toolbar row between the project form and the project tile list. Import remains visible at zero projects (must be reachable for first-import); Export All is hidden at zero projects.
+
+The local-storage warning banner's text and "Got it" button are now vertically centered.
+
+**New shared icon-button components (3):**
+- `src/shared/components/PencilIconButton.tsx` — blue (`#0070f3`) hover.
+- `src/shared/components/ExportIconButton.tsx` — green (`#10b981`) hover.
+- `src/shared/components/CloneIconButton.tsx` — violet (`#8b5cf6`) hover.
+
+All three follow the v17.1 `TrashIconButton` pattern: grayscale `#9ca3af` at rest, theme-aware tinted hover background, hover via `useState` + `onMouseEnter`/`onMouseLeave`/`onFocus`/`onBlur`, `disabled` prop suppresses hover.
+
+**New export utility functions (`src/shared/utils/export.ts`):**
+- `exportSingleProject(projectId, data, storage, options)` — downloads project + releases (+ optional snapshots) tagged `_exportType: 'ganttapp-project-export'`. Filename `ganttapp-{slug}-{YYYY-MM-DD}.json`.
+- `exportSelectedProjects(projectIds, data, storage, options)` — same shape, batch variant. Filename `ganttapp-projects-export-{YYYY-MM-DD}.json`.
+- `mergeImportedProjects(existing, incoming, existingSnapshots)` — partitions incoming projects by ID-collision, returns `{ mergedData, mergedSnapshots, skipped }`. Releases and snapshots filtered to accepted project IDs; snapshot dedup by ID.
+
+**`ImportResult` type extended** with discriminator field `exportType: 'ganttapp-all-projects' | 'ganttapp-project-export' | 'legacy'` (set by `parseImportedData()` from `imported._exportType`). The `applyImport` (replace-all) call site uses it to route between the existing replace-all confirm dialog and the new merge confirm dialog.
+
+**`cloneProject` added to `useProjects`:**
+- Builds a unique name with `- Copy (N)` suffix (collision-checked against existing names).
+- Inserts the clone immediately after the source in the project list.
+- Selection stays on the original project — user does not lose their place.
+- Snapshot block uses `storage.saveSnapshots([...existing, ...cloned])` (single batch write, not `Promise.all` of `addSnapshot` — would race on the cloud implementation).
+- Pre-checks the 100-snapshot cap; if cloning snapshots would exceed it, project + releases still clone and the user gets an `alert()` saying snapshots were skipped.
+
+**Settings → Export Projects section (new):**
+- New file `src/features/settings/ExportProjectsSection.tsx`. Inline-styled (matches Settings convention).
+- Per-project checkbox + release count. "Select all" / "Deselect all" toggle in the header row. "Include snapshots" toggle below the list.
+- Disabled when no projects selected; disabled during in-flight export.
+- Wired into `SettingsTab` after `ExportAttributionSection` and before `WorkWeekSection`.
+
+**Refactor — snapshot-limits constants extracted:**
+- `MAX_SNAPSHOTS_TOTAL = 100` and `MAX_SNAPSHOTS_PER_PROJECT = 50` were duplicated as private `const`s in both `local-gantt-storage-service.ts` and `firestore-gantt-storage-service.ts`. Extracted to `src/shared/storage/snapshot-limits.ts` and imported by all three call sites (the two storage services and `useProjects.cloneProject`). Single source of truth.
+
+**Refactor — `ConfirmDialog` modal-mode `'primary'` variant:**
+- Modal-mode rendering only handled `'danger'` vs default outline. Added a `'primary'` branch (`#0070f3` background, white text, no border) used by the new merge-import "Add Projects" CTA.
+- Inline-mode rendering already handled `'primary'` (transparent bg, blue outline) since v12.1. Unchanged.
+
+**Per-tile action group (final left-to-right order):**
+```
+[View Releases]  [Share — cloud only]  [⬇ Export]  [✏ Edit]  [⧉ Clone]  [🗑 Delete]
+```
+
+**Edit-pencil UX:**
+- Click scrolls to top via `window.scrollTo({ top: 0, behavior: 'smooth' })`.
+- 600 ms blue-glow highlight pulse on the form card via local `editHighlight` state + setTimeout.
+- Keyboard (`tabIndex` is the wrapping `<button>`) and screen reader (`aria-label="Edit project"`) parity with the prior text button.
+
+**Modified Files:**
+- `pages/index.tsx` — version footer.
+- `package.json`, `src/lib/version.ts` — version bump.
+- `src/shared/components/LocalStorageWarningBanner.tsx` — `alignItems: 'flex-start'` → `'center'`.
+- `src/shared/components/ConfirmDialog.tsx` — modal-mode `'primary'` branch.
+- `src/shared/utils/export.ts` — extended `ImportResult`, three new export functions, slug helper.
+- `src/shared/utils/index.ts` — re-export the three new functions.
+- `src/shared/storage/local-gantt-storage-service.ts`, `src/shared/storage/firestore-gantt-storage-service.ts` — import snapshot caps from `snapshot-limits.ts`.
+- `src/features/projects/useProjects.ts` — `cloneProject`.
+- `src/features/projects/ProjectsTab.tsx` — toolbar repositioning, three new icon buttons per tile, `editHighlight`, `applyMergeImport`, merge confirm dialog.
+- `src/features/settings/SettingsTab.tsx` — wire `<ExportProjectsSection>`.
+- Version + docs: `src/features/changelog/changelog-data.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`, `CLAUDE.md`, `ARCHITECTURE.md`.
+
+**New Files (10):**
+- `src/shared/components/PencilIconButton.tsx`, `ExportIconButton.tsx`, `CloneIconButton.tsx`.
+- `src/shared/storage/snapshot-limits.ts`.
+- `src/features/settings/ExportProjectsSection.tsx`.
+- Tests: `__tests__/PencilIconButton.test.tsx`, `__tests__/ExportIconButton.test.tsx`, `__tests__/CloneIconButton.test.tsx`, `src/features/settings/__tests__/ExportProjectsSection.test.tsx`, `src/shared/storage/__tests__/snapshot-limits.test.ts`.
+
+**Verification:**
+- All tests pass.
+- TypeScript type-check clean (0 errors).
+- Production build succeeds with Turbopack.
+- Lint clean.
+
+---
+
 ## Version 18.0.0 (2026-05-04)
 ### Bulk Invitations
 

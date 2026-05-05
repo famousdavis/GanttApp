@@ -11,11 +11,10 @@ import type { Snapshot } from '../types/snapshots';
 import { LocalStorageDriver } from './local-storage-driver';
 import { validateLoadedData } from '../utils/storage';
 import { validateSnapshot } from '../utils/snapshots';
+import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 
 const APP_DATA_KEY = 'ganttAppData';
 const SNAPSHOTS_KEY = 'ganttAppSnapshots';
-const MAX_SNAPSHOTS_TOTAL = 100;
-const MAX_SNAPSHOTS_PER_PROJECT = 50;
 
 /**
  * Clear only project data and snapshots from localStorage.

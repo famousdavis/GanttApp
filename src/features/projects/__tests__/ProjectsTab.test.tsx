@@ -161,9 +161,21 @@ describe('ProjectsTab', () => {
       });
     });
 
-    it('renders Export and Import buttons', () => {
+    it('renders Import button at zero projects (Export All hidden)', () => {
       renderProjectsTab();
-      expect(screen.getByText(/Export/)).toBeTruthy();
+      // v19.0 — Import always visible, Export All hidden when no projects.
+      expect(screen.getByText(/Import/)).toBeTruthy();
+      expect(screen.queryByText(/Export All/)).toBeNull();
+    });
+
+    it('renders Export All and Import in toolbar when projects exist (v19.0)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+      expect(screen.getByText(/Export All/)).toBeTruthy();
       expect(screen.getByText(/Import/)).toBeTruthy();
     });
   });
@@ -203,6 +215,12 @@ describe('ProjectsTab', () => {
   });
 
   describe('edit project', () => {
+    // v19.0 — Edit is now a PencilIconButton with aria-label="Edit project".
+    // window.scrollTo isn't defined in jsdom, so mock it for these tests.
+    beforeEach(() => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    });
+
     it('shows Update and Cancel buttons in edit mode', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
@@ -211,9 +229,9 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Edit project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
 
       expect(screen.getByText('Update')).toBeTruthy();
       expect(screen.getByText('Cancel')).toBeTruthy();
@@ -227,9 +245,9 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Edit project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
 
       const nameInput = screen.getByPlaceholderText('Project name') as HTMLInputElement;
       expect(nameInput.value).toBe('Alpha');
@@ -243,14 +261,28 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Edit project' })).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
       fireEvent.click(screen.getByText('Cancel'));
 
       const nameInput = screen.getByPlaceholderText('Project name') as HTMLInputElement;
       expect(nameInput.value).toBe('');
       expect(screen.getByText('Add Project')).toBeTruthy();
+    });
+
+    it('calls window.scrollTo when Edit pencil is clicked (v19.0)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Edit project' })).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
+      expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
     });
   });
 
@@ -360,13 +392,13 @@ describe('ProjectsTab', () => {
   });
 
   describe('export', () => {
-    it('disables Export button when no projects exist', () => {
+    it('hides Export All button entirely when no projects exist (v19.0)', () => {
       renderProjectsTab();
-      const exportButton = screen.getByText(/Export/);
-      expect(exportButton.closest('button')?.disabled).toBe(true);
+      // v19.0 — semantic shift: button is no longer rendered (was previously rendered & disabled).
+      expect(screen.queryByText(/Export All/)).toBeNull();
     });
 
-    it('enables Export button when projects exist', async () => {
+    it('renders Export All button when projects exist', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
@@ -376,8 +408,49 @@ describe('ProjectsTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Alpha')).toBeTruthy();
       });
-      const exportButton = screen.getByText(/Export/);
-      expect(exportButton.closest('button')?.disabled).toBe(false);
+      expect(screen.getByText(/Export All/)).toBeTruthy();
+    });
+
+    // v19.0 — per-tile ExportIconButton on each project tile
+    it('renders an ExportIconButton on each project tile (v19.0)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Export project' })).toBeTruthy();
+      });
+    });
+
+    it('renders a CloneIconButton on each project tile (v19.0)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Clone project' })).toBeTruthy();
+      });
+    });
+
+    it('clones a project when CloneIconButton is clicked (v19.0)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Clone project' })).toBeTruthy();
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Clone project' }));
+      });
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects).toHaveLength(2);
+        expect(stored.projects[1].name).toBe('Alpha - Copy (1)');
+      });
     });
   });
 
@@ -617,6 +690,110 @@ describe('ProjectsTab', () => {
       expect(passed).toHaveLength(1);
       expect(passed[0].id).toBe('snap1');
       expect(screen.queryByText('Replace All Data')).toBeNull();
+    });
+  });
+
+  // v19.0 — _exportType discriminator routing
+  describe('import routing by _exportType (v19.0)', () => {
+    function createValidFile(data: object): File {
+      const content = JSON.stringify(data);
+      return new File([content], 'test.json', { type: 'application/json' });
+    }
+
+    it('shows merge confirm dialog for _exportType: ganttapp-project-export', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        _exportType: 'ganttapp-project-export',
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+      });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Add Projects to Workspace')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Add Projects' })).toBeTruthy();
+      });
+      // Replace-all dialog should NOT be shown for project-export files
+      expect(screen.queryByText('Replace All Data')).toBeNull();
+    });
+
+    it('shows replace-all confirm dialog for _exportType: ganttapp-all-projects', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        _exportType: 'ganttapp-all-projects',
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+      });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+      expect(screen.queryByText('Add Projects to Workspace')).toBeNull();
+    });
+
+    it('shows replace-all confirm dialog for legacy file (no _exportType)', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      renderProjectsTab();
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+      });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Replace All Data')).toBeTruthy();
+      });
+    });
+
+    it('merge "Add Projects" button merges into existing workspace', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+        releases: [],
+      });
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+      renderProjectsTab({ onReplaceSnapshots });
+
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createValidFile({
+        _exportType: 'ganttapp-project-export',
+        projects: [{ id: 'p2', name: 'Beta' }],
+        releases: [],
+      });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Add Projects' })).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Add Projects' }));
+
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects.map((p: Project) => p.name).sort()).toEqual(['Alpha', 'Beta']);
+      });
     });
   });
 

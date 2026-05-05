@@ -19,6 +19,32 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB (increased for snapshots)
 export interface ImportResult {
   appData: AppData;
   snapshots?: Snapshot[];
+  /**
+   * Discriminator set from the file's `_exportType` metadata field (v19.0).
+   * - `'ganttapp-all-projects'` → full-workspace export from `exportAllProjects()`
+   * - `'ganttapp-project-export'` → single-project or multi-project export from
+   *   `exportSingleProject()` / `exportSelectedProjects()` (additive merge import)
+   * - `'legacy'` → file from `exportData()` (no `_exportType`) or unrecognized value;
+   *   treated as a full-workspace replace by the caller.
+   */
+  exportType: 'ganttapp-all-projects' | 'ganttapp-project-export' | 'legacy';
+}
+
+/**
+ * Slugify a project name for use in a filename.
+ * Lowercase, spaces→hyphens, strip non-`[a-z0-9-]`, collapse hyphens, trim, max 40 chars.
+ * Falls back to `'project'` if the input reduces to an empty string.
+ */
+function slugifyProjectName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'project'
+  );
 }
 
 /**
@@ -192,8 +218,18 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       if (sanitized) sanitizedData.globalWorkDays = sanitized;
     }
 
+    // Determine export type discriminator from the file's _exportType field (v19.0).
+    let exportType: ImportResult['exportType'];
+    if (imported._exportType === 'ganttapp-all-projects') {
+      exportType = 'ganttapp-all-projects';
+    } else if (imported._exportType === 'ganttapp-project-export') {
+      exportType = 'ganttapp-project-export';
+    } else {
+      exportType = 'legacy';
+    }
+
     // Parse optional snapshots array
-    const result: ImportResult = { appData: sanitizedData };
+    const result: ImportResult = { appData: sanitizedData, exportType };
 
     if (Array.isArray(imported.snapshots)) {
       const validatedSnapshots: Snapshot[] = [];
@@ -261,6 +297,203 @@ export async function exportAllProjects(
   URL.revokeObjectURL(url);
 
   return { exported: appData.projects.length };
+}
+
+/**
+ * Export a single project as a portable JSON file (v19.0).
+ *
+ * Contains the project record + its releases + (optionally) its snapshots only.
+ * Excludes all global settings (chartColors, displaySettings, attribution, etc.) so
+ * importing into another workspace does not clobber the recipient's configuration.
+ *
+ * Tagged `_exportType: 'ganttapp-project-export'` so `parseImportedData()` can
+ * route it to the additive merge path on import.
+ *
+ * Throws if the projectId is not found.
+ */
+export async function exportSingleProject(
+  projectId: string,
+  data: AppData,
+  storage: { loadSnapshots: () => Promise<Snapshot[]> },
+  options?: {
+    includeSnapshots?: boolean;
+    storageMode?: string;
+    uid?: string;
+  }
+): Promise<void> {
+  const project = data.projects.find(p => p.id === projectId);
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  const releases = data.releases.filter(r => r.projectId === projectId);
+
+  let snapshots: Snapshot[] | undefined;
+  if (options?.includeSnapshots) {
+    const all = await storage.loadSnapshots();
+    snapshots = all.filter(s => s.projectId === projectId);
+  }
+
+  const exportObj: Record<string, unknown> = {
+    projects: [project],
+    releases,
+    _exportType: 'ganttapp-project-export',
+    _exportedAt: new Date().toISOString(),
+  };
+
+  if (snapshots && snapshots.length > 0) {
+    exportObj.snapshots = snapshots;
+  }
+
+  if (data.exportAttribution) {
+    exportObj._exportedBy = {
+      name: data.exportAttribution.name,
+      identifier: data.exportAttribution.identifier,
+    };
+  }
+
+  if (options?.storageMode === 'cloud' && options?.uid) {
+    exportObj._storageRef = `firestore:uid:${options.uid}`;
+  }
+
+  const dataStr = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ganttapp-${slugifyProjectName(project.name)}-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export multiple selected projects as a single JSON file (v19.0).
+ *
+ * Same shape as `exportSingleProject` (no global settings, `_exportType:
+ * 'ganttapp-project-export'`). Used by the Settings → Export Projects section.
+ *
+ * Throws if `projectIds` is empty. Returns the count of projects exported.
+ */
+export async function exportSelectedProjects(
+  projectIds: string[],
+  data: AppData,
+  storage: { loadSnapshots: () => Promise<Snapshot[]> },
+  options?: {
+    includeSnapshots?: boolean;
+    storageMode?: string;
+    uid?: string;
+  }
+): Promise<{ exported: number }> {
+  if (projectIds.length === 0) {
+    throw new Error('No projects selected');
+  }
+
+  const idSet = new Set(projectIds);
+  const projects = data.projects.filter(p => idSet.has(p.id));
+  const releases = data.releases.filter(r => idSet.has(r.projectId));
+
+  let snapshots: Snapshot[] | undefined;
+  if (options?.includeSnapshots) {
+    const all = await storage.loadSnapshots();
+    snapshots = all.filter(s => idSet.has(s.projectId));
+  }
+
+  const exportObj: Record<string, unknown> = {
+    projects,
+    releases,
+    _exportType: 'ganttapp-project-export',
+    _exportedAt: new Date().toISOString(),
+  };
+
+  if (snapshots && snapshots.length > 0) {
+    exportObj.snapshots = snapshots;
+  }
+
+  if (data.exportAttribution) {
+    exportObj._exportedBy = {
+      name: data.exportAttribution.name,
+      identifier: data.exportAttribution.identifier,
+    };
+  }
+
+  if (options?.storageMode === 'cloud' && options?.uid) {
+    exportObj._storageRef = `firestore:uid:${options.uid}`;
+  }
+
+  const dataStr = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ganttapp-projects-export-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  return { exported: projects.length };
+}
+
+/**
+ * Merge incoming projects into the existing workspace (v19.0).
+ *
+ * Used by the additive import path. Projects whose `id` already exists in
+ * `existing.projects` are skipped (count returned). Releases and snapshots are
+ * filtered to the accepted project IDs only. Snapshots are deduplicated against
+ * `existingSnapshots` by snapshot ID.
+ *
+ * Note: this bypasses the MAX_SNAPSHOTS_TOTAL cap. This is consistent with the
+ * existing applyImport (replace-all) path, which also calls onReplaceSnapshots
+ * directly and bypasses the cap.
+ *
+ * Existing global settings (chartColors, displaySettings, attribution, etc.)
+ * are preserved untouched — only `projects` and `releases` are extended.
+ */
+export function mergeImportedProjects(
+  existing: AppData,
+  incoming: ImportResult,
+  existingSnapshots: Snapshot[]
+): {
+  mergedData: AppData;
+  mergedSnapshots: Snapshot[];
+  skipped: number;
+} {
+  const seenIds = new Set(existing.projects.map(p => p.id));
+  const accepted: typeof existing.projects = [];
+  let skipped = 0;
+  for (const project of incoming.appData.projects) {
+    if (seenIds.has(project.id)) {
+      skipped += 1;
+      continue;
+    }
+    accepted.push(project);
+    seenIds.add(project.id); // also catches duplicates within the incoming batch
+  }
+
+  const acceptedIds = new Set(accepted.map(p => p.id));
+  const acceptedReleases = incoming.appData.releases.filter(r => acceptedIds.has(r.projectId));
+
+  const mergedSnapshots: Snapshot[] = [...existingSnapshots];
+  if (incoming.snapshots && incoming.snapshots.length > 0) {
+    const existingSnapshotIds = new Set(existingSnapshots.map(s => s.id));
+    for (const snapshot of incoming.snapshots) {
+      if (!acceptedIds.has(snapshot.projectId)) continue;
+      if (existingSnapshotIds.has(snapshot.id)) continue; // dedup by ID
+      mergedSnapshots.push(snapshot);
+    }
+  }
+
+  return {
+    mergedData: {
+      ...existing,
+      projects: [...existing.projects, ...accepted],
+      releases: [...existing.releases, ...acceptedReleases],
+    },
+    mergedSnapshots,
+    skipped,
+  };
 }
 
 /**

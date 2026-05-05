@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '19.0.0',
+    date: 'May 4, 2026',
+    items: [
+      <><strong>Feature</strong> &mdash; <strong>Per-project export</strong>. Each project tile gets a new download icon next to Edit. Clicking it downloads a single-project JSON file (project record + releases) named <code>ganttapp-&#123;project-slug&#125;-&#123;YYYY-MM-DD&#125;.json</code>. The file is portable across workspaces and excludes global settings (chart colors, display settings, attribution, etc.) so importing it doesn&apos;t overwrite the recipient&apos;s configuration</>,
+      <><strong>Feature</strong> &mdash; <strong>Project cloning</strong>. New duplicate icon next to Delete on each project tile. Clones the project, all releases, and all snapshots with new IDs. The clone appears immediately below the source with the suffix &ldquo;&nbsp;- Copy (1)&rdquo; (incremented as needed to avoid collisions). Snapshot cloning is skipped with a one-line alert if it would exceed the 100-snapshot workspace cap; the project + releases still clone</>,
+      <><strong>Feature</strong> &mdash; <strong>Edit pencil icon</strong>. The text &ldquo;Edit&rdquo; button on each project tile is now a pencil icon (matching the visual weight of the trashcan and new export/clone icons). Clicking it scrolls to the form at the top of the page and applies a blue 600&nbsp;ms highlight pulse to the form card so the user can see where their attention is being directed</>,
+      <><strong>Feature</strong> &mdash; New <strong>Export Projects</strong> section in Settings. Pick one, several, or all projects via checkboxes. Optional &ldquo;Include snapshots&rdquo; toggle controls whether snapshots are bundled into the file (snapshots can make the file noticeably larger). Downloads as <code>ganttapp-projects-export-&#123;YYYY-MM-DD&#125;.json</code></>,
+      <><strong>Feature</strong> &mdash; <strong>Additive merge import</strong>. Importing a single-project or multi-project file (anything tagged <code>_exportType: &apos;ganttapp-project-export&apos;</code>) now <em>adds</em> projects to the existing workspace instead of replacing it. Projects whose <code>id</code> already exists are skipped with a count reported to the user; releases and snapshots associated with skipped projects are not imported. Importing an Export-All file (or a legacy file with no <code>_exportType</code>) still triggers the existing replace-all confirmation dialog &mdash; behavior is unchanged for those</>,
+      <><strong>UX</strong> &mdash; The <strong>Export All</strong> and <strong>Import</strong> buttons moved out of the page header row into a toolbar row between the project form and the project tile list. <strong>Import</strong> remains visible at zero projects (it has to be reachable for first-import); <strong>Export All</strong> is hidden at zero projects</>,
+      <><strong>Fix</strong> &mdash; Local-storage warning banner: text and &ldquo;Got it&rdquo; button are now vertically centered (previously the button hugged the top of the banner when the text wrapped to one line)</>,
+      <><strong>Refactor</strong> &mdash; The snapshot caps (<code>MAX_SNAPSHOTS_TOTAL = 100</code>, <code>MAX_SNAPSHOTS_PER_PROJECT = 50</code>) were duplicated as private <code>const</code>s in both the local and Firestore storage services. Extracted to <code>src/shared/storage/snapshot-limits.ts</code> and imported by all three call sites (the two storage services and the new <code>cloneProject</code> in <code>useProjects</code>) so the cap can be changed in one place</>,
+      <><strong>Refactor</strong> &mdash; <code>ConfirmDialog</code> modal-mode rendering now handles the <code>&apos;primary&apos;</code> variant (filled blue, white text) in addition to <code>&apos;danger&apos;</code> and the default secondary outline. Used by the new merge-import &ldquo;Add Projects&rdquo; CTA</>,
+    ],
+  },
+  {
     version: '18.0.0',
     date: 'May 4, 2026',
     items: [

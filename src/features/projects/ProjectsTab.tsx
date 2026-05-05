@@ -11,14 +11,23 @@ import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useStorage } from '../../context/StorageContext';
-import { exportData as exportDataUtil, parseImportedData, readFileAsText } from '../../shared/utils';
+import {
+  exportData as exportDataUtil,
+  exportSingleProject,
+  mergeImportedProjects,
+  parseImportedData,
+  readFileAsText,
+} from '../../shared/utils';
 import { isProjectNameValid, getWorkDayWarning, getEffectiveWorkDays } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { TrashIconButton } from '../../shared/components/TrashIconButton';
+import { PencilIconButton } from '../../shared/components/PencilIconButton';
+import { ExportIconButton } from '../../shared/components/ExportIconButton';
+import { CloneIconButton } from '../../shared/components/CloneIconButton';
 import { WorkWeekSelector } from '../../shared/components/WorkWeekSelector';
-import { TabType, Snapshot } from '../../shared/types';
+import { TabType, Snapshot, Project } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 import type { CloudGanttStorageService } from '../../shared/storage';
 
@@ -65,8 +74,29 @@ export function ProjectsTab({
     updateProject,
     deleteProject,
     startEditProject,
-    cancelEditProject
+    cancelEditProject,
+    cloneProject
   } = useProjects();
+
+  // v19.0 — Edit-pencil UX: short blue-glow pulse on the form card after click,
+  // paired with window.scrollTo so the user can see where their attention is being directed.
+  const [editHighlight, setEditHighlight] = useState(false);
+  const handleEditProject = (project: Project) => {
+    startEditProject(project);
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    setEditHighlight(true);
+    setTimeout(() => setEditHighlight(false), 600);
+  };
+
+  // v19.0 — Per-tile export downloads a single-project JSON file (no global settings).
+  const handleExportProject = async (projectId: string) => {
+    await exportSingleProject(projectId, data, storage, {
+      storageMode: storage.mode,
+      uid: user?.uid,
+    });
+  };
 
   const handleExport = async () => {
     const allSnapshots = await storage.loadSnapshots();
@@ -78,6 +108,10 @@ export function ProjectsTab({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData> } | null>(null);
+  // v19.0 — additive merge confirmation (separate from the replace-all `importConfirm`).
+  const [importMergeConfirm, setImportMergeConfirm] = useState<{
+    imported: NonNullable<ReturnType<typeof parseImportedData>>;
+  } | null>(null);
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -87,17 +121,29 @@ export function ProjectsTab({
       const content = await readFileAsText(file);
       const imported = parseImportedData(content);
 
-      if (imported) {
+      if (!imported) {
+        alert('Invalid file format');
+        event.target.value = '';
+        return;
+      }
+
+      // v19.0 — route by _exportType discriminator. Replace-all dialog for
+      // 'ganttapp-all-projects' or 'legacy'; additive merge for 'ganttapp-project-export'.
+      fileInputRef.current = event.target;
+      const isReplaceAll =
+        imported.exportType === 'ganttapp-all-projects' ||
+        imported.exportType === 'legacy';
+
+      if (isReplaceAll) {
         const hasExistingData = data.projects.length > 0 || data.releases.length > 0;
-        fileInputRef.current = event.target;
         if (hasExistingData) {
           setImportConfirm({ imported });
           return;
         }
         applyImport(imported, event.target);
       } else {
-        alert('Invalid file format');
-        event.target.value = '';
+        // 'ganttapp-project-export' → additive merge
+        setImportMergeConfirm({ imported });
       }
     } catch (error) {
       alert('Error importing file');
@@ -114,6 +160,28 @@ export function ProjectsTab({
     }
     const snapshotMsg = imported.snapshots ? ` (including ${imported.snapshots.length} snapshot${imported.snapshots.length !== 1 ? 's' : ''})` : '';
     alert(`Data imported successfully!${snapshotMsg}`);
+    fileInput.value = '';
+  };
+
+  // v19.0 — additive merge import path. Skips projects whose ID collides with existing,
+  // reports the count to the user. Releases and snapshots filtered to accepted projects.
+  const applyMergeImport = async (
+    incoming: NonNullable<ReturnType<typeof parseImportedData>>,
+    fileInput: HTMLInputElement
+  ) => {
+    const existingSnapshots = await storage.loadSnapshots();
+    const { mergedData, mergedSnapshots, skipped } = mergeImportedProjects(
+      data,
+      incoming,
+      existingSnapshots
+    );
+    updateData(mergedData);
+    await onReplaceSnapshots(mergedSnapshots);
+    const added = incoming.appData.projects.length - skipped;
+    const skipMsg = skipped > 0
+      ? ` (${skipped} project${skipped !== 1 ? 's' : ''} skipped — already existed)`
+      : '';
+    alert(`${added} project${added !== 1 ? 's' : ''} added successfully.${skipMsg}`);
     fileInput.value = '';
   };
 
@@ -168,50 +236,21 @@ export function ProjectsTab({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div style={{ marginBottom: '1rem' }}>
         <h2 style={{ fontSize: '1.5rem', color: colors.text }}>Projects</h2>
-
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={handleExport}
-            disabled={data.projects.length === 0}
-            style={{
-              padding: '0.5rem 1rem',
-              background: colors.buttonBg,
-              color: data.projects.length === 0 ? colors.textMuted : colors.text,
-              border: `1px solid ${colors.buttonBorder}`,
-              borderRadius: '4px',
-              cursor: data.projects.length === 0 ? 'not-allowed' : 'pointer',
-              fontWeight: '600',
-              fontSize: '0.9rem',
-              opacity: data.projects.length === 0 ? 0.5 : 1
-            }}
-          >
-            📥 Export All
-          </button>
-          <label style={{
-            padding: '0.5rem 1rem',
-            background: colors.buttonBg,
-            color: colors.text,
-            border: `1px solid ${colors.buttonBorder}`,
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '0.9rem'
-          }}>
-            📤 Import
-            <input
-              type="file"
-              name="importJson"
-              accept=".json"
-              onChange={handleImport}
-              style={{ display: 'none' }}
-            />
-          </label>
-        </div>
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+      <div
+        style={{
+          marginBottom: '1rem',
+          padding: '1.5rem',
+          background: colors.surface,
+          borderRadius: '8px',
+          border: editHighlight ? '2px solid #0070f3' : `1px solid ${colors.border}`,
+          boxShadow: editHighlight ? '0 0 0 3px rgba(0,112,243,0.18)' : 'none',
+          transition: 'border 0.15s ease, box-shadow 0.15s ease',
+        }}
+      >
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div style={{ flex: '0 0 auto' }}>
             <label htmlFor={projectNameId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
@@ -354,6 +393,56 @@ export function ProjectsTab({
         </div>
       </div>
 
+      {/*
+        v19.0 — toolbar between the form card and the tile list. Export All hides
+        when there are no projects; Import always renders so first-time users can
+        bring data in. justifyContent: 'center' at zero projects so the lone
+        Import button is centered rather than floating at the right edge.
+      */}
+      <div style={{
+        display: 'flex',
+        justifyContent: data.projects.length === 0 ? 'center' : 'flex-end',
+        gap: '0.5rem',
+        marginBottom: '0.75rem',
+      }}>
+        {data.projects.length > 0 && (
+          <button
+            onClick={handleExport}
+            style={{
+              padding: '0.5rem 1rem',
+              background: colors.buttonBg,
+              color: colors.text,
+              border: `1px solid ${colors.buttonBorder}`,
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+            }}
+          >
+            📥 Export All
+          </button>
+        )}
+        <label style={{
+          padding: '0.5rem 1rem',
+          background: colors.buttonBg,
+          color: colors.text,
+          border: `1px solid ${colors.buttonBorder}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontWeight: '600',
+          fontSize: '0.9rem',
+        }}>
+          📤 Import
+          <input
+            type="file"
+            name="importJson"
+            accept=".json"
+            onChange={handleImport}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
+
       {data.projects.length === 0 ? (
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Add one to get started!</p>
       ) : (
@@ -434,20 +523,21 @@ export function ProjectsTab({
                     Share
                   </button>
                 )}
-                <button
-                  onClick={() => startEditProject(project)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: colors.buttonText
-                  }}
-                >
-                  Edit
-                </button>
+                <ExportIconButton
+                  onClick={() => handleExportProject(project.id)}
+                  ariaLabel="Export project"
+                  title="Export project"
+                />
+                <PencilIconButton
+                  onClick={() => handleEditProject(project)}
+                  ariaLabel="Edit project"
+                  title="Edit project"
+                />
+                <CloneIconButton
+                  onClick={() => cloneProject(project.id)}
+                  ariaLabel="Clone project"
+                  title="Clone project"
+                />
                 <TrashIconButton
                   onClick={() => setDeleteConfirmProjectId(project.id)}
                   ariaLabel="Delete project"
@@ -523,6 +613,34 @@ export function ProjectsTab({
               onClick: () => {
                 applyImport(importConfirm.imported!, fileInputRef.current!);
                 setImportConfirm(null);
+              },
+            },
+          ]}
+        />
+      )}
+
+      {/* v19.0 — additive merge import confirmation modal */}
+      {importMergeConfirm && (
+        <ConfirmDialog
+          modal
+          title="Add Projects to Workspace"
+          message={`Add ${importMergeConfirm.imported.appData.projects.length} project${importMergeConfirm.imported.appData.projects.length !== 1 ? 's' : ''} from this file to your existing workspace? Projects that already exist will be skipped.`}
+          colors={colors}
+          buttons={[
+            {
+              label: 'Cancel',
+              variant: 'secondary',
+              onClick: () => {
+                setImportMergeConfirm(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              },
+            },
+            {
+              label: 'Add Projects',
+              variant: 'primary',
+              onClick: () => {
+                applyMergeImport(importMergeConfirm.imported, fileInputRef.current!);
+                setImportMergeConfirm(null);
               },
             },
           ]}

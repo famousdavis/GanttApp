@@ -104,7 +104,9 @@ export function ConfirmDialog({ message, title, buttons, colors, modal, borderCo
 
               const modalBtnStyle = variant === 'danger'
                 ? { padding: '0.6rem 1.25rem', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', cursor, fontWeight: '600' as const, fontSize: '0.9rem' }
-                : { padding: '0.6rem 1.25rem', background: colors.surface, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: '6px', cursor, fontWeight: '600' as const, fontSize: '0.9rem' };
+                : variant === 'primary'
+                  ? { padding: '0.6rem 1.25rem', background: '#0070f3', color: 'white', border: 'none', borderRadius: '6px', cursor, fontWeight: '600' as const, fontSize: '0.9rem' }
+                  : { padding: '0.6rem 1.25rem', background: colors.surface, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: '6px', cursor, fontWeight: '600' as const, fontSize: '0.9rem' };
 
               return (
                 <button key={i} onClick={btn.onClick} disabled={disabled} style={modalBtnStyle}>

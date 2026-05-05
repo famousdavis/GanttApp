@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.20.1',
+    date: 'May 5, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; Share button now appears on owned project tiles immediately after creation in cloud mode. Previously, <code>addProject</code> built the new <code>Project</code> in-memory without seeding the <code>owner</code> field, so the render condition <code>project.owner === user.uid</code> evaluated false until a full reload re-fetched the project from Firestore (where the owner was correctly stored). Now seeded inline at creation time</>,
+      <><strong>Fix</strong> &mdash; Cloning a project rebinds the clone&apos;s <code>owner</code> to the current user (cloud mode) instead of inheriting the source&apos;s <code>owner</code> via blind <code>...source</code> spread. Without this, cloning a project shared <em>to</em> you would carry the original owner&apos;s uid in the clone&apos;s in-memory state until reload, even though Firestore correctly wrote the new owner on save</>,
+      <><strong>Fix</strong> &mdash; <code>validateLoadedData</code> now preserves the <code>owner</code> field through localStorage round-trips. Previously this sanitization function dropped the field on load, which could clear ownership on any path where cloud-mode data hit the local validator (defense-in-depth, not the primary user-visible path)</>,
+      <><strong>Tests</strong> &mdash; +6 regression tests across <code>useProjects</code> (addProject + cloneProject local-mode owner handling) and <code>storage</code> (validateLoadedData owner preservation, sanitization, and absence handling)</>,
+    ],
+  },
+  {
     version: '0.20.0',
     date: 'May 4, 2026',
     items: [

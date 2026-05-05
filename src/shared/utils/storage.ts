@@ -49,7 +49,8 @@ export function validateLoadedData(data: unknown): AppData | null {
             ? { finishDate: proj.finishDate }
             : {}),
           ...(sanitizedWorkDays ? { workDays: sanitizedWorkDays } : {}),
-          ...(sanitizedLegendLabels ? { legendLabels: sanitizedLegendLabels } : {})
+          ...(sanitizedLegendLabels ? { legendLabels: sanitizedLegendLabels } : {}),
+          ...(typeof proj.owner === 'string' ? { owner: sanitizeId(proj.owner) } : {})
         };
         if (sanitized.id && sanitized.name) {
           validProjects.push(sanitized);

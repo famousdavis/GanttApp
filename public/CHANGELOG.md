@@ -1,5 +1,37 @@
 # Change Log
 
+## Version 0.21.1 (2026-05-05)
+### UX: De-emphasize Export All / Import toolbar buttons
+
+The Export All and Import buttons in the Projects toolbar were filled, high-contrast buttons with emoji + bold label. They are infrequently used (most users export at end of session, import only when restoring or transferring a workspace) and were the last toolbar elements still using the pre-v17.1 button style.
+
+This release rebuilds them as grayscale icon+text buttons that adopt color only on hover/focus, matching the v17.1 trashcan and v19.0.0 per-tile icon button pattern:
+
+- **At rest:** icon stroke + text in `#9ca3af`, transparent background, transparent 1px border (reserves space, no layout shift on hover), `0.4rem 0.75rem` padding, `0.4rem` icon-text gap, font-weight `500`
+- **Export All hover/focus:** icon + text `#10b981`, 1px green border, soft green background fill (`#ecfdf5` light / `rgba(16, 185, 129, 0.15)` dark)
+- **Import hover/focus:** icon + text `#0070f3` (GanttApp primary blue, same as `PencilIconButton`), 1px blue border, soft blue background fill (`#eff6ff` light / `rgba(0, 112, 243, 0.15)` dark)
+- `transition: all 0.12s ease` on both, matching existing icon buttons
+
+**Icons.** Export All reuses the exact SVG path from `ExportIconButton` (down-arrow-into-tray) at 18×18 instead of 20×20, since the icon is now paired with a text label. Import uses an inline up-arrow-into-tray glyph (`d="M21 15v4...M17 8l-5-5-5 5M12 3v12"`) — same tray, chevron points up, vertical bar terminates at the top — so the two read as a matched pair.
+
+**Implementation.** Inline in `ProjectsTab.tsx`, not a new shared component. Two reasons: only two call sites ever; the Import button must remain a `<label>` wrapping a hidden file `<input>` so the native file picker opens without a click handler — awkward to model in a generic icon-button component. Hover state is two local `useState<boolean>` hooks (`exportAllHover`, `importHover`) with `onMouseEnter` / `onMouseLeave` / `onFocus` / `onBlur`, matching the inline hover pattern already used elsewhere in this file. Added `resolvedTheme` to the existing `useTheme()` destructure for the dark-mode hover-bg variant.
+
+**A11y.** Both buttons gain `aria-label`s ("Export all projects as JSON", "Import projects from JSON") so screen reader users still get a clear action name as the visible styling becomes more subtle. Visible text labels ("Export All", "Import") preserved — existing test queries by visible text continue to work.
+
+**No behavior changes.** Click handlers, file-picker behavior, the v19.0.0 toolbar position (between form card and tile list), and zero-projects centering (`justifyContent: data.projects.length === 0 ? 'center' : 'flex-end'`) all preserved.
+
+**Modified Files:**
+- `src/features/projects/ProjectsTab.tsx` — added `resolvedTheme` to `useTheme()` destructure, two `useState` hover hooks, replaced the two filled `<button>` / `<label>` JSX blocks with grayscale-on-rest / colored-on-hover icon+text variants
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`, `CLAUDE.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All tests pass (cosmetic restyling — visible text labels unchanged, no new tests required)
+- Production build succeeds with Turbopack
+
+---
+
 ## Version 0.21.0 (2026-05-05)
 ### Fix: Cloud projects load again in multi-tenant Firestore
 

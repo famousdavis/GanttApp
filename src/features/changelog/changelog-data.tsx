@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.21.1',
+    date: 'May 5, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; <strong>Export All</strong> and <strong>Import</strong> buttons in the Projects toolbar are now grayscale at rest (no fill, no border, just an icon and label in <code>#9ca3af</code>) and only adopt color on hover/focus. Export All hovers green (<code>#10b981</code>), Import hovers blue (<code>#0070f3</code>). Both pick up a 1px tinted outline and a soft tinted fill on hover, matching the v17.1 trashcan and v19.0.0 per-tile icon button pattern</>,
+      <><strong>Why</strong> &mdash; These two actions are infrequent (most users export at the end of a session and import only when restoring or transferring a workspace). Filled high-contrast buttons commanded visual attention disproportionate to how often they&apos;re invoked, and they were the last toolbar element still using the pre-v17.1 button style. Now visually consistent with the rest of the projects toolbar</>,
+      <><strong>A11y</strong> &mdash; Both buttons gain explicit <code>aria-label</code>s (&ldquo;Export all projects as JSON&rdquo;, &ldquo;Import projects from JSON&rdquo;) so screen reader users still get a clear action name as the visible styling becomes more subtle</>,
+      <><strong>Behavior</strong> &mdash; No functional changes. Click handlers, file-picker behavior, the v19.0.0 toolbar position (between form card and tile list), and zero-projects centering are all preserved</>,
+    ],
+  },
+  {
     version: '0.21.0',
     date: 'May 5, 2026',
     items: [

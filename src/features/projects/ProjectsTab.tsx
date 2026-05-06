@@ -53,7 +53,7 @@ export function ProjectsTab({
   onReplaceSnapshots
 }: ProjectsTabProps) {
   const { data, updateData, globalWorkDays } = useAppData();
-  const { colors } = useTheme();
+  const { colors, resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { storage } = useStorage();
   const baseFieldId = useId();
@@ -61,6 +61,8 @@ export function ProjectsTab({
   const projectFinishDateId = `${baseFieldId}-project-finish-date`;
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
+  const [exportAllHover, setExportAllHover] = useState(false);
+  const [importHover, setImportHover] = useState(false);
   const isCloudMode = storage.mode === 'cloud';
   const {
     projectName,
@@ -407,32 +409,89 @@ export function ProjectsTab({
       }}>
         {data.projects.length > 0 && (
           <button
+            type="button"
             onClick={handleExport}
+            onMouseEnter={() => setExportAllHover(true)}
+            onMouseLeave={() => setExportAllHover(false)}
+            onFocus={() => setExportAllHover(true)}
+            onBlur={() => setExportAllHover(false)}
+            aria-label="Export all projects as JSON"
             style={{
-              padding: '0.5rem 1rem',
-              background: colors.buttonBg,
-              color: colors.text,
-              border: `1px solid ${colors.buttonBorder}`,
-              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.4rem 0.75rem',
+              background: exportAllHover
+                ? (resolvedTheme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5')
+                : 'transparent',
+              color: exportAllHover ? '#10b981' : '#9ca3af',
+              border: `1px solid ${exportAllHover ? '#10b981' : 'transparent'}`,
+              borderRadius: '6px',
               cursor: 'pointer',
-              fontWeight: '600',
+              fontWeight: 500,
               fontSize: '0.9rem',
+              transition: 'all 0.12s ease',
             }}
           >
-            📥 Export All
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+                stroke={exportAllHover ? '#10b981' : '#9ca3af'}
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Export All
           </button>
         )}
-        <label style={{
-          padding: '0.5rem 1rem',
-          background: colors.buttonBg,
-          color: colors.text,
-          border: `1px solid ${colors.buttonBorder}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontWeight: '600',
-          fontSize: '0.9rem',
-        }}>
-          📤 Import
+        <label
+          onMouseEnter={() => setImportHover(true)}
+          onMouseLeave={() => setImportHover(false)}
+          onFocus={() => setImportHover(true)}
+          onBlur={() => setImportHover(false)}
+          aria-label="Import projects from JSON"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            padding: '0.4rem 0.75rem',
+            background: importHover
+              ? (resolvedTheme === 'dark' ? 'rgba(0, 112, 243, 0.15)' : '#eff6ff')
+              : 'transparent',
+            color: importHover ? '#0070f3' : '#9ca3af',
+            border: `1px solid ${importHover ? '#0070f3' : 'transparent'}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 500,
+            fontSize: '0.9rem',
+            transition: 'all 0.12s ease',
+          }}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+              stroke={importHover ? '#0070f3' : '#9ca3af'}
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Import
           <input
             type="file"
             name="importJson"

@@ -12,6 +12,15 @@ const mockDoc = vi.fn();
 const mockCollection = vi.fn();
 const mockQuery = vi.fn();
 const mockWhere = vi.fn();
+// Transaction primitives — used by removeCollaborator (LESSONS-LEARNED §50).
+// mockTxGet returns the snapshot the updater sees; mockTxUpdate captures the
+// write payload so tests can assert the deleteField sentinel and audit log.
+const mockTxGet = vi.fn();
+const mockTxUpdate = vi.fn();
+const mockRunTransaction = vi.fn(
+  async (_db: unknown, updater: (tx: { get: typeof mockTxGet; update: typeof mockTxUpdate }) => Promise<void>) =>
+    updater({ get: mockTxGet, update: mockTxUpdate }),
+);
 // deleteField returns a sentinel object that Firestore recognizes;
 // in the mock we just stub it as a marker so tests can assert presence.
 const DELETE_FIELD_SENTINEL = { __deleteField: true };
@@ -24,6 +33,7 @@ vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   query: (...args: unknown[]) => mockQuery(...args),
   where: (...args: unknown[]) => mockWhere(...args),
+  runTransaction: (...args: unknown[]) => mockRunTransaction(...(args as [unknown, never])),
   deleteField: () => DELETE_FIELD_SENTINEL,
   Timestamp: class { toMillis() { return 0; } },
 }));
@@ -98,8 +108,26 @@ describe('firestore-sharing', () => {
   });
 
   describe('removeCollaborator', () => {
-    it('throws when non-owner tries to remove member', async () => {
-      mockGetDoc.mockResolvedValue({
+    it('throws on self-removal before opening a transaction (guard 1)', async () => {
+      // Guard 1 fires pre-transaction — no get, no update, no runTransaction.
+      await expect(
+        removeCollaborator(mockDb, mockUid, 'p1', mockUid)
+      ).rejects.toThrow('Cannot remove yourself from a project.');
+      expect(mockRunTransaction).not.toHaveBeenCalled();
+      expect(mockTxGet).not.toHaveBeenCalled();
+    });
+
+    it('throws when project does not exist (guard 2)', async () => {
+      mockTxGet.mockResolvedValueOnce({ exists: () => false });
+
+      await expect(
+        removeCollaborator(mockDb, mockUid, 'p1', 'other-uid')
+      ).rejects.toThrow('Project not found.');
+      expect(mockTxUpdate).not.toHaveBeenCalled();
+    });
+
+    it('throws when non-owner tries to remove member (guard 3)', async () => {
+      mockTxGet.mockResolvedValueOnce({
         exists: () => true,
         data: () => ({
           name: 'P1', owner: 'real-owner', members: { 'real-owner': 'owner', [mockUid]: 'editor', 'other-uid': 'viewer' },
@@ -109,43 +137,28 @@ describe('firestore-sharing', () => {
 
       await expect(
         removeCollaborator(mockDb, mockUid, 'p1', 'other-uid')
-      ).rejects.toThrow('Only the project owner can remove members');
+      ).rejects.toThrow('Only the project owner can remove members.');
+      expect(mockTxUpdate).not.toHaveBeenCalled();
     });
 
-    it('throws when trying to remove owner', async () => {
-      mockGetDoc.mockResolvedValue({
+    it('removes non-owner member via deleteField inside the transaction', async () => {
+      mockTxGet.mockResolvedValueOnce({
         exists: () => true,
         data: () => ({
           name: 'P1', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
           schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
         }),
       });
-
-      await expect(
-        removeCollaborator(mockDb, mockUid, 'p1', mockUid)
-      ).rejects.toThrow('Cannot remove the project owner');
-    });
-
-    it('removes non-owner member via deleteField on the specific key', async () => {
-      mockGetDoc.mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          name: 'P1', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
-          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
-        }),
-      });
-      mockSetDoc.mockResolvedValue(undefined);
 
       await removeCollaborator(mockDb, mockUid, 'p1', 'other-uid');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const savedPayload = mockSetDoc.mock.calls[0][1];
-      // v18.0.0 (D3): payload uses deleteField() on the specific key,
-      // not a full-doc rewrite. The dotted-path key is the fingerprint.
+      expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+      expect(mockTxUpdate).toHaveBeenCalledTimes(1);
+      // tx.update(ref, payload) — assert the payload, not setDoc.
+      const savedPayload = mockTxUpdate.mock.calls[0][1];
       expect(savedPayload['members.other-uid']).toBe(DELETE_FIELD_SENTINEL);
       expect(savedPayload.updatedAt).toBeDefined();
       expect(savedPayload._changeLog).toBeDefined();
-      // Confirm merge:true is passed (third arg) so other members are preserved.
-      expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+      expect(mockSetDoc).not.toHaveBeenCalled();
     });
   });
 

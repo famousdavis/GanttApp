@@ -7,7 +7,7 @@
 
 import type { FirestoreProjectMeta, PendingInvite, ProjectRole } from '../types/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, getDocs, setDoc, collection, deleteField, query, where, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection, deleteField, query, where, runTransaction, Timestamp } from 'firebase/firestore';
 import { appendChangeLogEntry } from '../utils/firestore-converters';
 
 /** Share a project with another user by email. */
@@ -56,10 +56,14 @@ export async function shareProject(
 }
 
 /**
- * Remove a member from a project. Cannot remove the project owner.
- * Renamed from removeProjectMember in v18.0.0 (D3). Uses deleteField()
- * on the specific members.{uid} key rather than overwriting the full
- * document — race-safe under concurrent membership changes.
+ * Remove a member from a project. All four guards run inside a single
+ * Firestore transaction so the membership write, owner check, and
+ * _changeLog append cannot interleave with concurrent owner activity
+ * on the same project. LESSONS-LEARNED §50.
+ *
+ * Schema is Shape A (top-level `owner` field is authoritative; `members`
+ * map also contains the owner UID with role 'owner'). Guards 3 and 4
+ * read from the top-level field.
  */
 export async function removeCollaborator(
   db: Firestore,
@@ -67,32 +71,49 @@ export async function removeCollaborator(
   projectId: string,
   targetUid: string
 ): Promise<void> {
+  // Guard 1 (pre-transaction fast-fail): self-removal never makes sense —
+  // even an owner trying to remove themselves should hit this clearer
+  // message rather than the generic "cannot remove the project owner".
+  if (targetUid === uid) {
+    throw new Error('Cannot remove yourself from a project.');
+  }
+
   const projectRef = doc(db, `ganttapp_projects/${projectId}`);
-  const projectSnap = await getDoc(projectRef);
-  if (!projectSnap.exists()) throw new Error('Project not found');
 
-  const meta = projectSnap.data() as FirestoreProjectMeta;
-  if (meta.members[uid] !== 'owner') {
-    throw new Error('Only the project owner can remove members.');
-  }
-  if (meta.owner === targetUid) {
-    throw new Error('Cannot remove the project owner');
-  }
+  await runTransaction(db, async (tx) => {
+    const projectSnap = await tx.get(projectRef);
 
-  // _changeLog append stays read-modify-write (owner-only, low concurrency risk).
-  const updatedLog = appendChangeLogEntry(meta._changeLog ?? [], {
-    timestamp: new Date().toISOString(),
-    uid,
-    action: 'delete',
-    target: `member:${targetUid}`,
+    // Guard 2: project must exist.
+    if (!projectSnap.exists()) {
+      throw new Error('Project not found.');
+    }
+
+    const meta = projectSnap.data() as FirestoreProjectMeta;
+
+    // Guard 3: caller must be the owner (Shape A authoritative field).
+    if (meta.owner !== uid) {
+      throw new Error('Only the project owner can remove members.');
+    }
+
+    // Guard 4: target must not be the owner (defense-in-depth — guard 1
+    // already blocks the only path where this can fire under Shape A).
+    if (meta.owner === targetUid) {
+      throw new Error('Cannot remove the project owner.');
+    }
+
+    const updatedLog = appendChangeLogEntry(meta._changeLog ?? [], {
+      timestamp: new Date().toISOString(),
+      uid,
+      action: 'delete',
+      target: `member:${targetUid}`,
+    });
+
+    tx.update(projectRef, {
+      [`members.${targetUid}`]: deleteField(),
+      updatedAt: new Date().toISOString(),
+      _changeLog: updatedLog,
+    });
   });
-
-  // deleteField() on the specific key — race-safe, no full-doc overwrite (D3).
-  await setDoc(projectRef, {
-    [`members.${targetUid}`]: deleteField(),
-    updatedAt: new Date().toISOString(),
-    _changeLog: updatedLog,
-  }, { merge: true });
 }
 
 /** Get all members of a project with their roles and emails. */

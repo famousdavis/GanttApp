@@ -182,6 +182,10 @@ async function writeUserProfile(firebaseUser: FirebaseUser): Promise<void> {
  */
 function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
   if (!INVITATIONS_ENABLED) return;
+  // Server-side claim throws failed-precondition for unverified emails
+  // (Microsoft personal accounts, unverified Google). Short-circuit here to
+  // avoid noisy console errors on every auth resolution. LESSONS-LEARNED §26.
+  if (!firebaseUser.emailVerified) return;
   const callable = getClaimPendingInvitations();
   if (!callable) return;
   void callable({})

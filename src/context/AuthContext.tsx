@@ -166,10 +166,23 @@ async function writeUserProfile(firebaseUser: FirebaseUser): Promise<void> {
     updatedAt: serverTimestamp(),
   };
   // Parallel writes — neither blocks the other on Firestore latency.
-  await Promise.all([
+  // allSettled (not all) so a partial failure surfaces both outcomes:
+  // Promise.all is fail-fast and would mask the second collection's
+  // result behind the first's rejection. Per-collection console.warn
+  // names the failing path so triage doesn't have to parse the error.
+  // Matches the F6 pattern in ShareDialog.tsx (LESSONS-LEARNED §64).
+  // The outer .catch at the call site (setUserAndClaim) remains the
+  // safety net for anything else this function might throw.
+  const [appRes, suiteRes] = await Promise.allSettled([
     setDoc(doc(db, `ganttapp_profiles/${firebaseUser.uid}`), payload, { merge: true }),
     setDoc(doc(db, `spertsuite_profiles/${firebaseUser.uid}`), payload, { merge: true }),
   ]);
+  if (appRes.status === 'rejected') {
+    console.warn('[AuthContext] ganttapp_profiles write failed:', appRes.reason);
+  }
+  if (suiteRes.status === 'rejected') {
+    console.warn('[AuthContext] spertsuite_profiles write failed:', suiteRes.reason);
+  }
 }
 
 /**

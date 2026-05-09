@@ -62,6 +62,9 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const [bulkEmail, setBulkEmail] = useState('');
   const [bulkSending, setBulkSending] = useState(false);              // bulk send in flight
   const [sendResult, setSendResult] = useState<SendResult | null>(null);
+  // Tokens that failed EMAIL_RE in parseBulkEmails. Surfaced inline so the
+  // user can see what the textarea-clear skipped (LESSONS-LEARNED §42).
+  const [bulkInvalidEmails, setBulkInvalidEmails] = useState<string[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);  // per-invite tokenId in flight
@@ -132,8 +135,17 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
 
   // ── Flag-on: bulk send handler ───────────────────────────────────────────
   const handleBulkSend = async () => {
-    const emails = parseBulkEmails(bulkEmail);
-    if (emails.length === 0) return;
+    const { valid, invalid } = parseBulkEmails(bulkEmail);
+    // Always reflect the latest parse so the chip can't go stale across sends.
+    setBulkInvalidEmails(invalid);
+    if (valid.length === 0) {
+      // No valid addresses → no CF call, no textarea clear. The invalid chip
+      // (if any) shows the user what to fix; the textarea retains content.
+      setInviteError(invalid.length > 0
+        ? 'No valid email addresses. Fix the entries below and try again.'
+        : 'Enter one or more email addresses.');
+      return;
+    }
     setInviteError(null);
     setSendResult(null);
     setBulkSending(true);
@@ -143,7 +155,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
       const res = await callable({
         appId: 'ganttapp',  // string literal — NOT APP_ID (LESSONS-LEARNED §15)
         modelId: projectId,
-        emails,
+        emails: valid,
         role,
         isVoting: false,    // GanttApp has no voting model
       });
@@ -322,6 +334,25 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
                 {bulkSending ? 'Sending…' : 'Send Invitations'}
               </button>
             </div>
+
+            {/* Invalid-tokens chip — surfaces tokens that failed EMAIL_RE so
+                the user can correct them. Renders independently of sendResult
+                because parsing happens before any CF call. */}
+            {bulkInvalidEmails.length > 0 && (
+              <div style={{
+                marginBottom: '1rem',
+                padding: '0.75rem',
+                background: colors.background,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '4px',
+                fontSize: '0.85rem',
+                color: '#e53e3e',
+                lineHeight: 1.5,
+              }}>
+                <strong>Skipped {bulkInvalidEmails.length}:</strong>{' '}
+                {bulkInvalidEmails.join(', ')}
+              </div>
+            )}
 
             {/* Result chip */}
             {sendResult && (

@@ -48,13 +48,25 @@ export interface UseInvitationLandingReturn {
 export function useInvitationLanding(opts: UseInvitationLandingOptions): UseInvitationLandingReturn {
   const { localProjectCount, appDataLoading } = opts;
   const { switchMode } = useStorage();
-  const [bannerState, setBannerState] = useState<InvitationBannerState>('idle');
+  // Lazy initializer derives the initial banner state from URL + sessionStorage
+  // synchronously on first render. Writing to sessionStorage and stripping the
+  // URL are side effects and stay in Effect 1 below; only the read happens
+  // here. Pages Router has no SSR justification for setState-in-effect, so the
+  // React 19 lint rule is honored without an eslint-disable. LESSONS-LEARNED §66.
+  const [bannerState, setBannerState] = useState<InvitationBannerState>(() => {
+    if (!INVITATIONS_ENABLED) return 'idle';
+    if (typeof window === 'undefined') return 'idle';
+    const hasInviteParam = new URL(window.location.href).searchParams.has('invite');
+    if (hasInviteParam) return 'pre_auth';
+    if (sessionStorage.getItem(SESSION_KEY)) return 'pre_auth';
+    return 'idle';
+  });
   const [claimedProjectNames, setClaimedProjectNames] = useState<string[]>([]);
   const initialized = useRef(false);
   const cloudFlipAttempted = useRef(false);
 
-  // Effect 1 — URL-token capture + sessionStorage rehydrate. No mode
-  // switching here; that's Effect 2's job, gated on AppData readiness.
+  // Effect 1 — side effects only: persist the invite token to sessionStorage
+  // and strip ?invite= from the URL. State was already derived above.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (initialized.current) return;
@@ -63,16 +75,10 @@ export function useInvitationLanding(opts: UseInvitationLandingOptions): UseInvi
 
     const url = new URL(window.location.href);
     const inviteToken = url.searchParams.get('invite');
-
-    if (inviteToken) {
-      sessionStorage.setItem(SESSION_KEY, inviteToken);
-      url.searchParams.delete('invite');
-      window.history.replaceState(null, '', url.toString());
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot URL parse on mount; folded into useState lazy initializer in PR2 (LESSONS-LEARNED §66)
-      setBannerState('pre_auth');
-    } else if (sessionStorage.getItem(SESSION_KEY)) {
-      setBannerState('pre_auth');
-    }
+    if (!inviteToken) return;
+    sessionStorage.setItem(SESSION_KEY, inviteToken);
+    url.searchParams.delete('invite');
+    window.history.replaceState(null, '', url.toString());
   }, []);
 
   // Effect 2 — cloud auto-flip with local-project gate. Unconditional flip

@@ -39,9 +39,12 @@ export function InvitationBanner() {
 
   if (!INVITATIONS_ENABLED || bannerState === 'idle') return null;
 
-  // Container styles mirror FirstRunBanner lines 37–47 — same blue tint,
-  // same border radius, same flex layout. Keeping them visually consistent
-  // because both banners can co-render briefly during sign-in.
+  // Color palette mirrors FirstRunBanner — same blue tint and border radius
+  // because both banners can co-render briefly during sign-in. Layout
+  // intentionally diverges: FirstRunBanner is a passive info strip and
+  // spans the full content width; InvitationBanner is an active CTA and
+  // gets a 512 px max-width centered card so the sign-in buttons sit at
+  // the visual focus of the page (LESSONS-LEARNED §56).
   const bgColor = resolvedTheme === 'dark' ? '#1a2e44' : '#e6f2ff';
   const borderColor = resolvedTheme === 'dark' ? '#2a4a6b' : '#b3d4fc';
   const bannerStyle = {
@@ -50,6 +53,9 @@ export function InvitationBanner() {
     borderRadius: '8px',
     padding: '1rem 1.25rem',
     marginBottom: '1rem',
+    maxWidth: '512px',
+    marginLeft: 'auto',
+    marginRight: 'auto',
     display: 'flex' as const,
     alignItems: 'flex-start' as const,
     justifyContent: 'space-between' as const,

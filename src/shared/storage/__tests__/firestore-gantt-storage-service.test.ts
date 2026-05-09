@@ -400,19 +400,14 @@ describe('FirestoreGanttStorageService', () => {
   });
 
   describe('removeCollaborator', () => {
-    it('throws when trying to remove owner', async () => {
-      // Service uid (test-uid) must be the owner to pass the owner-role check
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Test', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
-          schemaVersion: 1, createdAt: '', updatedAt: '',
-        }),
-      });
-
+    it('throws on self-removal with the user-friendly guard-1 message', async () => {
+      // Service injects mockUid as callerUid; passing mockUid as targetUid
+      // is the owner-removes-self UX path. Guard 1 fires pre-transaction, so
+      // no Firestore reads happen — and the user sees "Cannot remove yourself"
+      // instead of the generic "Cannot remove the project owner".
       await expect(
         service.removeCollaborator('p1', mockUid)
-      ).rejects.toThrow('Cannot remove the project owner');
+      ).rejects.toThrow('Cannot remove yourself from a project.');
     });
   });
 });

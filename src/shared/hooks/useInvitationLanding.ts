@@ -8,17 +8,21 @@
  *   idle      → no invitation activity (banner hidden)
  *   pre_auth  → ?invite= detected (or sessionStorage token survives reload);
  *               banner offers SSO sign-in
- *   claimed   → spert:models-changed fired with at least one claimed model;
- *               banner shows "you've been added to <projects>"
+ *   claimed   → spert:models-changed fired with at least one claimed model
+ *               AND the SESSION_KEY proves the user arrived via an invite
+ *               link in this session; banner shows "you've been added to …"
  *
- * GanttApp is Next.js Pages Router, so URL access uses window.location /
- * history.replaceState (identical to the Vite SPA / AHP pattern). Do NOT
- * use useSearchParams from next/navigation — that's App Router only and
- * would force a <Suspense> boundary at every consumer (LESSONS-LEARNED §14
- * does not apply here).
+ * Pages Router app — URL access uses window.location / history.replaceState
+ * (identical to the Vite SPA / AHP pattern). Do NOT use useSearchParams
+ * from next/navigation: that's App Router only and would force a <Suspense>
+ * boundary at every consumer (LESSONS-LEARNED §14 does not apply here).
+ *
+ * Required by the consumer (InvitationBanner): pass live values from
+ * useAppData() so Effect 2's cloud-flip decision is gated on a trustworthy
+ * local-project count (LESSONS-LEARNED §28).
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStorage } from '../../context/StorageContext';
 import { INVITATIONS_ENABLED } from '../../lib/feature-flags';
 import { isFirebaseAvailable } from '../../lib/firebase';
@@ -26,6 +30,14 @@ import { isFirebaseAvailable } from '../../lib/firebase';
 export type InvitationBannerState = 'idle' | 'pre_auth' | 'claimed';
 
 const SESSION_KEY = 'ganttapp_pending_invite_token';
+const GRACE_TIMEOUT_MS = 30_000;
+
+export interface UseInvitationLandingOptions {
+  /** From useAppData().data.projects.length — required for the F1 gate. */
+  localProjectCount: number;
+  /** From useAppData().loading — Effect 2 waits for false before deciding. */
+  appDataLoading: boolean;
+}
 
 export interface UseInvitationLandingReturn {
   bannerState: InvitationBannerState;
@@ -33,70 +45,90 @@ export interface UseInvitationLandingReturn {
   dismiss: () => void;
 }
 
-export function useInvitationLanding(): UseInvitationLandingReturn {
+export function useInvitationLanding(opts: UseInvitationLandingOptions): UseInvitationLandingReturn {
+  const { localProjectCount, appDataLoading } = opts;
   const { switchMode } = useStorage();
   const [bannerState, setBannerState] = useState<InvitationBannerState>('idle');
   const [claimedProjectNames, setClaimedProjectNames] = useState<string[]>([]);
   const initialized = useRef(false);
+  const cloudFlipAttempted = useRef(false);
 
-  // On mount: detect ?invite= or existing sessionStorage token
+  // Effect 1 — URL-token capture + sessionStorage rehydrate. No mode
+  // switching here; that's Effect 2's job, gated on AppData readiness.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (initialized.current) return;
     initialized.current = true;
-
     if (typeof window === 'undefined') return;
 
     const url = new URL(window.location.href);
     const inviteToken = url.searchParams.get('invite');
 
     if (inviteToken) {
-      // Persist the token so the banner stays in pre_auth across reloads
-      // (e.g. mobile background→foreground). The token itself is NOT passed
-      // to claimPendingInvitations — the callable matches on the verified
-      // email, not the token. The token's only role here is triggering
-      // the UX flow. A boolean flag would also work; we persist the token
-      // for future diagnostic logging if needed.
       sessionStorage.setItem(SESSION_KEY, inviteToken);
       url.searchParams.delete('invite');
       window.history.replaceState(null, '', url.toString());
-      if (isFirebaseAvailable) {
-        // Auto-flip storage mode so the claimed project actually surfaces
-        // (LESSONS-LEARNED §7). Failure here is non-fatal — the user is
-        // still prompted to sign in by the banner.
-        void switchMode('cloud').catch(() => {});
-      }
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot URL parse on mount, same pattern as FirstRunBanner
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot URL parse on mount; folded into useState lazy initializer in PR2 (LESSONS-LEARNED §66)
       setBannerState('pre_auth');
     } else if (sessionStorage.getItem(SESSION_KEY)) {
       setBannerState('pre_auth');
     }
-  }, [switchMode]);
+  }, []);
 
-  // Listen for claim success dispatched by AuthContext after successful claim.
-  // This listener fires on ANY spert:models-changed event, not only when the
-  // user arrived via an invite link. Intentional — matches AHP/CFD where the
-  // banner doubles as a "new shared projects" notification on any sign-in
-  // that results in a claim.
+  // Effect 2 — cloud auto-flip with local-project gate. Unconditional flip
+  // would wipe local projects (LESSONS-LEARNED §28). Wait for AppData to
+  // settle before reading the count, then only flip when the user has zero
+  // local projects. Otherwise, preserve their mode and let the standard
+  // upload-prompt flow handle migration on sign-in.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (bannerState !== 'pre_auth') return;
+    if (cloudFlipAttempted.current) return;
+    if (appDataLoading) return;
+    if (!isFirebaseAvailable) return;
+    if (localProjectCount > 0) return;
+    cloudFlipAttempted.current = true;
+    void switchMode('cloud').catch(() => {});
+  }, [bannerState, appDataLoading, localProjectCount, switchMode]);
+
+  // Effect 3 — claim listener with SESSION_KEY entry-gate. Without the gate,
+  // any normal sign-in that returns claimed projects (returning user with
+  // pending invitations not from this session) would surface a "you've been
+  // added to…" banner that the user has no context for. LESSONS-LEARNED §27.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     const handleClaimed = (e: Event) => {
+      if (!sessionStorage.getItem(SESSION_KEY)) return;
       const detail = (e as CustomEvent<{ claimed: { modelName: string }[] }>).detail;
       const names = (detail?.claimed ?? []).map((c) => c.modelName).filter(Boolean);
-      if (names.length > 0) {
-        sessionStorage.removeItem(SESSION_KEY);
-        setClaimedProjectNames(names);
-        setBannerState('claimed');
-      }
+      if (names.length === 0) return;
+      sessionStorage.removeItem(SESSION_KEY);
+      setClaimedProjectNames(names);
+      setBannerState('claimed');
     };
     window.addEventListener('spert:models-changed', handleClaimed);
     return () => window.removeEventListener('spert:models-changed', handleClaimed);
   }, []);
 
-  const dismiss = () => {
+  // Effect 4 — 30 s grace timer. If the user lands on an invite URL and
+  // never signs in (or signs in with the wrong email), pre_auth would
+  // otherwise persist indefinitely. SESSION_KEY is consumed BEFORE
+  // setState so a reload while the timer is pending cannot rehydrate
+  // pre_auth on the next mount. LESSONS-LEARNED §59.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (bannerState !== 'pre_auth') return;
+    const t = setTimeout(() => {
+      sessionStorage.removeItem(SESSION_KEY);
+      setBannerState('idle');
+    }, GRACE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [bannerState]);
+
+  const dismiss = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
     setBannerState('idle');
-  };
+  }, []);
 
   return { bannerState, claimedProjectNames, dismiss };
 }

@@ -13,6 +13,7 @@
  */
 
 import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { GoogleLogo, MicrosoftLogo } from './AuthProviderLogos';
 import { TosConsentModal } from '../../features/settings/TosConsentModal';
@@ -21,7 +22,14 @@ import { useSignInWithTosGate } from '../hooks/useSignInWithTosGate';
 import { INVITATIONS_ENABLED } from '../../lib/feature-flags';
 
 export function InvitationBanner() {
-  const { bannerState, claimedProjectNames, dismiss } = useInvitationLanding();
+  // localProjectCount + appDataLoading thread into the hook so its Effect 2
+  // cloud-flip decision is gated on real data — preventing the local-projects
+  // wipe documented in LESSONS-LEARNED §28.
+  const { data, loading: appDataLoading } = useAppData();
+  const { bannerState, claimedProjectNames, dismiss } = useInvitationLanding({
+    localProjectCount: data.projects.length,
+    appDataLoading,
+  });
   const { firebaseAvailable } = useAuth();
   const { colors, resolvedTheme } = useTheme();
   // Live hook API: signIn(provider), authError, tosModalOpen, onTosAccept, onTosCancel.

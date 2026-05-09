@@ -168,13 +168,17 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
       setSendResult(res.data);
       setBulkEmail('');
       // Refresh both lists — added emails went straight into members,
-      // invited emails became pending invites.
-      const [updatedMembers, updatedPending] = await Promise.all([
+      // invited emails became pending invites. allSettled (not all) so a
+      // transient error on one resource cannot discard a fulfilled value
+      // from the other (LESSONS-LEARNED §64).
+      const [memRes, pendRes] = await Promise.allSettled([
         cloudStorage.getProjectMembers(projectId),
         cloudStorage.listPendingInvites(projectId),
       ]);
-      setMembers(updatedMembers);
-      setPendingInvites(updatedPending);
+      if (memRes.status === 'fulfilled') setMembers(memRes.value);
+      else console.warn('[ShareDialog] member refresh failed:', memRes.reason);
+      if (pendRes.status === 'fulfilled') setPendingInvites(pendRes.value);
+      else console.warn('[ShareDialog] pending refresh failed:', pendRes.reason);
     } catch (err) {
       setInviteError(mapInvitationError(err, 'send'));
     } finally {

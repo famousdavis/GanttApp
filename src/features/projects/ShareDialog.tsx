@@ -47,9 +47,16 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const bulkTextareaId = useId();
   const roleSelectId = useId();
 
+  // Four-state share-section status. 'error' replaces the share UI with a
+  // visible recovery message instead of leaving the user with a half-loaded
+  // dialog (LESSONS-LEARNED §60). The Share button on the project tile is
+  // already gated on ownership (see ProjectsTab), so reaching this dialog
+  // implies the user is an owner — 'not-owner' is defensive only.
+  type OwnerStatus = 'loading' | 'owner' | 'not-owner' | 'error';
+  const [ownerStatus, setOwnerStatus] = useState<OwnerStatus>('loading');
+  const loading = ownerStatus === 'loading';
   // Members list — shared across both flag states
   const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);          // member-list ops (remove)
   const [removeMemberUid, setRemoveMemberUid] = useState<string | null>(null);
@@ -70,7 +77,9 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const [actionBusy, setActionBusy] = useState<string | null>(null);  // per-invite tokenId in flight
   const [revokeConfirmToken, setRevokeConfirmToken] = useState<string | null>(null);
 
-  // Load members on mount (both flag states)
+  // Load members on mount (both flag states). Status flips to 'error' on
+  // rejection so the error-state render path can show a recovery message
+  // rather than letting the bulk UI render against an empty members list.
   useEffect(() => {
     let cancelled = false;
     const loadMembers = async () => {
@@ -78,13 +87,10 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
         const result = await cloudStorage.getProjectMembers(projectId);
         if (!cancelled) {
           setMembers(result);
-          setLoading(false);
+          setOwnerStatus('owner');
         }
       } catch {
-        if (!cancelled) {
-          setInviteError('Failed to load members');
-          setLoading(false);
-        }
+        if (!cancelled) setOwnerStatus('error');
       }
     };
     loadMembers();
@@ -257,7 +263,21 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
           {projectName}
         </p>
 
-        {INVITATIONS_ENABLED ? (
+        {ownerStatus === 'error' ? (
+          /* Members fetch failed — replace the share UI with a recovery
+             message rather than render an empty bulk form (LESSONS-LEARNED §60). */
+          <p style={{
+            color: '#e53e3e',
+            fontSize: '0.9rem',
+            marginBottom: '1rem',
+            padding: '0.75rem',
+            background: colors.background,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '4px',
+          }}>
+            Couldn&apos;t load sharing details. Refresh the page to try again.
+          </p>
+        ) : INVITATIONS_ENABLED ? (
           /* Flag-on: bulk textarea + useId role select + send button.
              Single-email input is hidden — this branch replaces it entirely. */
           <>

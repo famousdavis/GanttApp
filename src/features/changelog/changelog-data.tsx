@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.22.2',
+    date: 'May 9, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; <strong>v0.22.2 security audit fixes (S1, S2, S3, S4, S5, S6, S7, S9)</strong>. App-side companion to the suite-wide Firestore rules update. No user-visible behavior changes.</>,
+      <><strong>Security (S1 / S8 — HIGH)</strong> &mdash; Deleted the legacy single-email <code>shareProject()</code> helper, the dead <code>FirestoreDriver</code> class, and the <code>INVITATIONS_ENABLED === false</code> branch in <code>ShareDialog</code>. The legacy helper performed an unbounded <code>getDocs(collection(&apos;ganttapp_profiles&apos;))</code> scan that, combined with the prior <code>allow read: if isAuth()</code> rule on profiles, permitted bulk profile enumeration by any authenticated SPERT user. Bulk invitations via the <code>sendInvitationEmail</code> Cloud Function are now the only email&rarr;share path.</>,
+      <><strong>Security (S3 Option A)</strong> &mdash; <code>confirmKeepLocalCopy</code> now strips each project&apos;s cloud <code>owner</code> UID before persisting to <code>localStorage</code>. The UID is meaningful only in cloud mode; in local mode it leaked the cloud user&apos;s Firebase identity into a shared-browser surface. Round-trip preserved: re-upload via <code>projectToFirestoreMeta</code> re-binds <code>owner</code> from the current user.</>,
+      <><strong>Security (S5)</strong> &mdash; Cloud <code>owner</code> UID stripped from all four JSON export entry points (<code>exportData</code>, <code>exportAllProjects</code>, <code>exportSingleProject</code>, <code>exportSelectedProjects</code>) via a new <code>stripCloudIdentity()</code> helper. Exported files no longer carry the originating user&apos;s Firebase UID for cross-app correlation.</>,
+      <><strong>Security (S6)</strong> &mdash; Removed <code>firebaseUser.uid</code> from the <code>claimPendingInvitations</code> failure log. Devtools and screenshares no longer expose the user&apos;s Firebase identity; server-side CF logs retain the UID via the request context for triage.</>,
+      <><strong>Security (S7)</strong> &mdash; Deleted the bare <code>signOut</code> helper from <code>AuthContext</code>&apos;s public surface. All sign-out paths now route through <code>StorageContext.performSignOutWithCleanup</code> (cancelPendingSaves &rarr; runAppDataReset &rarr; dispose &rarr; mode reset &rarr; storage swap &rarr; firebaseSignOut). Eliminates a footgun where a future contributor could bypass the cleanup chain.</>,
+      <><strong>Security (S9)</strong> &mdash; <code>subscribeToProject</code> error callback now unsubscribes and removes the listener from the tracking array on <code>permission-denied</code> (e.g., when the owner removes the user mid-session). Other error codes (<code>unavailable</code>, <code>deadline-exceeded</code>) remain transient and are left to the SDK&apos;s retry loop.</>,
+      <><strong>Companion rules</strong> &mdash; Suite-wide <code>firestore.rules</code> deploy ships with this release: <code>ganttapp_profiles</code> tightened to <code>get</code> + <code>limit(1)</code>-constrained <code>list</code> (S1); <code>ganttapp_projects</code> create now binds <code>owner == request.auth.uid</code> (S2); <code>ganttapp_projects</code> + <code>releases</code> + <code>snapshots</code> now enforce <code>keys()</code>/<code>affectedKeys()</code> field allowlists on create/update (S4).</>,
+    ],
+  },
+  {
     version: '0.22.1',
     date: 'May 9, 2026',
     items: [

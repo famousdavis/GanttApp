@@ -36,7 +36,12 @@ export interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithMicrosoft: () => Promise<void>;
-  signOut: () => Promise<void>;
+  // v0.22.2 (S7): bare `signOut` removed from the public context. All
+  // sign-out paths must route through StorageContext.performSignOutWithCleanup
+  // so cancelPendingSaves / runAppDataReset / dispose / mode-reset / local-
+  // service-swap / firebaseSignOut all run in the correct order. The
+  // consumers are SettingsTab, CloudStorageModal, and AuthContext's ToS-
+  // mismatch path (via signOutCleanupRegistry).
   isAuthenticated: boolean;
   /**
    * Mirror of isFirebaseAvailable. Used by InvitationBanner (and any other
@@ -120,19 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithPopup(auth, microsoftProvider);
   }, []);
 
-  const signOut = useCallback(async () => {
-    if (!isFirebaseAvailable || !auth) {
-      throw new Error('Firebase is not configured. Cloud features are unavailable.');
-    }
-    await firebaseSignOut(auth);
-  }, []);
-
   const value: AuthContextType = {
     user,
     loading,
     signInWithGoogle,
     signInWithMicrosoft,
-    signOut,
     isAuthenticated: user !== null,
     firebaseAvailable: isFirebaseAvailable,
   };
@@ -188,8 +185,8 @@ async function writeUserProfile(firebaseUser: FirebaseUser): Promise<void> {
 /**
  * Fire the bulk-invitation claim callable, then dispatch a custom event
  * so AppDataContext can reload its project list. No-op when the flag is
- * off or Firebase is unavailable. Errors are logged with the uid (for
- * triage) but never bubble — the user's auth flow must not block on this.
+ * off or Firebase is unavailable. Errors never bubble — the user's auth
+ * flow must not block on this.
  *
  * Event name 'spert:models-changed' is a suite-wide contract — do not rename.
  */
@@ -211,9 +208,13 @@ function claimPendingInvitationsAndNotify(firebaseUser: FirebaseUser): void {
       }
     })
     .catch((err: unknown) => {
+      // v0.22.2 (S6): error code only — no UID. Devtools / screenshares
+      // would otherwise expose the user's Firebase identity. Server-side
+      // CF logs include the authenticated UID via the request context, so
+      // triage doesn't lose anything.
       console.error(
-        '[AuthContext] claimPendingInvitations failed for uid', firebaseUser.uid,
-        '— code:', (err as { code?: string }).code ?? 'unknown',
+        '[AuthContext] claimPendingInvitations failed — code:',
+        (err as { code?: string }).code ?? 'unknown',
       );
     });
 }

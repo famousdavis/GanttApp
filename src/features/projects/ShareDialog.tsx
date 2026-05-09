@@ -9,21 +9,26 @@
 // used in both flag states.
 //
 // v0.22.1: bulk-invitation flow extracted in-file as `InvitationSection`
-// (defined below). Parent retains the members section, the legacy single-
-// email panel, the remove-member confirm modal, and the shared `ownerStatus`
-// gating. The legacy panel remains marked for removal once
-// INVITATIONS_ENABLED becomes permanent — extracting it would create a file
-// destined to be deleted; that is why only `InvitationSection` is split.
+// (defined below). Parent retains the members section, the remove-member
+// confirm modal, and the shared `ownerStatus` gating.
+//
+// v0.22.2 (S1 Option A / S8): the legacy single-email panel and the
+// `INVITATIONS_ENABLED === false` branch were deleted. The legacy panel's
+// `shareProject()` helper performed an unbounded `getDocs(collection(
+// 'ganttapp_profiles'))` scan that, combined with the prior permissive
+// `allow read: if isAuth()` rule on `ganttapp_profiles`, permitted bulk
+// profile enumeration by any authenticated SPERT user (security audit S1).
+// The flag remains in `feature-flags.ts` for AppDataContext / AuthContext /
+// useInvitationLanding gates; only the ShareDialog branch was removed since
+// the bulk flow is the only path forward.
 
 import { useState, useEffect, useId } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { TrashIconButton } from '../../shared/components/TrashIconButton';
-import { sanitizeString } from '../../shared/utils/validation';
 import { parseBulkEmails } from '../../shared/utils/parseBulkEmails';
 import type { CloudGanttStorageService } from '../../shared/storage';
 import type { PendingInvite, ProjectRole } from '../../shared/types/firestore';
-import { INVITATIONS_ENABLED } from '../../lib/feature-flags';
 import { getSendInvitationEmail } from '../../lib/firebase';
 import { mapInvitationError } from '../../lib/invitation-errors';
 
@@ -59,20 +64,16 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   const loading = ownerStatus === 'loading';
   // Members list — shared with InvitationSection via props
   const [members, setMembers] = useState<Member[]>([]);
-  // Parent-scoped error: covers the legacy single-email path and the
-  // remove-member path. The bulk-send flow has its own inviteError inside
-  // InvitationSection (LESSONS-LEARNED §60 — keep error scopes localized).
+  // Parent-scoped error: covers the remove-member path. The bulk-send flow
+  // has its own inviteError inside InvitationSection (LESSONS-LEARNED §60 —
+  // keep error scopes localized).
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);          // member-list ops (remove)
   const [removeMemberUid, setRemoveMemberUid] = useState<string | null>(null);
 
-  // Flag-off: single-email input
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
-
-  // Load members on mount (both flag states). Status flips to 'error' on
-  // rejection so the error-state render path can show a recovery message
-  // rather than letting the bulk UI render against an empty members list.
+  // Load members on mount. Status flips to 'error' on rejection so the
+  // error-state render path can show a recovery message rather than letting
+  // the bulk UI render against an empty members list.
   useEffect(() => {
     let cancelled = false;
     const loadMembers = async () => {
@@ -90,30 +91,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
     return () => { cancelled = true; };
   }, [projectId, cloudStorage]);
 
-  // ── Flag-off: legacy single-email handler ────────────────────────────────
-  const handleShare = async () => {
-    const sanitizedEmail = sanitizeString(email, 254);
-    if (!sanitizedEmail) return;
-    if (!sanitizedEmail.includes('@')) {
-      setInviteError('Enter a valid email address');
-      return;
-    }
-    setInviteError(null);
-    setActionLoading(true);
-    try {
-      await cloudStorage.shareProject(projectId, sanitizedEmail, role);
-      // Reload members
-      const result = await cloudStorage.getProjectMembers(projectId);
-      setMembers(result);
-      setEmail('');
-    } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Failed to share project');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // ── Member removal — applies in BOTH flag states (D3 rename) ─────────────
+  // ── Member removal — invoked from the members list (below) ───────────────
   const confirmRemoveMember = async (uid: string) => {
     setRemoveMemberUid(null);
     setInviteError(null);
@@ -178,7 +156,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
           }}>
             Couldn&apos;t load sharing details. Refresh the page to try again.
           </p>
-        ) : INVITATIONS_ENABLED ? (
+        ) : (
           <InvitationSection
             projectId={projectId}
             projectName={projectName}
@@ -187,82 +165,11 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
             onMembersUpdate={setMembers}
             onOwnerStatusError={() => setOwnerStatus('error')}
           />
-        ) : (
-          /* Flag-off: legacy single-email input panel preserved byte-identical.
-             Marked for removal when INVITATIONS_ENABLED becomes permanent;
-             extraction was deliberately skipped (see file header). */
-          <>
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-              <input
-                name="shareEmail"
-                aria-label="Email address to share with"
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleShare()}
-                disabled={actionLoading}
-                maxLength={254}
-                autoComplete="off"
-                style={{
-                  flex: 1,
-                  padding: '0.5rem 0.75rem',
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '4px',
-                  background: colors.inputBg,
-                  color: colors.text,
-                  fontSize: '0.9rem'
-                }}
-              />
-              <select
-                name="shareRole"
-                aria-label="Sharing role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
-                disabled={actionLoading}
-                style={{
-                  padding: '0.5rem',
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '4px',
-                  background: colors.inputBg,
-                  color: colors.text,
-                  fontSize: '0.9rem'
-                }}
-              >
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-              </select>
-              <button
-                onClick={handleShare}
-                disabled={!email.trim() || actionLoading}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: email.trim() && !actionLoading ? '#0070f3' : '#ccc',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: email.trim() && !actionLoading ? 'pointer' : 'not-allowed',
-                  fontWeight: '600',
-                  fontSize: '0.9rem'
-                }}
-              >
-                Share
-              </button>
-            </div>
-
-            {inviteError && (
-              <p style={{ color: '#e53e3e', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                {inviteError}
-              </p>
-            )}
-          </>
         )}
 
-        {/* Parent error display — covers the remove-member path (and the
-            legacy share path, but when flag-off the legacy panel above
-            already renders its own copy of inviteError, so this block only
-            fires for remove-member errors when INVITATIONS_ENABLED). */}
-        {INVITATIONS_ENABLED && inviteError && (
+        {/* Parent error display — covers the remove-member path. The
+            bulk-send flow renders its own inviteError inside InvitationSection. */}
+        {inviteError && (
           <p style={{ color: '#e53e3e', fontSize: '0.85rem', marginBottom: '1rem' }}>
             {inviteError}
           </p>

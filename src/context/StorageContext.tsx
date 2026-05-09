@@ -306,8 +306,20 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     // Step 1: write the current cloud snapshot to a fresh local service.
     // Do this BEFORE cancel/dispose so we never lose the projects to an
     // error-path short-circuit.
+    //
+    // v0.22.2 (S3 Option A): strip the cloud-user `owner` UID from each
+    // project record before persisting. The UID is meaningful only in
+    // cloud mode (gates Share-button visibility, ownership-check guards);
+    // in local mode it has no behavioral role, and persisting it would
+    // leak the cloud user's Firebase identity into localStorage where a
+    // subsequent browser user could read it after sign-out. The Project
+    // model marks `owner` as optional so omitting it is type-safe.
+    const sanitizedAppData: AppData = {
+      ...currentAppData,
+      projects: currentAppData.projects.map(({ owner: _owner, ...rest }) => rest),
+    };
     const localService = new LocalGanttStorageService();
-    await localService.saveAppData(currentAppData);
+    await localService.saveAppData(sanitizedAppData);
 
     // Step 2: cancel pending cloud writes (consistent with sign-out semantics).
     if (storage.mode === 'cloud') {

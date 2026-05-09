@@ -31,6 +31,19 @@ export interface ImportResult {
 }
 
 /**
+ * v0.22.2 (S5): strip the cloud-user `owner` UID from each project record
+ * before serialization. The UID is meaningful only in cloud mode (gates
+ * Share-button visibility, ownership guards); in an exported file it leaks
+ * the cloud user's Firebase identity to anyone the file is shared with.
+ * On re-import + re-upload, `projectToFirestoreMeta` re-binds `owner` to
+ * the current user via `existingMeta?.owner ?? uid`, so round-trip is
+ * preserved.
+ */
+function stripCloudIdentity(projects: Project[]): Project[] {
+  return projects.map(({ owner: _owner, ...rest }) => rest);
+}
+
+/**
  * Trigger a JSON file download for the given payload.
  * Centralizes the Blob → URL → anchor-click → revoke sequence that all four
  * export entry points (`exportData`, `exportAllProjects`, `exportSingleProject`,
@@ -69,8 +82,9 @@ function slugifyProjectName(name: string): string {
  * Export app data as JSON file download, optionally including snapshots
  */
 export function exportData(data: AppData, snapshots?: Snapshot[], options?: { storageMode?: string; uid?: string }): void {
-  // Build export object with optional attribution metadata
-  const baseObj: Record<string, unknown> = { ...data };
+  // Build export object with optional attribution metadata.
+  // v0.22.2 (S5): strip cloud-user owner UID from each project record.
+  const baseObj: Record<string, unknown> = { ...data, projects: stripCloudIdentity(data.projects) };
   if (snapshots && snapshots.length > 0) {
     baseObj.snapshots = snapshots;
   }
@@ -277,8 +291,10 @@ export async function exportAllProjects(
 
   const snapshots = await storage.loadSnapshots();
 
+  // v0.22.2 (S5): strip cloud-user owner UID from each project record.
   const exportObj: Record<string, unknown> = {
     ...appData,
+    projects: stripCloudIdentity(appData.projects),
     _exportedAt: new Date().toISOString(),
     _exportType: 'ganttapp-all-projects',
   };
@@ -334,8 +350,9 @@ export async function exportSingleProject(
     snapshots = all.filter(s => s.projectId === projectId);
   }
 
+  // v0.22.2 (S5): strip cloud-user owner UID from the project record.
   const exportObj: Record<string, unknown> = {
-    projects: [project],
+    projects: stripCloudIdentity([project]),
     releases,
     _exportType: 'ganttapp-project-export',
     _exportedAt: new Date().toISOString(),
@@ -394,8 +411,9 @@ export async function exportSelectedProjects(
     snapshots = all.filter(s => idSet.has(s.projectId));
   }
 
+  // v0.22.2 (S5): strip cloud-user owner UID from each project record.
   const exportObj: Record<string, unknown> = {
-    projects,
+    projects: stripCloudIdentity(projects),
     releases,
     _exportType: 'ganttapp-project-export',
     _exportedAt: new Date().toISOString(),

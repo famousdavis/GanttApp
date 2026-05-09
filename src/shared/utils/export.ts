@@ -31,6 +31,24 @@ export interface ImportResult {
 }
 
 /**
+ * Trigger a JSON file download for the given payload.
+ * Centralizes the Blob → URL → anchor-click → revoke sequence that all four
+ * export entry points (`exportData`, `exportAllProjects`, `exportSingleProject`,
+ * `exportSelectedProjects`) need. Single point of change for download UX.
+ */
+function triggerJsonDownload(payload: Record<string, unknown>, filename: string): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Slugify a project name for use in a filename.
  * Lowercase, spaces→hyphens, strip non-`[a-z0-9-]`, collapse hyphens, trim, max 40 chars.
  * Falls back to `'project'` if the input reduces to an empty string.
@@ -67,16 +85,7 @@ export function exportData(data: AppData, snapshots?: Snapshot[], options?: { st
   if (options?.storageMode === 'cloud' && options?.uid) {
     baseObj._storageRef = `firestore:uid:${options.uid}`;
   }
-  const dataStr = JSON.stringify(baseObj, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ganttapp-export-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerJsonDownload(baseObj, `ganttapp-export-${new Date().toISOString().split('T')[0]}.json`);
 }
 
 /**
@@ -285,16 +294,7 @@ export async function exportAllProjects(
     };
   }
 
-  const dataStr = JSON.stringify(exportObj, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ganttapp-all-projects-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerJsonDownload(exportObj, `ganttapp-all-projects-${new Date().toISOString().split('T')[0]}.json`);
 
   return { exported: appData.projects.length };
 }
@@ -356,16 +356,10 @@ export async function exportSingleProject(
     exportObj._storageRef = `firestore:uid:${options.uid}`;
   }
 
-  const dataStr = JSON.stringify(exportObj, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ganttapp-${slugifyProjectName(project.name)}-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerJsonDownload(
+    exportObj,
+    `ganttapp-${slugifyProjectName(project.name)}-${new Date().toISOString().split('T')[0]}.json`
+  );
 }
 
 /**
@@ -422,16 +416,7 @@ export async function exportSelectedProjects(
     exportObj._storageRef = `firestore:uid:${options.uid}`;
   }
 
-  const dataStr = JSON.stringify(exportObj, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ganttapp-projects-export-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerJsonDownload(exportObj, `ganttapp-projects-export-${new Date().toISOString().split('T')[0]}.json`);
 
   return { exported: projects.length };
 }

@@ -5,7 +5,7 @@
 // Converters between GanttApp's flat AppData model and Firestore's per-project document model.
 // These are pure functions with no Firestore SDK dependencies — they only transform data shapes.
 
-import { Project, Release, ChartColors, ChartDisplaySettings } from '../types/models';
+import { Project, Release } from '../types/models';
 import { AppData } from '../types/app';
 import { Snapshot } from '../types/snapshots';
 import {
@@ -16,7 +16,15 @@ import {
   ChangeLogEntry,
   MAX_CHANGELOG_ENTRIES,
 } from '../types/firestore';
-import { sanitizeId, sanitizeString, sanitizeWorkDays, sanitizeProjectLegendLabels, migrateReleaseStatus } from './validation';
+import {
+  sanitizeId,
+  sanitizeString,
+  sanitizeWorkDays,
+  sanitizeProjectLegendLabels,
+  migrateReleaseStatus,
+  sanitizeChartColors,
+  sanitizeDisplaySettings,
+} from './validation';
 
 // --- Flat AppData → Firestore ---
 
@@ -118,7 +126,7 @@ export function firestoreReleasesToFlat(
   return releaseEntries
     .sort((a, b) => a.data.order - b.data.order)
     .map(({ id, data }) => {
-      const migratedStatus = migrateReleaseStatus(data as unknown as Record<string, unknown>);
+      const migratedStatus = migrateReleaseStatus(data);
       return {
         id,
         projectId,
@@ -137,14 +145,14 @@ export function firestoreReleasesToFlat(
 export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<AppData> {
   const sanitizedGlobalWorkDays = sanitizeWorkDays(settings.globalWorkDays);
   return {
-    ...(settings.chartColors && { chartColors: settings.chartColors as ChartColors }),
+    ...(settings.chartColors && { chartColors: sanitizeChartColors(settings.chartColors) }),
     ...(settings.activePreset && { activePreset: settings.activePreset }),
     ...(settings.legendLabels && { legendLabels: settings.legendLabels }),
     ...(settings.showTodayLine !== undefined && { showTodayLine: settings.showTodayLine }),
     ...(settings.showFinishDateLine !== undefined && { showFinishDateLine: settings.showFinishDateLine }),
     ...(settings.showMostLikelyLine !== undefined && { showMostLikelyLine: settings.showMostLikelyLine }),
     ...(settings.showMonths !== undefined && { showMonths: settings.showMonths }),
-    ...(settings.chartDisplaySettings && { chartDisplaySettings: settings.chartDisplaySettings as ChartDisplaySettings }),
+    ...(settings.chartDisplaySettings && { chartDisplaySettings: sanitizeDisplaySettings(settings.chartDisplaySettings) }),
     ...(settings.preparedBy !== undefined && { preparedBy: settings.preparedBy }),
     ...(settings.showPreparedBy !== undefined && { showPreparedBy: settings.showPreparedBy }),
     ...(settings.exportAttribution && { exportAttribution: settings.exportAttribution }),
@@ -166,7 +174,7 @@ export function firestoreSnapshotToFlat(
     releases: data.releases
       .sort((a, b) => a.order - b.order)
       .map((r, i) => {
-        const migratedStatus = migrateReleaseStatus(r as unknown as Record<string, unknown>);
+        const migratedStatus = migrateReleaseStatus(r);
         return {
           id: `${snapshotId}-r${i}`,
           projectId,
@@ -180,7 +188,7 @@ export function firestoreSnapshotToFlat(
         };
       }),
     ...(data.projectFinishDate && { projectFinishDate: data.projectFinishDate }),
-    ...(data.chartColors && { chartColors: data.chartColors as ChartColors }),
+    ...(data.chartColors && { chartColors: sanitizeChartColors(data.chartColors) }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),
     ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
   };

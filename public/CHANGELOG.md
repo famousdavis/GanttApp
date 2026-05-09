@@ -1,5 +1,46 @@
 # Change Log
 
+## Version 0.22.1 (2026-05-09)
+### Refactor: in-file InvitationSection extraction + small dedupe sweep + sanitization hardening
+
+This is a focused patch release: one in-file decomposition, two small DRY extractions, five small bug/safety fixes, and two type-declaration version bumps. No behavioral changes for end users.
+
+**ShareDialog.tsx — InvitationSection extracted in-file (Story Map v0.29.1 pattern).** The bulk-invitation flow (textarea + role select + send button + invalid-tokens chip + send-result chip + pending-invitations list + revoke confirm modal) is now defined as `InvitationSection` in the same file beneath the existing member-management code. Parent (`ShareDialog`) retains: `OwnerStatus` enum, `members` state, the members-loading `useEffect`, the legacy single-email panel JSX, the remove-member `ConfirmDialog`, and the shared error path for legacy share + remove-member operations. `InvitationSection` owns its own bulk-flow state — `bulkEmail`, `role`, `bulkSending`, `sendResult`, `bulkInvalidEmails`, `pendingInvites`, `pendingLoading`, `actionBusy`, `revokeConfirmToken`, plus a localized `inviteError` so a stale bulk-send error can't leak into the member-removal UX. Members refresh after a successful send is handled via the new `onMembersUpdate` prop, and the existing `Promise.allSettled` post-send refresh + per-resource console.warn (LESSONS-LEARNED §64) is preserved verbatim. The legacy single-email panel is deliberately NOT extracted — it is marked for deletion when `INVITATIONS_ENABLED` becomes permanent, and creating a file destined for deletion would be churn for no benefit.
+
+**`triggerJsonDownload(payload, filename)` extracted in `export.ts`.** The four export entry points (`exportData`, `exportAllProjects`, `exportSingleProject`, `exportSelectedProjects`) each contained an identical 9-line `Blob` → `URL.createObjectURL` → `<a download>` → `URL.revokeObjectURL` block. Centralized in a single private helper at the top of the file. Single point of change for download UX (e.g., a future progress toast). No behavioral change.
+
+**`listMemberProjects()` extracted in `FirestoreGanttStorageServiceImpl`.** The "constrained `where('members.${uid}', 'in', [...])` query + client-side defense-in-depth membership filter" preamble was duplicated across `loadAppData`, `loadSnapshots`, and `saveSnapshots` (all three carrying the v0.21.0 docstring rationale). Now a single private method; the docstring lives there. No behavioral change.
+
+**Fix — `useInvitationLanding` cloud auto-flip rejection.** Previously `void switchMode('cloud').catch(() => {})` silently swallowed any flip failure, leaving the banner stuck in `pre_auth` indefinitely with no console signal. Now logs a `[useInvitationLanding] cloud auto-flip failed:` warning, consumes `SESSION_KEY` (symmetric with `dismiss()` and Effect 4's grace-timer path), then transitions the banner back to `idle`. Recovery is automatic on transient Firestore errors.
+
+**Fix — `shareProject` `meta.members` null guard.** `meta.members[uid]` was accessed without first verifying `meta.members` exists. A malformed project document (missing the `members` field) would throw an unhandled `TypeError` instead of the friendly "Only the project owner can share projects." error. Now guards with `if (!meta.members || meta.members[uid] !== 'owner')`. Same friendly error message; no behavioral change for healthy documents.
+
+**Fix — Firestore-input sanitization in `firestore-converters.ts`.** `userSettingsToAppData` (settings load path) and `firestoreSnapshotToFlat` (snapshot read path) previously cast `chartColors` and `chartDisplaySettings` from Firestore directly to their typed interfaces without sanitization. Now route both through the existing `sanitizeChartColors` / `sanitizeDisplaySettings` helpers from `validation.ts` — defense-in-depth against future Firestore schema drift, manually edited documents, or third-party tools writing to the same collections. Both helpers already returned defaults on malformed input; no new utility code.
+
+**Refactor — `migrateReleaseStatus` signature.** Accepts `{ status?: unknown; completed?: unknown }` directly instead of `Record<string, unknown>`. Eliminates the two `data as unknown as Record<string, unknown>` double casts at the call sites in `firestore-converters.ts` (`firestoreReleasesToFlat` and `firestoreSnapshotToFlat`). Pure type-signature change; runtime behavior unchanged.
+
+**Deps — type-only bumps.** `@types/react` `^19` → `^19.2.14` (released 2026-02-11); `@types/react-dom` `^19` → `^19.2.3` (released 2025-11-12). Both pre-60-day window. All other dependency updates (firebase, next, react, vitest, eslint-config-next, etc.) released within the 60-day window per repo policy and are intentionally held for v0.22.2+.
+
+**Modified Files:**
+- `src/features/projects/ShareDialog.tsx` — defined `InvitationSection` in-file; moved bulk-flow state, listPendingInvites useEffect, bulk handlers, and revoke ConfirmDialog into it; replaced flag-on render branch
+- `src/shared/utils/export.ts` — added `triggerJsonDownload` helper; deduped 4 download blocks
+- `src/shared/utils/validation.ts` — `migrateReleaseStatus` signature change
+- `src/shared/utils/firestore-converters.ts` — applied sanitizers at 3 cast sites; dropped 2 double casts
+- `src/shared/storage/firestore-gantt-storage-service.ts` — added `listMemberProjects()` private helper; deduped 3 preambles; added `QueryDocumentSnapshot` to firestore-type imports
+- `src/shared/storage/firestore-sharing.ts` — added `meta.members` null guard in `shareProject`
+- `src/shared/hooks/useInvitationLanding.ts` — replaced silent catch with logged-rejection + idle reset path (consumes `SESSION_KEY` first)
+- `src/shared/storage/__tests__/firestore-sharing.test.ts` — +1 test for `members === undefined` guard
+- `src/shared/hooks/__tests__/useInvitationLanding.test.ts` — new test file, +1 test for cloud auto-flip rejection branch
+- Version + docs: `src/lib/version.ts`, `package.json` (with type-decl bumps), `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All 1173 existing tests pass; +2 targeted tests added (1175 total)
+- Production build succeeds with Turbopack
+
+---
+
 ## Version 0.21.1 (2026-05-05)
 ### UX: De-emphasize Export All / Import toolbar buttons
 
@@ -35,17 +76,26 @@ This release rebuilds them as grayscale icon+text buttons that adopt color only 
 ## Version 0.21.0 (2026-05-05)
 ### Fix: Cloud projects load again in multi-tenant Firestore
 
-User reported all cloud project loads failing with `Permission denied` errors after multiple uids accumulated in the `ganttapp_projects` collection. Root cause: the Firestore `list` rule referenced `resource.data.members`, which Firestore cannot evaluate for `list` operations.
+User reported all cloud project loads failing with `Permission denied` errors after multiple uids accumulated in the `ganttapp_projects` collection (Microsoft + Google profile sessions during v0.20.1 testing). Root cause: the Firestore `list` rule referenced `resource.data.members[request.auth.uid]`, which Firestore cannot evaluate for `list` operations (rules apply to query shape, not per-document). The unconstrained `getDocs(collection(...))` call worked when the user owned every project in the collection, broke as soon as any foreign-owned doc was present.
 
-**App fix:** Three unconstrained collection queries (`loadAppData`, `loadSnapshots`, `saveSnapshots`) now use a constrained `where('members.${uid}', 'in', ['owner', 'editor', 'viewer'])` clause. Server-side filter returns only the user's projects.
+**App fix:** Three unconstrained collection queries in `firestore-gantt-storage-service.ts` (`loadAppData` line 116, `loadSnapshots` line 191, `saveSnapshots` line 223) now use a constrained `where('members.${uid}', 'in', ['owner', 'editor', 'viewer'])` clause. Server-side filter returns only the user's projects. Client-side membership check kept as defense-in-depth.
 
-**Rules fix:** `ganttapp_projects/list` rule relaxed to `if isAuth()` only. Suite-wide canonical pattern (matches SPERT-Story-Map v0.14.3 and `cloud-storage-guide/ARCHITECTURE.md` §6.5 + §7).
+**Rules fix:** `ganttapp_projects/list` rule relaxed to `if isAuth()` only. Rules cannot validate dynamic field paths in `where()` clauses, so the suite-wide canonical pattern is to authenticate the list, then trust the constrained `where()` clause to filter results server-side. Matches the pattern adopted by SPERT-Story-Map in v0.14.3 and documented in `cloud-storage-guide/ARCHITECTURE.md` §6.5 + §7.
 
-**Security:** authenticated users could `list` project metadata (name, owner, members, finishDate, workDays, legendLabels). No release/snapshot content exposed (subcollection rules unchanged). Same posture as every other SPERT app.
+**Security tradeoff:** authenticated SPERT users could in principle issue an unconstrained `list` to see project metadata (name, owner, members map, finishDate, workDays, legendLabels). No release content or snapshot content is exposed (subcollection rules unchanged — still use `isMemberGet(projectId)`). This is the same security posture every other SPERT app's projects collection already operates under.
+
+**Modified Files:**
+- `src/shared/storage/firestore-gantt-storage-service.ts` — added `where` import; constrained queries in `loadAppData`, `loadSnapshots`, `saveSnapshots`
+- `src/shared/storage/__tests__/firestore-gantt-storage-service.test.ts` — +1 regression test
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`, `CLAUDE.md`
+- (Separate) `spert-landing-page/firestore.rules` — mirror PR after Console deploy
 
 **Verification:**
 - All 1166 tests pass (+1 net new)
-- TypeScript clean, production build succeeds, lint clean
+- TypeScript type-check clean
+- Production build succeeds with Turbopack
+- Lint clean
+- Manual post-deploy: Microsoft sign-in loads projects without console errors; Share button (v0.20.1 fix) appears on owned tiles
 
 ---
 
@@ -59,6 +109,18 @@ Three related fixes for in-memory `Project.owner` handling, after a user reporte
 **Gap C — `cloneProject` propagates source's `owner` blindly.** `useProjects.cloneProject` used `...source` spread, so cloning a project shared *to* you carried the original owner's uid into the clone's in-memory state. Firestore overwrote it on save (via `existingMeta?.owner ?? uid`), but in-memory was wrong until reload. Fix: replace bare spread with explicit field copy that excludes `owner`, then conditionally re-add it bound to the current user.
 
 **Bug B — `validateLoadedData` strips `owner` on localStorage round-trip (defense-in-depth).** The localStorage sanitizer dropped the `owner` field. Any path where cloud-mode data round-tripped through the local validator would lose ownership. Fix: preserve `owner` through `sanitizeId()` when present.
+
+**Modified Files:**
+- `src/features/projects/useProjects.ts` — added `useAuth()`, seed `owner` in `addProject` and `cloneProject`
+- `src/shared/utils/storage.ts` — preserve `owner` field in `validateLoadedData`
+- `src/lib/version.ts` — `APP_VERSION` → `0.20.1`
+- `package.json` — version field
+- `src/features/changelog/changelog-data.tsx` — new entry prepended
+- `CHANGELOG.md`, `public/CHANGELOG.md` — new entry prepended
+- `CLAUDE.md` — Current Version + this subsection
+- `src/features/changelog/__tests__/ChangelogTab.test.tsx` — version-order assertion updated
+- `src/features/projects/__tests__/useProjects.test.tsx` — +2 regression tests
+- `src/shared/utils/__tests__/storage.test.ts` — +4 regression tests
 
 **Verification:**
 - All 1171 tests pass (up from 1165, +6 net new)

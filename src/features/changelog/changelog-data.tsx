@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.22.1',
+    date: 'May 9, 2026',
+    items: [
+      <><strong>Refactor</strong> &mdash; Bulk-invitation flow extracted from <code>ShareDialog.tsx</code> as an in-file <code>InvitationSection</code> component. Parent retains the members section, the legacy single-email panel, the remove-member confirm modal, and the shared <code>OwnerStatus</code> gating. The legacy panel is intentionally <em>not</em> extracted &mdash; it is marked for deletion when <code>INVITATIONS_ENABLED</code> becomes permanent</>,
+      <><strong>Refactor</strong> &mdash; New <code>triggerJsonDownload(payload, filename)</code> helper in <code>export.ts</code> centralizes the Blob &rarr; URL &rarr; anchor-click &rarr; revoke sequence shared by <code>exportData</code>, <code>exportAllProjects</code>, <code>exportSingleProject</code>, and <code>exportSelectedProjects</code> &mdash; single point of change for download UX</>,
+      <><strong>Refactor</strong> &mdash; New <code>listMemberProjects()</code> private method on <code>FirestoreGanttStorageServiceImpl</code> dedupes the constrained-query + defense-in-depth preamble previously inlined in <code>loadAppData</code>, <code>loadSnapshots</code>, and <code>saveSnapshots</code></>,
+      <><strong>Fix</strong> &mdash; <code>useInvitationLanding</code> cloud auto-flip now logs rejected attempts and drops the banner back to <code>idle</code> (consuming <code>SESSION_KEY</code> first, symmetric with <code>dismiss()</code>) so a transient flip failure no longer leaves the user stuck in <code>pre_auth</code> indefinitely</>,
+      <><strong>Fix</strong> &mdash; <code>shareProject</code> now guards <code>meta.members</code> for null before the role check &mdash; a malformed project document yields the friendly &ldquo;Only the project owner can share projects&rdquo; error rather than an unhandled <code>TypeError</code></>,
+      <><strong>Fix</strong> &mdash; Firestore reads in <code>userSettingsToAppData</code> and <code>firestoreSnapshotToFlat</code> now route <code>chartColors</code> and <code>chartDisplaySettings</code> through the existing <code>sanitizeChartColors</code> / <code>sanitizeDisplaySettings</code> helpers (defense-in-depth against schema drift or manual doc edits)</>,
+      <><strong>Refactor</strong> &mdash; <code>migrateReleaseStatus</code> signature accepts <code>&#123; status?: unknown; completed?: unknown &#125;</code> directly. Eliminates the two <code>data as unknown as Record&lt;string, unknown&gt;</code> double casts at the call sites in <code>firestore-converters.ts</code></>,
+      <><strong>Deps</strong> &mdash; <code>@types/react</code> <code>^19</code> &rarr; <code>^19.2.14</code>; <code>@types/react-dom</code> <code>^19</code> &rarr; <code>^19.2.3</code>. Type-only declarations; both released before the 60-day window</>,
+    ],
+  },
+  {
     version: '0.22.0',
     date: 'May 8, 2026',
     items: [

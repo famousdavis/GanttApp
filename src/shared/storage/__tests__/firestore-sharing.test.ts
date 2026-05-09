@@ -85,6 +85,29 @@ describe('firestore-sharing', () => {
       ).rejects.toThrow('Only the project owner can share projects');
     });
 
+    it('throws friendly owner-only error when project document is missing the members field (v0.22.1 guard)', async () => {
+      // Regression: pre-v0.22.1, meta.members[uid] threw an unhandled
+      // TypeError when meta.members was undefined (malformed doc). The
+      // members null guard now produces the same friendly message as the
+      // non-owner case so the user sees a recoverable error.
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [{ id: 'target-uid', data: () => ({ email: 'target@test.com' }) }],
+      });
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        // Note: members field intentionally omitted to simulate the malformed-doc case.
+        data: () => ({
+          name: 'P1', owner: 'real-owner',
+          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
+        }),
+      });
+
+      await expect(
+        shareProject(mockDb, mockUid, 'p1', 'target@test.com', 'editor')
+      ).rejects.toThrow('Only the project owner can share projects');
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
     it('adds member to project when user found', async () => {
       // Mock user lookup
       mockGetDocs.mockResolvedValueOnce({

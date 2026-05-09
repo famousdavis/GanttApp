@@ -267,7 +267,7 @@ export function sanitizeDisplaySettings(settings: unknown): ChartDisplaySettings
  * Reads `status` first (with whitelist check), falls back to `completed === true`.
  * Returns undefined for not-started so the field is omitted from the object.
  */
-export function migrateReleaseStatus(r: Record<string, unknown>): ReleaseStatus | undefined {
+export function migrateReleaseStatus(r: { status?: unknown; completed?: unknown }): ReleaseStatus | undefined {
   const VALID_STATUSES: ReleaseStatus[] = ['not-started', 'in-progress', 'complete'];
   if (typeof r.status === 'string' && VALID_STATUSES.includes(r.status as ReleaseStatus)) {
     return r.status === 'not-started' ? undefined : r.status as ReleaseStatus;

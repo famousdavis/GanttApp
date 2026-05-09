@@ -94,7 +94,15 @@ export function useInvitationLanding(opts: UseInvitationLandingOptions): UseInvi
     if (!isFirebaseAvailable) return;
     if (localProjectCount > 0) return;
     cloudFlipAttempted.current = true;
-    void switchMode('cloud').catch(() => {});
+    void switchMode('cloud').catch((err) => {
+      console.warn('[useInvitationLanding] cloud auto-flip failed:', err);
+      // Drop the banner back to idle so the user is not stuck in pre_auth
+      // when the flip fails (e.g., transient Firestore error). Symmetric
+      // with dismiss(): consume SESSION_KEY before transitioning so a
+      // reload mid-state cannot rehydrate pre_auth.
+      sessionStorage.removeItem(SESSION_KEY);
+      setBannerState('idle');
+    });
   }, [bannerState, appDataLoading, localProjectCount, switchMode]);
 
   // Effect 3 — claim listener with SESSION_KEY entry-gate. Without the gate,

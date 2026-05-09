@@ -15,6 +15,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.22.0',
+    date: 'May 8, 2026',
+    items: [
+      <><strong>Fix</strong> &mdash; <strong>Bulk-sharing retrograde-audit remediation</strong> (May 2026 audit). Nine confirmed gaps fixed across two PRs, hardening the invitation-banner state machine, the bulk-send pipeline, and the member-removal transaction</>,
+      <><strong>Fix</strong> &mdash; <code>removeCollaborator</code> now runs all four guards inside <code>runTransaction</code> so the project-exists check, both ownership guards, and the membership write + <code>_changeLog</code> append cannot interleave with concurrent owner activity. New pre-transaction guard 1 surfaces a user-friendly &ldquo;Cannot remove yourself from a project.&rdquo; when an owner clicks Remove on themselves (LESSONS-LEARNED §50)</>,
+      <><strong>Fix</strong> &mdash; <code>claimPendingInvitationsAndNotify</code> short-circuits on <code>firebaseUser.emailVerified === false</code>. Microsoft personal accounts and unverified Google accounts no longer trigger noisy <code>failed-precondition</code> console errors on every auth resolution (LESSONS-LEARNED §26)</>,
+      <><strong>Fix</strong> &mdash; <code>useInvitationLanding</code> rewrite. Cloud auto-flip on invite-link arrival is now gated on <code>localProjectCount === 0</code> so users with local content keep their projects (LESSONS-LEARNED §28). The <code>spert:models-changed</code> listener checks <code>sessionStorage[SESSION_KEY]</code> as its first line so spurious &ldquo;you&apos;ve been added to&rdquo; banners no longer appear on normal sign-in (LESSONS-LEARNED §27). A 30 s grace timer transitions stuck <code>pre_auth</code> back to <code>idle</code> and consumes <code>SESSION_KEY</code> before <code>setState</code> so a reload mid-timer cannot rehydrate the stale state (LESSONS-LEARNED §59)</>,
+      <><strong>Fix</strong> &mdash; <code>parseBulkEmails</code> now returns <code>&#123; valid, invalid &#125;</code> and runs every token through <code>EMAIL_RE</code>. Share dialog renders rejected tokens in a red &ldquo;Skipped N: &hellip;&rdquo; chip below the textarea instead of silently dropping them. When zero addresses are valid, no CF call fires and the textarea content is preserved so typos can be corrected in place (LESSONS-LEARNED §42)</>,
+      <><strong>Fix</strong> &mdash; Share dialog gains a four-state <code>OwnerStatus</code> enum (<code>loading</code> / <code>owner</code> / <code>not-owner</code> / <code>error</code>). When <code>getProjectMembers</code> rejects, the bulk UI is replaced by &ldquo;Couldn&apos;t load sharing details. Refresh the page to try again.&rdquo; rather than leaving the user with a half-loaded dialog (LESSONS-LEARNED §60)</>,
+      <><strong>Fix</strong> &mdash; Post-send refresh now uses <code>Promise.allSettled</code>. A transient error on <code>listPendingInvites</code> can no longer discard a fulfilled <code>getProjectMembers</code> value, and the members list updates independently (LESSONS-LEARNED §64)</>,
+      <><strong>Refactor</strong> &mdash; <code>useInvitationLanding</code> initial state now derived in a <code>useState</code> lazy initializer. Pages Router has no SSR justification for <code>setState</code>-in-effect, so the <code>react-hooks/set-state-in-effect</code> rule holds without an <code>eslint-disable</code>. Eliminates the visible &ldquo;idle &rarr; pre_auth&rdquo; flicker on invite-link arrivals (LESSONS-LEARNED §66)</>,
+      <><strong>UX</strong> &mdash; <code>InvitationBanner</code> renders as a 512 px max-width centered card so the sign-in CTA sits at the visual focus of the page. <code>FirstRunBanner</code> stays full-width as a passive info strip &mdash; the deliberate divergence is documented inline (LESSONS-LEARNED §56)</>,
+      <><strong>Tests</strong> &mdash; +6 EMAIL_RE coverage tests on <code>parseBulkEmails</code>, +3 transaction-guard tests on <code>removeCollaborator</code>, +1 service-wrapper test for owner self-removal. Suite total: 1167 &rarr; 1173 (no regressions)</>,
+    ],
+  },
+  {
     version: '0.21.1',
     date: 'May 5, 2026',
     items: [

@@ -1,5 +1,50 @@
 # Change Log
 
+## Version 0.22.2 (2026-05-09)
+### Security: app-side companion to the v0.22.2 Firestore rules audit (S1, S2, S3, S4, S5, S6, S7, S9)
+
+This is the GanttApp client-side companion to the suite-wide `firestore.rules` deploy. No user-visible behavior changes; the entire release is defense-in-depth and identity-leak cleanup. Findings ID prefix `S` is from the v0.22.2 GanttApp security audit; rules-side changes (S1 rule layer, S2, S4) ship in `spert-landing-page` and deploy via Firebase Console / `firebase deploy --only firestore:rules`.
+
+**S1 / S8 (HIGH) — legacy `shareProject()` deleted.** The pre-flag-on single-email Share path performed an unbounded `getDocs(collection('ganttapp_profiles'))` scan to resolve email→uid client-side. Combined with the prior `allow read: if isAuth()` rule on `ganttapp_profiles`, this permitted bulk profile enumeration by any authenticated SPERT user. Bulk invitations via the `sendInvitationEmail` Cloud Function are now the only email→share path. Companion rules tighten `ganttapp_profiles` to `get` + `limit(1)`-constrained `list`. Removals: `shareProject()` in `firestore-sharing.ts`, the corresponding method on `CloudGanttStorageService`, the `INVITATIONS_ENABLED === false` legacy panel in `ShareDialog`, the parent's `email`/`role`/`handleShare` legacy state, the `shareProject` describe blocks in `firestore-sharing.test.ts` and `firestore-gantt-storage-service.test.ts`, and the dead `FirestoreDriver` class + its test (V11).
+
+**S2 (M5) — `ganttapp_projects` create rule binds `owner`.** Companion rules-only change. App code already wrote `owner: uid` on create; the rule layer now requires it (`request.resource.data.owner == request.auth.uid`), matching Story Map v0.29.2 / Forecaster / CFD / AHP.
+
+**S3 Option A — `confirmKeepLocalCopy` strips cloud `owner` UID.** When a user retains their cloud projects locally on cloud→local switch, each project's `Project.owner` Firebase UID was previously persisted to `localStorage`. Subsequent browser users could read it after sign-out, cross-referencing identity across SPERT apps. Now stripped before `localService.saveAppData(...)` via destructure-and-spread. Round-trip preserved: re-upload via `projectToFirestoreMeta` re-binds `owner` from the current authenticated user.
+
+**S4 (M4) — `ganttapp_projects` + releases + snapshots field allowlists.** Companion rules-only change. Three helper functions (`ganttAppProjectFields`, `ganttAppReleaseFields`, `ganttAppSnapshotFields`) match the converters in `firestore-converters.ts`. `keys().hasOnly(...)` on create, `affectedKeys().hasOnly(...)` on update. Closes the gap where any owner/editor could write arbitrary unknown fields.
+
+**S5 — `Project.owner` UID stripped from JSON exports.** New `stripCloudIdentity()` helper in `export.ts` applied at all four export entry points (`exportData`, `exportAllProjects`, `exportSingleProject`, `exportSelectedProjects`). The cloud user's Firebase UID is no longer present in exported JSON files, where it could be cross-referenced if files are shared. The deliberate `_exportedBy` user attribution and `_storageRef` provenance metadata remain — only the per-project `Project.owner` field is stripped.
+
+**S6 — `claimPendingInvitations` failure log no longer includes UID.** `console.error` in `AuthContext.tsx` previously logged `firebaseUser.uid` alongside the error code. Devtools / screenshares would otherwise expose the user's Firebase identity. Server-side Cloud Function logs include the authenticated UID via the request context, so triage doesn't lose anything.
+
+**S7 — bare `AuthContext.signOut` deleted.** The exposed-but-unused `signOut` callback on the auth context value called `firebaseSignOut(auth)` directly, bypassing `performSignOutWithCleanup` (no cancelPendingSaves, no runAppDataReset, no storage swap, no localStorage cleanup). Verified zero live consumers via grep before deletion. All sign-out paths must now route through `StorageContext.performSignOutWithCleanup` — there is no longer an alternative.
+
+**S9 — `subscribeToProject` permission-denied unsubscribe.** When a project owner removes a user mid-session, the user's `onSnapshot` listener fires a permission-denied error. Previously the listener kept retrying and remained in `this.unsubscribers`, occupying a slot. Now the error callback explicitly calls `unsubscribe()` and removes the entry on `permission-denied` only. Other error codes (`unavailable`, `deadline-exceeded`) remain transient and are left to the SDK's retry loop.
+
+**Modified Files:**
+- `src/shared/storage/firestore-sharing.ts` — deleted `shareProject()`; removed `setDoc` import
+- `src/shared/storage/firestore-gantt-storage-service.ts` — removed `shareProject` from interface + class; hardened `subscribeToProject` error handler (S9)
+- `src/shared/storage/index.ts` — removed `FirestoreDriver` and `shareProject` exports
+- `src/shared/storage/firestore-driver.ts` — DELETED (dead code, V11)
+- `src/shared/storage/__tests__/firestore-driver.test.ts` — DELETED
+- `src/shared/storage/__tests__/firestore-sharing.test.ts` — removed `shareProject` describe block
+- `src/shared/storage/__tests__/firestore-gantt-storage-service.test.ts` — removed `shareProject` describe block
+- `src/features/projects/ShareDialog.tsx` — removed legacy single-email panel and the `INVITATIONS_ENABLED === false` branch; cleaned up parent state and unused imports
+- `src/features/projects/__tests__/ShareDialog.test.tsx` — removed `shareProject` from mock factory
+- `src/context/AuthContext.tsx` — deleted bare `signOut` from context (S7); removed UID from claim-failure log (S6)
+- `src/context/__tests__/AuthContext.test.tsx` — removed `signOut` test
+- `src/context/StorageContext.tsx` — strip `owner` UID in `confirmKeepLocalCopy` (S3 Option A)
+- `src/shared/utils/export.ts` — added `stripCloudIdentity()` helper applied at four export entry points (S5)
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All existing tests pass (1175 baseline → reduced by deleted shareProject + FirestoreDriver tests; final count established at PR merge)
+- Production build succeeds with Turbopack
+
+---
+
 ## Version 0.22.1 (2026-05-09)
 ### Refactor: in-file InvitationSection extraction + small dedupe sweep + sanitization hardening
 

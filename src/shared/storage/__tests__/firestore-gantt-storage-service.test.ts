@@ -389,15 +389,9 @@ describe('FirestoreGanttStorageService', () => {
     });
   });
 
-  describe('shareProject', () => {
-    it('throws when target user not found', async () => {
-      mockGetDocs.mockResolvedValue({ docs: [] }); // no users found
-
-      await expect(
-        service.shareProject('p1', 'unknown@test.com', 'editor')
-      ).rejects.toThrow('not found');
-    });
-  });
+  // shareProject describe block removed in v0.22.2 — the legacy single-email
+  // path was deleted (S1 Option A / S8). Bulk invitations via the
+  // sendInvitationEmail Cloud Function are the only remaining email→share path.
 
   describe('removeCollaborator', () => {
     it('throws on self-removal with the user-friendly guard-1 message', async () => {

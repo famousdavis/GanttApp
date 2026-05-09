@@ -3,57 +3,18 @@
 // See LICENSE file in the project root for full license text.
 
 // Firestore sharing operations — extracted from FirestoreGanttStorageServiceImpl.
-// Standalone functions for project sharing, member management, and user profiles.
+// Standalone functions for member management, invitations, and profile reads.
+//
+// v0.22.2 (S1 Option A / S8): the legacy single-email shareProject() helper
+// was deleted. It performed an unbounded getDocs(collection('ganttapp_profiles'))
+// scan to resolve email→uid, which combined with the old `allow read: if isAuth()`
+// rule on ganttapp_profiles permitted bulk profile enumeration. The bulk
+// invitation flow (sendInvitationEmail Cloud Function) is the only path now.
 
 import type { FirestoreProjectMeta, PendingInvite, ProjectRole } from '../types/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, getDocs, setDoc, collection, deleteField, query, where, runTransaction, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, deleteField, query, where, runTransaction, Timestamp } from 'firebase/firestore';
 import { appendChangeLogEntry } from '../utils/firestore-converters';
-
-/** Share a project with another user by email. */
-export async function shareProject(
-  db: Firestore,
-  uid: string,
-  projectId: string,
-  targetEmail: string,
-  role: ProjectRole
-): Promise<void> {
-  // Look up user by email
-  const usersSnap = await getDocs(collection(db, 'ganttapp_profiles'));
-  let targetUid: string | null = null;
-
-  for (const userDoc of usersSnap.docs) {
-    const profile = userDoc.data();
-    if (profile.email === targetEmail) {
-      targetUid = userDoc.id;
-      break;
-    }
-  }
-
-  if (!targetUid) {
-    throw new Error('User not found. They must sign in at least once first.');
-  }
-
-  // Update project members
-  const projectRef = doc(db, `ganttapp_projects/${projectId}`);
-  const projectSnap = await getDoc(projectRef);
-  if (!projectSnap.exists()) throw new Error('Project not found');
-
-  const meta = projectSnap.data() as FirestoreProjectMeta;
-  if (!meta.members || meta.members[uid] !== 'owner') {
-    throw new Error('Only the project owner can share projects.');
-  }
-  meta.members[targetUid] = role;
-  meta.updatedAt = new Date().toISOString();
-  meta._changeLog = appendChangeLogEntry(meta._changeLog ?? [], {
-    timestamp: new Date().toISOString(),
-    uid,
-    action: 'update',
-    target: `member:${targetUid}:${role}`,
-  });
-
-  await setDoc(projectRef, meta);
-}
 
 /**
  * Remove a member from a project. All four guards run inside a single

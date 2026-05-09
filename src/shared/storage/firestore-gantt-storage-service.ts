@@ -42,7 +42,6 @@ import {
 import { sanitizeFirebaseError } from '../utils/validation';
 import { executeFirestoreSave } from './firestore-save-executor';
 import {
-  shareProject as shareProjectFn,
   removeCollaborator as removeCollaboratorFn,
   getProjectMembers as getProjectMembersFn,
   listPendingInvites as listPendingInvitesFn,
@@ -57,7 +56,6 @@ export interface CloudGanttStorageService extends GanttStorageService {
     projectId: string,
     callback: (releases: Release[], snapshot: QuerySnapshot) => void
   ): () => void;
-  shareProject(projectId: string, targetEmail: string, role: ProjectRole): Promise<void>;
   /** Renamed from removeProjectMember in v18.0.0 (D3). */
   removeCollaborator(projectId: string, targetUid: string): Promise<void>;
   getProjectMembers(projectId: string): Promise<{ uid: string; role: ProjectRole; email?: string }[]>;
@@ -277,7 +275,12 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const releasesRef = collection(this.db, `ganttapp_projects/${projectId}/releases`);
     const q = query(releasesRef);
 
-    const unsubscribe = onSnapshot(
+    // Hold a forward reference so the error callback can call the latest
+    // unsubscribe — `unsubscribe` itself isn't initialized until onSnapshot
+    // returns, but the error callback may fire on the same tick.
+    let unsubscribe: () => void = () => {};
+
+    unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
         const entries = querySnapshot.docs.map(d => ({
@@ -291,19 +294,23 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         const message = sanitizeFirebaseError(error);
         console.error('Project subscription error:', message);
         // Surface the error through the same channel as auto-save failures.
-        // GanttApp does not maintain a doc-keyed listener tracking map, so
-        // there is no entry to remove for re-subscription; a full reconnect
-        // mechanism is deferred.
         this.onSaveResult?.(message);
+        // v0.22.2 (S9): on permission-denied, the listener has been
+        // permanently rejected (e.g., the owner just removed this user
+        // from the project). Tear down the subscription and remove our
+        // entry from the unsubscribers list so dispose() doesn't run a
+        // dead handle. Other error codes (unavailable, deadline-exceeded)
+        // are transient — leave them to the SDK's internal retry.
+        const code = (error as { code?: string }).code;
+        if (code === 'permission-denied') {
+          unsubscribe();
+          this.unsubscribers = this.unsubscribers.filter(u => u !== unsubscribe);
+        }
       }
     );
 
     this.unsubscribers.push(unsubscribe);
     return unsubscribe;
-  }
-
-  async shareProject(projectId: string, targetEmail: string, role: ProjectRole): Promise<void> {
-    return shareProjectFn(this.db, this.uid, projectId, targetEmail, role);
   }
 
   async removeCollaborator(projectId: string, targetUid: string): Promise<void> {

@@ -39,7 +39,6 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import {
-  shareProject,
   removeCollaborator,
   getProjectMembers,
   listPendingInvites,
@@ -57,78 +56,9 @@ describe('firestore-sharing', () => {
     mockCollection.mockImplementation((...args: unknown[]) => `col:${(args as string[]).slice(1).join('/')}`);
   });
 
-  describe('shareProject', () => {
-    it('throws when target user not found', async () => {
-      mockGetDocs.mockResolvedValue({ docs: [] });
-
-      await expect(
-        shareProject(mockDb, mockUid, 'p1', 'unknown@test.com', 'editor')
-      ).rejects.toThrow('not found');
-    });
-
-    it('throws when non-owner tries to share', async () => {
-      // Mock user lookup — find the target
-      mockGetDocs.mockResolvedValueOnce({
-        docs: [{ id: 'target-uid', data: () => ({ email: 'target@test.com' }) }],
-      });
-      // Mock project — caller is editor, not owner
-      mockGetDoc.mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          name: 'P1', owner: 'real-owner', members: { 'real-owner': 'owner', [mockUid]: 'editor' },
-          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
-        }),
-      });
-
-      await expect(
-        shareProject(mockDb, mockUid, 'p1', 'target@test.com', 'editor')
-      ).rejects.toThrow('Only the project owner can share projects');
-    });
-
-    it('throws friendly owner-only error when project document is missing the members field (v0.22.1 guard)', async () => {
-      // Regression: pre-v0.22.1, meta.members[uid] threw an unhandled
-      // TypeError when meta.members was undefined (malformed doc). The
-      // members null guard now produces the same friendly message as the
-      // non-owner case so the user sees a recoverable error.
-      mockGetDocs.mockResolvedValueOnce({
-        docs: [{ id: 'target-uid', data: () => ({ email: 'target@test.com' }) }],
-      });
-      mockGetDoc.mockResolvedValueOnce({
-        exists: () => true,
-        // Note: members field intentionally omitted to simulate the malformed-doc case.
-        data: () => ({
-          name: 'P1', owner: 'real-owner',
-          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
-        }),
-      });
-
-      await expect(
-        shareProject(mockDb, mockUid, 'p1', 'target@test.com', 'editor')
-      ).rejects.toThrow('Only the project owner can share projects');
-      expect(mockSetDoc).not.toHaveBeenCalled();
-    });
-
-    it('adds member to project when user found', async () => {
-      // Mock user lookup
-      mockGetDocs.mockResolvedValueOnce({
-        docs: [{ id: 'target-uid', data: () => ({ email: 'target@test.com' }) }],
-      });
-      // Mock project get
-      mockGetDoc.mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          name: 'P1', owner: mockUid, members: { [mockUid]: 'owner' },
-          schemaVersion: 1, createdAt: '', updatedAt: '', _changeLog: [],
-        }),
-      });
-      mockSetDoc.mockResolvedValue(undefined);
-
-      await shareProject(mockDb, mockUid, 'p1', 'target@test.com', 'editor');
-      expect(mockSetDoc).toHaveBeenCalledTimes(1);
-      const savedMeta = mockSetDoc.mock.calls[0][1];
-      expect(savedMeta.members['target-uid']).toBe('editor');
-    });
-  });
+  // shareProject describe block removed in v0.22.2 — the legacy single-email
+  // helper was deleted (S1 Option A / S8). The bulk-invitation flow
+  // (sendInvitationEmail Cloud Function) is the only remaining email→share path.
 
   describe('removeCollaborator', () => {
     it('throws on self-removal before opening a transaction (guard 1)', async () => {

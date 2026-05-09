@@ -132,17 +132,8 @@ describe('AuthContext', () => {
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
   });
 
-  it('calls firebase signOut', async () => {
-    mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: null) => void) => {
-      callback(null);
-      return vi.fn();
-    });
-    mockSignOut.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useAuth(), { wrapper });
-    await act(async () => {
-      await result.current.signOut();
-    });
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
-  });
+  // 'calls firebase signOut' test removed in v0.22.2 (S7) — the bare
+  // AuthContext.signOut() helper was deleted. Sign-out paths now route
+  // through StorageContext.performSignOutWithCleanup, which has its own
+  // coverage in StorageContext.test.tsx.
 });

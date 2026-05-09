@@ -17,7 +17,6 @@ function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): 
     loadSnapshots: vi.fn().mockResolvedValue([]),
     saveSnapshots: vi.fn().mockResolvedValue(undefined),
     subscribeToProject: vi.fn().mockReturnValue(vi.fn()),
-    shareProject: vi.fn().mockResolvedValue(undefined),
     removeCollaborator: vi.fn().mockResolvedValue(undefined),
     getProjectMembers: vi.fn().mockResolvedValue([
       { uid: 'owner-uid', role: 'owner', email: 'owner@example.com' },

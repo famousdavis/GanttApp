@@ -7,8 +7,9 @@
 import { AppData } from '../types/app';
 import { Project } from '../types/models';
 import { Snapshot } from '../types/snapshots';
-import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES } from './validation';
+import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES, MAX_NAME_LENGTH } from './validation';
 import { validateSnapshot } from './snapshots';
+import { generateId } from './dates';
 
 // Maximum limits for imported data to prevent DoS via large files
 const MAX_PROJECTS = 50;
@@ -439,63 +440,330 @@ export async function exportSelectedProjects(
   return { exported: projects.length };
 }
 
+// ============================================================================
+// v0.24.0 — Smart Import with Per-Project Conflict Resolution
+// ============================================================================
+
 /**
- * Merge incoming projects into the existing workspace (v19.0).
- *
- * Used by the additive import path. Projects whose `id` already exists in
- * `existing.projects` are skipped (count returned). Releases and snapshots are
- * filtered to the accepted project IDs only. Snapshots are deduplicated against
- * `existingSnapshots` by snapshot ID.
- *
- * Note: this bypasses the MAX_SNAPSHOTS_TOTAL cap. This is consistent with the
- * existing applyImport (replace-all) path, which also calls onReplaceSnapshots
- * directly and bypasses the cap.
- *
- * Existing global settings (chartColors, displaySettings, attribution, etc.)
- * are preserved untouched — only `projects` and `releases` are extended.
+ * A conflict between an incoming project and an existing project.
+ * `type: 'id'` means the IDs match (same project). `type: 'name'` means the
+ * lowercased-trimmed names match but the IDs differ (coincidental name collision).
+ * If both match, only `'id'` is reported.
  */
-export function mergeImportedProjects(
-  existing: AppData,
-  incoming: ImportResult,
-  existingSnapshots: Snapshot[]
-): {
+export type ImportConflict = {
+  type: 'id' | 'name';
+  incomingProject: Project;
+  existingProject: Project;
+};
+
+export type ConflictAction = 'skip' | 'copy' | 'replace';
+
+export type ImportDecisionResult = {
+  added: number;
+  skipped: number;
+  copied: number;
+  replaced: number;
+  /**
+   * Keyed by EXISTING project ID → incoming project ID that replaced it.
+   * Only populated for NAME conflicts (existing.id ≠ incoming.id).
+   * ID conflicts produce no entry (existing.id === incoming.id, no remap needed).
+   * Every entry signals a genuine ID change the call site must act on.
+   */
+  replacedIdMap: Map<string, string>;
+};
+
+export type ApplyImportResult = {
   mergedData: AppData;
   mergedSnapshots: Snapshot[];
-  skipped: number;
-} {
-  const seenIds = new Set(existing.projects.map(p => p.id));
-  const accepted: typeof existing.projects = [];
+  result: ImportDecisionResult;
+};
+
+/**
+ * Detect conflicts between an incoming import and the existing workspace.
+ * Returns one entry per conflicting incoming project.
+ *
+ * - ID match → `type: 'id'`
+ * - Lowercased-trimmed name match (with no ID match) → `type: 'name'`
+ * - Both match → `'id'` only
+ * - No match → no entry
+ *
+ * Name-match resolution uses first-insert-wins: if two existing projects share
+ * a lowercased-trimmed name, the FIRST one in array order is returned for any
+ * name conflict (GanttApp does not enforce project-name uniqueness).
+ *
+ * Incoming projects are evaluated against the existing workspace only — two
+ * incoming projects sharing a name with each other are not flagged.
+ */
+export function detectImportConflicts(
+  incoming: ImportResult,
+  existing: AppData
+): ImportConflict[] {
+  const idMap = new Map<string, Project>();
+  for (const p of existing.projects) {
+    idMap.set(p.id, p);
+  }
+  // First-insert-wins preserves first-match semantics on name collisions.
+  const nameMap = new Map<string, Project>();
+  for (const p of existing.projects) {
+    const key = p.name.trim().toLowerCase();
+    if (!nameMap.has(key)) nameMap.set(key, p);
+  }
+
+  const conflicts: ImportConflict[] = [];
+  for (const incomingProject of incoming.appData.projects) {
+    const idHit = idMap.get(incomingProject.id);
+    if (idHit) {
+      conflicts.push({ type: 'id', incomingProject, existingProject: idHit });
+      continue;
+    }
+    const nameKey = incomingProject.name.trim().toLowerCase();
+    const nameHit = nameMap.get(nameKey);
+    if (nameHit) {
+      conflicts.push({ type: 'name', incomingProject, existingProject: nameHit });
+    }
+  }
+  return conflicts;
+}
+
+/**
+ * Returns true iff `a` and `b` represent the same multiset of
+ * (incomingProject.id, type, existingProject.id) tuples. Order-independent.
+ * Used to detect workspace drift between preview and apply.
+ */
+export function conflictsEqual(a: ImportConflict[], b: ImportConflict[]): boolean {
+  if (a.length !== b.length) return false;
+  const tupleKey = (c: ImportConflict) =>
+    `${c.incomingProject.id}${c.type}${c.existingProject.id}`;
+  const counts = new Map<string, number>();
+  for (const c of a) counts.set(tupleKey(c), (counts.get(tupleKey(c)) ?? 0) + 1);
+  for (const c of b) {
+    const k = tupleKey(c);
+    const n = counts.get(k);
+    if (!n) return false;
+    if (n === 1) counts.delete(k); else counts.set(k, n - 1);
+  }
+  return counts.size === 0;
+}
+
+/**
+ * Suffix appended to project names when action is 'copy'.
+ * NOTE: differs from cloneProject in useProjects.ts, which uses " - Copy (N)"
+ * (starting at N=1, iterating up to N=99). Import-copy is unconditional " (2)"
+ * — simpler, but intentionally divergent from the clone UX. Do not "fix" this
+ * without a deliberate UX decision.
+ */
+const COPY_SUFFIX = ' (2)';
+
+/**
+ * Apply per-project decisions to produce a merged AppData and snapshot list.
+ *
+ * Caller contract:
+ * - `decisions` is keyed by incoming project ID. Function does not clone it;
+ *   the caller must not mutate during apply.
+ * - Missing decisions key for a detected conflict → treated as 'skip'
+ *   (safe-by-default; project, releases, AND snapshots all excluded).
+ * - Conflicts are recomputed internally; caller does not pass them in.
+ *
+ * Slot-preservation: 'replace' actions substitute the existing slot in place,
+ * preserving array index and existingProject.owner. This avoids
+ * executeFirestoreSave's prevIndex !== index reorder detection triggering
+ * spurious cloud writes.
+ *
+ * Snapshot cap policy: bypasses MAX_SNAPSHOTS_TOTAL, consistent with the
+ * existing replace-all import path. Diverges from cloneProject, which enforces
+ * the cap and drops snapshots with an alert. Import is a bulk restore operation;
+ * the cap is intentionally bypassed.
+ *
+ * Embedded snapshot.releases handling on 'copy': leave entirely untouched. It
+ * is a frozen historical record. Its embedded `projectId` values are
+ * intentionally left at the original (pre-copy) project ID. Confirmed safe:
+ * snapshot.releases[*].projectId is consumed only by useEffectiveChartProps.ts
+ * as a frozen render input, never joined against live Project.id.
+ *
+ * Global settings (chartColors, legendLabels, displaySettings, etc.) are
+ * preserved untouched from `existing`.
+ */
+export function applyImportDecisions(
+  existing: AppData,
+  incoming: ImportResult,
+  existingSnapshots: Snapshot[],
+  decisions: Map<string, ConflictAction>,
+  idGenerator: () => string = generateId
+): ApplyImportResult {
+  const conflicts = detectImportConflicts(incoming, existing);
+  const conflictByIncomingId = new Map<string, ImportConflict>();
+  for (const c of conflicts) conflictByIncomingId.set(c.incomingProject.id, c);
+
+  const incomingReleasesByProjectId = new Map<string, typeof incoming.appData.releases>();
+  for (const r of incoming.appData.releases) {
+    const list = incomingReleasesByProjectId.get(r.projectId) ?? [];
+    list.push(r);
+    incomingReleasesByProjectId.set(r.projectId, list);
+  }
+  const incomingSnapshotsByProjectId = new Map<string, Snapshot[]>();
+  for (const s of incoming.snapshots ?? []) {
+    const list = incomingSnapshotsByProjectId.get(s.projectId) ?? [];
+    list.push(s);
+    incomingSnapshotsByProjectId.set(s.projectId, list);
+  }
+
+  const resolvedAction = (incomingProjectId: string): ConflictAction | 'added' => {
+    const conflict = conflictByIncomingId.get(incomingProjectId);
+    if (!conflict) return 'added';
+    // Missing-key fallback: treat as 'skip' (safe-by-default).
+    return decisions.get(incomingProjectId) ?? 'skip';
+  };
+
+  let added = 0;
   let skipped = 0;
-  for (const project of incoming.appData.projects) {
-    if (seenIds.has(project.id)) {
+  let copied = 0;
+  let replaced = 0;
+  const replacedIdMap = new Map<string, string>();
+
+  // Pass 1: pre-compute the winning-replace map.
+  // First-wins is determined by incoming.appData.projects array order, NOT
+  // decisions.entries() insertion order — these can differ if the user made
+  // decisions in a different order than the projects appear in the file.
+  const winningReplaceBySlotId = new Map<string, Project>();
+  const downgradedReplaceIncomingIds = new Set<string>();
+  for (const incomingProject of incoming.appData.projects) {
+    const action = resolvedAction(incomingProject.id);
+    if (action !== 'replace') continue;
+    const conflict = conflictByIncomingId.get(incomingProject.id);
+    if (!conflict) continue; // 'replace' on a non-conflict is degenerate; treat as no-op.
+    const slotId = conflict.existingProject.id;
+    if (winningReplaceBySlotId.has(slotId)) {
+      // Same slot already claimed by an earlier-in-array incoming project.
+      downgradedReplaceIncomingIds.add(incomingProject.id);
       skipped += 1;
       continue;
     }
-    accepted.push(project);
-    seenIds.add(project.id); // also catches duplicates within the incoming batch
+    winningReplaceBySlotId.set(slotId, incomingProject);
   }
 
-  const acceptedIds = new Set(accepted.map(p => p.id));
-  const acceptedReleases = incoming.appData.releases.filter(r => acceptedIds.has(r.projectId));
+  // Pass 2: slot substitution. Iterate existing.projects; substitute or keep.
+  const mergedProjects: Project[] = [];
+  const mergedReleases: typeof existing.releases = [];
+  const removedExistingProjectIds = new Set<string>();
+  for (const existingProject of existing.projects) {
+    const winner = winningReplaceBySlotId.get(existingProject.id);
+    if (winner) {
+      // Substitute in place; preserve existingProject.owner if defined.
+      // If owner is undefined, leave incoming with no owner — never fabricate.
+      const substituted: Project = { ...winner };
+      if (existingProject.owner !== undefined) {
+        substituted.owner = existingProject.owner;
+      } else {
+        delete substituted.owner;
+      }
+      mergedProjects.push(substituted);
+      removedExistingProjectIds.add(existingProject.id);
 
-  const mergedSnapshots: Snapshot[] = [...existingSnapshots];
-  if (incoming.snapshots && incoming.snapshots.length > 0) {
-    const existingSnapshotIds = new Set(existingSnapshots.map(s => s.id));
-    for (const snapshot of incoming.snapshots) {
-      if (!acceptedIds.has(snapshot.projectId)) continue;
-      if (existingSnapshotIds.has(snapshot.id)) continue; // dedup by ID
-      mergedSnapshots.push(snapshot);
+      const conflict = conflictByIncomingId.get(winner.id);
+      if (conflict && conflict.type === 'name') {
+        // Name-conflict replace genuinely remaps existing.id → incoming.id.
+        replacedIdMap.set(existingProject.id, winner.id);
+      }
+      replaced += 1;
+
+      // Bring in the incoming project's releases (slot substitution removes
+      // the existing project's releases entirely — they're rebuilt from the
+      // incoming file). 'replace' does NOT dedup snapshots; full substitution.
+      const winnerReleases = incomingReleasesByProjectId.get(winner.id) ?? [];
+      for (const r of winnerReleases) mergedReleases.push(r);
+    } else {
+      mergedProjects.push(existingProject);
     }
+  }
+
+  // Releases of other existing projects (not replaced) are preserved.
+  for (const r of existing.releases) {
+    if (!removedExistingProjectIds.has(r.projectId)) {
+      mergedReleases.push(r);
+    }
+  }
+
+  // Pass 3: append copies, then non-conflicting 'added'.
+  // Snapshot handling for both passes is collected here.
+  const mergedSnapshots: Snapshot[] = [];
+  // 'replace' snapshots: bring in incoming snapshots for replaced slots; drop
+  // existing snapshots whose projectId was removed.
+  for (const s of existingSnapshots) {
+    if (!removedExistingProjectIds.has(s.projectId)) {
+      mergedSnapshots.push(s);
+    }
+  }
+  removedExistingProjectIds.forEach(slotId => {
+    const winner = winningReplaceBySlotId.get(slotId);
+    if (!winner) return;
+    const incomingSnaps = incomingSnapshotsByProjectId.get(winner.id) ?? [];
+    for (const s of incomingSnaps) mergedSnapshots.push(s);
+  });
+
+  // 'copy' pass — append in incoming.appData.projects array order.
+  for (const incomingProject of incoming.appData.projects) {
+    if (resolvedAction(incomingProject.id) !== 'copy') continue;
+    const newId = idGenerator();
+    const truncated = incomingProject.name
+      .slice(0, MAX_NAME_LENGTH - COPY_SUFFIX.length)
+      .trimEnd();
+    const copyName = truncated + COPY_SUFFIX;
+    const copyProject: Project = { ...incomingProject, id: newId, name: copyName };
+    // Do NOT set owner on copy.
+    delete copyProject.owner;
+    mergedProjects.push(copyProject);
+
+    // Releases: regenerate every id; update projectId.
+    const srcReleases = incomingReleasesByProjectId.get(incomingProject.id) ?? [];
+    for (const r of srcReleases) {
+      mergedReleases.push({ ...r, id: idGenerator(), projectId: newId });
+    }
+
+    // Snapshots: regenerate snapshot.id and top-level snapshot.projectId.
+    // Embedded snapshot.releases[] left entirely untouched — frozen historical
+    // record; only consumed by useEffectiveChartProps.ts as render input.
+    // NOTE: snapshot ID regeneration means importing the same file twice via
+    // 'copy' doubles snapshot counts — consistent with the cap-bypass policy.
+    const srcSnaps = incomingSnapshotsByProjectId.get(incomingProject.id) ?? [];
+    for (const s of srcSnaps) {
+      mergedSnapshots.push({ ...s, id: idGenerator(), projectId: newId });
+    }
+
+    copied += 1;
+  }
+
+  // 'added' pass — non-conflicting incoming projects appended at end.
+  // Snapshot dedup by ID on this path only (not on 'replace').
+  const existingSnapshotIds = new Set<string>();
+  for (const s of mergedSnapshots) existingSnapshotIds.add(s.id);
+  for (const incomingProject of incoming.appData.projects) {
+    if (resolvedAction(incomingProject.id) !== 'added') continue;
+    mergedProjects.push(incomingProject);
+    const srcReleases = incomingReleasesByProjectId.get(incomingProject.id) ?? [];
+    for (const r of srcReleases) mergedReleases.push(r);
+    const srcSnaps = incomingSnapshotsByProjectId.get(incomingProject.id) ?? [];
+    for (const s of srcSnaps) {
+      if (existingSnapshotIds.has(s.id)) continue;
+      existingSnapshotIds.add(s.id);
+      mergedSnapshots.push(s);
+    }
+    added += 1;
+  }
+
+  // Count 'skip' from explicit decisions + missing-key fallback.
+  for (const incomingProject of incoming.appData.projects) {
+    if (downgradedReplaceIncomingIds.has(incomingProject.id)) continue;
+    if (resolvedAction(incomingProject.id) === 'skip') skipped += 1;
   }
 
   return {
     mergedData: {
       ...existing,
-      projects: [...existing.projects, ...accepted],
-      releases: [...existing.releases, ...acceptedReleases],
+      projects: mergedProjects,
+      releases: mergedReleases,
     },
     mergedSnapshots,
-    skipped,
+    result: { added, skipped, copied, replaced, replacedIdMap },
   };
 }
 

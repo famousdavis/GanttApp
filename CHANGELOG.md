@@ -1,5 +1,111 @@
 # Change Log
 
+## Version 0.24.0 (2026-05-10)
+### Smart Import with Per-Project Conflict Resolution
+
+Replaces the prior binary import UX (replace-all confirmation OR additive merge-with-skip) with a per-project conflict resolution preview. The user picks a file, sees a full inline preview between the toolbar and the project list, makes per-project `skip` / `copy` / `replace` decisions on any conflicts, then confirms or cancels. The previous flow silently skipped any project whose ID matched an existing one — a surprise when round-tripping a backup with renames or hitting coincidental name collisions. The new flow surfaces every conflict and gives the user control.
+
+**New utility surface in `src/shared/utils/export.ts`:**
+- `ImportConflict` — `{ type: 'id' | 'name', incomingProject, existingProject }`. Emitted per conflicting incoming project.
+- `ConflictAction` — `'skip' | 'copy' | 'replace'`.
+- `ImportDecisionResult` — `{ added, skipped, copied, replaced, replacedIdMap }`.
+- `detectImportConflicts(incoming, existing)` — first-insert-wins on name-map collisions preserves first-match semantics when two existing projects share a lowercased-trimmed name.
+- `conflictsEqual(a, b)` — multiset equality on `(incomingId, type, existingId)` tuples; used by both stale-data guards.
+- `applyImportDecisions(existing, incoming, existingSnapshots, decisions, idGenerator?)` — the replacement for `mergeImportedProjects`. Self-contained: recomputes conflicts internally so the caller does not pass them. Supports an optional deterministic `idGenerator` (defaults to `generateId`) for testability.
+
+**Three-pass slot-preserving algorithm in `applyImportDecisions`:**
+1. Pre-computation — iterate `incoming.appData.projects` in array order; build a `Map<existingSlotId, winningIncomingProject>`. **First-wins is determined by array order, not `decisions` Map insertion order.** Later replaces targeting a claimed slot are downgraded to `'skip'` and counted.
+2. Slot substitution — iterate `existing.projects` in order; substitute incoming projects in place, copying `existingProject.owner` (or leaving undefined; never fabricated). Existing index is preserved, which avoids `executeFirestoreSave`'s `prevIndex !== index` reorder detection triggering spurious cloud writes.
+3. Append — `'copy'` results, then `'added'` non-conflicting, both in incoming array order. New projects always land at the bottom of the workspace.
+
+**Per-decision behavior:**
+- `'skip'` (and the missing-key fallback for any conflict not in `decisions`) — omits the project, all its releases, and all its snapshots.
+- `'copy'` — generates a new project ID via `idGenerator()`; truncates the name to `MAX_NAME_LENGTH - COPY_SUFFIX.length` and appends `COPY_SUFFIX = ' (2)'`. Releases get fresh IDs and the new `projectId`. Snapshots get a fresh `snapshot.id` and a new top-level `snapshot.projectId`; the embedded `snapshot.releases[]` array is left **entirely untouched** — it is a frozen historical record, and its embedded `projectId` values stay at the original (pre-copy) project ID. Confirmed safe: only `useEffectiveChartProps.ts` consumes `snapshot.releases` and only as a frozen render input — never joined against live `Project.id`. Owner is never set on copies.
+- `'replace'` — slot-preserving; copies `existingProject.owner` onto the incoming record. ID conflicts produce no `replacedIdMap` entry (existing.id === incoming.id, no remap needed). Name conflicts produce `replacedIdMap.set(existingId, incomingId)` so the call site can rebind selection.
+
+**Naming and cap divergences from `cloneProject` (intentional, documented inline):**
+- `cloneProject` uses `" - Copy (1)"`, `" - Copy (2)"`, ..., `" - Copy (99)"`. Import-copy is unconditional `" (2)"` — accepts duplicate `"Foo (2)"` names silently.
+- `cloneProject` enforces `MAX_SNAPSHOTS_TOTAL` and drops snapshots with an alert. `applyImportDecisions` bypasses the cap, consistent with the existing replace-all import path. Import is a bulk restore operation; the cap is intentionally bypassed.
+- Snapshot dedup by ID applies only on the `'added'` path. `'replace'` does full slot substitution; no dedup needed.
+
+**Workflow state machine in `ProjectsTab.tsx`:**
+Three permitted state transitions, the only ways to move the import UI between states:
+- `showPreview(state)` — clears banner, replaceAllPending, applying; sets preview.
+- `showBanner(banner)` — clears preview, replaceAllPending, applying, file-input ref; shows banner.
+- `clearImportFlow()` — clears preview and replaceAllPending; resets applying defensively (Cancel is disabled during apply, but the reset guarantees correctness if that disable is ever bypassed). Does NOT touch banner — preview and banner are mutually exclusive.
+
+Banner dismiss is the only path that uses the raw setter directly, since dismissing a banner is not a flow transition.
+
+**Two fast paths in `handleImport`:**
+1. `ganttapp-project-export` with **zero conflicts** → applies immediately via `applyMergeDecisions`, no preview, success banner.
+2. **Empty workspace** + replace-all-shape file (`ganttapp-all-projects` or `legacy`) AND `!appDataLoading` → applies via `applyReplaceAll`, no preview, no modal, success banner. The `!appDataLoading` gate prevents silent Replace-All against a workspace that is still loading.
+
+All other imports show the inline preview between toolbar and project list (matching the v0.22.1 `InvitationSection` placement convention).
+
+**Initial mode rationale per `_exportType`:**
+- `ganttapp-project-export` → `'merge'` (single-project export has never had a replace-all path).
+- `ganttapp-all-projects` → `'merge'` — intentionally new format introduced in v19.0; no established user habit to preserve; safe default; user can switch to Replace-All in one click.
+- `legacy` → `'replace-all'` — every legacy file hits Replace-All today; defaulting to Merge would silently drop data for round-trip backup users who expect replacement.
+
+**Smarter ID-conflict defaults** (populated synchronously inside `showPreview`, not via `useEffect`):
+- `type: 'id'` AND lowercased-trimmed names match → `'replace'`. The dominant round-trip backup case: re-importing your own export. Eliminates the prior footgun where every round-tripped project was silently skipped.
+- `type: 'id'` AND names differ → `'skip'`. Records have diverged (renamed locally or in the file); preserve the existing version.
+- `type: 'name'` → `'copy'`. Coincidental name collision; keep both.
+
+A `// TODO(v0.25.x)` flags adding a "select all → replace" affordance for the diverged-names case so round-trip users with renamed projects can replace in bulk.
+
+**Dual stale-data guards:**
+1. **Pre-async early-exit** in `handleConfirmMerge` — recomputes `detectImportConflicts(imported, data)` and compares against `importPreview.conflicts` via `conflictsEqual`. Catches the common non-cloud case cheaply, before any `await`.
+2. **Authoritative post-`loadSnapshots` check** inside `applyMergeDecisions` — re-runs `detectImportConflicts` after the `await`, since that's where a real-time `onSnapshot` from cloud mode can fire and mutate `data`. `originalConflicts` is captured **before** `setApplying(true)` so the closure does not depend on stale `importPreview` state.
+
+Both guards abort with the same banner text: `'The workspace changed while the preview was open. Please review your import again.'`. Fast Path 1 (no preview) gets a genericized variant: `'The workspace changed during import. Please try again.'`.
+
+**Apply-state safety:**
+- Confirm, Replace-All, Cancel, AND the mode selector are all `disabled` when `applying === true` inside `ImportPreviewSection`.
+- Toolbar Import `<input type="file">` has `disabled={applying}`. Toolbar Import `<label>` has `aria-disabled={applying}` plus visual dimming. Both are required — `pointer-events: none` on the label is insufficient because keyboard activation can still fire the input.
+- The Replace-All `ConfirmDialog` is gated on `replaceAllPending && importPreview !== null`, so it can never render without an active preview. On confirm, `imported` is captured before state mutation; `setReplaceAllPending(false)` runs synchronously so the modal disappears before the `await applyReplaceAll(imported)` begins.
+
+**Preview UI per file type:**
+- Green-tinted block lists non-conflicting projects with release counts and the line: *"New projects will be added at the bottom of your project list."*
+- Amber-tinted block per conflict:
+  - `type: 'id'` shows `Existing: "{name}" → Incoming: "{name}"` side-by-side, allowing the user to spot renames since export.
+  - `type: 'name'` shows the incoming project name and the label `"Already exists — same name, different origin"`.
+  - Three radio buttons with the labels: *"Keep existing, ignore imported"*, *"Add as a copy"*, *"Replace existing with imported"*.
+- For `ganttapp-all-projects` and `legacy` files, a mode selector toggles between Merge and Replace All. Merge mode includes the hint: *"Workspace settings (colors, attribution) are not imported in Merge mode. Switch to Replace All to restore them."* Replace mode hides (not disables) the per-project conflict UI. Mode toggle does not reset per-project decisions.
+
+**Banners:**
+- Success banner uses `role="status"`, green tint, explicit Dismiss button, no auto-fade.
+- Error banner uses `role="alert"`, red tint, explicit Dismiss button, no auto-fade.
+- Error text is sanitized via `sanitizeFirebaseError` in catch paths. Specific strings: `'Invalid file format'` (parse failure), `'Error importing file'` (read failure).
+
+**Radio id namespacing:** group `name="${idPrefix}-conflict-${incomingProject.id}"`; each radio `id="${idPrefix}-conflict-${incomingProject.id}-${action}"`; each `<label>` has matching `htmlFor`. `idPrefix` is derived from the parent `useId()` (`${baseFieldId}-import`). Tests verify pairing (shared `name` within group; `htmlFor`/`id` match) rather than exact `useId()` values, since `useId()` returns opaque strings like `:r5:`.
+
+**Removed:**
+- `mergeImportedProjects` from `export.ts` and its 9-test describe block.
+- `applyImport`, `applyMergeImport`, `importConfirm`, `importMergeConfirm` from `ProjectsTab.tsx`.
+- All `alert()` calls in the import flow (replaced by banners).
+
+**Exports:**
+- `MAX_NAME_LENGTH = 100` is now exported from `validation.ts` (was private). It is the generic max-name length used by `sanitizeString` as a default — applies to project names, release names, attribution, etc., not just projects. Consumed in `applyImportDecisions` to compute the truncation length.
+
+**Modified Files:**
+- `src/shared/utils/validation.ts` — export `MAX_NAME_LENGTH`
+- `src/shared/utils/export.ts` — new types + `detectImportConflicts` + `conflictsEqual` + `applyImportDecisions`; `mergeImportedProjects` retired
+- `src/features/projects/ImportPreviewSection.tsx` — new file (~270 LOC)
+- `src/features/projects/ProjectsTab.tsx` — full import-flow rewrite as state machine; toolbar Import button gains apply-state disable
+- `src/shared/utils/__tests__/export.test.ts` — `mergeImportedProjects` block removed; new tests for `detectImportConflicts` (6), `conflictsEqual` (6), `applyImportDecisions` (15)
+- `src/features/projects/__tests__/ImportPreviewSection.test.tsx` — new file (14 tests)
+- `src/features/projects/__tests__/ProjectsTab.test.tsx` — old `import warning dialog` and `import routing by _exportType` blocks replaced with new Smart Import flow tests (10 tests across Fast Paths, preview rendering, modal gate, confirm/cancel, smart defaults, Replace-All reset, invalid file)
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `CHANGELOG.md`, `ARCHITECTURE.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All tests pass: 1195 total (was 1161 before v0.24.0; net +34)
+- Manual: empty workspace + ganttapp-all-projects → applies immediately with banner; non-empty + project-export with no conflicts → applies immediately; mixed conflicts → preview between toolbar and list, defaults populated correctly, decisions togglable; Merge mode shows settings hint; Replace mode hides conflict list; Replace All Data → ConfirmDialog modal → confirm applies; pick new file mid-modal → modal dismissed; Cancel clears preview and file input; during apply, Import button + label dim and disabled
+
+---
+
 ## Version 0.23.1 (2026-05-10)
 ### UX: matching colored hover ring on Trash / Pencil / Export / Clone icon buttons
 

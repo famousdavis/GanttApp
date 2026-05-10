@@ -51,6 +51,7 @@ GanttApp/
 │   │   │   └── useEffectiveChartProps.ts # Snapshot vs live data resolver (v7.1)
 │   │   ├── projects/
 │   │   │   ├── ProjectsTab.tsx
+│   │   │   ├── ImportPreviewSection.tsx # Smart Import preview (v0.24.0)
 │   │   │   ├── ShareDialog.tsx       # Project sharing modal (v11.0)
 │   │   │   └── useProjects.ts
 │   │   ├── releases/
@@ -99,7 +100,7 @@ GanttApp/
 │   │   └── utils/
 │   │       ├── colors.ts      # Color constants, presets, defaults
 │   │       ├── dates.ts       # Date parsing, formatting, ID generation
-│   │       ├── export.ts      # JSON export/import with sanitization
+│   │       ├── export.ts      # JSON export/import + Smart Import logic (v0.24.0)
 │   │       ├── firestore-converters.ts # Flat AppData ↔ Firestore translation (v11.0)
 │   │       ├── snapshots.ts   # Snapshot CRUD, validation, localStorage
 │   │       ├── storage.ts     # localStorage wrapper with validation
@@ -402,6 +403,64 @@ Export: loadSnapshots() → included in JSON alongside AppData
 Import: parseImportedData() → validateSnapshot() each → saveSnapshots()
 ```
 
+### Smart Import Flow (v0.24.0)
+
+```
+File picked → readFileAsText → parseImportedData → detectImportConflicts
+                                                          │
+                ┌─────────────────────────────────────────┼──────────────────────────┐
+                │                                         │                          │
+       Fast Path 1                              Fast Path 2                Show preview
+  (project-export, 0 conflicts)         (replace-all shape, empty WS)      (all other cases)
+                │                          AND !appDataLoading                       │
+                │                                         │                          │
+                ▼                                         ▼                          │
+         applyMergeDecisions(_,_,[])            applyReplaceAll(imported)            │
+                │                                         │                          │
+                │                                         │                          ▼
+                │                                         │              ImportPreviewSection
+                │                                         │              (between toolbar + list)
+                │                                         │                          │
+                │                                         │              User edits decisions, clicks
+                │                                         │              Confirm Merge / Replace All Data
+                │                                         │                          │
+                │                                         │                          ▼
+                │                                         │              handleConfirmMerge —
+                │                                         │              pre-async early-exit guard
+                │                                         │              (detectImportConflicts +
+                │                                         │              conflictsEqual vs preview)
+                │                                         │                          │
+                │                                         │              ┌───────────┴───────────┐
+                │                                         │              │                       │
+                │                                         │              │                Replace All Data
+                │                                         │              │              → ConfirmDialog modal
+                │                                         │              │              → confirm captures
+                │                                         │              │                imported, sets
+                │                                         │              │                replaceAllPending=false,
+                │                                         │              │                applyReplaceAll
+                │                                         │              ▼                       │
+                │                                         │      applyMergeDecisions             │
+                │                                         │      → setApplying(true)             │
+                │                                         │      → loadSnapshots                 │
+                │                                         │      → POST-AWAIT GUARD              │
+                │                                         │        (authoritative; catches       │
+                │                                         │         onSnapshot mid-await)        │
+                │                                         │      → applyImportDecisions          │
+                │                                         │        (3-pass slot-preserving)      │
+                │                                         │      → updateData                    │
+                │                                         │      → onReplaceSnapshots            │
+                │                                         │      → replacedIdMap → rebind sel    │
+                │                                         │      → showBanner(success)           │
+                │                                         │                                      │
+                ▼                                         ▼                                      ▼
+                            showBanner({ kind: 'success' | 'error' })
+                            (role="status" / role="alert", explicit dismiss, no auto-fade)
+```
+
+State machine has three permitted transitions: `showPreview`, `showBanner`, `clearImportFlow`. Banner dismiss uses the raw setter directly (not a flow transition). `importPreview` and `importBanner` are mutually exclusive. During apply: Confirm, Replace-All, Cancel, mode selector, toolbar Import label + input are all disabled.
+
+`applyImportDecisions(existing, incoming, existingSnapshots, decisions, idGenerator?)` is the v0.24.0 replacement for `mergeImportedProjects`. Self-contained: recomputes conflicts internally. Slot-preserves on `'replace'` (avoids cloud reorder rewrites). `'copy'` regenerates project + release IDs and top-level snapshot IDs but leaves embedded `snapshot.releases[]` untouched (frozen historical record). Missing decisions key → `'skip'` (safe-by-default).
+
 ## Security Architecture
 
 ### Input Validation Pipeline
@@ -474,6 +533,7 @@ index.tsx (AppContent)
 ├── Tabs (navigation: Projects | Releases | Gantt Chart | Settings | About)
 ├── ProjectsTab
 │   ├── useProjects (CRUD hook + cascade snapshot delete)
+│   ├── ImportPreviewSection (Smart Import inline preview, v0.24.0)
 │   └── ShareDialog (cloud mode only, v11.0)
 ├── ReleasesTab
 │   └── useReleases (CRUD hook)

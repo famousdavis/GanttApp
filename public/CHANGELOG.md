@@ -1,5 +1,43 @@
 # Change Log
 
+## Version 0.23.0 (2026-05-10)
+### UX: ShareIconButton + clickable project tile + 6-dot drag handle + 18×18 icon resize
+
+This release introduces a borderless `ShareIconButton`, makes the project tile's middle region a clickable button (replacing the "View Releases" text button), upgrades the drag handle from 3 dots to a 6-dot 2×3 grid (matching the SPERT Suite convention), restructures the per-tile icon row to keep right-side icons pixel-aligned across owner/non-owner tiles, and shrinks every per-tile icon button from 20×20 to 18×18.
+
+**ShareIconButton (new).** Models exactly on the v17.1 / v19.0 grayscale-at-rest icon-button pattern (`PencilIconButton`, `TrashIconButton`, `ExportIconButton`, `CloneIconButton`). Borderless, transparent background at rest, gray icon (`#9ca3af`); on hover/focus the icon turns cyan (`#06b6d4`), the background tints cyan (`#ecfeff` light / `rgba(6,182,212,0.15)` dark), and a soft cyan ring (`0 0 0 1.5px rgba(6,182,212,0.5)`) appears via `box-shadow`. Transition `background 0.12s ease, box-shadow 0.12s ease`. Glyph is a user-plus (person silhouette + crosshair plus sign).
+
+**Clickable project tile.** The middle region of every project tile (project name + release-count + finish-date metadata) is now its own `<button>` that navigates to the Releases tab on click. While the cursor is over the clickable middle region, the **entire tile** tints faint teal (`#f0fdfa` light / `rgba(20,184,166,0.10)` dark — matched to the SPERT brand teal `#14b8a6`) — drag handle, share slot, divider, and icon buttons all included — so the affordance reads at a glance even though the icons themselves are not part of the click target. Move off the middle region (onto an icon, the handle, or the surrounding padding) and the tile returns to grayscale. Focus mirrors the same state for keyboard users. The button sits as a flex-1 sibling between the drag handle and the icon group, so click events on the icons cannot bubble into the tile click — no `stopPropagation` plumbing required. `aria-label="Open releases for {project.name}"` gives screen readers a clear action name. The "View Releases" text button has been deleted; the action lives entirely in the tile gesture now. Outer-tile `draggable={true}` + drag handlers preserved verbatim.
+
+**6-dot drag handle.** `DragHandle` is now a 2×3 grid of 6 dots instead of a 3-dot vertical column. Matches the SPERT Suite (Story Map, Forecaster, CFD, AHP) convention. Component is a CSS grid with `gridTemplateColumns: 'repeat(2, 4px)'` and `gridTemplateRows: 'repeat(3, 4px)'`; `cursor: grab` retained.
+
+**Drag source restricted to handle.** `draggable={true}` and the `onDragStart` / `onDragEnd` handlers moved off the outer tile and onto a wrapper around the 6-dot handle. The outer tile keeps `onDragOver` so it remains a valid drop target — you can still drop anywhere on a tile to reorder, but you can only *initiate* a drag from the handle. `setDragImage(tile, 12, height/2)` is called in `onDragStart` so the drag ghost shows the whole tile rather than just the tiny handle. Cursor map across the tile is now: `grab` only on the 6 dots → `default` on the surrounding padding → `pointer` on the clickable middle → `default` between divider and icons → `pointer` on each icon button. The wrapper carries `aria-label="Drag to reorder project"` for screen readers.
+
+**ProjectsTab icon-row restructure.** The icon area on each project tile is now two sub-groups separated by a thin vertical divider (`1px × 20px`, `colors.border`). The left slot is a fixed-footprint container (`width: calc(18px + 0.7rem)`, `height: calc(18px + 0.7rem)`, `flexShrink: 0`) that renders `<ShareIconButton>` only when `isCloudMode && user && project.owner === user.uid`. When the gate is false the slot stays the same width but is empty, so the right group (Export, Edit, Clone, Delete) keeps the same x-position on every tile regardless of ownership or storage mode.
+
+**18×18 icon resize.** All five icon buttons (`ShareIconButton`, `ExportIconButton`, `PencilIconButton`, `CloneIconButton`, `TrashIconButton`) now ship with `width="18" height="18"` on the `<svg>` element. `viewBox="0 0 24 24"` is unchanged in every case — stroke widths scale, not crop. Header version annotations bumped to `v0.23.0` on the four pre-existing files.
+
+**Modified Files:**
+- `src/shared/components/ShareIconButton.tsx` — NEW
+- `src/shared/components/DragHandle.tsx` — 3 dots → 6 dots (2×3 grid); header bump
+- `src/shared/components/__tests__/DragHandle.test.tsx` — assertion 3 → 6 dots
+- `src/shared/components/TrashIconButton.tsx` — 20→18 + header bump
+- `src/shared/components/PencilIconButton.tsx` — 20→18 + header bump
+- `src/shared/components/ExportIconButton.tsx` — 20→18 + header bump
+- `src/shared/components/CloneIconButton.tsx` — 20→18 + header bump
+- `src/features/projects/ProjectsTab.tsx` — import `ShareIconButton`, replace text Share button with fixed-width share slot + divider + icon group; replace "View Releases" text button with clickable middle-region `<button>` (teal hover); `tileHoverId` state added
+- `src/features/projects/__tests__/ProjectsTab.test.tsx` — navigation test retargeted to `aria-label="Open releases for Alpha"` (was: text "View Releases")
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All existing tests pass (1161 baseline preserved)
+- Production build succeeds with Turbopack
+- Manual: per-tile right-side icons stay pixel-aligned across local and cloud modes; ShareIconButton hover renders cyan icon + cyan tint + cyan ring together; project tile middle hovers teal and opens Releases tab on click; 6-dot handle visible to the left of the project name; ShareDialog opens unchanged on share-icon click
+
+---
+
 ## Version 0.22.2 (2026-05-09)
 ### Security: app-side companion to the v0.22.2 Firestore rules audit (S1, S2, S3, S4, S5, S6, S7, S9)
 

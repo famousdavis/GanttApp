@@ -26,6 +26,7 @@ import { TrashIconButton } from '../../shared/components/TrashIconButton';
 import { PencilIconButton } from '../../shared/components/PencilIconButton';
 import { ExportIconButton } from '../../shared/components/ExportIconButton';
 import { CloneIconButton } from '../../shared/components/CloneIconButton';
+import { ShareIconButton } from '../../shared/components/ShareIconButton';
 import { WorkWeekSelector } from '../../shared/components/WorkWeekSelector';
 import { TabType, Snapshot, Project } from '../../shared/types';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
@@ -63,6 +64,7 @@ export function ProjectsTab({
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
   const [exportAllHover, setExportAllHover] = useState(false);
   const [importHover, setImportHover] = useState(false);
+  const [tileHoverId, setTileHoverId] = useState<string | null>(null);
   const isCloudMode = storage.mode === 'cloud';
   const {
     projectName,
@@ -514,94 +516,131 @@ export function ProjectsTab({
             return (
             <div
               key={project.id}
-              draggable
-              onDragStart={() => onProjectDragStart(project.id)}
               onDragOver={(e) => onProjectDragOver(e, project.id)}
-              onDragEnd={onProjectDragEnd}
               style={{
-                padding: '1rem',
-                background: colors.surface,
+                padding: '0 1rem',
+                background: tileHoverId === project.id
+                  ? (resolvedTheme === 'dark' ? 'rgba(20, 184, 166, 0.10)' : '#f0fdfa')
+                  : colors.surface,
                 border: `2px solid ${colors.border}`,
                 borderRadius: '8px',
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                cursor: draggedProjectId === project.id ? 'grabbing' : 'grab',
+                gap: '0.75rem',
+                cursor: 'default',
                 opacity: draggedProjectId === project.id ? 0.5 : 1,
-                transition: 'opacity 0.2s'
+                transition: 'background 0.12s ease, opacity 0.2s'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div
+                draggable
+                onDragStart={(e) => {
+                  // Use the parent tile as the drag image so the ghost shows the whole tile,
+                  // not just the small 6-dot handle.
+                  const tile = e.currentTarget.parentElement;
+                  if (tile && e.dataTransfer) {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setDragImage(tile, 12, tile.getBoundingClientRect().height / 2);
+                  }
+                  onProjectDragStart(project.id);
+                }}
+                onDragEnd={onProjectDragEnd}
+                style={{ display: 'inline-flex', alignItems: 'center', cursor: 'grab' }}
+                aria-label="Drag to reorder project"
+                title="Drag to reorder"
+              >
                 <DragHandle />
-                <div>
-                  <strong style={{ fontSize: '1.1rem', color: colors.text }}>{project.name}</strong>
-                  <span style={{ marginLeft: '1rem', color: colors.textMuted, fontSize: '0.9rem' }}>
-                    ({data.releases.filter(r => r.projectId === project.id).length} releases
-                    {project.finishDate && (
-                      <>, finish: {formatDateMDY(project.finishDate)}
-                        {projFinishWarning && (
-                          <span title={projFinishWarning} style={{ color: '#d97706', marginLeft: '0.25rem' }}>⚠</span>
-                        )}
-                      </>
-                    )}
-                    {project.workDays && project.workDays.length > 0 && `, custom work week`})
-                  </span>
-                </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  onClick={() => {
-                    setSelectedProjectId(project.id);
-                    setActiveTab('releases');
-                  }}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: colors.buttonBg,
-                    border: `1px solid ${colors.buttonBorder}`,
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: colors.buttonText
-                  }}
-                >
-                  View Releases
-                </button>
-                {isCloudMode && user && project.owner === user.uid && (
-                  <button
-                    onClick={() => setShareProjectId(project.id)}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedProjectId(project.id);
+                  setActiveTab('releases');
+                }}
+                onMouseEnter={() => setTileHoverId(project.id)}
+                onMouseLeave={() => setTileHoverId(prev => prev === project.id ? null : prev)}
+                onFocus={() => setTileHoverId(project.id)}
+                onBlur={() => setTileHoverId(prev => prev === project.id ? null : prev)}
+                aria-label={`Open releases for ${project.name}`}
+                title="Open releases"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  alignSelf: 'stretch',
+                  display: 'flex',
+                  alignItems: 'center',
+                  textAlign: 'left',
+                  padding: '1rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                  font: 'inherit',
+                  color: 'inherit'
+                }}
+              >
+                <strong style={{ fontSize: '1.1rem', color: colors.text }}>{project.name}</strong>
+                <span style={{ marginLeft: '1rem', color: colors.textMuted, fontSize: '0.9rem' }}>
+                  ({data.releases.filter(r => r.projectId === project.id).length} releases
+                  {project.finishDate && (
+                    <>, finish: {formatDateMDY(project.finishDate)}
+                      {projFinishWarning && (
+                        <span title={projFinishWarning} style={{ color: '#d97706', marginLeft: '0.25rem' }}>⚠</span>
+                      )}
+                    </>
+                  )}
+                  {project.workDays && project.workDays.length > 0 && `, custom work week`})
+                </span>
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <div
                     style={{
-                      padding: '0.5rem 1rem',
-                      background: colors.buttonBg,
-                      border: `1px solid ${colors.buttonBorder}`,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      color: colors.buttonText
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 'calc(18px + 0.7rem)',
+                      height: 'calc(18px + 0.7rem)',
+                      flexShrink: 0
                     }}
                   >
-                    Share
-                  </button>
-                )}
-                <ExportIconButton
-                  onClick={() => handleExportProject(project.id)}
-                  ariaLabel="Export project"
-                  title="Export project"
-                />
-                <PencilIconButton
-                  onClick={() => handleEditProject(project)}
-                  ariaLabel="Edit project"
-                  title="Edit project"
-                />
-                <CloneIconButton
-                  onClick={() => cloneProject(project.id)}
-                  ariaLabel="Clone project"
-                  title="Clone project"
-                />
-                <TrashIconButton
-                  onClick={() => setDeleteConfirmProjectId(project.id)}
-                  ariaLabel="Delete project"
-                  title="Delete project"
-                />
+                    {isCloudMode && user && project.owner === user.uid && (
+                      <ShareIconButton
+                        onClick={() => setShareProjectId(project.id)}
+                        ariaLabel="Share project"
+                        title="Share project"
+                      />
+                    )}
+                  </div>
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: '1px',
+                      height: '20px',
+                      background: colors.border,
+                      margin: '0 4px',
+                      flexShrink: 0
+                    }}
+                  />
+                  <ExportIconButton
+                    onClick={() => handleExportProject(project.id)}
+                    ariaLabel="Export project"
+                    title="Export project"
+                  />
+                  <PencilIconButton
+                    onClick={() => handleEditProject(project)}
+                    ariaLabel="Edit project"
+                    title="Edit project"
+                  />
+                  <CloneIconButton
+                    onClick={() => cloneProject(project.id)}
+                    ariaLabel="Clone project"
+                    title="Clone project"
+                  />
+                  <TrashIconButton
+                    onClick={() => setDeleteConfirmProjectId(project.id)}
+                    ariaLabel="Delete project"
+                    title="Delete project"
+                  />
               </div>
             </div>
             );

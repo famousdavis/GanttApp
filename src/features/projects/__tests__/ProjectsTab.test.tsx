@@ -345,7 +345,7 @@ describe('ProjectsTab', () => {
   });
 
   describe('navigation', () => {
-    it('calls setActiveTab and setSelectedProjectId on View Releases click', async () => {
+    it('calls setActiveTab and setSelectedProjectId on tile click', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
         releases: [],
@@ -353,9 +353,9 @@ describe('ProjectsTab', () => {
 
       const { props } = renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText('View Releases')).toBeTruthy();
+        expect(screen.getByLabelText('Open releases for Alpha')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('View Releases'));
+      fireEvent.click(screen.getByLabelText('Open releases for Alpha'));
 
       expect(props.setActiveTab).toHaveBeenCalledWith('releases');
       expect(props.setSelectedProjectId).toHaveBeenCalledWith('p1');

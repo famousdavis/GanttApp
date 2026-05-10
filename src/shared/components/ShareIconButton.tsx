@@ -2,35 +2,35 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// PencilIconButton — borderless icon button for the Edit list action.
-// Default color is grayscale; turns blue on hover. v0.23.0 (matches TrashIconButton pattern).
+// ShareIconButton — borderless icon button for the Share action.
+// Default color is grayscale; turns cyan with a soft cyan ring on hover. v0.23.0.
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 
-interface PencilIconButtonProps {
+interface ShareIconButtonProps {
   onClick: () => void;
   ariaLabel?: string;
   title?: string;
   disabled?: boolean;
 }
 
-const HOVER_BLUE = '#0070f3';
-const HOVER_BG_LIGHT = '#eff6ff';
-const HOVER_BG_DARK = 'rgba(0, 112, 243, 0.15)';
+const HOVER_CYAN = '#06b6d4';
+const HOVER_BG_LIGHT = '#ecfeff';
+const HOVER_BG_DARK = 'rgba(6, 182, 212, 0.15)';
 const DEFAULT_GRAY = '#9ca3af';
 
-export function PencilIconButton({
+export function ShareIconButton({
   onClick,
-  ariaLabel = 'Edit',
-  title = 'Edit',
+  ariaLabel = 'Share',
+  title = 'Share',
   disabled = false
-}: PencilIconButtonProps) {
+}: ShareIconButtonProps) {
   const { resolvedTheme } = useTheme();
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_BLUE : DEFAULT_GRAY;
+  const iconColor = isHoverActive ? HOVER_CYAN : DEFAULT_GRAY;
   const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
@@ -49,13 +49,14 @@ export function PencilIconButton({
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',
+        boxShadow: isHoverActive ? '0 0 0 1.5px rgba(6, 182, 212, 0.5)' : 'none',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 0,
-        transition: 'background 0.12s ease'
+        transition: 'background 0.12s ease, box-shadow 0.12s ease'
       }}
     >
       <svg
@@ -67,7 +68,36 @@ export function PencilIconButton({
         aria-hidden="true"
       >
         <path
-          d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
+          d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+          stroke={iconColor}
+          strokeWidth="2.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="9"
+          cy="7"
+          r="4"
+          stroke={iconColor}
+          strokeWidth="2.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1="19"
+          y1="8"
+          x2="19"
+          y2="14"
+          stroke={iconColor}
+          strokeWidth="2.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1="22"
+          y1="11"
+          x2="16"
+          y2="11"
           stroke={iconColor}
           strokeWidth="2.25"
           strokeLinecap="round"

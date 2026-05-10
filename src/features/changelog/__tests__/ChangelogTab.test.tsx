@@ -34,16 +34,17 @@ describe('ChangelogTab', () => {
     const headings = container.querySelectorAll('h3');
     const versionTexts = Array.from(headings).map(h => h.textContent);
 
-    // First version heading should be 0.22.2, then 0.22.1, then 0.22.0,
+    // First version heading should be 0.23.0, then 0.22.2, then 0.22.1, then 0.22.0,
     // then 0.21.1, then 0.21.0, then 0.20.1, then 0.20.0 (renumbered to
     // align with SPERT Suite), then 19.0.0, etc.
-    expect(versionTexts[0]).toContain('0.22.2');
-    expect(versionTexts[1]).toContain('0.22.1');
-    expect(versionTexts[2]).toContain('0.22.0');
-    expect(versionTexts[3]).toContain('0.21.1');
-    expect(versionTexts[4]).toContain('0.21.0');
-    expect(versionTexts[5]).toContain('0.20.1');
-    expect(versionTexts[6]).toContain('0.20.0');
+    expect(versionTexts[0]).toContain('0.23.0');
+    expect(versionTexts[1]).toContain('0.22.2');
+    expect(versionTexts[2]).toContain('0.22.1');
+    expect(versionTexts[3]).toContain('0.22.0');
+    expect(versionTexts[4]).toContain('0.21.1');
+    expect(versionTexts[5]).toContain('0.21.0');
+    expect(versionTexts[6]).toContain('0.20.1');
+    expect(versionTexts[7]).toContain('0.20.0');
     // Last should be 1.0
     expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
   });

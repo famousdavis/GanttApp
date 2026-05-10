@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 // ExportIconButton — borderless icon button for the per-tile Export action.
-// Default color is grayscale; turns green on hover. v19.0 (matches TrashIconButton pattern).
+// Default color is grayscale; turns green on hover. v0.23.0 (matches TrashIconButton pattern).
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
@@ -59,8 +59,8 @@ export function ExportIconButton({
       }}
     >
       <svg
-        width="20"
-        height="20"
+        width="18"
+        height="18"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"

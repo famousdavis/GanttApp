@@ -70,13 +70,14 @@ GanttApp/
 │   │   │   │   ├── GrayscaleSwatchPicker.tsx
 │   │   │   │   ├── PresetButtonGroup.tsx
 │   │   │   │   └── index.ts
-│   │   │   ├── DragHandle.tsx
+│   │   │   ├── DragHandle.tsx               # 6-dot grab handle (v0.23.0)
 │   │   │   ├── InlineDateEditor.tsx
 │   │   │   ├── InlineTextEditor.tsx
-│   │   │   ├── TrashIconButton.tsx          # Destructive list action (v17.1)
-│   │   │   ├── PencilIconButton.tsx         # Edit list action (v19.0)
-│   │   │   ├── ExportIconButton.tsx         # Per-project export (v19.0)
-│   │   │   ├── CloneIconButton.tsx          # Per-project clone (v19.0)
+│   │   │   ├── TrashIconButton.tsx          # Destructive list action (v17.1, 18×18 v0.23.0)
+│   │   │   ├── PencilIconButton.tsx         # Edit list action (v19.0, 18×18 v0.23.0)
+│   │   │   ├── ExportIconButton.tsx         # Per-project export (v19.0, 18×18 v0.23.0)
+│   │   │   ├── CloneIconButton.tsx          # Per-project clone (v19.0, 18×18 v0.23.0)
+│   │   │   ├── ShareIconButton.tsx          # Per-project share, owner+cloud only (v0.23.0)
 │   │   │   └── Tabs.tsx
 │   │   ├── hooks/
 │   │   │   ├── useDragAndDrop.ts

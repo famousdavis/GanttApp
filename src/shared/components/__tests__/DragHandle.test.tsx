@@ -12,11 +12,11 @@ describe('DragHandle', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('renders three dot elements', () => {
+  it('renders six dot elements', () => {
     const { container } = render(<DragHandle />);
     const outerDiv = container.firstChild as HTMLElement;
     const dots = outerDiv.children;
-    expect(dots).toHaveLength(3);
+    expect(dots).toHaveLength(6);
   });
 
   it('has cursor: grab styling on container', () => {

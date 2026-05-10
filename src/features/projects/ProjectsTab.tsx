@@ -14,10 +14,15 @@ import { useStorage } from '../../context/StorageContext';
 import {
   exportData as exportDataUtil,
   exportSingleProject,
-  mergeImportedProjects,
   parseImportedData,
   readFileAsText,
+  detectImportConflicts,
+  conflictsEqual,
+  applyImportDecisions,
+  sanitizeFirebaseError,
 } from '../../shared/utils';
+import type { ImportResult, ImportConflict, ConflictAction } from '../../shared/utils/export';
+import { ImportPreviewSection } from './ImportPreviewSection';
 import { isProjectNameValid, getWorkDayWarning, getEffectiveWorkDays } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
@@ -53,13 +58,14 @@ export function ProjectsTab({
   onProjectDragEnd,
   onReplaceSnapshots
 }: ProjectsTabProps) {
-  const { data, updateData, globalWorkDays } = useAppData();
+  const { data, updateData, globalWorkDays, loading: appDataLoading } = useAppData();
   const { colors, resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { storage } = useStorage();
   const baseFieldId = useId();
   const projectNameId = `${baseFieldId}-project-name`;
   const projectFinishDateId = `${baseFieldId}-project-finish-date`;
+  const importIdPrefix = `${baseFieldId}-import`;
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
   const [exportAllHover, setExportAllHover] = useState(false);
@@ -111,82 +117,201 @@ export function ProjectsTab({
   };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [importConfirm, setImportConfirm] = useState<{ imported: ReturnType<typeof parseImportedData> } | null>(null);
-  // v19.0 — additive merge confirmation (separate from the replace-all `importConfirm`).
-  const [importMergeConfirm, setImportMergeConfirm] = useState<{
-    imported: NonNullable<ReturnType<typeof parseImportedData>>;
-  } | null>(null);
+
+  // v0.24.0 — Smart Import state machine.
+  // NOTE: ProjectsTab unmounts on tab switch — preview state is lost on navigation.
+  // Known limitation for v0.24.0; do not lift state up to compensate.
+  type ImportMode = 'merge' | 'replace-all';
+  type ImportPreviewState = {
+    imported: ImportResult;
+    conflicts: ImportConflict[];
+    decisions: Map<string, ConflictAction>;
+    mode: ImportMode;
+  };
+  type ImportBannerState = { kind: 'success' | 'error'; text: string };
+  const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
+  const [importBanner, setImportBanner] = useState<ImportBannerState | null>(null);
+  const [replaceAllPending, setReplaceAllPending] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  // The three permitted state transitions. Banner dismiss button is not a flow
+  // transition — it uses the raw setter directly.
+  const showPreview = (state: ImportPreviewState) => {
+    setImportBanner(null);
+    setReplaceAllPending(false);
+    setApplying(false);
+    setImportPreview(state);
+  };
+
+  const showBanner = (banner: ImportBannerState) => {
+    setImportPreview(null);
+    setReplaceAllPending(false);
+    setApplying(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setImportBanner(banner);
+  };
+
+  // Used by onCancel only. Resets applying defensively — Cancel is disabled
+  // during apply, but this guarantees correctness if that disable is bypassed.
+  // Does NOT touch importBanner (banner and preview are mutually exclusive).
+  const clearImportFlow = () => {
+    setImportPreview(null);
+    setReplaceAllPending(false);
+    setApplying(false);
+  };
+
+  // Compute smarter default decisions for a fresh preview.
+  // - type:'id' AND names match (lowercased-trimmed) → 'replace' (round-trip backup case)
+  // - type:'id' AND names differ → 'skip' (records have diverged; preserve existing)
+  // - type:'name' → 'copy'
+  // TODO(v0.25.x): add a "select all → replace" affordance for the diverged-names case
+  // so round-trip backup users with renamed projects can replace in bulk.
+  const computeDefaultDecisions = (conflicts: ImportConflict[]): Map<string, ConflictAction> => {
+    const m = new Map<string, ConflictAction>();
+    for (const c of conflicts) {
+      if (c.type === 'id') {
+        const same =
+          c.existingProject.name.trim().toLowerCase() ===
+          c.incomingProject.name.trim().toLowerCase();
+        m.set(c.incomingProject.id, same ? 'replace' : 'skip');
+      } else {
+        m.set(c.incomingProject.id, 'copy');
+      }
+    }
+    return m;
+  };
+
+  const applyMergeDecisions = async (
+    imported: ImportResult,
+    decisions: Map<string, ConflictAction>,
+    originalConflicts: ImportConflict[]
+  ) => {
+    setApplying(true);
+    try {
+      const existingSnapshots = await storage.loadSnapshots();
+      // Authoritative stale-data guard — the await above is where a real-time
+      // onSnapshot can fire and mutate `data`. The pre-click guard in
+      // handleConfirmMerge is a fast early-exit for the non-cloud case.
+      const freshConflicts = detectImportConflicts(imported, data);
+      if (!conflictsEqual(freshConflicts, originalConflicts)) {
+        // Fast Path 1 has no preview window — use a genericized message.
+        const msg = originalConflicts.length === 0
+          ? 'The workspace changed during import. Please try again.'
+          : 'The workspace changed while the preview was open. Please review your import again.';
+        showBanner({ kind: 'error', text: msg });
+        return;
+      }
+      const { mergedData, mergedSnapshots, result } = applyImportDecisions(
+        data, imported, existingSnapshots, decisions
+      );
+      // NOTE: partial-apply window — updateData may persist before onReplaceSnapshots
+      // rejects. Acceptable for v0.24.0; matches pre-v0.24.0 applyMergeImport behavior.
+      updateData(mergedData);
+      await onReplaceSnapshots(mergedSnapshots);
+      // replacedIdMap contains only name-conflict remappings (existing.id ≠ incoming.id).
+      const newId = result.replacedIdMap.get(selectedProjectId);
+      if (newId) setSelectedProjectId(newId);
+      const parts: string[] = [];
+      if (result.added > 0)    parts.push(`${result.added} project${result.added !== 1 ? 's' : ''} added`);
+      if (result.copied > 0)   parts.push(`${result.copied} copied`);
+      if (result.replaced > 0) parts.push(`${result.replaced} replaced`);
+      if (result.skipped > 0)  parts.push(`${result.skipped} skipped`);
+      const text = parts.length > 0 ? parts.join(', ') + '.' : 'No projects were imported.';
+      showBanner({ kind: 'success', text });
+    } catch (err) {
+      showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
+    }
+  };
+
+  const applyReplaceAll = async (imported: ImportResult) => {
+    setApplying(true);
+    try {
+      updateData(imported.appData);
+      await onReplaceSnapshots(imported.snapshots ?? []);
+      if (imported.appData.projects.length > 0) {
+        setSelectedProjectId(imported.appData.projects[0].id);
+      }
+      const n = imported.appData.projects.length;
+      const text = n > 0
+        ? `All data replaced. ${n} project${n !== 1 ? 's' : ''} imported.`
+        : 'All data replaced.';
+      showBanner({ kind: 'success', text });
+    } catch (err) {
+      showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
+    }
+  };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    fileInputRef.current = event.target;
 
     try {
       const content = await readFileAsText(file);
       const imported = parseImportedData(content);
 
       if (!imported) {
-        alert('Invalid file format');
-        event.target.value = '';
+        showBanner({ kind: 'error', text: 'Invalid file format' });
         return;
       }
 
-      // v19.0 — route by _exportType discriminator. Replace-all dialog for
-      // 'ganttapp-all-projects' or 'legacy'; additive merge for 'ganttapp-project-export'.
-      fileInputRef.current = event.target;
-      const isReplaceAll =
+      const conflicts = detectImportConflicts(imported, data);
+
+      // Fast Path 1: ganttapp-project-export with zero conflicts → apply immediately.
+      if (imported.exportType === 'ganttapp-project-export' && conflicts.length === 0) {
+        await applyMergeDecisions(imported, new Map(), []);
+        return;
+      }
+
+      // Fast Path 2: full-workspace replace into empty workspace → apply immediately.
+      // !appDataLoading gate prevents silent Replace-All against a workspace still loading.
+      const isReplaceAllShape =
         imported.exportType === 'ganttapp-all-projects' ||
         imported.exportType === 'legacy';
-
-      if (isReplaceAll) {
-        const hasExistingData = data.projects.length > 0 || data.releases.length > 0;
-        if (hasExistingData) {
-          setImportConfirm({ imported });
-          return;
-        }
-        applyImport(imported, event.target);
-      } else {
-        // 'ganttapp-project-export' → additive merge
-        setImportMergeConfirm({ imported });
+      if (isReplaceAllShape && data.projects.length === 0 && !appDataLoading) {
+        await applyReplaceAll(imported);
+        return;
       }
+
+      // Otherwise: show the preview.
+      // Initial mode rationale:
+      // - 'ganttapp-project-export' → 'merge' (single-project export has never had a replace-all path).
+      // - 'ganttapp-all-projects'   → 'merge' (intentionally new format in v19.0; no established
+      //                                       user habit to preserve; safe-by-default; user can
+      //                                       switch to Replace-All in one click).
+      // - 'legacy'                  → 'replace-all' (every legacy file hits Replace-All today;
+      //                                              defaulting to Merge would silently drop
+      //                                              data for round-trip backup users).
+      const initialMode: ImportMode = imported.exportType === 'legacy' ? 'replace-all' : 'merge';
+      showPreview({
+        imported,
+        conflicts,
+        decisions: computeDefaultDecisions(conflicts),
+        mode: initialMode,
+      });
     } catch (error) {
-      alert('Error importing file');
       console.error('Error importing file:', error instanceof Error ? error.message : 'Unknown error');
-      event.target.value = '';
+      showBanner({ kind: 'error', text: 'Error importing file' });
     }
   };
 
-  const applyImport = async (imported: NonNullable<ReturnType<typeof parseImportedData>>, fileInput: HTMLInputElement) => {
-    updateData(imported.appData);
-    await onReplaceSnapshots(imported.snapshots ?? []);
-    if (imported.appData.projects.length > 0) {
-      setSelectedProjectId(imported.appData.projects[0].id);
+  const handleConfirmMerge = () => {
+    if (!importPreview) return;
+    // Pre-async early-exit guard: catches the common non-cloud case cheaply.
+    // Authoritative check runs again inside applyMergeDecisions after loadSnapshots.
+    const freshConflicts = detectImportConflicts(importPreview.imported, data);
+    if (!conflictsEqual(freshConflicts, importPreview.conflicts)) {
+      showBanner({ kind: 'error', text: 'The workspace changed while the preview was open. Please review your import again.' });
+      return;
     }
-    const snapshotMsg = imported.snapshots ? ` (including ${imported.snapshots.length} snapshot${imported.snapshots.length !== 1 ? 's' : ''})` : '';
-    alert(`Data imported successfully!${snapshotMsg}`);
-    fileInput.value = '';
+    // Capture before setApplying to avoid cross-await closure dependency.
+    const originalConflicts = importPreview.conflicts;
+    applyMergeDecisions(importPreview.imported, importPreview.decisions, originalConflicts);
   };
 
-  // v19.0 — additive merge import path. Skips projects whose ID collides with existing,
-  // reports the count to the user. Releases and snapshots filtered to accepted projects.
-  const applyMergeImport = async (
-    incoming: NonNullable<ReturnType<typeof parseImportedData>>,
-    fileInput: HTMLInputElement
-  ) => {
-    const existingSnapshots = await storage.loadSnapshots();
-    const { mergedData, mergedSnapshots, skipped } = mergeImportedProjects(
-      data,
-      incoming,
-      existingSnapshots
-    );
-    updateData(mergedData);
-    await onReplaceSnapshots(mergedSnapshots);
-    const added = incoming.appData.projects.length - skipped;
-    const skipMsg = skipped > 0
-      ? ` (${skipped} project${skipped !== 1 ? 's' : ''} skipped — already existed)`
-      : '';
-    alert(`${added} project${added !== 1 ? 's' : ''} added successfully.${skipMsg}`);
-    fileInput.value = '';
+  const handleImportCancel = () => {
+    clearImportFlow();
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const [finishDateError, setFinishDateError] = useState('');
@@ -455,26 +580,28 @@ export function ProjectsTab({
           </button>
         )}
         <label
-          onMouseEnter={() => setImportHover(true)}
+          onMouseEnter={() => !applying && setImportHover(true)}
           onMouseLeave={() => setImportHover(false)}
-          onFocus={() => setImportHover(true)}
+          onFocus={() => !applying && setImportHover(true)}
           onBlur={() => setImportHover(false)}
           aria-label="Import projects from JSON"
+          aria-disabled={applying}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.4rem',
             padding: '0.4rem 0.75rem',
-            background: importHover
+            background: importHover && !applying
               ? (resolvedTheme === 'dark' ? 'rgba(0, 112, 243, 0.15)' : '#eff6ff')
               : 'transparent',
-            color: importHover ? '#0070f3' : '#9ca3af',
-            border: `1px solid ${importHover ? '#0070f3' : 'transparent'}`,
+            color: importHover && !applying ? '#0070f3' : '#9ca3af',
+            border: `1px solid ${importHover && !applying ? '#0070f3' : 'transparent'}`,
             borderRadius: '6px',
-            cursor: 'pointer',
+            cursor: applying ? 'not-allowed' : 'pointer',
             fontWeight: 500,
             fontSize: '0.9rem',
             transition: 'all 0.12s ease',
+            opacity: applying ? 0.5 : 1,
           }}
         >
           <svg
@@ -487,7 +614,7 @@ export function ProjectsTab({
           >
             <path
               d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-              stroke={importHover ? '#0070f3' : '#9ca3af'}
+              stroke={importHover && !applying ? '#0070f3' : '#9ca3af'}
               strokeWidth="2.25"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -498,11 +625,79 @@ export function ProjectsTab({
             type="file"
             name="importJson"
             accept=".json"
+            disabled={applying}
             onChange={handleImport}
             style={{ display: 'none' }}
           />
         </label>
       </div>
+
+      {/* v0.24.0 — Smart Import preview, rendered between toolbar and project list. */}
+      {importPreview && (
+        <ImportPreviewSection
+          imported={importPreview.imported}
+          conflicts={importPreview.conflicts}
+          decisions={importPreview.decisions}
+          mode={importPreview.mode}
+          applying={applying}
+          idPrefix={importIdPrefix}
+          colors={colors}
+          onModeChange={(mode) =>
+            setImportPreview(prev => prev ? { ...prev, mode } : null)
+          }
+          onDecisionChange={(projectId, action) => {
+            setImportPreview(prev => {
+              if (!prev) return null;
+              // MUST clone the Map — mutating in place does not trigger re-render.
+              const decisions = new Map(prev.decisions);
+              decisions.set(projectId, action);
+              return { ...prev, decisions };
+            });
+          }}
+          onConfirm={handleConfirmMerge}
+          onRequestReplaceAll={() => setReplaceAllPending(true)}
+          onCancel={handleImportCancel}
+        />
+      )}
+
+      {/* v0.24.0 — Result banner (success/error). Explicit dismiss, no auto-fade. */}
+      {importBanner && (
+        <div
+          role={importBanner.kind === 'error' ? 'alert' : 'status'}
+          style={{
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            background: importBanner.kind === 'error'
+              ? (resolvedTheme === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2')
+              : (resolvedTheme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5'),
+            border: `1px solid ${importBanner.kind === 'error' ? '#ef4444' : '#10b981'}`,
+            borderRadius: '6px',
+            color: colors.text,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}
+        >
+          <span>{importBanner.text}</span>
+          <button
+            type="button"
+            onClick={() => setImportBanner(null)}
+            aria-label="Dismiss notification"
+            style={{
+              padding: '0.25rem 0.6rem',
+              background: 'transparent',
+              color: colors.text,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {data.projects.length === 0 ? (
         <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Add one to get started!</p>
@@ -689,8 +884,9 @@ export function ProjectsTab({
         ) : null;
       })()}
 
-      {/* Import confirmation modal */}
-      {importConfirm && (
+      {/* v0.24.0 — Replace-All confirmation modal. Gated on replaceAllPending &&
+          importPreview !== null so it can never render without an active preview. */}
+      {replaceAllPending && importPreview && (
         <ConfirmDialog
           modal
           title="Replace All Data"
@@ -700,45 +896,15 @@ export function ProjectsTab({
             {
               label: 'Cancel',
               variant: 'secondary',
-              onClick: () => {
-                setImportConfirm(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-              },
+              onClick: () => setReplaceAllPending(false),
             },
             {
               label: 'Replace',
               variant: 'danger',
               onClick: () => {
-                applyImport(importConfirm.imported!, fileInputRef.current!);
-                setImportConfirm(null);
-              },
-            },
-          ]}
-        />
-      )}
-
-      {/* v19.0 — additive merge import confirmation modal */}
-      {importMergeConfirm && (
-        <ConfirmDialog
-          modal
-          title="Add Projects to Workspace"
-          message={`Add ${importMergeConfirm.imported.appData.projects.length} project${importMergeConfirm.imported.appData.projects.length !== 1 ? 's' : ''} from this file to your existing workspace? Projects that already exist will be skipped.`}
-          colors={colors}
-          buttons={[
-            {
-              label: 'Cancel',
-              variant: 'secondary',
-              onClick: () => {
-                setImportMergeConfirm(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-              },
-            },
-            {
-              label: 'Add Projects',
-              variant: 'primary',
-              onClick: () => {
-                applyMergeImport(importMergeConfirm.imported, fileInputRef.current!);
-                setImportMergeConfirm(null);
+                const imported = importPreview.imported;  // capture before state mutation
+                setReplaceAllPending(false);
+                applyReplaceAll(imported);
               },
             },
           ]}

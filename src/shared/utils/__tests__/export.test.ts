@@ -7,10 +7,17 @@ import {
   parseImportedData,
   exportSingleProject,
   exportSelectedProjects,
-  mergeImportedProjects,
+  detectImportConflicts,
+  conflictsEqual,
+  applyImportDecisions,
+  type ImportConflict,
+  type ConflictAction,
+  type ImportResult,
 } from '../export';
 import { AppData } from '../../types/app';
+import type { Project } from '../../types/models';
 import type { Snapshot } from '../../types/snapshots';
+import { MAX_NAME_LENGTH } from '../validation';
 
 describe('parseImportedData', () => {
   function makeValidExport(): AppData {
@@ -621,127 +628,469 @@ describe('exportSelectedProjects (v19.0)', () => {
 });
 
 // ============================================================================
-// v19.0 — mergeImportedProjects
+// v0.24.0 — detectImportConflicts
 // ============================================================================
 
-describe('mergeImportedProjects (v19.0)', () => {
-  function makeExisting(): AppData {
+describe('detectImportConflicts (v0.24.0)', () => {
+  function makeExisting(projects: Project[]): AppData {
+    return { projects, releases: [] };
+  }
+  function makeIncoming(projects: Project[]): ImportResult {
     return {
+      appData: { projects, releases: [] },
+      exportType: 'ganttapp-project-export',
+    };
+  }
+
+  it('reports ID conflict when IDs match', () => {
+    const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
+    const incoming = makeIncoming([{ id: 'p1', name: 'Renamed Alpha' }]);
+    const conflicts = detectImportConflicts(incoming, existing);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].type).toBe('id');
+    expect(conflicts[0].incomingProject.id).toBe('p1');
+    expect(conflicts[0].existingProject.id).toBe('p1');
+  });
+
+  it('reports name conflict when names match case-insensitively but IDs differ', () => {
+    const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
+    const incoming = makeIncoming([{ id: 'p2', name: '  alpha ' }]);
+    const conflicts = detectImportConflicts(incoming, existing);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].type).toBe('name');
+    expect(conflicts[0].existingProject.id).toBe('p1');
+    expect(conflicts[0].incomingProject.id).toBe('p2');
+  });
+
+  it('reports type:id only when both ID and name match', () => {
+    const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
+    const incoming = makeIncoming([{ id: 'p1', name: 'Alpha' }]);
+    const conflicts = detectImportConflicts(incoming, existing);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].type).toBe('id');
+  });
+
+  it('returns empty array when no conflicts', () => {
+    const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
+    const incoming = makeIncoming([{ id: 'p2', name: 'Beta' }]);
+    expect(detectImportConflicts(incoming, existing)).toEqual([]);
+  });
+
+  it('returns first existing project (insertion order) when two existing share a name', () => {
+    const existing = makeExisting([
+      { id: 'p1', name: 'Duplicate' },
+      { id: 'p2', name: 'duplicate' },
+    ]);
+    const incoming = makeIncoming([{ id: 'p3', name: 'DUPLICATE' }]);
+    const conflicts = detectImportConflicts(incoming, existing);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].existingProject.id).toBe('p1'); // first-match semantics
+  });
+
+  it('does not flag two incoming projects sharing a name with each other', () => {
+    const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
+    const incoming = makeIncoming([
+      { id: 'p10', name: 'New' },
+      { id: 'p11', name: 'New' },
+    ]);
+    expect(detectImportConflicts(incoming, existing)).toEqual([]);
+  });
+});
+
+// ============================================================================
+// v0.24.0 — conflictsEqual
+// ============================================================================
+
+describe('conflictsEqual (v0.24.0)', () => {
+  const c = (incomingId: string, type: 'id' | 'name', existingId: string): ImportConflict => ({
+    type,
+    incomingProject: { id: incomingId, name: incomingId },
+    existingProject: { id: existingId, name: existingId },
+  });
+
+  it('returns true for same conflicts in same order', () => {
+    const a = [c('a', 'id', 'a'), c('b', 'name', 'x')];
+    const b = [c('a', 'id', 'a'), c('b', 'name', 'x')];
+    expect(conflictsEqual(a, b)).toBe(true);
+  });
+
+  it('returns true for same conflicts in different order (multiset)', () => {
+    const a = [c('a', 'id', 'a'), c('b', 'name', 'x')];
+    const b = [c('b', 'name', 'x'), c('a', 'id', 'a')];
+    expect(conflictsEqual(a, b)).toBe(true);
+  });
+
+  it('returns false when one conflict is added', () => {
+    const a = [c('a', 'id', 'a')];
+    const b = [c('a', 'id', 'a'), c('b', 'name', 'x')];
+    expect(conflictsEqual(a, b)).toBe(false);
+  });
+
+  it('returns false when one conflict is removed', () => {
+    const a = [c('a', 'id', 'a'), c('b', 'name', 'x')];
+    const b = [c('a', 'id', 'a')];
+    expect(conflictsEqual(a, b)).toBe(false);
+  });
+
+  it('returns false when conflict type changes for same incoming ID', () => {
+    const a = [c('a', 'id', 'a')];
+    const b = [c('a', 'name', 'a')];
+    expect(conflictsEqual(a, b)).toBe(false);
+  });
+
+  it('returns false when existingProject.id changes for a name conflict', () => {
+    const a = [c('a', 'name', 'x')];
+    const b = [c('a', 'name', 'y')];
+    expect(conflictsEqual(a, b)).toBe(false);
+  });
+});
+
+// ============================================================================
+// v0.24.0 — applyImportDecisions
+// ============================================================================
+
+describe('applyImportDecisions (v0.24.0)', () => {
+  function makeDeterministicGen() {
+    let n = 0;
+    return () => `test-id-${n++}`;
+  }
+
+  function rel(id: string, projectId: string) {
+    return {
+      id,
+      projectId,
+      name: `rel-${id}`,
+      startDate: '2026-01-01',
+      earlyFinishDate: '2026-02-01',
+      lateFinishDate: '2026-03-01',
+    };
+  }
+
+  function snap(id: string, projectId: string, releaseProjectIds: string[] = []): Snapshot {
+    return {
+      id,
+      projectId,
+      timestamp: '2026-01-01T00:00:00Z',
+      name: `snap-${id}`,
+      releases: releaseProjectIds.map((pid, i) => ({
+        id: `${id}-r${i}`,
+        projectId: pid,
+        name: 'snap-rel',
+        startDate: '2026-01-01',
+        earlyFinishDate: '2026-02-01',
+        lateFinishDate: '2026-03-01',
+      })),
+    };
+  }
+
+  it("'skip' excludes project, releases, and snapshots; count correct", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [rel('r1', 'p1')],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p1', name: 'Alpha-imported' }],
+        releases: [rel('r-incoming', 'p1')],
+      },
+      snapshots: [snap('s-incoming', 'p1')],
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'skip']]));
+    expect(result.result.skipped).toBe(1);
+    expect(result.result.added).toBe(0);
+    expect(result.result.copied).toBe(0);
+    expect(result.result.replaced).toBe(0);
+    expect(result.mergedData.projects).toEqual([{ id: 'p1', name: 'Alpha' }]);
+    expect(result.mergedData.releases).toEqual([rel('r1', 'p1')]);
+    expect(result.mergedSnapshots).toEqual([]);
+  });
+
+  it('missing decisions key for a conflict treated as skip; project + releases + snapshots all excluded', () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [rel('r1', 'p1')],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p1', name: 'Alpha-incoming' }],
+        releases: [rel('r-incoming', 'p1')],
+      },
+      snapshots: [snap('s-incoming', 'p1')],
+      exportType: 'ganttapp-project-export',
+    };
+    // Empty decisions Map — conflict has no entry.
+    const result = applyImportDecisions(existing, incoming, [], new Map());
+    expect(result.result.skipped).toBe(1);
+    expect(result.mergedData.projects).toEqual([{ id: 'p1', name: 'Alpha' }]);
+    expect(result.mergedData.releases.find(r => r.id === 'r-incoming')).toBeUndefined();
+    expect(result.mergedSnapshots.find(s => s.id === 's-incoming')).toBeUndefined();
+  });
+
+  it("'copy' regenerates project ID, appends COPY_SUFFIX, regenerates release IDs and snapshot top-level IDs; embedded snapshot.releases untouched", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p2', name: 'Alpha' }],  // name conflict
+        releases: [rel('r-incoming', 'p2')],
+      },
+      snapshots: [snap('s-incoming', 'p2', ['p2'])],  // embedded release references original p2
+      exportType: 'ganttapp-project-export',
+    };
+    const gen = makeDeterministicGen();
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), gen);
+    expect(result.result.copied).toBe(1);
+    const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
+    expect(copyProject.id).toBe('test-id-0');
+    expect(copyProject.name).toBe('Alpha (2)');
+    expect(copyProject.owner).toBeUndefined();
+    // Release regenerated with new projectId.
+    const copyRel = result.mergedData.releases.find(r => r.projectId === 'test-id-0');
+    expect(copyRel).toBeDefined();
+    expect(copyRel!.id).not.toBe('r-incoming');
+    // Snapshot top-level regenerated; embedded releases untouched.
+    const copySnap = result.mergedSnapshots.find(s => s.projectId === 'test-id-0');
+    expect(copySnap).toBeDefined();
+    expect(copySnap!.id).not.toBe('s-incoming');
+    expect(copySnap!.releases[0].projectId).toBe('p2'); // ORIGINAL, untouched
+  });
+
+  it("'copy' name truncation: name exactly MAX_NAME_LENGTH chars → result ≤ MAX_NAME_LENGTH", () => {
+    const longName = 'x'.repeat(MAX_NAME_LENGTH);
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: longName }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p2', name: longName }],
+        releases: [],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), makeDeterministicGen());
+    const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
+    expect(copyProject.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+    expect(copyProject.name.endsWith(' (2)')).toBe(true);
+  });
+
+  it("'copy' name truncation: 97, 98, 99 chars → all ≤ MAX_NAME_LENGTH", () => {
+    for (const len of [97, 98, 99]) {
+      const name = 'a'.repeat(len);
+      const existing: AppData = {
+        projects: [{ id: 'p1', name }],
+        releases: [],
+      };
+      const incoming: ImportResult = {
+        appData: { projects: [{ id: 'p2', name }], releases: [] },
+        exportType: 'ganttapp-project-export',
+      };
+      const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), makeDeterministicGen());
+      const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
+      expect(copyProject.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+    }
+  });
+
+  it("'copy' silently accepts duplicate '(2)' name when workspace already has Foo (2)", () => {
+    const existing: AppData = {
       projects: [
-        { id: 'p1', name: 'Existing 1' },
-        { id: 'p2', name: 'Existing 2' },
+        { id: 'p1', name: 'Roadmap' },
+        { id: 'p2', name: 'Roadmap (2)' },
       ],
-      releases: [
-        { id: 'r1', projectId: 'p1', name: 'r1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' },
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p3', name: 'Roadmap' }], releases: [] },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p3', 'copy']]), makeDeterministicGen());
+    const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
+    expect(copyProject.name).toBe('Roadmap (2)'); // no '(3)' iteration
+  });
+
+  it("two name-conflict projects both 'copy' → both become Foo (2)", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Foo' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [
+          { id: 'p2', name: 'Foo' },
+          { id: 'p3', name: 'Foo' },
+        ],
+        releases: [],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const gen = makeDeterministicGen();
+    const result = applyImportDecisions(existing, incoming, [], new Map<string, ConflictAction>([['p2', 'copy'], ['p3', 'copy']]), gen);
+    const copies = result.mergedData.projects.filter(p => p.name === 'Foo (2)');
+    expect(copies).toHaveLength(2);
+  });
+
+  it("'replace' on ID conflict: slot-preserved, existing releases/snapshots removed, others unchanged, owner preserved, replacedIdMap empty", () => {
+    const existing: AppData = {
+      projects: [
+        { id: 'p1', name: 'Alpha', owner: 'user-A' },
+        { id: 'p2', name: 'Beta' },
       ],
+      releases: [rel('r1', 'p1'), rel('r2', 'p2')],
+    };
+    const existingSnaps: Snapshot[] = [snap('s1', 'p1'), snap('s2', 'p2')];
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p1', name: 'Alpha-new' }],
+        releases: [rel('r-new', 'p1')],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['p1', 'replace']]));
+    expect(result.result.replaced).toBe(1);
+    expect(result.mergedData.projects[0].id).toBe('p1');
+    expect(result.mergedData.projects[0].name).toBe('Alpha-new');
+    expect(result.mergedData.projects[0].owner).toBe('user-A'); // preserved
+    expect(result.mergedData.projects[1].id).toBe('p2'); // unchanged
+    expect(result.mergedData.releases.find(r => r.id === 'r1')).toBeUndefined(); // existing removed
+    expect(result.mergedData.releases.find(r => r.id === 'r2')).toBeDefined(); // other unchanged
+    expect(result.mergedData.releases.find(r => r.id === 'r-new')).toBeDefined();
+    expect(result.mergedSnapshots.find(s => s.id === 's1')).toBeUndefined();
+    expect(result.mergedSnapshots.find(s => s.id === 's2')).toBeDefined();
+    expect(result.result.replacedIdMap.size).toBe(0); // ID conflict → no remap entry
+  });
+
+  it("'replace' on ID conflict when existing has no owner: incoming has no owner (no fabricated UID)", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p1', name: 'Alpha-new', owner: 'leaked-uid' }], releases: [] },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'replace']]));
+    expect(result.mergedData.projects[0].owner).toBeUndefined();
+  });
+
+  it("'replace' on name conflict: slot-preserved, releases/snapshots swapped, owner preserved, replacedIdMap directional", () => {
+    const existing: AppData = {
+      projects: [
+        { id: 'old-1', name: 'Alpha', owner: 'user-A' },
+        { id: 'old-2', name: 'Beta' },
+      ],
+      releases: [rel('r-old1', 'old-1'), rel('r-old2', 'old-2')],
+    };
+    const existingSnaps: Snapshot[] = [snap('s-old1', 'old-1'), snap('s-old2', 'old-2')];
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'new-1', name: 'Alpha' }],
+        releases: [rel('r-new1', 'new-1')],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['new-1', 'replace']]));
+    expect(result.result.replaced).toBe(1);
+    expect(result.mergedData.projects[0].id).toBe('new-1');
+    expect(result.mergedData.projects[0].owner).toBe('user-A');
+    expect(result.mergedData.projects[1].id).toBe('old-2'); // unchanged
+    expect(result.mergedData.releases.find(r => r.id === 'r-old1')).toBeUndefined();
+    expect(result.mergedData.releases.find(r => r.id === 'r-old2')).toBeDefined();
+    expect(result.mergedSnapshots.find(s => s.id === 's-old1')).toBeUndefined();
+    expect(result.mergedSnapshots.find(s => s.id === 's-old2')).toBeDefined();
+    expect(result.result.replacedIdMap.get('old-1')).toBe('new-1');
+    expect(result.result.replacedIdMap.get('new-1')).toBeUndefined(); // reverse absent
+  });
+
+  it("multi-replace-same-slot: first-in-array-order wins regardless of decisions Map insertion order", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Target' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [
+          { id: 'p1', name: 'First-by-array' },       // type:id, first in array
+          { id: 'p2', name: 'Target' },               // type:name, second in array
+        ],
+        releases: [],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    // Insert p2 decision FIRST in Map iteration order.
+    const decisions = new Map<string, ConflictAction>();
+    decisions.set('p2', 'replace');
+    decisions.set('p1', 'replace');
+    const result = applyImportDecisions(existing, incoming, [], decisions);
+    expect(result.result.replaced).toBe(1);
+    expect(result.result.skipped).toBe(1);
+    // Winner is p1 (first in incoming.appData.projects array order).
+    expect(result.mergedData.projects[0].id).toBe('p1');
+    expect(result.mergedData.projects[0].name).toBe('First-by-array');
+  });
+
+  it("non-conflicting projects are included, appended at end, counted as 'added'", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [{ id: 'p2', name: 'Beta' }, { id: 'p3', name: 'Gamma' }],
+        releases: [],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, [], new Map());
+    expect(result.result.added).toBe(2);
+    expect(result.mergedData.projects.map(p => p.id)).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it("snapshot dedup by ID on 'added' path", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
+    };
+    const existingSnaps: Snapshot[] = [snap('shared-snap-id', 'p1')];
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p2', name: 'Beta' }], releases: [] },
+      snapshots: [snap('shared-snap-id', 'p2'), snap('new-snap', 'p2')],
+      exportType: 'ganttapp-project-export',
+    };
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map());
+    expect(result.mergedSnapshots.filter(s => s.id === 'shared-snap-id')).toHaveLength(1);
+    expect(result.mergedSnapshots.find(s => s.id === 'new-snap')).toBeDefined();
+  });
+
+  it("stray key in decisions (not a conflict) is silently ignored", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p2', name: 'Beta' }], releases: [] },
+      exportType: 'ganttapp-project-export',
+    };
+    // 'stray-id' does not exist in incoming; should be ignored.
+    const result = applyImportDecisions(existing, incoming, [], new Map([['stray-id', 'replace']]));
+    expect(result.result.added).toBe(1);
+    expect(result.result.replaced).toBe(0);
+    expect(result.result.skipped).toBe(0);
+  });
+
+  it("preserves existing global settings untouched", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Alpha' }],
+      releases: [],
       preparedBy: 'preserved',
     };
-  }
-
-  function makeIncoming(projects: { id: string; name: string }[]): import('../export').ImportResult {
-    return {
-      appData: {
-        projects,
-        releases: projects.map(p => ({
-          id: `r-${p.id}`, projectId: p.id, name: 'rel',
-          startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
-        })),
-      },
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p2', name: 'Beta' }], releases: [], preparedBy: 'should-be-ignored' },
       exportType: 'ganttapp-project-export',
     };
-  }
-
-  it('accepts all when no IDs collide', () => {
-    const existing = makeExisting();
-    const incoming = makeIncoming([{ id: 'p3', name: 'New' }, { id: 'p4', name: 'Newer' }]);
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.skipped).toBe(0);
-    expect(result.mergedData.projects.map(p => p.id).sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
-    expect(result.mergedData.releases).toHaveLength(3);
-  });
-
-  it('skips all when every ID collides', () => {
-    const existing = makeExisting();
-    const incoming = makeIncoming([{ id: 'p1', name: 'Dup' }, { id: 'p2', name: 'Dup' }]);
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.skipped).toBe(2);
-    expect(result.mergedData.projects).toHaveLength(2);
-    expect(result.mergedData.releases).toHaveLength(1); // unchanged
-  });
-
-  it('skips collisions, accepts the rest', () => {
-    const existing = makeExisting();
-    const incoming = makeIncoming([{ id: 'p1', name: 'Dup' }, { id: 'p3', name: 'New' }]);
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.skipped).toBe(1);
-    expect(result.mergedData.projects.map(p => p.id).sort()).toEqual(['p1', 'p2', 'p3']);
-  });
-
-  it('catches duplicates within the incoming batch itself', () => {
-    const existing = makeExisting();
-    const incoming = makeIncoming([{ id: 'p3', name: 'A' }, { id: 'p3', name: 'B' }]);
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.skipped).toBe(1); // second p3 dropped
-    expect(result.mergedData.projects.filter(p => p.id === 'p3')).toHaveLength(1);
-  });
-
-  it('filters incoming releases to accepted project IDs only', () => {
-    const existing = makeExisting();
-    const incoming: import('../export').ImportResult = {
-      appData: {
-        projects: [{ id: 'p1', name: 'Dup' }, { id: 'p3', name: 'New' }],
-        releases: [
-          { id: 'rA', projectId: 'p1', name: 'should-skip', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' },
-          { id: 'rB', projectId: 'p3', name: 'should-keep', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' },
-        ],
-      },
-      exportType: 'ganttapp-project-export',
-    };
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.mergedData.releases.map(r => r.id).sort()).toEqual(['r1', 'rB']);
-  });
-
-  it('deduplicates incoming snapshots by ID against existing snapshots', () => {
-    const existing = makeExisting();
-    const existingSnapshots: Snapshot[] = [
-      { id: 's1', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'old', releases: [] },
-    ];
-    const incoming: import('../export').ImportResult = {
-      appData: {
-        projects: [{ id: 'p3', name: 'New' }],
-        releases: [],
-      },
-      snapshots: [
-        { id: 's1', projectId: 'p3', timestamp: '2026-01-02T00:00:00Z', name: 'dup', releases: [] }, // dup ID
-        { id: 's2', projectId: 'p3', timestamp: '2026-01-03T00:00:00Z', name: 'new', releases: [] },
-      ],
-      exportType: 'ganttapp-project-export',
-    };
-    const result = mergeImportedProjects(existing, incoming, existingSnapshots);
-    expect(result.mergedSnapshots.map(s => s.id).sort()).toEqual(['s1', 's2']);
-  });
-
-  it('only carries over snapshots whose projectId was accepted', () => {
-    const existing = makeExisting();
-    const incoming: import('../export').ImportResult = {
-      appData: {
-        projects: [{ id: 'p1', name: 'Dup' }, { id: 'p3', name: 'New' }],
-        releases: [],
-      },
-      snapshots: [
-        { id: 's-skip', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'a', releases: [] },
-        { id: 's-keep', projectId: 'p3', timestamp: '2026-01-02T00:00:00Z', name: 'b', releases: [] },
-      ],
-      exportType: 'ganttapp-project-export',
-    };
-    const result = mergeImportedProjects(existing, incoming, []);
-    expect(result.mergedSnapshots.map(s => s.id)).toEqual(['s-keep']);
-  });
-
-  it('preserves existing global settings untouched', () => {
-    const existing = makeExisting();
-    const incoming = makeIncoming([{ id: 'p3', name: 'New' }]);
-    const result = mergeImportedProjects(existing, incoming, []);
+    const result = applyImportDecisions(existing, incoming, [], new Map());
     expect(result.mergedData.preparedBy).toBe('preserved');
   });
 });

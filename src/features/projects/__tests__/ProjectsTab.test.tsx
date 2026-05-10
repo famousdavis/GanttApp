@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
 import { StorageProvider } from '../../../context/StorageContext';
@@ -454,345 +454,370 @@ describe('ProjectsTab', () => {
     });
   });
 
-  describe('import warning dialog', () => {
-    function createValidFile(data: object): File {
-      const content = JSON.stringify(data);
-      return new File([content], 'test.json', { type: 'application/json' });
+  // v0.24.0 — Smart Import with Per-Project Conflict Resolution.
+  // File-input simulation pattern: construct a File and drive `<input type="file">`
+  // via fireEvent.change. Documented at top of ImportPreviewSection.test.tsx.
+  describe('Smart Import flow (v0.24.0)', () => {
+    function createFile(data: object): File {
+      return new File([JSON.stringify(data)], 'test.json', { type: 'application/json' });
     }
 
-    it('shows modal dialog when importing with existing data', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [makeRelease({ id: 'r1', projectId: 'p1' })],
-      });
+    describe('Fast Path 1: ganttapp-project-export with zero conflicts', () => {
+      it('applies immediately, no preview, success banner', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-      renderProjectsTab();
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-project-export',
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-      // Wait for async data to load before triggering import
-      await waitFor(() => {
-        expect(screen.getByText('Alpha')).toBeTruthy();
-      });
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [{ id: 'r2', projectId: 'p2', name: 'R2', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }]
-      });
-
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-        expect(screen.getByText(/replace all existing projects/)).toBeTruthy();
+        // No preview rendered.
+        expect(screen.queryByTestId('import-preview-section')).toBeNull();
+        // Success banner via role=status.
+        await waitFor(() => {
+          expect(screen.getByRole('status')).toBeTruthy();
+        });
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects.map((p: Project) => p.name).sort()).toEqual(['Alpha', 'Beta']);
       });
     });
 
-    it('applies import when Replace button is clicked', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
+    describe('Fast Path 2: empty workspace + replace-all-shape file', () => {
+      it('applies immediately via applyReplaceAll, no preview', async () => {
+        seedData({ projects: [], releases: [] });
+        const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+        renderProjectsTab({ onReplaceSnapshots });
+
+        // Wait for AppDataContext to finish loading so !appDataLoading gate passes.
+        await waitFor(() => {
+          expect(screen.getByText(/No projects yet/)).toBeTruthy();
+        });
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-all-projects',
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => {
+          expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
+        });
+        expect(screen.queryByTestId('import-preview-section')).toBeNull();
+        expect(screen.queryByText(/replace all existing projects/i)).toBeNull(); // modal not shown
+      });
+    });
+
+    describe('Preview rendering', () => {
+      it('renders preview for ganttapp-project-export with conflicts; no mode selector', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-project-export',
+          projects: [{ id: 'p1', name: 'Alpha' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => {
+          expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        });
+        expect(screen.queryByRole('radio', { name: /Merge into workspace/ })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Confirm Import' })).toBeTruthy();
       });
 
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
-      renderProjectsTab();
+      it('renders preview with mode selector for ganttapp-all-projects + non-empty workspace; default merge mode', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-      // Wait for async data to load
-      await waitFor(() => {
-        expect(screen.getByText('Alpha')).toBeTruthy();
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-all-projects',
+          projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => {
+          expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        });
+        const mergeRadio = screen.getByRole('radio', { name: /Merge into workspace/ }) as HTMLInputElement;
+        expect(mergeRadio.checked).toBe(true);
+        expect(screen.getByRole('button', { name: 'Confirm Merge' })).toBeTruthy();
       });
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: []
+      it('renders preview with default replace-all mode for legacy file + non-empty workspace', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => {
+          expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        });
+        const replaceRadio = screen.getByRole('radio', { name: /Replace entire workspace/ }) as HTMLInputElement;
+        expect(replaceRadio.checked).toBe(true);
+        expect(screen.getByRole('button', { name: 'Replace All Data' })).toBeTruthy();
       });
+    });
 
-      fireEvent.change(fileInput, { target: { files: [file] } });
+    describe('Replace-All modal gate', () => {
+      it('clicking Replace All Data opens ConfirmDialog; confirm applies, modal closes', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
+        renderProjectsTab({ onReplaceSnapshots });
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-      });
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-      fireEvent.click(screen.getByText('Replace'));
+        await waitFor(() => {
+          expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Replace All Data' }));
 
-      await waitFor(() => {
+        // Modal renders.
+        await waitFor(() => {
+          expect(screen.getByText(/replace all existing projects/i)).toBeTruthy();
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+
+        await waitFor(() => {
+          // Modal gone, preview gone, banner appears.
+          expect(screen.queryByText(/replace all existing projects/i)).toBeNull();
+        });
         const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
         expect(stored.projects[0].name).toBe('Beta');
       });
-    });
 
-    it('aborts import when Cancel button is clicked', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
+      it('cancel on Replace modal leaves preview intact', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-      renderProjectsTab();
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-      // Wait for async data to load
-      await waitFor(() => {
-        expect(screen.getByText('Alpha')).toBeTruthy();
-      });
+        await waitFor(() => {
+          expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Replace All Data' }));
+        await waitFor(() => {
+          expect(screen.getByText(/replace all existing projects/i)).toBeTruthy();
+        });
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: []
-      });
+        // Click Cancel in the modal — there are now two Cancel buttons in the
+        // DOM (modal + preview). Pick the one inside the modal.
+        const modalText = screen.getByText(/replace all existing projects/i);
+        const modalContainer = modalText.closest('div')?.parentElement?.parentElement as HTMLElement;
+        fireEvent.click(within(modalContainer).getByRole('button', { name: 'Cancel' }));
 
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-      // Modal should close
-      await waitFor(() => {
-        expect(screen.queryByText('Replace All Data')).toBeNull();
-      });
-
-      // Original data should remain
-      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
-      expect(stored.projects[0].name).toBe('Alpha');
-    });
-
-    it('skips modal dialog when no existing data', async () => {
-      seedData({ projects: [], releases: [] });
-
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-      renderProjectsTab();
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: []
-      });
-
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('imported successfully'));
-      });
-
-      // Modal should not have appeared
-      expect(screen.queryByText('Replace All Data')).toBeNull();
-
-      alertSpy.mockRestore();
-    });
-
-    it('calls onReplaceSnapshots with imported snapshots via Replace modal (v16.7)', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
-      renderProjectsTab({ onReplaceSnapshots });
-
-      await waitFor(() => {
-        expect(screen.getByText('Alpha')).toBeTruthy();
-      });
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const snapshot = {
-        id: 'snap1',
-        projectId: 'p2',
-        timestamp: '2026-04-01T10:00:00.000Z',
-        name: 'Sprint 1',
-        releases: [],
-      };
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-        snapshots: [snapshot],
-      });
-
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-      });
-
-      fireEvent.click(screen.getByText('Replace'));
-
-      await waitFor(() => {
-        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
-      });
-      const passed = onReplaceSnapshots.mock.calls[0][0];
-      expect(passed).toHaveLength(1);
-      expect(passed[0].id).toBe('snap1');
-    });
-
-    it('calls onReplaceSnapshots with [] when imported file has no snapshots (v16.7)', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
-      renderProjectsTab({ onReplaceSnapshots });
-
-      await waitFor(() => {
-        expect(screen.getByText('Alpha')).toBeTruthy();
-      });
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-      });
-
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-      });
-
-      fireEvent.click(screen.getByText('Replace'));
-
-      await waitFor(() => {
-        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
-      });
-      expect(onReplaceSnapshots.mock.calls[0][0]).toEqual([]);
-    });
-
-    it('calls onReplaceSnapshots on no-existing-data skip-modal path (v16.7)', async () => {
-      seedData({ projects: [], releases: [] });
-
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
-      renderProjectsTab({ onReplaceSnapshots });
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const snapshot = {
-        id: 'snap1',
-        projectId: 'p2',
-        timestamp: '2026-04-01T10:00:00.000Z',
-        name: 'Sprint 1',
-        releases: [],
-      };
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-        snapshots: [snapshot],
-      });
-
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(onReplaceSnapshots).toHaveBeenCalledTimes(1);
-      });
-      const passed = onReplaceSnapshots.mock.calls[0][0];
-      expect(passed).toHaveLength(1);
-      expect(passed[0].id).toBe('snap1');
-      expect(screen.queryByText('Replace All Data')).toBeNull();
-    });
-  });
-
-  // v19.0 — _exportType discriminator routing
-  describe('import routing by _exportType (v19.0)', () => {
-    function createValidFile(data: object): File {
-      const content = JSON.stringify(data);
-      return new File([content], 'test.json', { type: 'application/json' });
-    }
-
-    it('shows merge confirm dialog for _exportType: ganttapp-project-export', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-      renderProjectsTab();
-      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        _exportType: 'ganttapp-project-export',
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-      });
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Add Projects to Workspace')).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'Add Projects' })).toBeTruthy();
-      });
-      // Replace-all dialog should NOT be shown for project-export files
-      expect(screen.queryByText('Replace All Data')).toBeNull();
-    });
-
-    it('shows replace-all confirm dialog for _exportType: ganttapp-all-projects', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-      renderProjectsTab();
-      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        _exportType: 'ganttapp-all-projects',
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-      });
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
-      });
-      expect(screen.queryByText('Add Projects to Workspace')).toBeNull();
-    });
-
-    it('shows replace-all confirm dialog for legacy file (no _exportType)', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-      renderProjectsTab();
-      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
-
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-      });
-      fireEvent.change(fileInput, { target: { files: [file] } });
-
-      await waitFor(() => {
-        expect(screen.getByText('Replace All Data')).toBeTruthy();
+        // Modal gone, preview remains.
+        await waitFor(() => {
+          expect(screen.queryByText(/replace all existing projects/i)).toBeNull();
+        });
+        expect(screen.getByTestId('import-preview-section')).toBeTruthy();
+        // Original data untouched.
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects[0].name).toBe('Alpha');
       });
     });
 
-    it('merge "Add Projects" button merges into existing workspace', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const onReplaceSnapshots = vi.fn().mockResolvedValue(undefined);
-      renderProjectsTab({ onReplaceSnapshots });
+    describe('Confirm Merge applies decisions', () => {
+      it('non-conflicting project: confirmed merge adds project and shows banner', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-      await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        // ganttapp-all-projects + non-empty workspace → preview shown (not Fast Path).
+        const file = createFile({
+          _exportType: 'ganttapp-all-projects',
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = createValidFile({
-        _exportType: 'ganttapp-project-export',
-        projects: [{ id: 'p2', name: 'Beta' }],
-        releases: [],
-      });
-      fireEvent.change(fileInput, { target: { files: [file] } });
+        await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+        fireEvent.click(screen.getByRole('button', { name: 'Confirm Merge' }));
 
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Add Projects' })).toBeTruthy();
-      });
-      fireEvent.click(screen.getByRole('button', { name: 'Add Projects' }));
-
-      await waitFor(() => {
+        await waitFor(() => {
+          expect(screen.getByRole('status')).toBeTruthy();
+        });
         const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
         expect(stored.projects.map((p: Project) => p.name).sort()).toEqual(['Alpha', 'Beta']);
+      });
+    });
+
+    describe('Cancel clears preview and file input', () => {
+      it('clicking Cancel removes preview from DOM', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-project-export',
+          projects: [{ id: 'p1', name: 'Alpha' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+
+        // Cancel button is in the preview (no modal yet).
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        await waitFor(() => {
+          expect(screen.queryByTestId('import-preview-section')).toBeNull();
+        });
+      });
+    });
+
+    describe('Smart ID-conflict defaults', () => {
+      it('matching names → replace; differing names → skip; name conflict → copy', async () => {
+        seedData({
+          projects: [
+            makeProject({ id: 'p1', name: 'Alpha' }),       // ID conflict, names match → replace
+            makeProject({ id: 'p2', name: 'Beta original' }), // ID conflict, names differ → skip
+            makeProject({ id: 'p4', name: 'Gamma' }),       // for name conflict
+          ],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = createFile({
+          _exportType: 'ganttapp-project-export',
+          projects: [
+            { id: 'p1', name: 'Alpha' },        // type:id, names match
+            { id: 'p2', name: 'Beta renamed' }, // type:id, names differ
+            { id: 'p5', name: 'Gamma' },        // type:name (different ID, same name as p4)
+          ],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+
+        // p1 group → 'replace' default checked.
+        const p1Group = screen.getByTestId('conflict-group-p1');
+        const p1Replace = within(p1Group).getByRole('radio', { name: 'Replace existing with imported' }) as HTMLInputElement;
+        expect(p1Replace.checked).toBe(true);
+
+        // p2 group → 'skip' default checked.
+        const p2Group = screen.getByTestId('conflict-group-p2');
+        const p2Skip = within(p2Group).getByRole('radio', { name: 'Keep existing, ignore imported' }) as HTMLInputElement;
+        expect(p2Skip.checked).toBe(true);
+
+        // p5 group → 'copy' default checked.
+        const p5Group = screen.getByTestId('conflict-group-p5');
+        const p5Copy = within(p5Group).getByRole('radio', { name: 'Add as a copy' }) as HTMLInputElement;
+        expect(p5Copy.checked).toBe(true);
+      });
+    });
+
+    describe('showPreview resets replaceAllPending', () => {
+      it('picking a new file while Replace-All modal is open dismisses the modal and re-renders preview', async () => {
+        seedData({
+          projects: [makeProject({ id: 'p1', name: 'Alpha' })],
+          releases: [],
+        });
+        renderProjectsTab();
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file1 = createFile({
+          projects: [{ id: 'p2', name: 'Beta' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file1] } });
+        await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+
+        // Open the Replace-All modal.
+        fireEvent.click(screen.getByRole('button', { name: 'Replace All Data' }));
+        await waitFor(() => {
+          expect(screen.getByText(/replace all existing projects/i)).toBeTruthy();
+        });
+
+        // Pick a new file while the modal is open.
+        const file2 = createFile({
+          _exportType: 'ganttapp-project-export',
+          projects: [{ id: 'p3', name: 'Gamma' }],
+          releases: [],
+        });
+        fireEvent.change(fileInput, { target: { files: [file2] } });
+
+        // The Replace-All modal text should be gone (Fast Path 1 triggered or
+        // a fresh preview was shown). Either way the modal is dismissed.
+        await waitFor(() => {
+          expect(screen.queryByText(/replace all existing projects/i)).toBeNull();
+        });
+      });
+    });
+
+    describe('Invalid file shows error banner', () => {
+      it('non-JSON file → error banner with exact text "Invalid file format"', async () => {
+        renderProjectsTab();
+
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        const file = new File(['not valid json {{'], 'bad.json', { type: 'application/json' });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        await waitFor(() => {
+          expect(screen.getByRole('alert')).toBeTruthy();
+        });
+        expect(screen.getByText('Invalid file format')).toBeTruthy();
       });
     });
   });

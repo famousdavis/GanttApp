@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 // PencilIconButton — borderless icon button for the Edit list action.
-// Default color is grayscale; turns blue on hover. v0.23.0 (matches TrashIconButton pattern).
+// Default color is grayscale; turns blue on hover with a soft blue ring. v0.23.1 (matches TrashIconButton pattern).
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
@@ -49,13 +49,14 @@ export function PencilIconButton({
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',
+        boxShadow: isHoverActive ? '0 0 0 1.5px rgba(0, 112, 243, 0.5)' : 'none',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 0,
-        transition: 'background 0.12s ease'
+        transition: 'background 0.12s ease, box-shadow 0.12s ease'
       }}
     >
       <svg

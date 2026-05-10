@@ -1,5 +1,32 @@
 # Change Log
 
+## Version 0.23.1 (2026-05-10)
+### UX: matching colored hover ring on Trash / Pencil / Export / Clone icon buttons
+
+Visual-consistency patch on top of v0.23.0. The new `ShareIconButton` introduced the soft colored ring pattern (cyan `box-shadow: 0 0 0 1.5px rgba(6,182,212,0.5)` on hover/focus) and the four pre-existing per-tile icon buttons looked subdued by comparison — only their tinted background appeared on hover, no ring. This release adds the matching ring to each of them, in their own brand color:
+
+- **TrashIconButton** — red ring `rgba(239, 68, 68, 0.5)`
+- **PencilIconButton** — blue ring `rgba(0, 112, 243, 0.5)`
+- **ExportIconButton** — green ring `rgba(16, 185, 129, 0.5)`
+- **CloneIconButton** — violet ring `rgba(139, 92, 246, 0.5)`
+
+Each transition string was extended from `'background 0.12s ease'` to `'background 0.12s ease, box-shadow 0.12s ease'` so the ring fades in alongside the background tint rather than snapping in. The icon stroke color, hover background, and disabled handling are unchanged from v0.23.0. Header version annotations bumped to `v0.23.1`.
+
+**Modified Files:**
+- `src/shared/components/TrashIconButton.tsx` — `boxShadow` + transition addition; header bump
+- `src/shared/components/PencilIconButton.tsx` — same
+- `src/shared/components/ExportIconButton.tsx` — same
+- `src/shared/components/CloneIconButton.tsx` — same
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All existing tests pass (1161 baseline preserved)
+- Manual: hover any per-tile icon — Share/Export/Edit/Clone/Delete now all render the same colored-tint background + matching colored ring, transitions in sync
+
+---
+
 ## Version 0.23.0 (2026-05-10)
 ### UX: ShareIconButton + clickable project tile + 6-dot drag handle + 18×18 icon resize
 

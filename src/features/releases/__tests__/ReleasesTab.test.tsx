@@ -249,6 +249,8 @@ describe('ReleasesTab', () => {
   });
 
   describe('edit release', () => {
+    // v0.25.0 — Edit/Duplicate are now icon buttons (PencilIconButton / CloneIconButton)
+    // matching the Projects tab. Tests target by aria-label instead of visible text.
     it('switches to edit mode with pre-filled data when Edit is clicked', async () => {
       seedData({
         projects: [makeProject({ id: 'p1' })],
@@ -259,7 +261,7 @@ describe('ReleasesTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByLabelText('Edit release'));
 
       const nameInput = screen.getByPlaceholderText('Release name') as HTMLInputElement;
       expect(nameInput.value).toBe('Sprint 1');
@@ -277,7 +279,7 @@ describe('ReleasesTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Sprint 1')).toBeTruthy();
       });
-      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByLabelText('Edit release'));
       fireEvent.click(screen.getByText('Cancel'));
 
       const nameInput = screen.getByPlaceholderText('Release name') as HTMLInputElement;

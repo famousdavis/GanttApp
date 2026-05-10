@@ -14,6 +14,8 @@ import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWar
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { TrashIconButton } from '../../shared/components/TrashIconButton';
+import { PencilIconButton } from '../../shared/components/PencilIconButton';
+import { CloneIconButton } from '../../shared/components/CloneIconButton';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 
 interface ReleasesTabProps {
@@ -244,39 +246,39 @@ export function ReleasesTab({
                     onChange={(s) => setReleaseStatus(release.id, s)}
                     colors={colors}
                   />
-                  <button
-                    onClick={() => duplicateRelease(release.id)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: colors.buttonBg,
-                      border: `1px solid ${colors.buttonBorder}`,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      color: colors.buttonText
-                    }}
-                  >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={() => startEditRelease(release)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: editingReleaseId === release.id ? '#0070f3' : colors.buttonBg,
-                      border: editingReleaseId === release.id ? '1px solid #0070f3' : `1px solid ${colors.buttonBorder}`,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      color: editingReleaseId === release.id ? 'white' : colors.buttonText
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <TrashIconButton
-                    onClick={() => setDeleteConfirmReleaseId(release.id)}
-                    ariaLabel="Delete release"
-                    title="Delete release"
-                  />
+                  {/* v0.25.0 — Edit / Clone / Delete icon trio matching Projects tab.
+                      Divider sits to the left of Edit, separating the Show / Status
+                      controls (settings) from the action icons. PencilIconButton.active
+                      preserves the "this row is being edited" cue without the previous
+                      solid-blue text-button treatment. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        width: '1px',
+                        height: '20px',
+                        background: colors.border,
+                        margin: '0 4px',
+                        flexShrink: 0
+                      }}
+                    />
+                    <PencilIconButton
+                      onClick={() => startEditRelease(release)}
+                      active={editingReleaseId === release.id}
+                      ariaLabel="Edit release"
+                      title="Edit release"
+                    />
+                    <CloneIconButton
+                      onClick={() => duplicateRelease(release.id)}
+                      ariaLabel="Duplicate release"
+                      title="Duplicate release"
+                    />
+                    <TrashIconButton
+                      onClick={() => setDeleteConfirmReleaseId(release.id)}
+                      ariaLabel="Delete release"
+                      title="Delete release"
+                    />
+                  </div>
                 </div>
               </div>
 

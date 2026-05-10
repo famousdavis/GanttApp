@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.25.0',
+    date: 'May 10, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; <strong>Releases tab right-side controls upgraded to the shared icon family.</strong> The per-release <strong>Edit</strong> and <strong>Duplicate</strong> text buttons are replaced with the same icon buttons used on the Projects tab &mdash; <code>PencilIconButton</code> (blue) and <code>CloneIconButton</code> (violet) &mdash; in <strong>Edit, Duplicate, Delete</strong> order matching the Projects tab. The existing <code>TrashIconButton</code> stays put. Tighter row, less visual noise, full cross-page consistency</>,
+      <><strong>UX</strong> &mdash; <strong>Vertical divider</strong> (1&times;20 px) sits to the left of the icon trio, separating the <strong>Show</strong> checkbox + <strong>Status</strong> dropdown (settings) from the action icons. Reads as <em>&ldquo;settings | actions.&rdquo;</em> No empty slot &mdash; on Projects the divider separates a fixed-width share slot from the icons; on Releases there&apos;s no equivalent owner-only action, so the divider sits directly left of Edit</>,
+      <><strong>Component</strong> &mdash; <strong>New <code>PencilIconButton.active</code> prop.</strong> When <code>true</code>, the button renders its hover state permanently (blue icon + blue tint + blue ring) so the row currently being edited stays visibly marked even when the cursor moves away &mdash; preserving the &ldquo;this is the active edit&rdquo; cue that the old solid-blue text button provided. <code>disabled</code> overrides <code>active</code>. Backwards-compatible: prop defaults to <code>false</code>, so existing call sites (Projects tab edit pencil) are unchanged</>,
+    ],
+  },
+  {
     version: '0.24.0',
     date: 'May 10, 2026',
     items: [

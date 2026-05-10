@@ -1,5 +1,31 @@
 # Change Log
 
+## Version 0.25.0 (2026-05-10)
+### UX: Releases tab right-side controls upgraded to the shared icon family
+
+The per-release **Edit** and **Duplicate** text buttons on the Releases tab are replaced with the same icon button components used on the Projects tab — `PencilIconButton` (blue) and `CloneIconButton` (violet) — and the order is now **Edit, Duplicate (Clone), Delete**, matching the Projects tab. The existing `TrashIconButton` for Delete (already an icon since v17.1) stays put. A thin vertical divider sits to the left of the trio, separating the **Show** checkbox + **Status** dropdown (settings) from the icon actions.
+
+**Why:** Visual consistency with the Projects tab. Once a user has seen the icons on Projects they immediately know what they do on Releases — the text buttons were redundant explanations after the first encounter. Tighter row, less visual noise, more horizontal space for the release name + dates.
+
+**`PencilIconButton.active` prop (new).** The old Edit text button had a strong "this row is being edited" cue (solid blue background, white text, blue border) that stayed visible while the inline edit form was open. To preserve this affordance under the new icon, `PencilIconButton` gains an optional `active?: boolean` prop. When `true`, the button renders its hover state permanently (blue icon + blue tint background + blue ring) — the cue holds even when the cursor moves away. `disabled` overrides `active` (no visual on disabled buttons). Added by extending `isHoverActive` from `hover && !disabled` to `(hover || active) && !disabled`. Backwards-compatible: prop defaults to `false`, so all existing call sites (Projects tab edit pencil) are unchanged.
+
+**Divider scope (Option A, agreed before coding).** On Projects, the divider separates a fixed-width share slot from the icons. On Releases there is no equivalent owner-only slot, so the divider sits directly to the left of the Edit icon and reads as **"settings | actions"** — separating Show + Status from the icon trio. No empty slot, no dead space. The divider markup matches Projects exactly: `1px × 20px`, `colors.border`, `margin: 0 4px`, `flexShrink: 0`, inside an inner flex container with `gap: '2px'` for tight icon spacing.
+
+**Modified Files:**
+- `src/shared/components/PencilIconButton.tsx` — new optional `active` prop; header bump to v0.25.0
+- `src/shared/components/__tests__/PencilIconButton.test.tsx` — +2 tests for `active` (renders hover state at rest; disabled overrides active)
+- `src/features/releases/ReleasesTab.tsx` — import `PencilIconButton` + `CloneIconButton`; replace Duplicate/Edit text buttons with icon buttons in Edit / Clone / Delete order; insert divider; wrap divider + 3 icons in inner flex `gap: '2px'`
+- `src/features/releases/__tests__/ReleasesTab.test.tsx` — `getByText('Edit')` → `getByLabelText('Edit release')` (2 occurrences)
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`, `ARCHITECTURE.md`
+
+**Verification:**
+- TypeScript type-check clean
+- Lint clean
+- All existing tests pass + 2 new (1195 → 1197 expected)
+- Manual: hover any release row icon — Edit/Clone/Delete now render the same colored-tint background + matching colored ring as on Projects; click Edit → inline edit form opens AND the pencil stays blue (active state holds); click Cancel → pencil returns to gray
+
+---
+
 ## Version 0.24.0 (2026-05-10)
 ### Smart Import with Per-Project Conflict Resolution
 

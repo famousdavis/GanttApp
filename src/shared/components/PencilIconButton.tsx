@@ -3,7 +3,9 @@
 // See LICENSE file in the project root for full license text.
 
 // PencilIconButton — borderless icon button for the Edit list action.
-// Default color is grayscale; turns blue on hover with a soft blue ring. v0.23.1 (matches TrashIconButton pattern).
+// Default color is grayscale; turns blue on hover with a soft blue ring. v0.25.0 adds
+// optional `active` prop — when true, renders the hover state permanently so the row
+// being edited stays visibly marked even when the cursor moves away.
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
@@ -13,6 +15,10 @@ interface PencilIconButtonProps {
   ariaLabel?: string;
   title?: string;
   disabled?: boolean;
+  /** v0.25.0 — when true, the button renders as if hovered (blue icon + blue tint + blue ring)
+   *  even when the cursor is not over it. Used by ReleasesTab to mark the row currently
+   *  being edited. Disabled overrides active (no visual on disabled buttons). */
+  active?: boolean;
 }
 
 const HOVER_BLUE = '#0070f3';
@@ -24,12 +30,13 @@ export function PencilIconButton({
   onClick,
   ariaLabel = 'Edit',
   title = 'Edit',
-  disabled = false
+  disabled = false,
+  active = false
 }: PencilIconButtonProps) {
   const { resolvedTheme } = useTheme();
   const [hover, setHover] = useState(false);
 
-  const isHoverActive = hover && !disabled;
+  const isHoverActive = (hover || active) && !disabled;
   const iconColor = isHoverActive ? HOVER_BLUE : DEFAULT_GRAY;
   const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 

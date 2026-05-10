@@ -75,7 +75,7 @@ GanttApp/
 │   │   │   ├── InlineDateEditor.tsx
 │   │   │   ├── InlineTextEditor.tsx
 │   │   │   ├── TrashIconButton.tsx          # Destructive list action (v17.1, 18×18 v0.23.0)
-│   │   │   ├── PencilIconButton.tsx         # Edit list action (v19.0, 18×18 v0.23.0)
+│   │   │   ├── PencilIconButton.tsx         # Edit list action (v19.0, 18×18 v0.23.0, active prop v0.25.0)
 │   │   │   ├── ExportIconButton.tsx         # Per-project export (v19.0, 18×18 v0.23.0)
 │   │   │   ├── CloneIconButton.tsx          # Per-project clone (v19.0, 18×18 v0.23.0)
 │   │   │   ├── ShareIconButton.tsx          # Per-project share, owner+cloud only (v0.23.0)

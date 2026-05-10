@@ -86,4 +86,23 @@ describe('PencilIconButton', () => {
     fireEvent.click(button);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  // v0.25.0 — `active` prop renders the hover state permanently. Used by ReleasesTab
+  // to mark which release row is currently being edited.
+  it('renders permanent hover state when active=true (no cursor needed)', () => {
+    render(<PencilIconButton onClick={() => {}} active />);
+    const button = screen.getByRole('button');
+    // Icon stroke is already blue at rest
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#0070f3');
+    // Background tinted blue at rest
+    expect(button.style.background).toMatch(/rgb\(239,\s*246,\s*255\)|#eff6ff/);
+  });
+
+  it('disabled overrides active (no visual on disabled buttons)', () => {
+    render(<PencilIconButton onClick={() => {}} active disabled />);
+    const button = screen.getByRole('button');
+    // Stays gray despite active=true
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.style.background).toBe('transparent');
+  });
 });

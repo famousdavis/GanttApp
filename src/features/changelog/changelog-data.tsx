@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.23.1',
+    date: 'May 10, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; <strong>Matching colored hover ring on the four per-tile icon buttons.</strong> The v0.23.0 <code>ShareIconButton</code> introduced the soft colored ring pattern (cyan <code>box-shadow</code>) and the pre-existing Trash / Pencil / Export / Clone buttons looked subdued by comparison &mdash; only their tinted background appeared on hover, no ring. Each now renders its own colored ring on hover/focus: Trash red <code>rgba(239,68,68,0.5)</code>, Pencil blue <code>rgba(0,112,243,0.5)</code>, Export green <code>rgba(16,185,129,0.5)</code>, Clone violet <code>rgba(139,92,246,0.5)</code></>,
+      <><strong>UX</strong> &mdash; Each transition extended from <code>&apos;background 0.12s ease&apos;</code> to <code>&apos;background 0.12s ease, box-shadow 0.12s ease&apos;</code> so the ring fades in alongside the background tint rather than snapping in. Icon stroke color, hover background, and disabled handling are unchanged from v0.23.0</>,
+    ],
+  },
+  {
     version: '0.23.0',
     date: 'May 10, 2026',
     items: [

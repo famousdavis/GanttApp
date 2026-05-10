@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 // TrashIconButton — borderless icon button for destructive list actions.
-// Default color is theme-aware grayscale; turns red on hover. v0.23.0.
+// Default color is theme-aware grayscale; turns red on hover with a soft red ring. v0.23.1.
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
@@ -49,13 +49,14 @@ export function TrashIconButton({
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',
+        boxShadow: isHoverActive ? '0 0 0 1.5px rgba(239, 68, 68, 0.5)' : 'none',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 0,
-        transition: 'background 0.12s ease'
+        transition: 'background 0.12s ease, box-shadow 0.12s ease'
       }}
     >
       <svg

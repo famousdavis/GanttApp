@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.26.1',
+    date: 'May 24, 2026',
+    items: [
+      <><strong>About page polish</strong> &mdash; Renamed the QRG download button from <em>Download Quick Reference Guide (PDF)</em> to <em>Open Quick Reference Guide (PDF)</em> so the label matches the canonical convention used across the SPERT&reg; Suite (Forecaster, MyScrumBudget, AHP, Story Map, Scheduler). The PDF target is unchanged &mdash; still opens <code>/GanttApp_Quick_Reference_Guide.pdf</code> in a new tab</>,
+    ],
+  },
+  {
     version: '0.26.0',
     date: 'May 21, 2026',
     items: [

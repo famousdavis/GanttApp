@@ -87,7 +87,7 @@ export function AboutTab() {
             marginTop: '0.5rem'
           }}
         >
-          Download Quick Reference Guide (PDF)
+          Open Quick Reference Guide (PDF)
         </a>
       </section>
 

@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.26.1 (2026-05-24)
+### About page polish — QRG button label standardized across the SPERT® Suite
+
+Renames the About tab QRG download button from `Download Quick Reference Guide (PDF)` to `Open Quick Reference Guide (PDF)` so the label matches the canonical convention used across the SPERT® Suite (Forecaster, MyScrumBudget, AHP, Story Map, Scheduler). The PDF target is unchanged — `/GanttApp_Quick_Reference_Guide.pdf`, still opens in a new tab.
+
 ## Version 0.26.0 (2026-05-21)
 ### Import hardening + refactor: `useImportState` hook, cloud guard, collision-safe copy, ARIA
 

@@ -6,6 +6,7 @@
 // Controlled, stateless: all state lives in ProjectsTab. Mode toggle, decisions,
 // and apply state are passed in as props and surfaced via callbacks.
 
+import { useEffect, useRef } from 'react';
 import type { ImportResult, ImportConflict, ConflictAction } from '../../shared/utils/export';
 import type { ThemeColors } from '../../shared/utils/theme';
 
@@ -59,6 +60,27 @@ export function ImportPreviewSection({
   }
 
   const isReplaceMode = isModeToggleable && mode === 'replace-all';
+
+  // v0.26.0 — accessibility (Phase 11):
+  // - role="region" with aria-labelledby (heading id) for screen-reader orientation.
+  // - Programmatic focus on the heading on mount so keyboard users land in the
+  //   right place. tabIndex={-1} keeps the heading out of the Tab cycle.
+  // - Escape key dismisses the preview (matches the Cancel button), suppressed
+  //   while applying so an in-flight apply isn't cancelled.
+  // - role="radiogroup" per conflict for clearer screen-reader navigation.
+  // - aria-busy on action buttons reflects the apply state.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const headingId = `${idPrefix}-heading`;
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !applying) onCancel();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [applying, onCancel]);
 
   const cardStyle: React.CSSProperties = {
     marginBottom: '1rem',
@@ -140,8 +162,15 @@ export function ImportPreviewSection({
   });
 
   return (
-    <div style={cardStyle} data-testid="import-preview-section">
-      <h3 style={sectionTitleStyle}>Review import</h3>
+    <div
+      style={cardStyle}
+      data-testid="import-preview-section"
+      role="region"
+      aria-labelledby={headingId}
+    >
+      <h3 ref={headingRef} id={headingId} tabIndex={-1} style={sectionTitleStyle}>
+        Review import
+      </h3>
 
       {isModeToggleable && (
         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -204,12 +233,19 @@ export function ImportPreviewSection({
               {conflicts.map(conflict => {
                 const incomingId = conflict.incomingProject.id;
                 const groupName = `${idPrefix}-conflict-${incomingId}`;
+                const groupLabelId = `${groupName}-label`;
                 const currentAction = decisions.get(incomingId) ?? 'skip';
                 return (
-                  <div key={incomingId} style={amberBlockStyle} data-testid={`conflict-group-${incomingId}`}>
+                  <div
+                    key={incomingId}
+                    style={amberBlockStyle}
+                    data-testid={`conflict-group-${incomingId}`}
+                    role="radiogroup"
+                    aria-labelledby={groupLabelId}
+                  >
                     {conflict.type === 'id' ? (
                       <>
-                        <div style={{ fontSize: '0.9rem', color: colors.text }}>
+                        <div id={groupLabelId} style={{ fontSize: '0.9rem', color: colors.text }}>
                           <span style={{ color: colors.textMuted }}>Existing:</span> <strong>&ldquo;{conflict.existingProject.name}&rdquo;</strong>
                           {' → '}
                           <span style={{ color: colors.textMuted }}>Incoming:</span> <strong>&ldquo;{conflict.incomingProject.name}&rdquo;</strong>
@@ -220,7 +256,7 @@ export function ImportPreviewSection({
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: '0.9rem', color: colors.text }}>
+                        <div id={groupLabelId} style={{ fontSize: '0.9rem', color: colors.text }}>
                           <strong>&ldquo;{conflict.incomingProject.name}&rdquo;</strong>
                         </div>
                         <div style={{ fontSize: '0.85rem', color: '#92400e', marginTop: '0.15rem' }}>
@@ -265,6 +301,7 @@ export function ImportPreviewSection({
             type="button"
             onClick={onRequestReplaceAll}
             disabled={applying}
+            aria-busy={applying}
             style={dangerButtonStyle(!applying)}
           >
             Replace All Data
@@ -274,6 +311,7 @@ export function ImportPreviewSection({
             type="button"
             onClick={onConfirm}
             disabled={applying}
+            aria-busy={applying}
             style={primaryButtonStyle(!applying)}
           >
             {isModeToggleable ? 'Confirm Merge' : 'Confirm Import'}
@@ -283,6 +321,7 @@ export function ImportPreviewSection({
           type="button"
           onClick={onCancel}
           disabled={applying}
+          aria-busy={applying}
           style={secondaryButtonStyle(!applying)}
         >
           Cancel

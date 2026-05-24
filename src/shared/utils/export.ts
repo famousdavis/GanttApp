@@ -445,6 +445,18 @@ export async function exportSelectedProjects(
 // ============================================================================
 
 /**
+ * Canonical project-name normalization for conflict detection.
+ * Trim, lowercase, NFC. Used internally by detectImportConflicts.
+ *
+ * NOTE: not used in computeDefaultDecisions — as of v0.26.0, ID conflicts
+ * default to 'skip' unconditionally per pitfall #22 ("matching names" is not
+ * evidence the import is newer than the workspace).
+ */
+export function normalizeProjectName(name: string): string {
+  return name.trim().toLowerCase().normalize('NFC');
+}
+
+/**
  * A conflict between an incoming project and an existing project.
  * `type: 'id'` means the IDs match (same project). `type: 'name'` means the
  * lowercased-trimmed names match but the IDs differ (coincidental name collision).
@@ -505,7 +517,7 @@ export function detectImportConflicts(
   // First-insert-wins preserves first-match semantics on name collisions.
   const nameMap = new Map<string, Project>();
   for (const p of existing.projects) {
-    const key = p.name.trim().toLowerCase();
+    const key = normalizeProjectName(p.name);
     if (!nameMap.has(key)) nameMap.set(key, p);
   }
 
@@ -516,7 +528,7 @@ export function detectImportConflicts(
       conflicts.push({ type: 'id', incomingProject, existingProject: idHit });
       continue;
     }
-    const nameKey = incomingProject.name.trim().toLowerCase();
+    const nameKey = normalizeProjectName(incomingProject.name);
     const nameHit = nameMap.get(nameKey);
     if (nameHit) {
       conflicts.push({ type: 'name', incomingProject, existingProject: nameHit });
@@ -546,15 +558,6 @@ export function conflictsEqual(a: ImportConflict[], b: ImportConflict[]): boolea
 }
 
 /**
- * Suffix appended to project names when action is 'copy'.
- * NOTE: differs from cloneProject in useProjects.ts, which uses " - Copy (N)"
- * (starting at N=1, iterating up to N=99). Import-copy is unconditional " (2)"
- * — simpler, but intentionally divergent from the clone UX. Do not "fix" this
- * without a deliberate UX decision.
- */
-const COPY_SUFFIX = ' (2)';
-
-/**
  * Apply per-project decisions to produce a merged AppData and snapshot list.
  *
  * Caller contract:
@@ -562,12 +565,19 @@ const COPY_SUFFIX = ' (2)';
  *   the caller must not mutate during apply.
  * - Missing decisions key for a detected conflict → treated as 'skip'
  *   (safe-by-default; project, releases, AND snapshots all excluded).
- * - Conflicts are recomputed internally; caller does not pass them in.
+ * - `conflicts` is pre-computed by the caller. Must be the result of
+ *   `detectImportConflicts(incoming, existing)` against the SAME `existing`
+ *   passed here. Pre-computing avoids re-running detection on every call
+ *   (pitfall #28).
  *
  * Slot-preservation: 'replace' actions substitute the existing slot in place,
  * preserving array index and existingProject.owner. This avoids
  * executeFirestoreSave's prevIndex !== index reorder detection triggering
  * spurious cloud writes.
+ *
+ * Copy collision-safety (v0.26.0): the copy path iterates name suffixes from
+ * (2)..(99) against a `usedNames` Set so importing the same file twice via
+ * 'copy' produces Foo (2), Foo (3), ... rather than two Foo (2) entries.
  *
  * Snapshot cap policy: bypasses MAX_SNAPSHOTS_TOTAL, consistent with the
  * existing replace-all import path. Diverges from cloneProject, which enforces
@@ -588,9 +598,9 @@ export function applyImportDecisions(
   incoming: ImportResult,
   existingSnapshots: Snapshot[],
   decisions: Map<string, ConflictAction>,
+  conflicts: ImportConflict[],
   idGenerator: () => string = generateId
 ): ApplyImportResult {
-  const conflicts = detectImportConflicts(incoming, existing);
   const conflictByIncomingId = new Map<string, ImportConflict>();
   for (const c of conflicts) conflictByIncomingId.set(c.incomingProject.id, c);
 
@@ -607,7 +617,10 @@ export function applyImportDecisions(
     incomingSnapshotsByProjectId.set(s.projectId, list);
   }
 
-  const resolvedAction = (incomingProjectId: string): ConflictAction | 'added' => {
+  // Naming: `resolvedOutcome` (not `resolvedAction`) because the return value
+  // includes 'added' for non-conflict projects — a classification, not a user
+  // choice. Avoids confusion with ConflictAction (which is user-selectable).
+  const resolvedOutcome = (incomingProjectId: string): ConflictAction | 'added' => {
     const conflict = conflictByIncomingId.get(incomingProjectId);
     if (!conflict) return 'added';
     // Missing-key fallback: treat as 'skip' (safe-by-default).
@@ -627,8 +640,8 @@ export function applyImportDecisions(
   const winningReplaceBySlotId = new Map<string, Project>();
   const downgradedReplaceIncomingIds = new Set<string>();
   for (const incomingProject of incoming.appData.projects) {
-    const action = resolvedAction(incomingProject.id);
-    if (action !== 'replace') continue;
+    const outcome = resolvedOutcome(incomingProject.id);
+    if (outcome !== 'replace') continue;
     const conflict = conflictByIncomingId.get(incomingProject.id);
     if (!conflict) continue; // 'replace' on a non-conflict is degenerate; treat as no-op.
     const slotId = conflict.existingProject.id;
@@ -701,13 +714,26 @@ export function applyImportDecisions(
   });
 
   // 'copy' pass — append in incoming.appData.projects array order.
+  // v0.26.0: collision-safe naming (pitfall #84). Iterate suffix (2)..(99)
+  // against `usedNames` so importing the same file twice via 'copy' produces
+  // Foo (2), Foo (3), ... rather than two indistinguishable Foo (2) entries.
+  // Reserve each chosen name to dedupe within the same import batch.
+  const usedNames = new Set(mergedProjects.map(p => p.name));
+  const MAX_SUFFIX_LEN = 5; // " (99)".length
+
   for (const incomingProject of incoming.appData.projects) {
-    if (resolvedAction(incomingProject.id) !== 'copy') continue;
+    if (resolvedOutcome(incomingProject.id) !== 'copy') continue;
     const newId = idGenerator();
     const truncated = incomingProject.name
-      .slice(0, MAX_NAME_LENGTH - COPY_SUFFIX.length)
+      .slice(0, MAX_NAME_LENGTH - MAX_SUFFIX_LEN)
       .trimEnd();
-    const copyName = truncated + COPY_SUFFIX;
+    let suffix = 2;
+    let copyName = `${truncated} (${suffix})`;
+    while (usedNames.has(copyName) && suffix < 99) {
+      suffix += 1;
+      copyName = `${truncated} (${suffix})`;
+    }
+    usedNames.add(copyName);
     const copyProject: Project = { ...incomingProject, id: newId, name: copyName };
     // Do NOT set owner on copy.
     delete copyProject.owner;
@@ -737,7 +763,7 @@ export function applyImportDecisions(
   const existingSnapshotIds = new Set<string>();
   for (const s of mergedSnapshots) existingSnapshotIds.add(s.id);
   for (const incomingProject of incoming.appData.projects) {
-    if (resolvedAction(incomingProject.id) !== 'added') continue;
+    if (resolvedOutcome(incomingProject.id) !== 'added') continue;
     mergedProjects.push(incomingProject);
     const srcReleases = incomingReleasesByProjectId.get(incomingProject.id) ?? [];
     for (const r of srcReleases) mergedReleases.push(r);
@@ -753,7 +779,7 @@ export function applyImportDecisions(
   // Count 'skip' from explicit decisions + missing-key fallback.
   for (const incomingProject of incoming.appData.projects) {
     if (downgradedReplaceIncomingIds.has(incomingProject.id)) continue;
-    if (resolvedAction(incomingProject.id) === 'skip') skipped += 1;
+    if (resolvedOutcome(incomingProject.id) === 'skip') skipped += 1;
   }
 
   return {

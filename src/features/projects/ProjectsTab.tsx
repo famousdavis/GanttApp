@@ -4,7 +4,7 @@
 
 // Projects Tab component with form and list
 
-import { useState, useMemo, useRef, useId } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { useProjects } from './useProjects';
 import { ShareDialog } from './ShareDialog';
 import { useAppData } from '../../context/AppDataContext';
@@ -14,15 +14,9 @@ import { useStorage } from '../../context/StorageContext';
 import {
   exportData as exportDataUtil,
   exportSingleProject,
-  parseImportedData,
-  readFileAsText,
-  detectImportConflicts,
-  conflictsEqual,
-  applyImportDecisions,
-  sanitizeFirebaseError,
 } from '../../shared/utils';
-import type { ImportResult, ImportConflict, ConflictAction } from '../../shared/utils/export';
 import { ImportPreviewSection } from './ImportPreviewSection';
+import { useImportState } from './hooks/useImportState';
 import { isProjectNameValid, getWorkDayWarning, getEffectiveWorkDays } from '../../shared/utils';
 import { formatDateMDY } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
@@ -116,203 +110,34 @@ export function ProjectsTab({
     });
   };
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // v0.24.0 — Smart Import state machine.
+  // v0.26.0 — Smart Import state machine extracted to useImportState hook (pitfall #59).
   // NOTE: ProjectsTab unmounts on tab switch — preview state is lost on navigation.
-  // Known limitation for v0.24.0; do not lift state up to compensate.
-  type ImportMode = 'merge' | 'replace-all';
-  type ImportPreviewState = {
-    imported: ImportResult;
-    conflicts: ImportConflict[];
-    decisions: Map<string, ConflictAction>;
-    mode: ImportMode;
-  };
-  type ImportBannerState = { kind: 'success' | 'error'; text: string };
-  const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
-  const [importBanner, setImportBanner] = useState<ImportBannerState | null>(null);
-  const [replaceAllPending, setReplaceAllPending] = useState(false);
-  const [applying, setApplying] = useState(false);
-
-  // The three permitted state transitions. Banner dismiss button is not a flow
-  // transition — it uses the raw setter directly.
-  const showPreview = (state: ImportPreviewState) => {
-    setImportBanner(null);
-    setReplaceAllPending(false);
-    setApplying(false);
-    setImportPreview(state);
-  };
-
-  const showBanner = (banner: ImportBannerState) => {
-    setImportPreview(null);
-    setReplaceAllPending(false);
-    setApplying(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    setImportBanner(banner);
-  };
-
-  // Used by onCancel only. Resets applying defensively — Cancel is disabled
-  // during apply, but this guarantees correctness if that disable is bypassed.
-  // Does NOT touch importBanner (banner and preview are mutually exclusive).
-  const clearImportFlow = () => {
-    setImportPreview(null);
-    setReplaceAllPending(false);
-    setApplying(false);
-  };
-
-  // Compute smarter default decisions for a fresh preview.
-  // - type:'id' AND names match (lowercased-trimmed) → 'replace' (round-trip backup case)
-  // - type:'id' AND names differ → 'skip' (records have diverged; preserve existing)
-  // - type:'name' → 'copy'
-  // TODO(v0.25.x): add a "select all → replace" affordance for the diverged-names case
-  // so round-trip backup users with renamed projects can replace in bulk.
-  const computeDefaultDecisions = (conflicts: ImportConflict[]): Map<string, ConflictAction> => {
-    const m = new Map<string, ConflictAction>();
-    for (const c of conflicts) {
-      if (c.type === 'id') {
-        const same =
-          c.existingProject.name.trim().toLowerCase() ===
-          c.incomingProject.name.trim().toLowerCase();
-        m.set(c.incomingProject.id, same ? 'replace' : 'skip');
-      } else {
-        m.set(c.incomingProject.id, 'copy');
-      }
-    }
-    return m;
-  };
-
-  const applyMergeDecisions = async (
-    imported: ImportResult,
-    decisions: Map<string, ConflictAction>,
-    originalConflicts: ImportConflict[]
-  ) => {
-    setApplying(true);
-    try {
-      const existingSnapshots = await storage.loadSnapshots();
-      // Authoritative stale-data guard — the await above is where a real-time
-      // onSnapshot can fire and mutate `data`. The pre-click guard in
-      // handleConfirmMerge is a fast early-exit for the non-cloud case.
-      const freshConflicts = detectImportConflicts(imported, data);
-      if (!conflictsEqual(freshConflicts, originalConflicts)) {
-        // Fast Path 1 has no preview window — use a genericized message.
-        const msg = originalConflicts.length === 0
-          ? 'The workspace changed during import. Please try again.'
-          : 'The workspace changed while the preview was open. Please review your import again.';
-        showBanner({ kind: 'error', text: msg });
-        return;
-      }
-      const { mergedData, mergedSnapshots, result } = applyImportDecisions(
-        data, imported, existingSnapshots, decisions
-      );
-      // NOTE: partial-apply window — updateData may persist before onReplaceSnapshots
-      // rejects. Acceptable for v0.24.0; matches pre-v0.24.0 applyMergeImport behavior.
-      updateData(mergedData);
-      await onReplaceSnapshots(mergedSnapshots);
-      // replacedIdMap contains only name-conflict remappings (existing.id ≠ incoming.id).
-      const newId = result.replacedIdMap.get(selectedProjectId);
-      if (newId) setSelectedProjectId(newId);
-      const parts: string[] = [];
-      if (result.added > 0)    parts.push(`${result.added} project${result.added !== 1 ? 's' : ''} added`);
-      if (result.copied > 0)   parts.push(`${result.copied} copied`);
-      if (result.replaced > 0) parts.push(`${result.replaced} replaced`);
-      if (result.skipped > 0)  parts.push(`${result.skipped} skipped`);
-      const text = parts.length > 0 ? parts.join(', ') + '.' : 'No projects were imported.';
-      showBanner({ kind: 'success', text });
-    } catch (err) {
-      showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
-    }
-  };
-
-  const applyReplaceAll = async (imported: ImportResult) => {
-    setApplying(true);
-    try {
-      updateData(imported.appData);
-      await onReplaceSnapshots(imported.snapshots ?? []);
-      if (imported.appData.projects.length > 0) {
-        setSelectedProjectId(imported.appData.projects[0].id);
-      }
-      const n = imported.appData.projects.length;
-      const text = n > 0
-        ? `All data replaced. ${n} project${n !== 1 ? 's' : ''} imported.`
-        : 'All data replaced.';
-      showBanner({ kind: 'success', text });
-    } catch (err) {
-      showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
-    }
-  };
-
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    fileInputRef.current = event.target;
-
-    try {
-      const content = await readFileAsText(file);
-      const imported = parseImportedData(content);
-
-      if (!imported) {
-        showBanner({ kind: 'error', text: 'Invalid file format' });
-        return;
-      }
-
-      const conflicts = detectImportConflicts(imported, data);
-
-      // Fast Path 1: ganttapp-project-export with zero conflicts → apply immediately.
-      if (imported.exportType === 'ganttapp-project-export' && conflicts.length === 0) {
-        await applyMergeDecisions(imported, new Map(), []);
-        return;
-      }
-
-      // Fast Path 2: full-workspace replace into empty workspace → apply immediately.
-      // !appDataLoading gate prevents silent Replace-All against a workspace still loading.
-      const isReplaceAllShape =
-        imported.exportType === 'ganttapp-all-projects' ||
-        imported.exportType === 'legacy';
-      if (isReplaceAllShape && data.projects.length === 0 && !appDataLoading) {
-        await applyReplaceAll(imported);
-        return;
-      }
-
-      // Otherwise: show the preview.
-      // Initial mode rationale:
-      // - 'ganttapp-project-export' → 'merge' (single-project export has never had a replace-all path).
-      // - 'ganttapp-all-projects'   → 'merge' (intentionally new format in v19.0; no established
-      //                                       user habit to preserve; safe-by-default; user can
-      //                                       switch to Replace-All in one click).
-      // - 'legacy'                  → 'replace-all' (every legacy file hits Replace-All today;
-      //                                              defaulting to Merge would silently drop
-      //                                              data for round-trip backup users).
-      const initialMode: ImportMode = imported.exportType === 'legacy' ? 'replace-all' : 'merge';
-      showPreview({
-        imported,
-        conflicts,
-        decisions: computeDefaultDecisions(conflicts),
-        mode: initialMode,
-      });
-    } catch (error) {
-      console.error('Error importing file:', error instanceof Error ? error.message : 'Unknown error');
-      showBanner({ kind: 'error', text: 'Error importing file' });
-    }
-  };
-
-  const handleConfirmMerge = () => {
-    if (!importPreview) return;
-    // Pre-async early-exit guard: catches the common non-cloud case cheaply.
-    // Authoritative check runs again inside applyMergeDecisions after loadSnapshots.
-    const freshConflicts = detectImportConflicts(importPreview.imported, data);
-    if (!conflictsEqual(freshConflicts, importPreview.conflicts)) {
-      showBanner({ kind: 'error', text: 'The workspace changed while the preview was open. Please review your import again.' });
-      return;
-    }
-    // Capture before setApplying to avoid cross-await closure dependency.
-    const originalConflicts = importPreview.conflicts;
-    applyMergeDecisions(importPreview.imported, importPreview.decisions, originalConflicts);
-  };
-
-  const handleImportCancel = () => {
-    clearImportFlow();
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  // Known limitation; do not lift state up to compensate. See APPLYING CONTRACT
+  // and docs/SPEC_DEVIATIONS.md for the full state-machine spec.
+  const {
+    importPreview,
+    importBanner,
+    replaceAllPending,
+    applying,
+    fileInputRef,
+    setImportBanner,
+    openReplaceAllConfirm,
+    cancelReplaceAllConfirm,
+    handleConfirmReplaceAll,
+    handleImport,
+    handleConfirmMerge,
+    handleImportCancel,
+    onModeChange,
+    onDecisionChange,
+  } = useImportState({
+    data,
+    storage,
+    updateData,
+    onReplaceSnapshots,
+    selectedProjectId,
+    setSelectedProjectId,
+    appDataLoading,
+  });
 
   const [finishDateError, setFinishDateError] = useState('');
 
@@ -642,20 +467,10 @@ export function ProjectsTab({
           applying={applying}
           idPrefix={importIdPrefix}
           colors={colors}
-          onModeChange={(mode) =>
-            setImportPreview(prev => prev ? { ...prev, mode } : null)
-          }
-          onDecisionChange={(projectId, action) => {
-            setImportPreview(prev => {
-              if (!prev) return null;
-              // MUST clone the Map — mutating in place does not trigger re-render.
-              const decisions = new Map(prev.decisions);
-              decisions.set(projectId, action);
-              return { ...prev, decisions };
-            });
-          }}
+          onModeChange={onModeChange}
+          onDecisionChange={onDecisionChange}
           onConfirm={handleConfirmMerge}
-          onRequestReplaceAll={() => setReplaceAllPending(true)}
+          onRequestReplaceAll={openReplaceAllConfirm}
           onCancel={handleImportCancel}
         />
       )}
@@ -896,16 +711,12 @@ export function ProjectsTab({
             {
               label: 'Cancel',
               variant: 'secondary',
-              onClick: () => setReplaceAllPending(false),
+              onClick: cancelReplaceAllConfirm,
             },
             {
               label: 'Replace',
               variant: 'danger',
-              onClick: () => {
-                const imported = importPreview.imported;  // capture before state mutation
-                setReplaceAllPending(false);
-                applyReplaceAll(imported);
-              },
+              onClick: handleConfirmReplaceAll,
             },
           ]}
         />

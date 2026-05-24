@@ -796,7 +796,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       snapshots: [snap('s-incoming', 'p1')],
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'skip']]));
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'skip']]), conflicts);
     expect(result.result.skipped).toBe(1);
     expect(result.result.added).toBe(0);
     expect(result.result.copied).toBe(0);
@@ -820,14 +821,15 @@ describe('applyImportDecisions (v0.24.0)', () => {
       exportType: 'ganttapp-project-export',
     };
     // Empty decisions Map — conflict has no entry.
-    const result = applyImportDecisions(existing, incoming, [], new Map());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map(), conflicts);
     expect(result.result.skipped).toBe(1);
     expect(result.mergedData.projects).toEqual([{ id: 'p1', name: 'Alpha' }]);
     expect(result.mergedData.releases.find(r => r.id === 'r-incoming')).toBeUndefined();
     expect(result.mergedSnapshots.find(s => s.id === 's-incoming')).toBeUndefined();
   });
 
-  it("'copy' regenerates project ID, appends COPY_SUFFIX, regenerates release IDs and snapshot top-level IDs; embedded snapshot.releases untouched", () => {
+  it("'copy' regenerates project ID, appends '(2)' suffix, regenerates release IDs and snapshot top-level IDs; embedded snapshot.releases untouched", () => {
     const existing: AppData = {
       projects: [{ id: 'p1', name: 'Alpha' }],
       releases: [],
@@ -841,7 +843,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       exportType: 'ganttapp-project-export',
     };
     const gen = makeDeterministicGen();
-    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), gen);
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), conflicts, gen);
     expect(result.result.copied).toBe(1);
     const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
     expect(copyProject.id).toBe('test-id-0');
@@ -871,7 +874,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), makeDeterministicGen());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), conflicts, makeDeterministicGen());
     const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
     expect(copyProject.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
     expect(copyProject.name.endsWith(' (2)')).toBe(true);
@@ -888,13 +892,14 @@ describe('applyImportDecisions (v0.24.0)', () => {
         appData: { projects: [{ id: 'p2', name }], releases: [] },
         exportType: 'ganttapp-project-export',
       };
-      const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), makeDeterministicGen());
+      const conflicts = detectImportConflicts(incoming, existing);
+      const result = applyImportDecisions(existing, incoming, [], new Map([['p2', 'copy']]), conflicts, makeDeterministicGen());
       const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
       expect(copyProject.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
     }
   });
 
-  it("'copy' silently accepts duplicate '(2)' name when workspace already has Foo (2)", () => {
+  it("'copy' when workspace has Foo (2): produces Foo (3) via collision-safe iteration (v0.26.0 — pitfall #84)", () => {
     const existing: AppData = {
       projects: [
         { id: 'p1', name: 'Roadmap' },
@@ -906,12 +911,13 @@ describe('applyImportDecisions (v0.24.0)', () => {
       appData: { projects: [{ id: 'p3', name: 'Roadmap' }], releases: [] },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map([['p3', 'copy']]), makeDeterministicGen());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p3', 'copy']]), conflicts, makeDeterministicGen());
     const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
-    expect(copyProject.name).toBe('Roadmap (2)'); // no '(3)' iteration
+    expect(copyProject.name).toBe('Roadmap (3)'); // iterates past existing 'Roadmap (2)'
   });
 
-  it("two name-conflict projects both 'copy' → both become Foo (2)", () => {
+  it("two 'copy' decisions in same batch → first Foo (2), second Foo (3) (v0.26.0 — distinct names)", () => {
     const existing: AppData = {
       projects: [{ id: 'p1', name: 'Foo' }],
       releases: [],
@@ -927,9 +933,60 @@ describe('applyImportDecisions (v0.24.0)', () => {
       exportType: 'ganttapp-project-export',
     };
     const gen = makeDeterministicGen();
-    const result = applyImportDecisions(existing, incoming, [], new Map<string, ConflictAction>([['p2', 'copy'], ['p3', 'copy']]), gen);
-    const copies = result.mergedData.projects.filter(p => p.name === 'Foo (2)');
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map<string, ConflictAction>([['p2', 'copy'], ['p3', 'copy']]), conflicts, gen);
+    const names = result.mergedData.projects.map(p => p.name);
+    expect(names).toContain('Foo (2)');
+    expect(names).toContain('Foo (3)');
+    const copies = result.mergedData.projects.filter(p => /^Foo \(\d+\)$/.test(p.name));
     expect(copies).toHaveLength(2);
+    expect(new Set(copies.map(p => p.name)).size).toBe(2); // names are distinct
+  });
+
+  it("three 'copy' decisions in same batch → Foo (2), Foo (3), Foo (4) (v0.26.0)", () => {
+    const existing: AppData = {
+      projects: [{ id: 'p1', name: 'Foo' }],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: {
+        projects: [
+          { id: 'p2', name: 'Foo' },
+          { id: 'p3', name: 'Foo' },
+          { id: 'p4', name: 'Foo' },
+        ],
+        releases: [],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(
+      existing, incoming, [],
+      new Map<string, ConflictAction>([['p2', 'copy'], ['p3', 'copy'], ['p4', 'copy']]),
+      conflicts, makeDeterministicGen()
+    );
+    const names = result.mergedData.projects.map(p => p.name);
+    expect(names).toContain('Foo (2)');
+    expect(names).toContain('Foo (3)');
+    expect(names).toContain('Foo (4)');
+  });
+
+  it("'copy' iteration covers (2)..(99); workspace with Foo (2)..(50) → produces Foo (51) (v0.26.0)", () => {
+    const existing: AppData = {
+      projects: [
+        { id: 'p1', name: 'Foo' },
+        ...Array.from({ length: 49 }, (_, i) => ({ id: `pn${i}`, name: `Foo (${i + 2})` })),
+      ],
+      releases: [],
+    };
+    const incoming: ImportResult = {
+      appData: { projects: [{ id: 'p-incoming', name: 'Foo' }], releases: [] },
+      exportType: 'ganttapp-project-export',
+    };
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p-incoming', 'copy']]), conflicts, makeDeterministicGen());
+    const copyProject = result.mergedData.projects[result.mergedData.projects.length - 1];
+    expect(copyProject.name).toBe('Foo (51)');
   });
 
   it("'replace' on ID conflict: slot-preserved, existing releases/snapshots removed, others unchanged, owner preserved, replacedIdMap empty", () => {
@@ -948,7 +1005,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['p1', 'replace']]));
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['p1', 'replace']]), conflicts);
     expect(result.result.replaced).toBe(1);
     expect(result.mergedData.projects[0].id).toBe('p1');
     expect(result.mergedData.projects[0].name).toBe('Alpha-new');
@@ -971,7 +1029,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       appData: { projects: [{ id: 'p1', name: 'Alpha-new', owner: 'leaked-uid' }], releases: [] },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'replace']]));
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['p1', 'replace']]), conflicts);
     expect(result.mergedData.projects[0].owner).toBeUndefined();
   });
 
@@ -991,7 +1050,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['new-1', 'replace']]));
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map([['new-1', 'replace']]), conflicts);
     expect(result.result.replaced).toBe(1);
     expect(result.mergedData.projects[0].id).toBe('new-1');
     expect(result.mergedData.projects[0].owner).toBe('user-A');
@@ -1023,7 +1083,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
     const decisions = new Map<string, ConflictAction>();
     decisions.set('p2', 'replace');
     decisions.set('p1', 'replace');
-    const result = applyImportDecisions(existing, incoming, [], decisions);
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], decisions, conflicts);
     expect(result.result.replaced).toBe(1);
     expect(result.result.skipped).toBe(1);
     // Winner is p1 (first in incoming.appData.projects array order).
@@ -1043,7 +1104,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map(), conflicts);
     expect(result.result.added).toBe(2);
     expect(result.mergedData.projects.map(p => p.id)).toEqual(['p1', 'p2', 'p3']);
   });
@@ -1059,7 +1121,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       snapshots: [snap('shared-snap-id', 'p2'), snap('new-snap', 'p2')],
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, existingSnaps, new Map(), conflicts);
     expect(result.mergedSnapshots.filter(s => s.id === 'shared-snap-id')).toHaveLength(1);
     expect(result.mergedSnapshots.find(s => s.id === 'new-snap')).toBeDefined();
   });
@@ -1074,7 +1137,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       exportType: 'ganttapp-project-export',
     };
     // 'stray-id' does not exist in incoming; should be ignored.
-    const result = applyImportDecisions(existing, incoming, [], new Map([['stray-id', 'replace']]));
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map([['stray-id', 'replace']]), conflicts);
     expect(result.result.added).toBe(1);
     expect(result.result.replaced).toBe(0);
     expect(result.result.skipped).toBe(0);
@@ -1090,7 +1154,8 @@ describe('applyImportDecisions (v0.24.0)', () => {
       appData: { projects: [{ id: 'p2', name: 'Beta' }], releases: [], preparedBy: 'should-be-ignored' },
       exportType: 'ganttapp-project-export',
     };
-    const result = applyImportDecisions(existing, incoming, [], new Map());
+    const conflicts = detectImportConflicts(incoming, existing);
+    const result = applyImportDecisions(existing, incoming, [], new Map(), conflicts);
     expect(result.mergedData.preparedBy).toBe('preserved');
   });
 });

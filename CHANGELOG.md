@@ -1,5 +1,80 @@
 # Change Log
 
+## Version 0.26.0 (2026-05-21)
+### Import hardening + refactor: `useImportState` hook, cloud guard, collision-safe copy, ARIA
+
+A full retrograde pass on Smart Import (v0.24.0). The cloud-mode hydration race that could silently create duplicate projects is closed, the ID-conflict default reverts from contextual "Replace" back to the safer "Skip" per spec pitfall #22, both apply functions become permanently lock-resistant, the state machine is extracted to a dedicated `useImportState()` hook, the copy path becomes collision-safe up to 99 iterations, and the preview UI gains real screen-reader support.
+
+#### Bug fixes
+
+**Cloud mode (CRITICAL) — fast-paths now gated on local storage mode.** Both import fast paths (`ganttapp-project-export` with zero conflicts; full-workspace replace into an empty workspace) now check `storage.mode === 'local'` before firing. Without this gate, the post-sign-in hydration window — where `listAppData()` may briefly return an empty snapshot before Firestore data arrives — let a fast path apply against an apparently-empty workspace, then silently duplicate every project once hydration completed. Cloud mode now always shows the preview, even for conflict-free imports. One extra click; zero data risk. (Spec pitfall #69.)
+
+**Default decisions — ID conflicts default to Skip.** v0.24.0 used a smarter default: ID-conflict + matching names → 'Replace' (round-trip backup case); ID-conflict + different names → 'Skip'. The "matching names" rationale doesn't hold for the user who exported a backup, did three weeks of work, then accidentally imported the old backup — defaulting to 'Replace' would silently lose three weeks of work. All ID conflicts now default to 'Skip' unconditionally per spec pitfall #22. Users who actually want to replace must click 'Replace' explicitly.
+
+**Copy collision (pitfall #84).** Importing the same file twice via 'copy' previously produced two projects both named "Foo (2)" — indistinguishable in the project list. The new copy path iterates suffix `(2)`, `(3)`, `(4)`, …, `(99)` against a `usedNames: Set<string>` of in-batch and existing project names, so the second copy of "Foo" produces "Foo (3)", the third produces "Foo (4)", and so on. Each chosen name is reserved before the next iteration. The suffix length is capped at 5 chars (" (99)") and truncation respects `MAX_NAME_LENGTH`.
+
+#### Reliability
+
+**Apply functions are now lock-resistant.** Both `applyMergeDecisions` and `applyReplaceAll` use `try/finally { applyingRef.current = false; setApplying(false); }`. The `applyingRef` (`useRef(false)`) is a same-tick reentrancy guard: refs are read synchronously at call time, so rapid double-clicks before React commits the `applying` state can't slip a second apply through. A belt-and-suspenders `if (applying) return` UI guard is added to `handleConfirmMerge` and `handleConfirmReplaceAll`. Net effect: the UI cannot be permanently locked by an unexpected throw, and a double-click on Confirm produces at most one import. (Spec pitfalls #27, #53.)
+
+**File-read re-entrancy guard.** A `readerPendingRef` blocks a second `handleImport` invocation while the first reader is still in flight. The `<input type="file">` is also disabled immediately on first pick (`disabled={applying}`), so the visual + ref guards align. Closes a race where rapid picks could start two parsers and apply twice. (Spec pitfall #48.)
+
+#### UX
+
+**Stale banner + stale preview cleared at file-pick entry.** When a new file is picked, `setImportBanner(null)` and `setImportPreview(null)` run before any processing. Previously, an AlertDialog from a prior failed pick (or a preview from an abandoned pick) could render over the new flow until parsing completed. (Spec pitfall #79.)
+
+#### Refactor
+
+**`useImportState()` hook (pitfall #59).** Created at `src/features/projects/hooks/useImportState.ts`. The hook owns all import state (`importPreview`, `importBanner`, `replaceAllPending`, `applying`, `fileInputRef`, `readerPendingRef`, `applyingRef`) and all handlers (`handleImport`, `handleConfirmMerge`, `handleConfirmReplaceAll`, `handleImportCancel`, `onModeChange`, `onDecisionChange`, `openReplaceAllConfirm`, `cancelReplaceAllConfirm`). ProjectsTab becomes a thin shell that consumes the hook and renders the JSX. The import state machine is now isolated, testable via `renderHook`, and ProjectsTab's import-related logic drops from ~270 LOC to ~25 LOC of hook composition + JSX wiring.
+
+**`applyImportDecisions` signature (pitfall #28).** Added `conflicts: ImportConflict[]` as the 5th positional parameter. Callers now compute conflicts once at preview-build time and pass the result through; the function no longer re-runs `detectImportConflicts` internally. Internal naming: `resolvedAction` renamed to `resolvedOutcome` to clarify that the return includes the synthetic `'added'` classification (pitfall #26).
+
+**`normalizeProjectName(name)` shared helper.** Trim, lowercase, NFC normalization extracted from inline call sites in `detectImportConflicts`. Used internally; exported for future consumers.
+
+#### Accessibility — `ImportPreviewSection.tsx`
+
+- Outer container: `role="region"` with `aria-labelledby={headingId}` pointing at the "Review import" heading.
+- Heading: programmatic focus on mount via `useEffect` + `useRef`, `tabIndex={-1}` to keep it out of the Tab cycle.
+- Escape key dismisses the preview, suppressed while `applying === true` so an in-flight apply isn't cancelled.
+- Per-conflict containers: `role="radiogroup"` with `aria-labelledby` pointing at the conflict description (existing→incoming for ID conflicts, just-incoming for name conflicts).
+- Action buttons (Confirm Merge / Replace All Data / Cancel): `aria-busy={applying}` so assistive tech announces the apply state.
+
+#### Tests
+
+New `useImportState.test.ts` with 21 `renderHook` cases covering: parse errors, fast paths + cloud guard, preview/decision flow, drift abort, applying-state lifecycle (success + failure paths), same-tick reentrancy guards (split into ref-based + state-based), `readerPendingRef`, decision-state management (Map clone, mode toggle preserves decisions), `handleConfirmReplaceAll` flow + double-click guard, Cancel returns to preview state intact. Plus 4 new collision tests in `export.test.ts` (collision-safe copy iteration). Test count: 1197 → 1220 (+23).
+
+#### SPEC_DEVIATIONS.md — Level 4 deferred items documented
+
+A new `docs/SPEC_DEVIATIONS.md` tracks the gaps between GanttApp's import implementation and the canonical Level 4 spec:
+- **SD-1** — React Context closure boundary; concurrent-add not caught (target v0.27.0).
+- **SD-2** — `selectedProjectId` non-atomic remap (target: Zustand migration).
+- **SD-3** — Copy collision-safe naming. **Resolved in v0.26.0.**
+- **SD-4** — Default 'Replace' for ID-same-name conflicts. **Reverted in v0.26.0** per pitfall #22.
+- **SD-5** — Coarse-grain abort vs per-decision graceful fallback (target v0.27.0).
+- **SD-6** — `cloneProject` not reused in copy path due to owner semantics (future helper extraction).
+- **SD-7** — `aria-busy` observability gap on Replace-All path; needs `flushSync` (deferred).
+
+**Note (cloud mode):** The import success banner reflects the in-memory merge result. Firestore commit completes within ~500 ms via the debounced auto-save. Banner counts are optimistic in cloud mode — if a Firestore write later fails, the in-memory result has already been shown. Acceptable trade-off; matches pre-v0.24.0 behavior. (Spec pitfall #51.)
+
+**Modified Files:**
+- New: `src/features/projects/hooks/useImportState.ts` (~330 LOC)
+- New: `src/features/projects/__tests__/useImportState.test.ts` (21 tests)
+- New: `docs/SPEC_DEVIATIONS.md`
+- `src/shared/utils/export.ts` — `normalizeProjectName` exported; `applyImportDecisions` signature change (conflicts param); `resolvedAction` → `resolvedOutcome`; collision-safe copy via `usedNames` Set; `COPY_SUFFIX` constant deleted
+- `src/shared/utils/__tests__/export.test.ts` — 17 call sites updated; 2 tests migrated; 4 new tests added
+- `src/features/projects/ProjectsTab.tsx` — 9 functions + state declarations replaced with single `useImportState()` hook call; JSX prop wiring updated
+- `src/features/projects/ImportPreviewSection.tsx` — heading ref + focus-on-mount; Escape key handler; role="region"+aria-labelledby; role="radiogroup" per conflict; aria-busy on action buttons
+- `src/features/projects/__tests__/ProjectsTab.test.tsx` — "Smart ID-conflict defaults" test migrated to v0.26.0 contract (all ID conflicts default to 'skip')
+- Version + docs: `src/lib/version.ts`, `package.json`, `src/features/changelog/changelog-data.tsx`, `src/features/changelog/__tests__/ChangelogTab.test.tsx`, `CHANGELOG.md`, `public/CHANGELOG.md`
+
+**Verification:**
+- TypeScript type-check clean (0 errors)
+- Lint clean
+- All 1220 tests pass
+- Production build succeeds with Turbopack
+
+---
+
 ## Version 0.25.0 (2026-05-10)
 ### UX: Releases tab right-side controls upgraded to the shared icon family
 

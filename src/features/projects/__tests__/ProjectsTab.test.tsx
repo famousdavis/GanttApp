@@ -723,12 +723,12 @@ describe('ProjectsTab', () => {
       });
     });
 
-    describe('Smart ID-conflict defaults', () => {
-      it('matching names → replace; differing names → skip; name conflict → copy', async () => {
+    describe('Smart ID-conflict defaults (pitfall #22 — v0.26.0)', () => {
+      it('ALL ID conflicts default to skip (regardless of name match); name conflict → copy', async () => {
         seedData({
           projects: [
-            makeProject({ id: 'p1', name: 'Alpha' }),       // ID conflict, names match → replace
-            makeProject({ id: 'p2', name: 'Beta original' }), // ID conflict, names differ → skip
+            makeProject({ id: 'p1', name: 'Alpha' }),       // ID conflict, names match
+            makeProject({ id: 'p2', name: 'Beta original' }), // ID conflict, names differ
             makeProject({ id: 'p4', name: 'Gamma' }),       // for name conflict
           ],
           releases: [],
@@ -740,9 +740,9 @@ describe('ProjectsTab', () => {
         const file = createFile({
           _exportType: 'ganttapp-project-export',
           projects: [
-            { id: 'p1', name: 'Alpha' },        // type:id, names match
-            { id: 'p2', name: 'Beta renamed' }, // type:id, names differ
-            { id: 'p5', name: 'Gamma' },        // type:name (different ID, same name as p4)
+            { id: 'p1', name: 'Alpha' },        // type:id, names match — v0.26.0: defaults to 'skip'
+            { id: 'p2', name: 'Beta renamed' }, // type:id, names differ → 'skip'
+            { id: 'p5', name: 'Gamma' },        // type:name (different ID, same name as p4) → 'copy'
           ],
           releases: [],
         });
@@ -750,17 +750,18 @@ describe('ProjectsTab', () => {
 
         await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
 
-        // p1 group → 'replace' default checked.
+        // p1 group → 'skip' default checked (was conditional 'replace' in v0.24.0; pitfall #22).
+        // Matching names is not evidence the import is newer than the workspace.
         const p1Group = screen.getByTestId('conflict-group-p1');
-        const p1Replace = within(p1Group).getByRole('radio', { name: 'Replace existing with imported' }) as HTMLInputElement;
-        expect(p1Replace.checked).toBe(true);
+        const p1Skip = within(p1Group).getByRole('radio', { name: 'Keep existing, ignore imported' }) as HTMLInputElement;
+        expect(p1Skip.checked).toBe(true);
 
-        // p2 group → 'skip' default checked.
+        // p2 group → 'skip' default checked (consistent with v0.24.0 behavior for diverged names).
         const p2Group = screen.getByTestId('conflict-group-p2');
         const p2Skip = within(p2Group).getByRole('radio', { name: 'Keep existing, ignore imported' }) as HTMLInputElement;
         expect(p2Skip.checked).toBe(true);
 
-        // p5 group → 'copy' default checked.
+        // p5 group → 'copy' default checked (unchanged from v0.24.0).
         const p5Group = screen.getByTestId('conflict-group-p5');
         const p5Copy = within(p5Group).getByRole('radio', { name: 'Add as a copy' }) as HTMLInputElement;
         expect(p5Copy.checked).toBe(true);

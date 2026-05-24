@@ -10,9 +10,9 @@ import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from './colors';
 
 // Security constants
 // v0.24.0: MAX_NAME_LENGTH is now exported — consumed by applyImportDecisions in
-// export.ts to compute the COPY_SUFFIX truncation length. It remains the generic
-// max-name constant used by sanitizeString as a default (project names, release
-// names, attribution, preset names, etc.), not project-specific.
+// export.ts to compute the copy-suffix truncation length (e.g. " (2)", " (99)").
+// It remains the generic max-name constant used by sanitizeString as a default
+// (project names, release names, attribution, preset names, etc.), not project-specific.
 export const MAX_NAME_LENGTH = 100;
 const MAX_ID_LENGTH = 50;
 

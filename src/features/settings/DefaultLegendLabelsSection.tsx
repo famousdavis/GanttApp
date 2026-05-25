@@ -10,6 +10,41 @@
 import { useId } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
 import { sanitizeString, DEFAULT_LEGEND_LABELS } from '../../shared/utils/validation';
+import { useBufferedField } from '../../shared/hooks';
+
+// v0.27.0 (Pass 4, A3): commits on blur/Enter/unmount. Hoisted to a separate
+// component so each row gets its own buffered-field state (one hook per row).
+interface BufferedLabelInputProps {
+  id: string;
+  name: string;
+  value: string;
+  placeholder: string;
+  onCommit: (v: string) => void;
+  style: React.CSSProperties;
+}
+
+function BufferedLabelInput({ id, name, value, placeholder, onCommit, style }: BufferedLabelInputProps) {
+  const field = useBufferedField({
+    storeValue: value,
+    onCommit,
+    sanitize: (v) => sanitizeString(v, 50),
+  });
+  return (
+    <input
+      id={id}
+      name={name}
+      type="text"
+      value={field.draft}
+      placeholder={placeholder}
+      onChange={field.handleChange}
+      onFocus={field.handleFocus}
+      onBlur={field.handleBlur}
+      onKeyDown={field.handleKeyDown}
+      maxLength={50}
+      style={style}
+    />
+  );
+}
 
 interface DefaultLegendLabelsSectionProps {
   colors: ThemeColors;
@@ -78,14 +113,12 @@ export function DefaultLegendLabelsSection({
             >
               {row.label}
             </label>
-            <input
+            <BufferedLabelInput
               id={inputId}
               name={`legendLabel-${row.key}`}
-              type="text"
               value={row.value}
               placeholder={row.placeholder}
-              onChange={(e) => row.setter(sanitizeString(e.target.value, 50))}
-              maxLength={50}
+              onCommit={row.setter}
               style={{
                 flex: '1 1 280px',
                 padding: '0.4rem 0.6rem',

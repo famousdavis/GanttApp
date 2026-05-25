@@ -92,6 +92,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // v0.27.0 (Pass 2, I1): per-cloud-session sentinel — tracks which project IDs
+  // have received at least one real-time snapshot since the current cloud
+  // session began. Guards the data-loss check against the cold-load race
+  // (empty first snapshot before Firestore hydrates) without blocking
+  // legitimate collaborator deletions (which arrive as subsequent empty
+  // snapshots). Lives at AppDataProvider scope — a per-effect sentinel
+  // would reset on every projectIds change and miss the second-snapshot
+  // case. Mutation happens OUTSIDE setData so the updater stays pure
+  // (React StrictMode invokes updaters twice).
+  const seenFirstSnapshotRef = useRef<Set<string>>(new Set());
+
   // v18.0.0 — Most-recently-loaded data reference, used by the save effect
   // to identify "data change came from a load, not a user edit" and skip
   // the save. Set in the load effect right before setData; consumed (and
@@ -145,6 +156,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const loadDataFromStorage = async () => {
+      // v0.27.0 (Pass 7, J1/J2): reset loading to true at the start of every
+      // load cycle. Initial mount already starts with loading: true (useState
+      // initializer) — no-op there. For reload cycles (storage swap or
+      // spert:models-changed invitation claim), this flips loading back to
+      // true so consumers like the import fast-path gate (!appDataLoading)
+      // correctly detect "load in progress" during the async gap.
+      setLoading(true);
       try {
         const loadedData = await storage.loadAppData();
         if (cancelled) return;
@@ -275,6 +293,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('spert:models-changed', handler);
   }, [storage]);
 
+  // v0.27.0 (Pass 5, I2): evict a project and its releases from in-memory
+  // state when the cloud driver dispatches ganttapp:project-revoked (the
+  // owner has removed this user from the project, surfaced via Firestore's
+  // permission-denied error on the project's onSnapshot listener).
+  //
+  // Gated on cloud mode: defensive against stray dispatches in local mode
+  // (which would wipe data with no way to recover). The cloud driver is
+  // the sole dispatcher today, but the gate makes that contract explicit.
+  useEffect(() => {
+    if (storage.mode !== 'cloud') return;
+    const handler = (e: Event) => {
+      const { projectId } = (e as CustomEvent<{ projectId: string }>).detail;
+      setData(prev => ({
+        ...prev,
+        projects: prev.projects.filter(p => p.id !== projectId),
+        releases: prev.releases.filter(r => r.projectId !== projectId),
+      }));
+    };
+    window.addEventListener('ganttapp:project-revoked', handler);
+    return () => window.removeEventListener('ganttapp:project-revoked', handler);
+  }, [storage]);
+
   // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
     // v18.0.0 — if data === loadedDataRef.current, the most recent state
@@ -320,6 +360,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [data.projects]
   );
 
+  // v0.27.0 (Pass 2, I1): clear sentinel on storage change (new cloud session,
+  // or cloud→local→cloud cycle). Placed BEFORE the subscription effect so
+  // React runs this clear before the subscriptions for the new storage instance
+  // are set up. Effects in a single component run in declaration order.
+  useEffect(() => {
+    seenFirstSnapshotRef.current.clear();
+  }, [storage]);
+
   useEffect(() => {
     if (storage.mode !== 'cloud' || loading) return;
 
@@ -331,16 +379,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         // Skip local echoes — only apply server-confirmed data
         if (snapshot.metadata.hasPendingWrites) return;
 
+        // v0.27.0 (Pass 2, I1): compute and mutate sentinel BEFORE setData.
+        // The mutation outside the updater keeps the updater pure
+        // (StrictMode invokes updaters twice — Set.add on already-added is
+        // idempotent so both invocations see the same isFirstSnapshot value
+        // via the closure-captured const). Without this, the data-loss guard
+        // below would fire on every empty snapshot and permanently block
+        // legitimate collaborator deletions.
+        const isFirstSnapshot = !seenFirstSnapshotRef.current.has(projectId);
+        seenFirstSnapshotRef.current.add(projectId);
+
         setData(prev => {
-          // Data-loss guard: don't wipe existing releases with empty cloud results.
+          // Data-loss guard: only check on the FIRST snapshot for this project.
+          // Cold-load race: empty first snapshot before Firestore hydrates.
+          // Collaborator deletion case: subsequent empty snapshots must pass.
           // v16.6: safe post-sign-out — clearAllData() clears in-memory before
           // the real-time listener re-subscribes, so prev.releases is empty.
-          const existingCount = prev.releases.filter(r => r.projectId === projectId).length;
-          if (releases.length === 0 && existingCount > 0) {
-            console.warn(
-              `Cloud returned 0 releases for project ${projectId} but local has ${existingCount} — skipping to protect data`
-            );
-            return prev;
+          if (isFirstSnapshot) {
+            const existingCount = prev.releases.filter(r => r.projectId === projectId).length;
+            if (releases.length === 0 && existingCount > 0) {
+              console.warn(
+                `Cloud returned 0 releases for project ${projectId} but local has ${existingCount} — skipping (first snapshot only)`
+              );
+              return prev;
+            }
           }
           return {
             ...prev,

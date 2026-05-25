@@ -182,6 +182,13 @@ describe('firestore-converters', () => {
       const settings = appDataToUserSettings(data);
       expect(settings.preparedBy).toBe('');
     });
+
+    it('tags every settings write with schemaVersion: 1 (K2)', () => {
+      // v0.27.0 (Pass 8, K2): forward-compat. Future schema bumps gain a
+      // migration hook in userSettingsToAppData.
+      const result = appDataToUserSettings({ projects: [], releases: [] });
+      expect(result.schemaVersion).toBe(1);
+    });
   });
 
   // --- firestoreToProject ---

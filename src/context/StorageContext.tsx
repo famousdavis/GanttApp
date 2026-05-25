@@ -11,7 +11,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import type { AppData } from '../shared/types/app';
 import type { GanttStorageService, StorageMode } from '../shared/types/storage';
-import { LocalGanttStorageService } from '../shared/storage/local-gantt-storage-service';
+import { LocalGanttStorageService, clearLocalProjectData } from '../shared/storage/local-gantt-storage-service';
 import { FirestoreGanttStorageServiceImpl } from '../shared/storage/firestore-gantt-storage-service';
 import type { CloudGanttStorageService } from '../shared/storage/firestore-gantt-storage-service';
 import { auth, db, isFirebaseAvailable } from '../lib/firebase';
@@ -210,6 +210,18 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     // Step 3: dispose cloud service if active
     if (storage.mode === 'cloud') {
       (storage as CloudGanttStorageService).dispose();
+    }
+
+    // Step 3.5 (v0.27.0 — F1/F3/E2-gap): clear local project data from
+    // localStorage when signing out of cloud mode. The user's data is safely
+    // in Firestore; clearing prevents cross-user data leakage (closes the gap
+    // where switchToCloudMode would read localStorage on the next sign-in and
+    // upload the previous user's data into the new user's Firestore account).
+    // NOT called in local mode: user's only copy is on disk.
+    // Ordering: after dispose() (no new writes can start); before setStorage()
+    // (new LocalGanttStorageService sees empty localStorage → correct defaults).
+    if (storage.mode === 'cloud') {
+      clearLocalProjectData();
     }
 
     // Step 4: reset storage mode key

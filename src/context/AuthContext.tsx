@@ -84,7 +84,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser || !db) {
+      if (!firebaseUser) {
+        // v0.27.0 (E1): externally-revoked session. Run the same cleanup chain
+        // as user-initiated sign-out. Fire-and-forget — onAuthStateChanged has
+        // no awaiting caller. After user-initiated sign-out, this fires again
+        // (firebaseSignOut triggers the callback); all cleanup steps are
+        // idempotent (dispose() guards this.disposed; cancelPendingSaves finds
+        // no timer; clearLocalProjectData removes absent keys) so the second
+        // run is harmless.
+        void runSignOutCleanup();
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      if (!db) {
+        // Partial-config: Firebase Auth available but Firestore not.
+        // Preserve prior behavior — keep user signed in; cloud features unavailable.
+        // If this branch is ever changed, add a test for it.
         setUser(firebaseUser);
         setLoading(false);
         return;

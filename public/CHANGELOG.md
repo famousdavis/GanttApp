@@ -1,5 +1,30 @@
 # Change Log
 
+## Version 0.27.0 (2026-05-25)
+### Cloud storage hardening: sign-out cleanup, sentinel guard, I2/I1a eviction, buffered inputs
+
+Nine cloud storage correctness gaps closed across the sign-out chain, the real-time subscription path, and the eight global settings inputs that previously wrote on every keystroke.
+
+#### Critical / High
+
+- **E1/F1/F3:** Externally-revoked sessions (`onAuthStateChanged(null)`) now run the full sign-out cleanup chain instead of leaving the cloud service alive and the previous user's data in memory. The `!firebaseUser` and `!db` branches are split: only true revocation runs cleanup. On cloud sign-out, `ganttAppData` and `ganttAppSnapshots` are cleared from `localStorage`, closing the shared-browser path where a next user's cloud-mode switch could have uploaded the previous user's data into their Firestore account.
+- **I1:** Real-time releases data-loss guard now fires only on the first snapshot per project per cloud session. A `Set<string>` sentinel at `AppDataProvider` scope tracks seen projects; mutation outside the `setData` updater for React StrictMode correctness. Legitimate collaborator deletions now propagate.
+- **I2:** `permission-denied` on a real-time subscription prunes driver `lastSavedState` and `pendingData` (preventing an infinite save-fail loop), evicts project + releases from `AppDataContext`, and evicts snapshots from `useSnapshots`.
+- **A3:** Eight text inputs (Prepared By, five Default Legend Labels, Export Attribution name + identifier) commit on blur, Enter, Escape (reverts), or unmount via the new `useBufferedField` shared hook. Inline chart label editors deferred (per-project collaboration semantics).
+- **I1a:** User-switch race guard added to `subscribeToProject`, `loadAppData`, `loadSnapshots`, and `executeSave` (closes the save-side infinite-loop scenario).
+- **D1:** Save debounce reduced from 500ms to 200ms.
+- **D2:** `pagehide` listener added alongside `beforeunload` for bfcache-aware flushing.
+
+#### Medium
+
+- **J1/J2:** `loading` resets to `true` at the start of each storage load cycle, closing a race where the import fast-path gate (`!appDataLoading`) was sticky-false during invitation-claim reloads.
+
+#### Low
+
+- **K2:** `schemaVersion: 1` included in every Firestore user-settings write; read-side migration hook added.
+
+Tests: 1220 → 1245.
+
 ## Version 0.26.1 (2026-05-24)
 ### About page polish — QRG button label standardized across the SPERT® Suite
 

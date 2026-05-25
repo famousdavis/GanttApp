@@ -46,10 +46,10 @@ import {
   getProjectMembers as getProjectMembersFn,
   listPendingInvites as listPendingInvitesFn,
 } from './firestore-sharing';
-import { getRevokeInvite, getResendInvite } from '../../lib/firebase';
+import { getRevokeInvite, getResendInvite, auth } from '../../lib/firebase';
 import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 200; // v0.27.0 (Pass 3, D1): reduced from 500ms
 
 export interface CloudGanttStorageService extends GanttStorageService {
   subscribeToProject(
@@ -84,6 +84,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   private pendingData: AppData | null = null;
   private unsubscribers: (() => void)[] = [];
   private beforeUnloadHandler: (() => void) | null = null;
+  private pageHideHandler: (() => void) | null = null; // v0.27.0 (Pass 3, D2)
   private disposed = false;
   private onSaveResult?: (error: string | null) => void;
 
@@ -96,14 +97,28 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     this.uid = uid;
     this.onSaveResult = onSaveResult;
 
-    // Register beforeunload to flush pending writes when tab closes
+    // v0.27.0 (Pass 3, D2): register BOTH beforeunload and pagehide with
+    // distinct function references so removeEventListener targets each
+    // independently. Both handlers are idempotent: whichever fires first
+    // clears pendingData; the second finds it null and returns.
+    // pagehide also fires on bfcache entry (event.persisted === true), so
+    // pending edits are committed before mobile-safari suspends the tab.
+    // Known limitations:
+    //   - onSnapshot listeners may not resume after bfcache restoration.
+    //   - executeSave is fire-and-forget; a fast mobile OS kill can interrupt.
     this.beforeUnloadHandler = () => {
+      if (this.pendingData) {
+        this.executeSave().catch(() => {});
+      }
+    };
+    this.pageHideHandler = () => {
       if (this.pendingData) {
         this.executeSave().catch(() => {});
       }
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', this.beforeUnloadHandler);
+      window.addEventListener('pagehide', this.pageHideHandler);
     }
   }
 
@@ -113,6 +128,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     try {
       // Step 1: List projects via the shared member-scoped helper (v0.22.1).
       const memberDocs = await this.listMemberProjects();
+      // v0.27.0 (Pass 6, I1a): bail if user changed during the await.
+      if (auth?.currentUser?.uid !== this.uid) return null;
       const projects: { id: string; meta: FirestoreProjectMeta }[] =
         memberDocs.map(d => ({ id: d.id, meta: d.data() }));
 
@@ -125,6 +142,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         const releasesSnap = await getDocs(
           collection(this.db, `ganttapp_projects/${project.id}/releases`)
         );
+        // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
+        if (auth?.currentUser?.uid !== this.uid) return null;
         releasesMap.set(
           project.id,
           releasesSnap.docs.map(d => ({ id: d.id, data: d.data() as FirestoreRelease }))
@@ -133,6 +152,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
       // Step 3: Load user settings
       const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
+      // v0.27.0 (Pass 6, I1a): final uid check before returning data.
+      if (auth?.currentUser?.uid !== this.uid) return null;
       const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
 
       // Reconstruct flat AppData
@@ -182,10 +203,14 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       const allSnapshots: Snapshot[] = [];
 
       const memberDocs = await this.listMemberProjects();
+      // v0.27.0 (Pass 6, I1a): bail if user changed during the listing await.
+      if (auth?.currentUser?.uid !== this.uid) return [];
       for (const projectDoc of memberDocs) {
         const snapshotsSnap = await getDocs(
           collection(this.db, `ganttapp_projects/${projectDoc.id}/snapshots`)
         );
+        // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
+        if (auth?.currentUser?.uid !== this.uid) return [];
         for (const snapDoc of snapshotsSnap.docs) {
           allSnapshots.push(
             firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot)
@@ -283,6 +308,13 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
+        // v0.27.0 (Pass 6, I1a): uid guard. Discard if the authenticated user
+        // has changed since this subscription was set up — e.g., token expired
+        // and a different user signed in before dispose() could run. Also fires
+        // briefly during user-initiated sign-out (auth.currentUser is cleared
+        // before dispose). Acceptable: dispose() cancels subscriptions before
+        // firebaseSignOut in performSignOutWithCleanup.
+        if (auth?.currentUser?.uid !== this.uid) return;
         const entries = querySnapshot.docs.map(d => ({
           id: d.id,
           data: d.data() as FirestoreRelease,
@@ -305,6 +337,40 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         if (code === 'permission-denied') {
           unsubscribe();
           this.unsubscribers = this.unsubscribers.filter(u => u !== unsubscribe);
+
+          // v0.27.0 (Pass 5, I2): prune driver state BEFORE dispatching the
+          // eviction event. Without this, the next executeFirestoreSave diff
+          // would treat the revoked project as "removed" and add batch writes
+          // to its subcollections → permission-denied → re-queue → infinite
+          // save-fail loop until sign-out.
+          //
+          // Known limitation: if executeSave is already in flight, it captured
+          // the old pendingData at function entry. That batch may write to
+          // the revoked project's subcollections — surfaces as ONE
+          // permission-denied toast. Subsequent saves use the pruned state
+          // and succeed. The infinite loop is what's fixed.
+          if (this.lastSavedState) {
+            this.lastSavedState = {
+              ...this.lastSavedState,
+              projects: this.lastSavedState.projects.filter(p => p.id !== projectId),
+              releases: this.lastSavedState.releases.filter(r => r.projectId !== projectId),
+            };
+          }
+          if (this.pendingData) {
+            this.pendingData = {
+              ...this.pendingData,
+              projects: this.pendingData.projects.filter(p => p.id !== projectId),
+              releases: this.pendingData.releases.filter(r => r.projectId !== projectId),
+            };
+          }
+
+          // Notify AppDataContext and useSnapshots to evict in-memory state.
+          // Event name is 'ganttapp:' prefixed — app-scoped, not suite-wide.
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('ganttapp:project-revoked', { detail: { projectId } }),
+            );
+          }
         }
       }
     );
@@ -364,6 +430,12 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   dispose(): void {
+    // v0.27.0 (Pass 1 — explicit idempotency): the individual cleanups below
+    // are each safe to call repeatedly (null timer, empty unsubscribers, null
+    // handler), but an early return makes double-dispose visibly a no-op for
+    // future readers and prevents an extra render in the rare double-cleanup
+    // path where E1 + user-initiated sign-out both fire performSignOutWithCleanup.
+    if (this.disposed) return;
     this.disposed = true;
 
     if (this.debounceTimer) {
@@ -376,9 +448,16 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     }
     this.unsubscribers = [];
 
-    if (this.beforeUnloadHandler && typeof window !== 'undefined') {
-      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
-      this.beforeUnloadHandler = null;
+    if (typeof window !== 'undefined') {
+      if (this.beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+        this.beforeUnloadHandler = null;
+      }
+      // v0.27.0 (Pass 3, D2): mirror unload listener removal.
+      if (this.pageHideHandler) {
+        window.removeEventListener('pagehide', this.pageHideHandler);
+        this.pageHideHandler = null;
+      }
     }
 
     this.lastSavedState = null;
@@ -423,6 +502,14 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     if (!data || this.disposed) return;
     this.pendingData = null;
 
+    // v0.27.0 (Pass 6, I1a / save-side): abort without re-queuing if the
+    // authenticated user has changed since this save was queued. Without
+    // this, a stale save would fire under the new user's auth token, hit
+    // Firestore's membership check, fail with permission-denied, re-queue
+    // (in the catch block below), and loop forever — same failure shape
+    // as I2 (eviction infinite loop).
+    if (auth?.currentUser?.uid !== this.uid) return;
+
     try {
       this.lastSavedState = await executeFirestoreSave(
         this.db, this.uid, data, this.lastSavedState
@@ -434,7 +521,12 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       console.error('Failed to save cloud data:', message);
       // If disposed, do not re-queue — the caller has moved on (e.g., sign-out
       // or cloud→local switch) and this data is intentionally dropped.
-      if (!this.disposed && !this.pendingData) {
+      // v0.27.0 (Pass 6, I1a): also do not re-queue if uid changed mid-save.
+      if (
+        !this.disposed
+        && !this.pendingData
+        && auth?.currentUser?.uid === this.uid
+      ) {
         this.pendingData = data;
       }
       this.onSaveResult?.(message);

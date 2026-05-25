@@ -73,6 +73,14 @@ export interface FirestoreUserProfile {
 }
 
 export interface FirestoreUserSettings {
+  /**
+   * v0.27.0 (Pass 8, K2): forward-compat field — only version 1 exists today.
+   * Future schema bumps require migration in userSettingsToAppData. Optional
+   * because docs written by pre-v0.27.0 clients lack this field; the read
+   * path treats absent === 1. Snapshot documents also lack schemaVersion —
+   * different lifecycle, deferred to a future pass.
+   */
+  schemaVersion?: number;
   chartColors?: {
     solidBar: string;
     hatchedBar: string;

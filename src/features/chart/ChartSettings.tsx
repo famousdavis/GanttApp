@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup } from '../../shared/components/ColorPickers';
 import { COLOR_PRESETS } from '../../shared/utils/colors';
 import { sanitizeString } from '../../shared/utils/validation';
+import { useBufferedField } from '../../shared/hooks';
 
 interface ChartSettingsProps {
   showColorSettings: boolean;
@@ -58,6 +59,15 @@ export function ChartSettings({
   setShowPreparedBy
 }: ChartSettingsProps) {
   const { colors } = useTheme();
+
+  // v0.27.0 (Pass 4, A3): commit Prepared By on blur/Enter/unmount, not per
+  // keystroke. Avoids one cloud write per typing pause and prevents
+  // sanitizeString from trimming a trailing space the user is about to type.
+  const preparedByField = useBufferedField({
+    storeValue: preparedBy,
+    onCommit: setPreparedBy,
+    sanitize: (v) => sanitizeString(v, 100),
+  });
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -138,8 +148,11 @@ export function ChartSettings({
                   name="preparedBy"
                   aria-label="Prepared by"
                   type="text"
-                  value={preparedBy}
-                  onChange={(e) => setPreparedBy(sanitizeString(e.target.value))}
+                  value={preparedByField.draft}
+                  onChange={preparedByField.handleChange}
+                  onFocus={preparedByField.handleFocus}
+                  onBlur={preparedByField.handleBlur}
+                  onKeyDown={preparedByField.handleKeyDown}
                   placeholder="Enter your name"
                   maxLength={100}
                   autoComplete="name"

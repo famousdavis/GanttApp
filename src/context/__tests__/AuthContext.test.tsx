@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 
 // Mock firebase modules before importing AuthContext
@@ -33,6 +33,14 @@ vi.mock('../../lib/version', () => ({
   APP_ID: 'ganttapp',
 }));
 
+// v0.27.0 (Pass 1, E1): mock the cleanup registry so the new !firebaseUser
+// branch's `void runSignOutCleanup()` call is observable. The mock returns a
+// resolved Promise (matches the real registry's contract); other existing
+// tests that pass `callback(null)` will invoke this mock harmlessly.
+vi.mock('../signOutCleanupRegistry', () => ({
+  runSignOutCleanup: vi.fn().mockResolvedValue({ wasRegistered: true }),
+}));
+
 vi.mock('firebase/auth', () => {
   class MockGoogleAuthProvider {
     addScope = vi.fn();
@@ -51,6 +59,7 @@ vi.mock('firebase/auth', () => {
 });
 
 import { AuthProvider, useAuth } from '../AuthContext';
+import { runSignOutCleanup } from '../signOutCleanupRegistry';
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
@@ -136,4 +145,23 @@ describe('AuthContext', () => {
   // AuthContext.signOut() helper was deleted. Sign-out paths now route
   // through StorageContext.performSignOutWithCleanup, which has its own
   // coverage in StorageContext.test.tsx.
+
+  it('calls runSignOutCleanup when onAuthStateChanged fires with null, and sets user/loading correctly (E1)', async () => {
+    // v0.27.0 (Pass 1, E1): externally-revoked session path.
+    // Trace: callback(null) → if (!firebaseUser) branch → void runSignOutCleanup()
+    //        + setUser(null) + setLoading(false).
+    mockOnAuthStateChanged.mockImplementation(
+      (_auth: unknown, callback: (user: null) => void) => {
+        callback(null);
+        return vi.fn();
+      },
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(vi.mocked(runSignOutCleanup)).toHaveBeenCalledTimes(1),
+    );
+    expect(result.current.user).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.isAuthenticated).toBe(false);
+  });
 });

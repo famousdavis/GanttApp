@@ -34,6 +34,24 @@ export function useSnapshots(selectedProjectId: string) {
     return () => { cancelled = true; };
   }, [storage]);
 
+  // v0.27.0 (Pass 5, I2): evict snapshots for a project the user has been
+  // removed from. No storage.mode gate needed — the ganttapp:project-revoked
+  // event is only dispatched by FirestoreGanttStorageServiceImpl (cloud mode
+  // only). Avoiding the gate avoids depending on `storage` in this effect's
+  // deps, which would otherwise cause an unnecessary re-subscribe on every
+  // storage swap.
+  //
+  // In-flight addSnapshot writes for the revoked project will still attempt
+  // Firestore and fail with one permission-denied toast. Not an infinite loop.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { projectId } = (e as CustomEvent<{ projectId: string }>).detail;
+      setAllSnapshots(prev => prev.filter(s => s.projectId !== projectId));
+    };
+    window.addEventListener('ganttapp:project-revoked', handler);
+    return () => window.removeEventListener('ganttapp:project-revoked', handler);
+  }, []);
+
   // Reset to Current view when project changes (render-time derivation, React's getDerivedStateFromProps pattern)
   const [prevProjectId, setPrevProjectId] = useState(selectedProjectId);
   if (prevProjectId !== selectedProjectId) {

@@ -71,6 +71,8 @@ export function releaseToFirestore(release: Release, order: number): FirestoreRe
 /** Convert app-level settings to Firestore user settings document. */
 export function appDataToUserSettings(data: AppData): FirestoreUserSettings {
   return {
+    // v0.27.0 (Pass 8, K2): tag every write with the current schema version.
+    schemaVersion: 1,
     ...(data.chartColors && { chartColors: data.chartColors }),
     ...(data.activePreset && { activePreset: data.activePreset }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),
@@ -143,6 +145,15 @@ export function firestoreReleasesToFlat(
 
 /** Convert Firestore user settings back to the relevant AppData fields. */
 export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<AppData> {
+  // v0.27.0 (Pass 8, K2): warn (don't throw) on unknown future schemaVersion.
+  // Loading proceeds as v1 — the existing field-by-field reads will simply
+  // skip any new fields they don't understand. When a future v2 ships, add
+  // migration logic here before the field reads.
+  if (settings.schemaVersion !== undefined && settings.schemaVersion > 1) {
+    console.warn(
+      `[GanttApp] Unknown settings schemaVersion ${settings.schemaVersion}; loading as v1`,
+    );
+  }
   const sanitizedGlobalWorkDays = sanitizeWorkDays(settings.globalWorkDays);
   return {
     ...(settings.chartColors && { chartColors: sanitizeChartColors(settings.chartColors) }),

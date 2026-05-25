@@ -119,6 +119,8 @@ describe('ChartSettings', () => {
 
     const input = screen.getByPlaceholderText('Enter your name');
     fireEvent.change(input, { target: { value: 'Jane' } });
+    // v0.27.0 (Pass 4, A3): useBufferedField commits on blur, not on change.
+    fireEvent.blur(input);
     expect(setPrepared).toHaveBeenCalledWith('Jane');
   });
 

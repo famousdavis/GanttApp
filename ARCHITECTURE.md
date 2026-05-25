@@ -364,6 +364,60 @@ Defined in `firestore.rules` (repo root). Key rules:
 - **Conditional spread for optional fields:** Firestore rejects explicit `undefined` — use `...(value && { field: value })` in converters.
 - **Memory cache:** Uses `memoryLocalCache()` (not persistent) to avoid stale security rule cache in IndexedDB.
 
+### Sign-Out Cleanup Sequence (v16.6, extended v0.27.0)
+
+`StorageContext.performSignOutWithCleanup` runs these steps synchronously (1–7) before the one async step (8). All steps are individually idempotent so the externally-revoked path (`onAuthStateChanged(null) → runSignOutCleanup` — v0.27.0) and a concurrent user-initiated sign-out can both invoke this safely.
+
+1. `cancelPendingSaves` on the cloud service (discard, don't flush) — cloud mode only.
+2. `runAppDataReset()` — clears in-memory AppData state; sets `isResettingRef` to suppress the save effect.
+3. `dispose()` on the cloud service — cloud mode only. `dispose()` has an `if (this.disposed) return` guard so double-dispose is a no-op.
+4. **(v0.27.0, F1/F3/E2-gap)** `clearLocalProjectData()` — cloud mode ONLY. Removes `ganttAppData` and `ganttAppSnapshots` from `localStorage`. Closes the cross-user data leak where `switchToCloudMode` would otherwise read stale localStorage on the next user's sign-in and upload the previous user's data into the new user's Firestore account. **Must NOT be called in local mode** — destroys the user's only data copy.
+5. Reset `STORAGE_MODE_KEY` to `'local'`.
+6. `setStorage(new LocalGanttStorageService())` — triggers the `[storage]` load effect in `AppDataContext`.
+7. Clear stale transition state (isSwitching, switchError, saveError, uploadResult, needsUploadPrompt); remove the v16.5 dead localStorage key.
+8. `firebaseSignOut(auth)` — the only async step.
+
+### Real-Time Subscription Sentinel (v0.27.0, I1)
+
+`AppDataContext` carries a `useRef<Set<string>>` named `seenFirstSnapshotRef` at provider scope. The data-loss guard in the `subscribeToProject` callback (which blocks an empty-releases snapshot from wiping a non-empty in-memory release list) now fires **only on the first snapshot per project per cloud session**. Without this, the guard would block every empty snapshot, indefinitely preventing legitimate collaborator deletions from propagating.
+
+Three correctness requirements (all required):
+- Sentinel must be at provider scope, not inside the subscription effect closure — a per-effect sentinel would reset on every projectIds change and miss the second-snapshot case.
+- Sentinel mutation must happen **before** `setData` — React StrictMode invokes updaters twice; the mutation outside the updater keeps the updater pure regardless of double-invocation.
+- A separate effect keyed on `[storage]` clears the sentinel on every new cloud session (storage swap).
+
+### `ganttapp:project-revoked` Event (v0.27.0, I2)
+
+App-scoped `CustomEvent` dispatched **only** by `FirestoreGanttStorageServiceImpl` when an `onSnapshot` listener fires with `code === 'permission-denied'` (the project owner removed this user). The driver:
+
+1. Prunes the revoked project from `lastSavedState` and `pendingData` **before** dispatching — otherwise the next `executeFirestoreSave` diff treats the project as "removed" and re-attempts subcollection writes, hitting permission-denied again, looping forever.
+2. Dispatches `new CustomEvent('ganttapp:project-revoked', { detail: { projectId } })`.
+
+Handlers:
+- `AppDataContext` listens (gated on `storage.mode === 'cloud'`) and removes the project and its releases from in-memory state.
+- `useSnapshots` listens (ungated — driver is sole dispatcher; ungated keeps the hook free of `useStorage` dependency cascade) and removes snapshots for the project.
+
+Known limitation: an in-flight `executeSave` that already started writing to the revoked project's subcollections will produce one permission-denied toast before the pruned state takes effect.
+
+### Save-Side and Real-Time UID Guards (v0.27.0, I1a)
+
+The driver imports `auth` from `src/lib/firebase` and checks `auth?.currentUser?.uid !== this.uid` at four points:
+- `subscribeToProject` success callback (discard stale data after user switch)
+- After each async boundary in `loadAppData` (returns `null`)
+- After each async boundary in `loadSnapshots` (returns `[]`)
+- At the top of `executeSave` and in the catch-block re-queue branch (prevents an infinite save-fail loop when a pending save would otherwise fire under the new user's auth token)
+
+### `useBufferedField` Hook (v0.27.0, A3)
+
+Shared hook in `src/shared/hooks/useBufferedField.ts` for controlled text inputs that write to cloud storage. Commits on **blur, Enter, or unmount** (if focused AND draft differs from stored value). Escape reverts and clears focus. Refs (kept current via a render-effect, not direct assignment during render — `react-hooks/refs`) hold the latest values for the unmount-cleanup, which has empty deps to avoid re-registering on every render.
+
+In use at:
+- `ChartSettings.tsx` — Prepared By
+- `DefaultLegendLabelsSection.tsx` — 5 default legend labels (via a `BufferedLabelInput` sub-component)
+- `ExportAttributionSection.tsx` — Name + Identifier
+
+Explicitly NOT used at: inline chart label editors (`ChartLegend.tsx`, `useChartEditing.ts`, `InlineTextEditor.tsx`) — these are per-project and shared with collaborators; they need different conflict-resolution semantics (deferred to a future pass).
+
 ## Snapshot Architecture (v7.0)
 
 Snapshots provide read-only historical records of release plans, stored separately from live data.

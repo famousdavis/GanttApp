@@ -8,6 +8,7 @@ import { useId } from 'react';
 import type { ExportAttribution } from '../../shared/types/firestore';
 import type { ThemeColors } from '../../shared/utils/theme';
 import { sanitizeString } from '../../shared/utils/validation';
+import { useBufferedField } from '../../shared/hooks';
 
 interface ExportAttributionSectionProps {
   colors: ThemeColors;
@@ -21,6 +22,27 @@ export function ExportAttributionSection({
   const baseFieldId = useId();
   const nameId = `${baseFieldId}-name`;
   const identifierId = `${baseFieldId}-identifier`;
+
+  // v0.27.0 (Pass 4, A3): buffered commits on blur/Enter/unmount instead of
+  // per-keystroke. Each onCommit composes the full ExportAttribution by
+  // merging the committed field with the current value of the other.
+  const nameField = useBufferedField({
+    storeValue: exportAttribution?.name ?? '',
+    onCommit: (v) =>
+      onChangeAttribution({
+        name: sanitizeString(v, 100),
+        identifier: exportAttribution?.identifier ?? '',
+      }),
+  });
+  const identifierField = useBufferedField({
+    storeValue: exportAttribution?.identifier ?? '',
+    onCommit: (v) =>
+      onChangeAttribution({
+        name: exportAttribution?.name ?? '',
+        identifier: sanitizeString(v, 100),
+      }),
+  });
+
   const inputStyle = {
     padding: '0.5rem 0.75rem',
     border: `1px solid ${colors.border}`,
@@ -47,11 +69,11 @@ export function ExportAttributionSection({
           id={nameId}
           name="exportAttributionName"
           type="text"
-          value={exportAttribution?.name ?? ''}
-          onChange={(e) => onChangeAttribution({
-            name: sanitizeString(e.target.value, 100),
-            identifier: exportAttribution?.identifier ?? '',
-          })}
+          value={nameField.draft}
+          onChange={nameField.handleChange}
+          onFocus={nameField.handleFocus}
+          onBlur={nameField.handleBlur}
+          onKeyDown={nameField.handleKeyDown}
           placeholder="e.g., Jane Smith"
           maxLength={100}
           autoComplete="name"
@@ -67,11 +89,11 @@ export function ExportAttributionSection({
           id={identifierId}
           name="exportAttributionIdentifier"
           type="text"
-          value={exportAttribution?.identifier ?? ''}
-          onChange={(e) => onChangeAttribution({
-            name: exportAttribution?.name ?? '',
-            identifier: sanitizeString(e.target.value, 100),
-          })}
+          value={identifierField.draft}
+          onChange={identifierField.handleChange}
+          onFocus={identifierField.handleFocus}
+          onBlur={identifierField.handleBlur}
+          onKeyDown={identifierField.handleKeyDown}
           placeholder="e.g., student ID, email, or team name"
           maxLength={100}
           style={inputStyle}

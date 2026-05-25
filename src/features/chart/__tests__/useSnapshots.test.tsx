@@ -493,4 +493,34 @@ describe('useSnapshots', () => {
     expect(saved?.legendLabels?.inProgress).toBe('Global In-Progress');
     expect(saved?.legendLabels?.finishDateLine).toBe('Project Finish Date');
   });
+
+  // v0.27.0 (Pass 5, I2): when the cloud driver dispatches the eviction
+  // event, useSnapshots removes snapshots for the revoked project from
+  // its in-memory state. The handler has no storage.mode gate because
+  // the event is only dispatched in cloud mode by the driver.
+  it('evicts snapshots for the revoked project on ganttapp:project-revoked (I2)', async () => {
+    localStorageMock.setItem(
+      'ganttAppSnapshots',
+      JSON.stringify([testSnapshot, otherProjectSnapshot]),
+    );
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    // Wait for snapshots to load (allSnapshots has both p1's and p2's)
+    await waitFor(() => {
+      expect(result.current.allSnapshots).toHaveLength(2);
+    });
+
+    // Dispatch eviction for p1
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('ganttapp:project-revoked', { detail: { projectId: 'p1' } }),
+      );
+    });
+
+    // p1 snapshot evicted; p2 snapshot remains
+    expect(result.current.allSnapshots.filter(s => s.projectId === 'p1')).toHaveLength(0);
+    expect(result.current.allSnapshots.filter(s => s.projectId === 'p2')).toHaveLength(1);
+    expect(result.current.allSnapshots[0].id).toBe('snap3');
+  });
 });

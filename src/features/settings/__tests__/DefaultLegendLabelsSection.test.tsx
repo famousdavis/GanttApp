@@ -81,10 +81,13 @@ describe('DefaultLegendLabelsSection', () => {
       />
     );
 
+    // v0.27.0 (Pass 4, A3): useBufferedField commits on blur, not on change.
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Design Work' } });
+    fireEvent.blur(screen.getAllByRole('textbox')[0]);
     expect(setSolidBarLabel).toHaveBeenCalledWith('Design Work');
 
     fireEvent.change(screen.getAllByRole('textbox')[4], { target: { value: 'Working On It' } });
+    fireEvent.blur(screen.getAllByRole('textbox')[4]);
     expect(setInProgressLabel).toHaveBeenCalledWith('Working On It');
   });
 
@@ -93,7 +96,9 @@ describe('DefaultLegendLabelsSection', () => {
     render(<DefaultLegendLabelsSection {...makeProps({ setSolidBarLabel })} />);
 
     const longInput = 'A'.repeat(60);
+    // v0.27.0 (Pass 4, A3): useBufferedField commits on blur, not on change.
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: longInput } });
+    fireEvent.blur(screen.getAllByRole('textbox')[0]);
 
     const calledWith = setSolidBarLabel.mock.calls[0][0];
     expect(calledWith.length).toBeLessThanOrEqual(50);
@@ -109,7 +114,9 @@ describe('DefaultLegendLabelsSection', () => {
       />
     );
 
+    // v0.27.0 (Pass 4, A3): useBufferedField commits on blur, not on change.
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '' } });
+    fireEvent.blur(screen.getAllByRole('textbox')[0]);
     expect(setSolidBarLabel).toHaveBeenCalledWith('');
   });
 });

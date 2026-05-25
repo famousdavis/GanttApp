@@ -4,6 +4,21 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// v0.27.0 (Pass 6, I1a): mutable auth so tests can simulate user-switch races.
+// Default uid 'test-uid' matches the mockUid used by all service constructions
+// in this file, so existing tests continue to pass without modification.
+const mutableAuth = vi.hoisted(() => ({
+  currentUser: { uid: 'test-uid' } as Partial<import('firebase/auth').User> | null,
+}));
+
+vi.mock('../../../lib/firebase', () => ({
+  auth: mutableAuth,
+  db: {},
+  isFirebaseAvailable: true,
+  getRevokeInvite: () => null,
+  getResendInvite: () => null,
+}));
+
 // Mock Firestore SDK
 const mockGetDoc = vi.fn();
 const mockGetDocs = vi.fn();
@@ -52,12 +67,18 @@ describe('FirestoreGanttStorageService', () => {
     mockCollection.mockImplementation((...args: unknown[]) => `col:${(args as string[]).slice(1).join('/')}`);
     mockQuery.mockImplementation((ref: unknown) => ref);
 
+    // v0.27.0 (Pass 6, I1a): reset mutable auth to match mockUid so existing
+    // tests work unchanged. Tests in the "uid guard" describe block override.
+    mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
+
     service = new FirestoreGanttStorageServiceImpl(mockDb, mockUid);
   });
 
   afterEach(() => {
     service.dispose();
     vi.useRealTimers();
+    // Restore default for the next test
+    mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
   });
 
   it('has mode "cloud"', () => {
@@ -290,6 +311,62 @@ describe('FirestoreGanttStorageService', () => {
       expect(releases[0].projectId).toBe('p1');
       expect(snapshot).toBe(mockSnapshot);
     });
+
+    it('prunes lastSavedState before dispatching ganttapp:project-revoked on permission-denied (I2)', () => {
+      // Seed lastSavedState with the project that will be revoked.
+      // `lastSavedState` is TypeScript `private`; double cast bypasses access.
+      // No @ts-expect-error needed (would be "unused" in strict mode).
+      (
+        service as unknown as {
+          lastSavedState: {
+            projects: { id: string; name: string }[];
+            releases: { id: string; projectId: string; name: string; startDate: string; earlyFinishDate: string; lateFinishDate: string }[];
+          };
+        }
+      ).lastSavedState = {
+        projects: [{ id: 'p-revoked', name: 'Shared' }],
+        releases: [{
+          id: 'r1', projectId: 'p-revoked', name: 'R1',
+          startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        }],
+      };
+
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+      // onSnapshot signature is (query, successCb, errorCb). Capture the error callback.
+      let capturedErrorCb: ((err: { code: string }) => void) | undefined;
+      mockOnSnapshot.mockImplementation(
+        (_ref: unknown, _success: unknown, errorCb: (err: { code: string }) => void) => {
+          capturedErrorCb = errorCb;
+          return vi.fn();
+        },
+      );
+
+      service.subscribeToProject('p-revoked', vi.fn());
+      expect(capturedErrorCb).toBeDefined();
+
+      // Fire permission-denied
+      capturedErrorCb!({ code: 'permission-denied' });
+
+      // lastSavedState pruned: revoked project and its releases gone
+      const lastSaved = (
+        service as unknown as {
+          lastSavedState: { projects: { id: string }[]; releases: { projectId: string }[] };
+        }
+      ).lastSavedState;
+      expect(lastSaved.projects.find((p) => p.id === 'p-revoked')).toBeUndefined();
+      expect(lastSaved.releases.find((r) => r.projectId === 'p-revoked')).toBeUndefined();
+
+      // Eviction event dispatched with the right projectId
+      const revokeCalls = dispatchSpy.mock.calls.filter(
+        (c) => (c[0] as Event).type === 'ganttapp:project-revoked',
+      );
+      expect(revokeCalls).toHaveLength(1);
+      expect(
+        (revokeCalls[0][0] as CustomEvent<{ projectId: string }>).detail.projectId,
+      ).toBe('p-revoked');
+
+      dispatchSpy.mockRestore();
+    });
   });
 
   // createUserProfile method removed in v18.0.0 (D2). Profile writes are
@@ -402,6 +479,167 @@ describe('FirestoreGanttStorageService', () => {
       await expect(
         service.removeCollaborator('p1', mockUid)
       ).rejects.toThrow('Cannot remove yourself from a project.');
+    });
+  });
+
+  // v0.27.0 (Pass 3, D1 + D2): debounce reduced from 500ms to 200ms;
+  // pagehide listener added alongside beforeunload for bfcache flushing.
+  describe('Pass 3 — debounce timing and pagehide listener', () => {
+    it('fires debounce after exactly 200ms (D1)', async () => {
+      // Establish lastSavedState so saveAppData → executeSave produces an actual
+      // batch.commit (no-diff would skip the commit and break the assertion).
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.loadAppData();
+      batchMock.commit.mockClear();
+
+      await service.saveAppData({ projects: [], releases: [], showTodayLine: true });
+
+      // Just before debounce expiry — no commit yet
+      await vi.advanceTimersByTimeAsync(199);
+      expect(batchMock.commit).not.toHaveBeenCalled();
+
+      // Crossing 200ms — commit fires
+      await vi.advanceTimersByTimeAsync(1);
+      expect(batchMock.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('registers and removes both beforeunload and pagehide listeners (D2)', () => {
+      const addSpy = vi.spyOn(window, 'addEventListener');
+      const removeSpy = vi.spyOn(window, 'removeEventListener');
+
+      const localService = new FirestoreGanttStorageServiceImpl(mockDb, mockUid);
+
+      expect(addSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+      expect(addSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
+
+      localService.dispose();
+
+      expect(removeSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+      expect(removeSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
+
+      addSpy.mockRestore();
+      removeSpy.mockRestore();
+    });
+
+    it('pagehide handler flushes pendingData when invoked (D2)', async () => {
+      const addSpy = vi.spyOn(window, 'addEventListener');
+      const localService = new FirestoreGanttStorageServiceImpl(mockDb, mockUid);
+
+      // Establish lastSavedState; then queue a save without letting the timer fire.
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await localService.loadAppData();
+      batchMock.commit.mockClear();
+
+      await localService.saveAppData({ projects: [], releases: [], showTodayLine: true });
+      // pendingData is set, but the 200ms timer has not elapsed.
+      expect(batchMock.commit).not.toHaveBeenCalled();
+
+      // Extract the registered pagehide handler.
+      const pageHideCalls = addSpy.mock.calls.filter((c) => c[0] === 'pagehide');
+      expect(pageHideCalls).toHaveLength(1);
+      const handler = pageHideCalls[0][1] as () => void;
+
+      // Invoke the handler — it should call executeSave (fire-and-forget).
+      handler();
+      // Allow the fire-and-forget promise chain to settle.
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(batchMock.commit).toHaveBeenCalledTimes(1);
+
+      addSpy.mockRestore();
+      localService.dispose();
+    });
+  });
+
+  // v0.27.0 (Pass 6, I1a): user-switch race guards. Discard real-time
+  // callbacks and abort saves when auth.currentUser.uid no longer matches
+  // the uid this service was constructed for.
+  describe('Pass 6 — user-switch race guards (I1a)', () => {
+    it('discards subscribeToProject callback when auth.currentUser is null', () => {
+      mutableAuth.currentUser = null;
+      const callback = vi.fn();
+      mockOnSnapshot.mockImplementation(
+        (_ref: unknown, successCb: (snap: unknown) => void) => {
+          successCb({ docs: [], metadata: { hasPendingWrites: false } });
+          return vi.fn();
+        },
+      );
+      service.subscribeToProject('p1', callback);
+      // uid mismatch (null !== 'test-uid') → app callback not invoked
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('allows subscribeToProject callback when auth.currentUser.uid matches', () => {
+      mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
+      const callback = vi.fn();
+      mockOnSnapshot.mockImplementation(
+        (_ref: unknown, successCb: (snap: unknown) => void) => {
+          successCb({
+            docs: [],
+            metadata: { hasPendingWrites: false },
+          });
+          return vi.fn();
+        },
+      );
+      service.subscribeToProject('p1', callback);
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards subscribeToProject callback when auth.currentUser.uid changes to a different user (user-transition)', () => {
+      // Subscribe with user-1; then User-2 signs in BEFORE the success
+      // callback fires. The guard must catch the transition.
+      mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
+      const callback = vi.fn();
+
+      let capturedSuccessCb: ((snap: unknown) => void) | undefined;
+      mockOnSnapshot.mockImplementation(
+        (_ref: unknown, successCb: (snap: unknown) => void) => {
+          capturedSuccessCb = successCb;
+          return vi.fn();
+        },
+      );
+      service.subscribeToProject('p1', callback);
+
+      // Simulate user switch
+      mutableAuth.currentUser = { uid: 'user-2' } as Partial<import('firebase/auth').User>;
+
+      // Fire the success callback after the switch
+      capturedSuccessCb!({ docs: [], metadata: { hasPendingWrites: false } });
+
+      // uid mismatch ('user-2' !== 'test-uid') → app callback not invoked
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('executeSave aborts without re-queuing when uid changes (save-side guard)', async () => {
+      // Establish lastSavedState so a non-uid-guarded save would actually
+      // produce a batch.commit.
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.loadAppData();
+      batchMock.commit.mockClear();
+
+      // Seed pendingData directly (skip the debounce path).
+      (
+        service as unknown as { pendingData: { projects: []; releases: [] } | null }
+      ).pendingData = { projects: [], releases: [] };
+
+      // User switch before the save fires
+      mutableAuth.currentUser = { uid: 'user-2' } as Partial<import('firebase/auth').User>;
+
+      // Trigger executeSave directly via the private method
+      await (
+        service as unknown as { executeSave: () => Promise<void> }
+      ).executeSave();
+
+      // No commit attempted (uid guard fires before executeFirestoreSave)
+      expect(batchMock.commit).not.toHaveBeenCalled();
+      // pendingData cleared (not re-queued)
+      const pending = (
+        service as unknown as { pendingData: unknown }
+      ).pendingData;
+      expect(pending).toBeNull();
     });
   });
 });

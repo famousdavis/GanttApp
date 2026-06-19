@@ -89,7 +89,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../lib/version', () => ({
   TOS_VERSION: '04-05-2026',
   APP_ID: 'ganttapp',
-  APP_VERSION: '0.27.0',
+  APP_VERSION: '0.27.1',
 }));
 
 vi.mock('../../lib/feature-flags', () => ({

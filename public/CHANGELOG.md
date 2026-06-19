@@ -1,5 +1,23 @@
 # Change Log
 
+## Version 0.27.1 (2026-06-19)
+### Dependency security: vitest 4.1.4 + vite 7.3.2 (transitively pinned via overrides)
+
+Targeted dev-dependency security update closing four CVEs flagged by the SPERT Story Map v0.46.2 audit. vitest and vite are test tooling only — they never ship to production — so there is zero runtime, app-behavior, or user-facing change. All 1245 tests pass on vitest 4.1.4; production build and lint are clean. Node.js stays pinned at v22 LTS.
+
+#### CVEs closed
+
+- **vitest 4.0.18 → 4.1.4** closes GHSA-5xrq-8626-4rwp (Critical) — Vitest UI server arbitrary file read and execute.
+- **vite 7.3.1 → 7.3.2** closes GHSA-p9ff-h696-f583 (High) arbitrary file read via the dev-server WebSocket, GHSA-v2wj-q39q-566r (High) `server.fs.deny` bypass via queries, and GHSA-4w7w-66w2-5vf9 (Moderate) path traversal in optimized-deps `.map` handling.
+
+#### Mechanism
+
+- vite is transitive (pulled by vitest and `@vitejs/plugin-react`), not a direct dependency. Bumping vitest to 4.1.4 did not move vite on its own: vitest@4.1.4 declares a wide `^6.0.0 || ^7.0.0 || ^8.0.0` vite range that the locked 7.3.1 already satisfied, and the current vite `latest` dist-tag is 8.x, so normal resolution would never select 7.3.2. vite is therefore pinned to exactly 7.3.2 through a package.json `overrides` entry, which forces the patched build across the whole tree while keeping vite out of `dependencies` and `devDependencies`.
+
+#### Deferred (intentional)
+
+- vite GHSA-fx2h-pf6j-xcff and GHSA-v6wh-96g9-6wx3 remain open. Both are Windows-only and are first fixed in vite 7.3.5, which has not yet cleared the 60-day stability window; the bump is scheduled as a follow-up around 2026-07-31. At that point the `overrides` pin moves from 7.3.2 to 7.3.5 and the remaining vite advisory node clears entirely. The pre-existing `protobufjs` advisories (via firebase, production tree) are unrelated to this update and out of scope.
+
 ## Version 0.27.0 (2026-05-25)
 ### Cloud storage hardening: sign-out cleanup, sentinel guard, I2/I1a eviction, buffered inputs
 

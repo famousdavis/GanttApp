@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.3',
+    date: 'June 25, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; react and react-dom updated 19.2.4 &rarr; 19.2.5 (patch; 77 days soaked). They move as an atomic pair; <code>@types/react</code> and <code>@types/react-dom</code> held. No behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.2',
     date: 'June 25, 2026',
     items: [

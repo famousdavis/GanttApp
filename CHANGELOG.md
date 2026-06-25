@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.6 (2026-06-25)
+### Adopt Node 24 LTS: @types/node 22→24, engines.node 24.x, .nvmrc 24
+
+Moves the project to Node 24 LTS. `@types/node` bumps from 22.19.15 to 24.12.2 (Node 24 LTS type definitions, 83 days soaked); `engines.node` advances from `22.x` to `24.x` and `.nvmrc` from `22` to `24`, matching the Vercel project's Node 24 build/runtime setting. All dependencies support Node 24 (firebase-tools, vitest, and jsdom declare `>=24` explicitly). The type definitions now match the runtime rather than running ahead of it. Build, lint, type-check, and all 1245 tests pass. Next `@types/node` bump: 26.x once Node 26 LTS clears the 60-day soak (~December 2026).
+
 ## Version 0.27.5 (2026-06-25)
 ### jsdom 27.4.0 → 29.0.2
 

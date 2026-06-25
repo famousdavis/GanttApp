@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.5 (2026-06-25)
+### jsdom 27.4.0 → 29.0.2
+
+jsdom two-major upgrade (29.0.2, 79 days soaked). Test environment only (vitest `environment: 'jsdom'`) — not in the production bundle. jsdom 29 introduces undici 6.27.0 as a new transitive dependency. All 1245 tests pass under jsdom 29; build, lint, and type-check clean.
+
 ## Version 0.27.4 (2026-06-25)
 ### TypeScript 5.9.3 → 6.0.3
 

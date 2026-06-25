@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.5',
+    date: 'June 25, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; jsdom updated 27.4.0 &rarr; 29.0.2 (two-major; test environment only, not shipped to production). Introduces <code>undici</code> 6.27.0 as a transitive dep. All 1245 tests pass under jsdom 29. No behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.4',
     date: 'June 25, 2026',
     items: [

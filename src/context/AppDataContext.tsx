@@ -90,7 +90,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Track current data for the data-loss guard (closures in async effects see stale state)
   const dataRef = useRef(data);
-  dataRef.current = data;
+  dataRef.current = data; // eslint-disable-line react-hooks/refs -- intentional latest-value ref-sync so async-effect closures (data-loss guard, v12.3) read fresh data, not the stale render-time value
 
   // v0.27.0 (Pass 2, I1): per-cloud-session sentinel — tracks which project IDs
   // have received at least one real-time snapshot since the current cloud

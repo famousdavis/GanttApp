@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.2 (2026-06-25)
+### Dependency security: next 16.2.9 + vite 7.3.5 + firebase 12.12.1 + firebase-tools 15.22.1
+
+Security-focused dependency update clearing the CVE cluster flagged by the SPERT devops dashboard. next bumps from 16.1.6 to 16.2.9 (high-severity cluster; real fix floor 16.2.6 from GHSA-26hh-7cqf-hhc6; 16.2.9 is latest fixed). The vite override moves from 7.3.2 to 7.3.5, clearing GHSA-v6wh-96g9-6wx3 and GHSA-fx2h-pf6j-xcff (both Windows-only dev-server issues). A postcss override forces deduplication of next's exact-pinned 8.4.31 to the patched 8.5.10. firebase advances to 12.12.1 (65d old, past soak window), clearing the protobufjs critical advisory via transitive float; @grpc/grpc-js high advisories expected to clear via float. firebase-tools advances to 15.22.1 (CVE: GHSA-h67p-54hq-rp68). A protobufjs ^7.6.3 override adds a defensive floor. eslint-config-next co-bumps to 16.2.9. vitest advances to 4.1.5. All 1245 tests pass. Production build, lint, and type-check are clean.
+
 ## Version 0.27.1 (2026-06-19)
 ### Dependency security: vitest 4.1.4 + vite 7.3.2 (transitively pinned via overrides)
 

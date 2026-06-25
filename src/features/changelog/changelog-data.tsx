@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.2',
+    date: 'June 25, 2026',
+    items: [
+      <>
+        <strong>Security</strong> &mdash; Dependency security update: next 16.2.9 (high CVE
+        cluster), vite 7.3.5 (two high Windows dev-server advisories), firebase 12.12.1
+        (clears protobufjs critical; @grpc/grpc-js high expected to clear via float),
+        firebase-tools 15.22.1 (js-yaml CVE). postcss and protobufjs overrides added.
+        eslint-config-next co-bumps to 16.2.9; vitest to 4.1.5. No runtime behavior changes.
+      </>,
+    ],
+  },
+  {
     version: '0.27.1',
     date: 'June 19, 2026',
     items: [

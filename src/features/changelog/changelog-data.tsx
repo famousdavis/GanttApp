@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.1',
+    date: 'June 19, 2026',
+    items: [
+      <><strong>Dependency security</strong> &mdash; Targeted dev-dependency security update closing four CVEs flagged by the SPERT&reg; Story Map v0.46.2 audit. <code>vitest</code> and <code>vite</code> are test tooling only and never ship to production, so there is zero runtime, app-behavior, or user-facing change. All 1245 tests pass on the new toolchain; production build and lint are clean. Node.js stays pinned at v22 LTS</>,
+      <><strong>vitest 4.0.18 &rarr; 4.1.4</strong> &mdash; Closes GHSA-5xrq-8626-4rwp (<strong>Critical</strong>) &mdash; Vitest UI server arbitrary file read and execute</>,
+      <><strong>vite 7.3.1 &rarr; 7.3.2</strong> &mdash; Closes GHSA-p9ff-h696-f583 (High) arbitrary file read via the dev-server WebSocket, GHSA-v2wj-q39q-566r (High) <code>server.fs.deny</code> bypass via queries, and GHSA-4w7w-66w2-5vf9 (Moderate) path traversal in optimized-deps <code>.map</code> handling</>,
+      <><strong>Mechanism</strong> &mdash; <code>vite</code> is transitive (pulled by <code>vitest</code> and <code>@vitejs/plugin-react</code>), not a direct dependency. Bumping vitest to 4.1.4 did not move vite on its own: vitest@4.1.4 declares a wide <code>^6.0.0 || ^7.0.0 || ^8.0.0</code> vite range that the locked 7.3.1 already satisfied, and vite&apos;s <code>latest</code> dist-tag is now 8.x, so normal resolution would never select 7.3.2. vite is therefore pinned to exactly 7.3.2 through a package.json <code>overrides</code> entry, which forces the patched build across the whole tree while keeping vite out of <code>dependencies</code> and <code>devDependencies</code></>,
+      <><strong>Deferred (intentional)</strong> &mdash; vite GHSA-fx2h-pf6j-xcff and GHSA-v6wh-96g9-6wx3 remain open. Both are Windows-only and are first fixed in vite 7.3.5, which has not yet cleared the 60-day stability window; the bump is scheduled as a follow-up around July 31, 2026. At that point the <code>overrides</code> pin moves from 7.3.2 to 7.3.5 and the remaining vite advisory node clears entirely</>,
+    ],
+  },
+  {
     version: '0.27.0',
     date: 'May 25, 2026',
     items: [

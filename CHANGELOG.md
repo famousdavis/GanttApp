@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.4 (2026-06-25)
+### TypeScript 5.9.3 → 6.0.3
+
+TypeScript major upgrade (6.0.3, 69 days soaked). Dev-time type checker only — SWC compiles the production bundle, so there is no runtime impact. TypeScript 6.0 deprecates the `target: "es5"` compiler option (fully removed in 7.0); the project's intentional es5 target is retained via a new `"ignoreDeprecations": "6.0"` opt-in in tsconfig.json. @typescript-eslint resolves to 8.62.0 (peer `>=4.8.4 <6.1.0`), which admits 6.0.3 — no override needed. Build, lint, type-check, and all 1245 tests pass.
+
 ## Version 0.27.3 (2026-06-25)
 ### react/react-dom 19.2.4 → 19.2.5
 

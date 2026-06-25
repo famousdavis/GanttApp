@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.3 (2026-06-25)
+### react/react-dom 19.2.4 → 19.2.5
+
+React patch update (19.2.5, 77 days past publish — well past the 60-day soak window). react and react-dom move together as an atomic pair; @types/react and @types/react-dom are held at their current versions. No source changes. Production build, lint, type-check, and all 1245 tests pass.
+
 ## Version 0.27.2 (2026-06-25)
 ### Dependency security: next 16.2.9 + vite 7.3.5 + firebase 12.12.1 + firebase-tools 15.22.1
 

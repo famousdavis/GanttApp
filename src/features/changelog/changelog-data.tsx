@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.6',
+    date: 'June 25, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; Adopted <strong>Node 24 LTS</strong>: <code>@types/node</code> 22.19.15 &rarr; 24.12.2, <code>engines.node</code> 22.x &rarr; 24.x, and <code>.nvmrc</code> 22 &rarr; 24, matching the Vercel build/runtime setting. All deps support Node 24; type definitions now match the runtime. Next bump: 26.x ~December 2026. No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.5',
     date: 'June 25, 2026',
     items: [

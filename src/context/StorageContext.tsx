@@ -141,7 +141,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     if (hasLocalProjects) {
       // Local projects exist — show upload prompt, stay on local service
       // Don't create cloud driver yet (prevents flash of cloud data)
-      setNeedsUploadPrompt({ projectCount: localProjectCount });
+      setNeedsUploadPrompt({ projectCount: localProjectCount }); // eslint-disable-line react-hooks/set-state-in-effect -- mount-time cloud-gate decision: defer upload prompt to user; intentional one-shot setState
     } else {
       // No local projects — connect directly to cloud.
       // Covers both "returning user" and "fresh browser" scenarios.

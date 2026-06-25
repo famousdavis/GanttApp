@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.4',
+    date: 'June 25, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; TypeScript updated 5.9.3 &rarr; 6.0.3. Dev-time type checker only &mdash; SWC compiles the bundle, so no runtime impact. TS 6.0 deprecates the <code>es5</code> target (fully removed in 7.0); the project&apos;s es5 target is retained via a new <code>ignoreDeprecations: &quot;6.0&quot;</code> opt-in in tsconfig. <code>@typescript-eslint</code> 8.62.0 admits 6.0.3 (no override needed). No behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.3',
     date: 'June 25, 2026',
     items: [

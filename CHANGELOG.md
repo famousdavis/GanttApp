@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.7 (2026-06-28)
+### Standardize the postcss override to a caret range (^8.5.10)
+
+Aligns the `postcss` override with the rest of the SPERT suite: `8.5.10` → `^8.5.10`. This floats the single hoisted copy from `postcss@8.5.10` to `8.5.16`, keeping GHSA-qx2v-qp2m-jg93 (PostCSS XSS via unescaped `</style>`, moderate / CVSS 6.1, `postcss <8.5.10`) closed while allowing future 8.5.x patch uptake. Build, lint, and all tests pass. No app behavior, data-model, or runtime changes.
+
 ## Version 0.27.6 (2026-06-25)
 ### Adopt Node 24 LTS: @types/node 22→24, engines.node 24.x, .nvmrc 24
 

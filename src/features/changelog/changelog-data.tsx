@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.7',
+    date: 'June 28, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Standardized the <code>postcss</code> override to a caret range (<code>8.5.10</code> &rarr; <code>^8.5.10</code>), floating the single hoisted copy to <code>postcss</code> 8.5.16. Keeps GHSA-qx2v-qp2m-jg93 (PostCSS XSS, <code>postcss &lt;8.5.10</code>) closed while taking future 8.5.x patches and matching the rest of the SPERT suite. No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.6',
     date: 'June 25, 2026',
     items: [

@@ -209,14 +209,14 @@ export function ReleasesTab({
                       <span>Start: {formatDateLocale(release.startDate)}{warnIcon(rowWarnings.start)}</span>
                       <span style={{ margin: '0 1rem' }}>|</span>
                       <span>Early: {formatDateLocale(release.earlyFinishDate)}{warnIcon(rowWarnings.early)}</span>
-                      <span style={{ margin: '0 1rem' }}>|</span>
-                      <span>Late: {formatDateLocale(release.lateFinishDate)}{warnIcon(rowWarnings.late)}</span>
                       {release.mostLikelyFinishDate && (
                         <>
                           <span style={{ margin: '0 1rem' }}>|</span>
-                          <span>ML: {formatDateLocale(release.mostLikelyFinishDate)}{warnIcon(rowWarnings.ml)}</span>
+                          <span>Most Likely: {formatDateLocale(release.mostLikelyFinishDate)}{warnIcon(rowWarnings.ml)}</span>
                         </>
                       )}
+                      <span style={{ margin: '0 1rem' }}>|</span>
+                      <span>Late: {formatDateLocale(release.lateFinishDate)}{warnIcon(rowWarnings.late)}</span>
                     </div>
                   </div>
                 </div>

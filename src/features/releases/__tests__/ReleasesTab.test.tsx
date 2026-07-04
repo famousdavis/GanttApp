@@ -235,10 +235,11 @@ describe('ReleasesTab', () => {
 
       fireEvent.change(screen.getByPlaceholderText('Release name'), { target: { value: 'Sprint 1' } });
 
+      // Field order is chronological since v0.27.8: Start, Early, Most Likely (optional), Late
       const dateInputs = document.querySelectorAll('input[type="date"]');
       fireEvent.change(dateInputs[0], { target: { value: '2026-01-01' } });
       fireEvent.change(dateInputs[1], { target: { value: '2026-03-01' } });
-      fireEvent.change(dateInputs[2], { target: { value: '2026-06-01' } });
+      fireEvent.change(dateInputs[3], { target: { value: '2026-06-01' } });
 
       fireEvent.click(screen.getByText('Add Release'));
 
@@ -486,11 +487,12 @@ describe('ReleasesTab', () => {
       // Fill in valid release data with a Saturday start date
       fireEvent.change(screen.getByPlaceholderText('Release name'), { target: { value: 'Sprint 1' } });
 
+      // Field order is chronological since v0.27.8: Start, Early, Most Likely (optional), Late
       const dateInputs = document.querySelectorAll('input[type="date"]');
       // 2026-01-03 is Saturday, 2026-03-01 is Sunday, 2026-06-01 is Monday
       fireEvent.change(dateInputs[0], { target: { value: '2026-01-03' } });
       fireEvent.change(dateInputs[1], { target: { value: '2026-03-02' } });
-      fireEvent.change(dateInputs[2], { target: { value: '2026-06-01' } });
+      fireEvent.change(dateInputs[3], { target: { value: '2026-06-01' } });
 
       // Verify warning is shown (non-workday)
       await waitFor(() => {

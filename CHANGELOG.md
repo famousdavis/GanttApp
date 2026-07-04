@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.8 (2026-07-04)
+### Releases tab: chronological date order (Start, Early, Most Likely, Late)
+
+The Most Likely date input moved between Early Finish and Late Finish in the Add/Edit release form, so the fields read chronologically left-to-right and match the chart, where the Most Likely line renders between the early and late boundaries. The form label now spells out *(Optional)* instead of *(Opt.)*. Saved release rows show the same order — Start, Early, Most Likely, Late — with the former "ML:" abbreviation spelled out as "Most Likely:". Position now encodes chronology while the asterisk/label markers continue to encode required vs. optional. No data-model, validation, or chart changes.
+
 ## Version 0.27.7 (2026-06-28)
 ### Standardize the postcss override to a caret range (^8.5.10)
 

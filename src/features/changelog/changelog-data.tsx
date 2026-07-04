@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.8',
+    date: 'July 4, 2026',
+    items: [
+      <><strong>UX</strong> &mdash; Release dates now read chronologically everywhere on the Releases tab. The <em>Most Likely</em> date input moved between <em>Early Finish</em> and <em>Late Finish</em> in the Add/Edit release form (matching the chart, where the Most Likely line renders between the early and late boundaries), and its label now spells out <em>(Optional)</em>. Saved release rows show the same order &mdash; Start, Early, Most Likely, Late &mdash; with the former &ldquo;ML:&rdquo; abbreviation spelled out as &ldquo;Most Likely:&rdquo;. No data-model or chart changes.</>,
+    ],
+  },
+  {
     version: '0.27.7',
     date: 'June 28, 2026',
     items: [

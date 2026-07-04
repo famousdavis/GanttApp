@@ -143,6 +143,35 @@ export function ReleaseFormFields({
           )}
         </div>
         <div>
+          <label htmlFor={mostLikelyId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
+            Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Optional)</span>
+          </label>
+          <input
+            id={mostLikelyId}
+            name="mostLikelyFinish"
+            type="date"
+            value={mostLikelyFinish}
+            className={mostLikelyFinish ? 'has-value' : ''}
+            onChange={(e) => setMostLikelyFinish(e.target.value)}
+            min="2000-01-01"
+            max="2050-12-31"
+            style={{
+              padding: '0.75rem',
+              fontSize: '1rem',
+              border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
+              borderRadius: '4px',
+              width: '100%',
+              background: colors.inputBg,
+              color: colors.text
+            }}
+          />
+          {warnings.mostLikely && !mostLikelyErrorVisible && (
+            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              ⚠ {warnings.mostLikely}
+            </div>
+          )}
+        </div>
+        <div>
           <label htmlFor={lateFinishId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
             Late Finish<span style={{ color: '#dc3545', marginLeft: '2px' }}>*</span>
           </label>
@@ -168,35 +197,6 @@ export function ReleaseFormFields({
           {warnings.lateFinish && !errorMessage && (
             <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
               ⚠ {warnings.lateFinish}
-            </div>
-          )}
-        </div>
-        <div>
-          <label htmlFor={mostLikelyId} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '600', color: colors.textSecondary }}>
-            Most Likely <span style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '0.8rem' }}>(Opt.)</span>
-          </label>
-          <input
-            id={mostLikelyId}
-            name="mostLikelyFinish"
-            type="date"
-            value={mostLikelyFinish}
-            className={mostLikelyFinish ? 'has-value' : ''}
-            onChange={(e) => setMostLikelyFinish(e.target.value)}
-            min="2000-01-01"
-            max="2050-12-31"
-            style={{
-              padding: '0.75rem',
-              fontSize: '1rem',
-              border: mostLikelyErrorVisible ? '2px solid #dc3545' : `2px solid ${colors.inputBorder}`,
-              borderRadius: '4px',
-              width: '100%',
-              background: colors.inputBg,
-              color: colors.text
-            }}
-          />
-          {warnings.mostLikely && !mostLikelyErrorVisible && (
-            <div style={{ color: '#d97706', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              ⚠ {warnings.mostLikely}
             </div>
           )}
         </div>

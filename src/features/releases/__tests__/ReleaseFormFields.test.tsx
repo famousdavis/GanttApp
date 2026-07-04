@@ -42,6 +42,25 @@ describe('ReleaseFormFields', () => {
     expect(screen.getByText(/Most Likely/)).toBeInTheDocument();
   });
 
+  it('orders date fields chronologically: Start, Early, Most Likely, Late (v0.27.8)', () => {
+    render(<ReleaseFormFields {...makeProps()} />);
+
+    const dateInputs = Array.from(document.querySelectorAll('input[type="date"]'));
+    expect(dateInputs.map(i => i.getAttribute('name'))).toEqual([
+      'startDate',
+      'earlyFinish',
+      'mostLikelyFinish',
+      'lateFinish',
+    ]);
+  });
+
+  it('spells out the optional marker on the Most Likely label (v0.27.8)', () => {
+    render(<ReleaseFormFields {...makeProps()} />);
+
+    expect(screen.getByText('(Optional)')).toBeInTheDocument();
+    expect(screen.queryByText('(Opt.)')).not.toBeInTheDocument();
+  });
+
   it('displays error message when provided', () => {
     render(<ReleaseFormFields {...makeProps({ errorMessage: 'Start must be before Early Finish' })} />);
 

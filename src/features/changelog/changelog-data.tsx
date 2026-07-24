@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.9',
+    date: 'July 23, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Shipped-side dependency update. <code>next</code> 16.2.9 &rarr; 16.2.11 (high-severity advisory cluster; <code>eslint-config-next</code> co-bumped to 16.2.11), the <code>protobufjs</code> override floor <code>^7.6.3</code> &rarr; <code>^7.6.5</code> (clears a DoS advisory on the Firebase SDK&apos;s copy), and a new <code>sharp</code> override <code>^0.35.0</code> (clears the inherited libvips CVEs; the <code>next</code> bump alone doesn&apos;t lift it since next still pins <code>sharp ^0.34.5</code>). sharp is an unused optional dependency here (no <code>next/image</code>). The next advisories aren&apos;t structurally reachable in this Pages-Router app; taken for currency and a clean scan. No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.8',
     date: 'July 4, 2026',
     items: [

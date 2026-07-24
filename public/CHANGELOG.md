@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.11 (2026-07-23)
+### Maintenance: jsdom 29.0.2 → 29.1.1
+
+Routine dependency update, past the 60-day soak window (jsdom 29.1.1 published 2026-04-30, ~84 days ago). jsdom is the test environment only (vitest `environment: 'jsdom'`) — not in the production bundle. All 1247 tests pass under jsdom 29.1.1; production build, lint, and type-check are clean. No app behavior changes.
+
 ## Version 0.27.10 (2026-07-23)
 ### Dependency security: firebase-tools 15.24.0 + transitive audit-fix sweep
 

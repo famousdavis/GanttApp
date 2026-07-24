@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.11',
+    date: 'July 23, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; jsdom 29.0.2 &rarr; 29.1.1 (routine, past the 60-day soak window). Test environment only (vitest <code>environment: &apos;jsdom&apos;</code>) &mdash; not in the production bundle. All 1247 tests pass. No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.10',
     date: 'July 23, 2026',
     items: [

@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.10',
+    date: 'July 23, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Dev-tooling cleanup (no shipped-bundle impact). <code>firebase-tools</code> 15.22.1 &rarr; 15.24.0, then a non-force <code>npm audit fix</code> sweep clears the in-range transitives &mdash; the critical <code>tar</code> and the high <code>brace-expansion</code> / <code>js-yaml</code> / <code>fast-uri</code> plus low <code>body-parser</code> (total 13 &rarr; 8). The 8 remaining are dev-only with no forward fix (the firebase-tools OpenTelemetry/pubsub/gaxios/uuid/@hono/MCP-SDK cluster + <code>esbuild</code> Windows-dev-server low); none ship to production (<code>npm audit --omit=dev</code>: 0). No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.9',
     date: 'July 23, 2026',
     items: [

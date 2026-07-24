@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.10 (2026-07-23)
+### Dependency security: firebase-tools 15.24.0 + transitive audit-fix sweep
+
+Dev-tooling security cleanup — no shipped-bundle impact. `firebase-tools` bumps 15.22.1 → 15.24.0 (dev-only CLI). A non-force `npm audit fix` sweep then clears the transitive advisories that resolve in range: the critical `tar` and the high-severity `brace-expansion`, `js-yaml`, and `fast-uri`, plus the low `body-parser` — total advisories drop 13 → 8. The 8 that remain are all dev-only with no forward fix: the `firebase-tools` OpenTelemetry / @google-cloud/pubsub / gaxios / uuid / @hono / MCP-SDK cluster (7 moderate; npm's only "fix" is a breaking downgrade to firebase-tools 14.23.0, which we reject) and `esbuild` (1 low; a Windows-only dev-server file read, not applicable on macOS/CI). None are in the production bundle (`npm audit --omit=dev`: 0 vulnerabilities). All 1247 tests pass; production build, lint, and type-check are clean.
+
 ## Version 0.27.9 (2026-07-23)
 ### Dependency security: next 16.2.11 + sharp/protobufjs overrides
 

@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "0.27.8",
+  "version": "0.27.9",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -16,7 +16,7 @@
   "dependencies": {
     "firebase": "12.12.1",
     "html2canvas": "1.4.1",
-    "next": "16.2.9",
+    "next": "16.2.11",
     "react": "19.2.5",
     "react-dom": "19.2.5"
   },
@@ -29,7 +29,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.11",
     "firebase-tools": "15.22.1",
     "jsdom": "29.0.2",
     "typescript": "6.0.3",
@@ -38,6 +38,7 @@
   "overrides": {
     "vite": "7.3.5",
     "postcss": "^8.5.10",
-    "protobufjs": "^7.6.3"
+    "protobufjs": "^7.6.5",
+    "sharp": "^0.35.0"
   }
 }

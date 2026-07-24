@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.9 (2026-07-23)
+### Dependency security: next 16.2.11 + sharp/protobufjs overrides
+
+Shipped-side security update clearing the production-tree CVE cluster flagged by the SPERT devops dashboard. `next` bumps 16.2.9 → 16.2.11 (high-severity advisory cluster led by GHSA-6gpp-xcg3-4w24; 16.2.11 is the latest fixed patch), with `eslint-config-next` co-bumped to 16.2.11 to stay lockstep. The `protobufjs` override floor moves `^7.6.3` → `^7.6.5`, clearing GHSA-j3f2-48v5-ccww (protobufjs DoS via infinite loop in `.proto` option parsing) on the copy carried by the Firebase SDK. A new `sharp` override pins `^0.35.0` (resolving to 0.35.3), clearing the inherited libvips CVE cluster (GHSA-f88m-g3jw-g9cj) — `next@16.2.11` still declares `sharp: ^0.34.5`, so the framework bump alone does not lift it; sharp is an unused optional dependency here (no `next/image`; Vercel performs image optimization at the platform layer). The flagged `next` advisories are not structurally reachable in this app (Pages Router, no `next/image`, no middleware, no Server Actions); the bump is taken for currency and a clean scan. All 1247 tests pass. Production build, lint, and type-check are clean.
+
 ## Version 0.27.8 (2026-07-04)
 ### Releases tab: chronological date order (Start, Early, Most Likely, Late)
 

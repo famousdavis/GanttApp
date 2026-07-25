@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.12',
+    date: 'July 25, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Raised the <code>postcss</code> override floor <code>^8.5.10</code> &rarr; <code>^8.5.18</code> (resolves to 8.5.23), clearing GHSA-r28c-9q8g-f849 (PostCSS path traversal in previous-source-map auto-loading, high). This was the only advisory reaching the production bundle &mdash; <code>next</code> was flagged solely for depending on the vulnerable <code>postcss</code>. Shipped-side audit (<code>npm audit --omit=dev</code>) is back to 0. No app behavior changes.</>,
+    ],
+  },
+  {
     version: '0.27.11',
     date: 'July 23, 2026',
     items: [

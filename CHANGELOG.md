@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 0.27.12 (2026-07-25)
+### Dependency security: postcss override floor → ^8.5.18
+
+Shipped-side security fix. The `postcss` override floor moves `^8.5.10` → `^8.5.18` (resolving to 8.5.23), clearing GHSA-r28c-9q8g-f849 — PostCSS path traversal in previous-source-map auto-loading (`sourceMappingURL`) leading to arbitrary `.map` file disclosure, high severity, affecting `postcss <=8.5.17`. This was the only advisory reaching the production bundle; `next` was flagged solely for depending on the vulnerable `postcss`, so the single floor bump clears both entries. The caret range already admitted the fixed version — the floor bump documents the security boundary and prevents regression, matching the `protobufjs ^7.6.5` and `sharp ^0.35.0` overrides added in v0.27.9. Note: npm's suggested `audit fix --force` for this advisory proposes `next@9.3.3`, a seven-major downgrade, which is rejected. Shipped-side audit (`npm audit --omit=dev`) returns to 0 vulnerabilities. All 1247 tests pass; production build, lint, and type-check are clean.
+
 ## Version 0.27.11 (2026-07-23)
 ### Maintenance: jsdom 29.0.2 → 29.1.1
 

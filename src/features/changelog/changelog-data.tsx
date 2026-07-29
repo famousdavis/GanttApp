@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.14',
+    date: 'July 29, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; The license file now reserves the SPERT&reg; brand. It has always required that the original author be credited, but it said nothing about the brand name itself &mdash; which left room to read the licence&rsquo;s freedom to copy and modify the code as carrying the name along with it. That was never the intent. Two clauses were added: the first names &ldquo;SPERT&rdquo;, &ldquo;Statistical PERT&rdquo; and &ldquo;Estimation Made Easy&rdquo; as registered trademarks and &ldquo;GanttApp&rdquo; and &ldquo;MyScrumBudget&rdquo; as common-law trademarks, and grants no right to use any of them; the second requires anyone who modifies the app to release it under a different name. The effect is that the code is still free to take, change and share, credit to the original author still has to travel with it, and the brand does not.</>,
+      <><strong>Fixed</strong> &mdash; This repository was not actually shipping the GNU GPL v3. The <code>LICENSE</code> file held only a short summary and a link to gnu.org &mdash; 48 lines, with none of the licence&rsquo;s 17 operative sections present. It now carries the complete 726-line licence, as GPL v3 Section 4 requires. The additional terms were also an older, weaker wording that left out both the ban on replacing the author&rsquo;s name with someone else&rsquo;s and the requirement that the credit appear somewhere visible in the interface.</>,
+      <>Nothing in the app itself changed &mdash; this release only edits the license file.</>,
+    ],
+  },
+  {
     version: '0.27.13',
     date: 'July 29, 2026',
     items: [

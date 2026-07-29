@@ -91,7 +91,16 @@ export async function getProjectMembers(
 
   for (const [memberUid, role] of Object.entries(meta.members)) {
     // Try to load user profile for email
-    const profileDoc = await getDoc(doc(db, `ganttapp_profiles/${memberUid}`));
+    let profileDoc = await getDoc(doc(db, `ganttapp_profiles/${memberUid}`));
+    if (!profileDoc.exists()) {
+      // Fall back to the suite-wide mirror. writeUserProfile in AuthContext
+      // dual-writes ganttapp_profiles + spertsuite_profiles, but only on THIS
+      // app's sign-in. The cross-app invitation Cloud Function resolves an
+      // invitee BY their spertsuite_profiles doc and then writes only
+      // members.{uid} — it never seeds a per-app profile. Without this,
+      // ShareDialog's `member.email || member.uid` renders a raw Auth UID.
+      profileDoc = await getDoc(doc(db, `spertsuite_profiles/${memberUid}`));
+    }
     const email = profileDoc.exists() ? (profileDoc.data() as { email?: string }).email : undefined;
     members.push({ uid: memberUid, role, email });
   }

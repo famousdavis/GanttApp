@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.13',
+    date: 'July 29, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; Shared project members showed a raw internal account ID instead of a name or email address. This affected anyone added through an emailed invitation who had used another SPERT&reg; Suite app but had never personally signed into GanttApp. The member list now falls back to the shared suite-wide profile, so the name or email appears immediately &mdash; including for members added before this release. Nothing needs to be re-invited.</>,
+    ],
+  },
+  {
     version: '0.27.12',
     date: 'July 25, 2026',
     items: [

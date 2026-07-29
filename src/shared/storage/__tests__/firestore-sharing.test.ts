@@ -142,6 +142,66 @@ describe('firestore-sharing', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({ uid: 'uid-1', role: 'owner', email: 'user@test.com' });
     });
+
+    // Regression: ShareDialog renders `member.email || member.uid`, so an
+    // unresolved profile put a raw 28-char Firebase Auth UID on screen.
+    // writeUserProfile dual-writes ganttapp_profiles + spertsuite_profiles, but
+    // only on THIS app's sign-in. The cross-app invitation Cloud Function
+    // resolves an invitee BY their spertsuite_profiles doc and then writes only
+    // members.{uid} — it never seeds a per-app profile. Suite-wide sweep
+    // 2026-07-29; first found in SPERT Story Map v0.49.3.
+    describe('suite profile fallback', () => {
+      const MEMBER = 'nT5V5xk8pcNHpHE7IjMxJtmQBPa2';
+
+      /** Route getDoc by the `doc:<path>` marker mockDoc produces. */
+      function routeDocs(docs: Record<string, Record<string, unknown>>, reads: string[]) {
+        mockGetDoc.mockImplementation(async (ref: unknown) => {
+          const path = String(ref).replace(/^doc:/, '');
+          reads.push(path);
+          const data = docs[path];
+          return { exists: () => data !== undefined, data: () => data };
+        });
+      }
+
+      const project = {
+        name: 'P1', owner: 'uid-1', members: { [MEMBER]: 'editor' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+
+      it('falls back to spertsuite_profiles when the per-app profile is missing', async () => {
+        const reads: string[] = [];
+        routeDocs({
+          'ganttapp_projects/p1': project,
+          [`spertsuite_profiles/${MEMBER}`]: { email: 'famousdavispmp@gmail.com' },
+        }, reads);
+
+        const result = await getProjectMembers(mockDb, 'p1');
+        expect(result[0]?.email).toBe('famousdavispmp@gmail.com');
+      });
+
+      it('does not read the suite mirror when the per-app profile exists', async () => {
+        const reads: string[] = [];
+        routeDocs({
+          'ganttapp_projects/p1': project,
+          [`ganttapp_profiles/${MEMBER}`]: { email: 'local@example.com' },
+          [`spertsuite_profiles/${MEMBER}`]: { email: 'suite@example.com' },
+        }, reads);
+
+        const result = await getProjectMembers(mockDb, 'p1');
+        expect(result[0]?.email).toBe('local@example.com');
+        expect(reads).not.toContain(`spertsuite_profiles/${MEMBER}`);
+      });
+
+      it('leaves email undefined when neither profile exists', async () => {
+        const reads: string[] = [];
+        routeDocs({ 'ganttapp_projects/p1': project }, reads);
+
+        const result = await getProjectMembers(mockDb, 'p1');
+        expect(result[0]?.email).toBeUndefined();
+        expect(reads).toContain(`ganttapp_profiles/${MEMBER}`);
+        expect(reads).toContain(`spertsuite_profiles/${MEMBER}`);
+      });
+    });
   });
 
   // createUserProfile removed in v18.0.0 (D2). Profile writes are now

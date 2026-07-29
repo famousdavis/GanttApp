@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 0.27.13 (2026-07-29)
+### Fixed: member list showed a raw Auth UID
+
+`getProjectMembers` resolved member profiles against `ganttapp_profiles` only. That document is written by `writeUserProfile` in `AuthContext` on **this** app's sign-in, whereas the cross-app invitation Cloud Function resolves an invitee **by** their `spertsuite_profiles` document and then writes only `members.{uid}` &mdash; it never seeds a per-app profile. Anyone who had used another SPERT&reg; app but never signed into GanttApp therefore had no per-app profile, and `ShareDialog` rendered `member.email || member.uid`: a raw 28-character Firebase Auth UID.
+
+The lookup now falls back to `spertsuite_profiles/{uid}` when the per-app document is absent. Both are written with the same payload, and `firestore.rules` already permits `get` on the suite mirror for any authenticated user, so no rules change and no data backfill were needed &mdash; affected members render correctly on next load. Strictly a fallback: the per-app document still wins, and the mirror is not read when it is present.
+
+Guarded by three new cases in `src/shared/storage/__tests__/firestore-sharing.test.ts`; two fail with the fix reverted. Suite-wide defect rather than a GanttApp quirk &mdash; first found in SPERT Story Map v0.49.3.
+
 ## Version 0.27.12 (2026-07-25)
 ### Dependency security: postcss override floor → ^8.5.18
 

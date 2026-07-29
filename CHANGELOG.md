@@ -1,5 +1,22 @@
 # Change Log
 
+## Version 0.27.14 (2026-07-29)
+### Changed: the license now ships the full GPL and reserves the SPERT&reg; brand
+
+Licensing only &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.13.
+
+**This repository was not shipping the GNU GPL v3.** `LICENSE` was 48 lines: the standard "this program is free software" notice, then `Full license text: https://www.gnu.org/licenses/gpl-3.0.en.html`, then a contact line. The operative licence &mdash; all of Sections 0 through 17, including the conditions on conveying modified source, the patent grant and the warranty disclaimer, together with the entire preamble &mdash; was not in the file at all. GPL v3 Section 4 requires that you "give all recipients a copy of this License along with the Program", and a hyperlink is a weak substitute for that. The file is now the complete 726-line licence: 707 insertions against 29 deletions, the largest of the nine repairs in this suite-wide pass.
+
+**The license also now reserves the brand.** It has always required that the original author attribution be preserved, but it said nothing at all about the brand, which left room to read the GPL's redistribute-and-modify freedom as carrying the *name* along with the code. That was never the intent. A new **Trademark Reservation** clause under GPL v3 &sect;7(e) names "SPERT", "Statistical PERT" and "Estimation Made Easy" as trademarks registered with the USPTO, and "GanttApp" and "MyScrumBudget" as unregistered common-law marks, and grants no right to use any of them &mdash; whether alone, in combination with other words such as "SPERT Suite", or as a logo. A companion **Marking of Modified Versions** clause under GPL v3 &sect;7(c) requires any fork to adopt a name that cannot reasonably be confused with those marks. Between them the two clauses draw the line the licence always meant to draw: the code is free to take, change and redistribute, the author attribution has to travel with it, and the brand stays behind.
+
+Both clauses fall inside the categories GPL v3 Section 7 permits, which matters &mdash; Section 7's closing paragraph lets a recipient strip any additional term falling *outside* that list, as a "further restriction". The section header and its opening sentence now cite Section 7 rather than Section 7(b), because the terms draw on 7(b) for attribution, 7(c) for renaming modified versions and 7(e) for the trademark reservation.
+
+**The additional terms were also an older, weaker wording.** This repository still carried the original numbered `1.`/`2.` form of the attribution and UI-notice terms, predating the lettered `a)`/`b)` rewrite. The older wording omitted two things of substance: the prohibition on removing, obscuring or *replacing* the author attribution with another name, and the requirement that the user-interface notice appear in a visible and accessible location with a link to the original repository where feasible. Both are now present.
+
+Line 1 already read "SPERT&reg; Suite" correctly here, so no brand-name correction was needed &mdash; unlike five of the sibling repositories, which still carried the retired "Statistical PERT&reg; Software Suite" name.
+
+`LICENSE` is now a byte-for-byte copy of the canonical file in the SPERT&reg; Suite landing-page repository, which is its single source of truth, differing only in the project repository URL on line 4. Of the nine suite repositories audited, only MyScrumBudget was an exact copy beforehand.
+
 ## Version 0.27.13 (2026-07-29)
 ### Fixed: member list showed a raw Auth UID
 

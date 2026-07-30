@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.15',
+    date: 'July 30, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; Release-process work only. Nothing in the app itself changed &mdash; it behaves identically to v0.27.14.</>,
+      <>Every proposed change is now checked automatically before it can be merged: the full test suite, the linter, a production build, and a check that the version number agrees everywhere it appears. This is the first automated checking this project has ever had &mdash; previously a green checkmark meant only that a preview had been built, not that the 1,250 tests had been run, because nothing ran them.</>,
+      <>A test that had to be hand-edited on every single release no longer does. It listed the newest 28 versions by position and had to be renumbered each time a release was added. It now checks the underlying rule instead &mdash; that every entry in this changelog appears on the page, in order &mdash; which covers all 101 entries and needs no maintenance.</>,
+      <>Added automatic checks that this changelog stays consistent across the three places it is kept, that the license file still matches the canonical copy shared across the suite, and that every file the app links to actually exists.</>,
+    ],
+  },
+  {
     version: '0.27.14',
     date: 'July 29, 2026',
     items: [

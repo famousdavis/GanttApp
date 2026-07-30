@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "0.27.14",
+  "version": "0.27.15",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
     "firebase": "12.12.1",

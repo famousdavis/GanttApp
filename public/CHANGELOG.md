@@ -1,5 +1,25 @@
 # Change Log
 
+## Version 0.27.15 (2026-07-30)
+### Changed: a release gate, and a changelog test that no longer needs hand-maintenance
+
+Release-process hardening &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.14.
+
+**A test that had to be edited on every release no longer does.** `ChangelogTab.test.tsx` asserted `versionTexts[0]` through `versionTexts[27]` against hardcoded version strings, and its own comment said the list "must be shifted by one on every release". Adding a changelog entry failed the suite until someone renumbered 28 assertions by hand. It is now expressed as the property those assertions were approximating: the component renders exactly one heading per entry, in the data's order. That needs no maintenance and is strictly stronger &mdash; it covers all 101 entries rather than the first 28 and the last one. Verified by making the component silently truncate its list and confirming the new assertion catches it.
+
+This repository was the only one in the suite that proved its newest changelog entry actually renders. That property is preserved &mdash; it just no longer costs a manual edit per release.
+
+**`CHANGELOG.md` is missing 17 versions the app has always rendered.** The in-app changelog carries 101 entries; this file carries 84. The gap is old and predates the gate; backfilling it means transcribing JSX into markdown, which is separate work. Rather than leave it unmeasured, the missing versions are now recorded explicitly and guarded in both directions: no **new** gap can open, and once a version is backfilled it must be removed from the recorded list, so the debt can only shrink. Both directions were verified before being trusted.
+
+**The gate also caught this file's own staleness risk.** `CLAUDE.md` previously sat at version 0.21.1 and "May 5, 2026" while the repository was at 0.27.13 &mdash; thirteen releases stale. It is gitignored, which is exactly why it drifted: the release checklist's consistency `grep` filters gitignored files out, making version drift inside it structurally invisible. The gate reads the file directly and fails if the `Current Version` lines disagree with `package.json`.
+
+### Added
+- **`npm run shipgate` &mdash; the release gate.** Verifies that `package.json`, both version fields in `package-lock.json`, `APP_VERSION` and the newest `CHANGELOG.md` entry agree, checks `CLAUDE.md` for a stale version declaration, then runs lint, the tests and a production build. It reports every disagreement in one run rather than stopping at the first.
+- **Continuous integration** (`.github/workflows/shipgate.yml`), running the same `npm run shipgate` on every pull request and push to `main`, so the local gate and the automated one cannot drift apart. This is the first CI this repository has ever had &mdash; until now a green check meant Vercel had built a preview, not that the 1,250 tests had run, because nothing ran them.
+- **A guard that the three changelog surfaces agree** &mdash; `changelog-data.tsx` (what the app renders), `CHANGELOG.md` (the repository record), and `public/CHANGELOG.md` (served on the deployed site, and read by nothing, so it can rot unnoticed).
+- **A guard that `LICENSE` matches the canonical suite licence** &mdash; one SHA-256 of the licence body, normalised for the repository URL on line 4. This repository had the worst drift of the nine before v0.27.14, shipping 48 lines with none of the operative licence.
+- **A guard that every static asset linked from source exists in `public/`** &mdash; the Quick Reference Guide PDF, the favicons, and the served changelog.
+
 ## Version 0.27.14 (2026-07-29)
 ### Changed: the license now ships the full GPL and reserves the SPERT&reg; brand
 

@@ -1,0 +1,29 @@
+{
+  "repo": "GanttApp",
+
+  "versionConstant": {
+    "file": "src/lib/version.ts",
+    "export": "APP_VERSION"
+  },
+
+  "changelog": {
+    "file": "CHANGELOG.md",
+    "headingPattern": "^## Version (\\d+\\.\\d+\\.\\d+)\\s*\\("
+  },
+
+  "claudeMdVersionPatterns": [
+    "^\\*\\*Current Version:\\*\\*\\s+(\\d+\\.\\d+\\.\\d+)"
+  ],
+
+  "_claudeMdNote": "CLAUDE.md is gitignored, so the release checklist's consistency grep could never see version drift inside it — and this file sat at 0.21.1 / 'May 5, 2026' while the repo was at 0.27.13, THIRTEEN releases stale. Both `**Current Version:**` lines are checked. The `**Last Updated:**` line carries a date, not a version, so it cannot be machine-checked against package.json — update it by hand. Historical prose naming an old release is correct as written and is deliberately not matched. Skipped in CI, where the file is never checked out.",
+
+  "commands": [
+    { "name": "lint", "run": "npm run lint" },
+    { "name": "test", "run": "npm test" },
+    {
+      "name": "build (next build — typechecks)",
+      "run": "npm run build",
+      "_note": "`next build` runs tsc, so types are covered by the build here — unlike the Vite repos in the suite, which needed tsc wired in explicitly."
+    }
+  ]
+}

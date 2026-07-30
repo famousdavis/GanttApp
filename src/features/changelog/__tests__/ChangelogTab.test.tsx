@@ -29,43 +29,35 @@ describe('ChangelogTab', () => {
     expect(screen.getByText(/Version 5\.6/)).toBeTruthy();
   });
 
-  it('renders versions in reverse chronological order', () => {
+  /**
+   * This used to be 29 hardcoded `versionTexts[N]).toContain('0.27.x')` assertions
+   * whose own comment said the list "must be shifted by one on every release" —
+   * so adding a changelog entry failed the suite until someone renumbered by hand.
+   *
+   * It is now expressed as the property those assertions were approximating: the
+   * component renders exactly one heading per entry, in the data's order. That
+   * needs no maintenance, and it is strictly stronger — it covers all 101 entries
+   * rather than the first 28 and the last one.
+   *
+   * The ordering of the data itself is asserted separately below, including the
+   * deliberate v0.20.0 → v19.0.0 renumbering boundary. Keep both: this one proves
+   * the component does not drop or reorder what the data gives it, which is the
+   * one property no other repo in the suite currently verifies at all.
+   */
+  it('renders one heading per entry, in the same order as the data', () => {
     const { container } = render(<ChangelogTab />, { wrapper: ThemeWrapper });
-    const headings = container.querySelectorAll('h3');
-    const versionTexts = Array.from(headings).map(h => h.textContent);
+    const rendered = Array.from(container.querySelectorAll('h3')).map(h => h.textContent ?? '');
 
-    // Newest first. This list is positional and must be shifted by one on
-    // every release — see the note in the changelog data file.
-    expect(versionTexts[0]).toContain('0.27.14');
-    expect(versionTexts[1]).toContain('0.27.13');
-    expect(versionTexts[2]).toContain('0.27.12');
-    expect(versionTexts[3]).toContain('0.27.11');
-    expect(versionTexts[4]).toContain('0.27.10');
-    expect(versionTexts[5]).toContain('0.27.9');
-    expect(versionTexts[6]).toContain('0.27.8');
-    expect(versionTexts[7]).toContain('0.27.7');
-    expect(versionTexts[8]).toContain('0.27.6');
-    expect(versionTexts[9]).toContain('0.27.5');
-    expect(versionTexts[10]).toContain('0.27.4');
-    expect(versionTexts[11]).toContain('0.27.3');
-    expect(versionTexts[12]).toContain('0.27.2');
-    expect(versionTexts[13]).toContain('0.27.1');
-    expect(versionTexts[14]).toContain('0.27.0');
-    expect(versionTexts[15]).toContain('0.26.1');
-    expect(versionTexts[16]).toContain('0.26.0');
-    expect(versionTexts[17]).toContain('0.25.0');
-    expect(versionTexts[18]).toContain('0.24.0');
-    expect(versionTexts[19]).toContain('0.23.1');
-    expect(versionTexts[20]).toContain('0.23.0');
-    expect(versionTexts[21]).toContain('0.22.2');
-    expect(versionTexts[22]).toContain('0.22.1');
-    expect(versionTexts[23]).toContain('0.22.0');
-    expect(versionTexts[24]).toContain('0.21.1');
-    expect(versionTexts[25]).toContain('0.21.0');
-    expect(versionTexts[26]).toContain('0.20.1');
-    expect(versionTexts[27]).toContain('0.20.0');
-    // Last should be 1.0
-    expect(versionTexts[versionTexts.length - 1]).toContain('1.0');
+    expect(
+      rendered.length,
+      `${CHANGELOG_ENTRIES.length} entries in the data but ${rendered.length} headings rendered`,
+    ).toBe(CHANGELOG_ENTRIES.length);
+
+    const mismatched = CHANGELOG_ENTRIES.map((entry, i) => ({ entry, text: rendered[i] ?? '' }))
+      .filter(({ entry, text }) => !text.includes(entry.version))
+      .map(({ entry, text }, i) => `position ${i}: expected ${entry.version}, rendered "${text}"`);
+
+    expect(mismatched, mismatched.join('; ')).toEqual([]);
   });
 
   it('renders Version 11.0 entry', () => {

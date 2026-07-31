@@ -1,5 +1,26 @@
 # Change Log
 
+## Version 0.27.17 (2026-07-31)
+### Changed: changelog backfill complete &mdash; the suite-wide backlog is closed
+
+Record-keeping only &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.16.
+
+**This file and the in-app changelog now hold the same 104 versions, in the same order, which has never been true before.** v0.27.16 took the four plain-text entries; this release closes the remaining thirteen &mdash; v11.1, v11.2, v11.3, v12.0 through v12.6, v13.8, v13.9 and v0.22.0 &mdash; whose items are JSX rather than strings, so they had to be converted rather than copied. 55 bullets in total.
+
+The conversion was not done by pattern-matching the source text. The `.tsx` was transpiled with a custom JSX factory and the resulting element tree walked, turning `<strong>` into `**`, `<code>` into backticks and `<em>` into `*`, with any other tag raising an error rather than being silently dropped &mdash; only those three occur. HTML entities needed no table of their own: the JSX transform decodes them, so `&mdash;`, `&hellip;`, `&rarr;`, `&ldquo;`/`&rdquo;` and the numeric forms such as `&#123;` arrive as real characters. The result was then cross-checked against React's own renderer &mdash; every item rendered to static markup, tags stripped, and compared to the markdown with its formatting removed. All 59 items matched exactly.
+
+Two conversions applied throughout, as in v0.27.16: dates from `Month D, YYYY` to ISO, and placement taken from the data file's array order rather than from sorting, because this project's version numbers are **not** monotonic &mdash; the history runs 1.0 → 18.0.0 and then renumbers down to the 0.20.x era.
+
+One deliberate omission. Entries in v0.22.0's era carry a `### Category: title` line that summarises the release, and the in-app data has no such title. Rather than invent one, v0.22.0 is transcribed as a bare bullet list. It does get the `---` rule its era uses, since that is a formatting convention rather than content. The result is honest about what the source actually contains.
+
+`KNOWN_MISSING_FROM_MARKDOWN` goes to zero. **It is kept at zero length rather than deleted, along with the two tests that read it**, because emptied they assert strictly more than they did while it held names: "opens no NEW gap" becomes an every-version-is-in-both check with no exemptions available, and the ratchet beside it becomes a guard against anyone reintroducing one. Deleting the list would mean deleting both, and the next release that forgot an entry would land unnoticed. Both directions were re-verified by mutation after emptying, along with the `public/CHANGELOG.md` byte-identity guard.
+
+**That closes the backlog across the whole suite.** SPERT AHP had one missing version and closed it in v0.18.16; MyScrumBudget had 21 and reached zero in v0.34.6; SPERT Scheduler had 33 and reached zero in v0.59.6; GanttApp had 17 and was the last. 71 versions in total, none of them ever lost &mdash; users had always seen them in-app &mdash; but none of them written down where the repository keeps its own record.
+
+### Changed
+- Backfilled v0.22.0, v13.9, v13.8, v12.6 – v12.0 and v11.3 – v11.1 into `CHANGELOG.md`, converted from the in-app JSX, and re-synced `public/CHANGELOG.md`.
+- Emptied `KNOWN_MISSING_FROM_MARKDOWN` in `src/lib/__tests__/changelog-surfaces.test.ts`, keeping the list and both ratchet tests in place, and typed it `string[]` so the empty literal does not infer `never[]`.
+
 ## Version 0.27.16 (2026-07-31)
 ### Changed: backfilled the four plain-text versions missing from this file
 
@@ -522,6 +543,20 @@ This is a focused patch release: one in-file decomposition, two small DRY extrac
 - Lint clean
 - All 1173 existing tests pass; +2 targeted tests added (1175 total)
 - Production build succeeds with Turbopack
+
+---
+
+## Version 0.22.0 (2026-05-08)
+- **Fix** — **Bulk-sharing retrograde-audit remediation** (May 2026 audit). Nine confirmed gaps fixed across two PRs, hardening the invitation-banner state machine, the bulk-send pipeline, and the member-removal transaction
+- **Fix** — `removeCollaborator` now runs all four guards inside `runTransaction` so the project-exists check, both ownership guards, and the membership write + `_changeLog` append cannot interleave with concurrent owner activity. New pre-transaction guard 1 surfaces a user-friendly “Cannot remove yourself from a project.” when an owner clicks Remove on themselves (LESSONS-LEARNED §50)
+- **Fix** — `claimPendingInvitationsAndNotify` short-circuits on `firebaseUser.emailVerified === false`. Microsoft personal accounts and unverified Google accounts no longer trigger noisy `failed-precondition` console errors on every auth resolution (LESSONS-LEARNED §26)
+- **Fix** — `useInvitationLanding` rewrite. Cloud auto-flip on invite-link arrival is now gated on `localProjectCount === 0` so users with local content keep their projects (LESSONS-LEARNED §28). The `spert:models-changed` listener checks `sessionStorage[SESSION_KEY]` as its first line so spurious “you've been added to” banners no longer appear on normal sign-in (LESSONS-LEARNED §27). A 30 s grace timer transitions stuck `pre_auth` back to `idle` and consumes `SESSION_KEY` before `setState` so a reload mid-timer cannot rehydrate the stale state (LESSONS-LEARNED §59)
+- **Fix** — `parseBulkEmails` now returns `{ valid, invalid }` and runs every token through `EMAIL_RE`. Share dialog renders rejected tokens in a red “Skipped N: …” chip below the textarea instead of silently dropping them. When zero addresses are valid, no CF call fires and the textarea content is preserved so typos can be corrected in place (LESSONS-LEARNED §42)
+- **Fix** — Share dialog gains a four-state `OwnerStatus` enum (`loading` / `owner` / `not-owner` / `error`). When `getProjectMembers` rejects, the bulk UI is replaced by “Couldn't load sharing details. Refresh the page to try again.” rather than leaving the user with a half-loaded dialog (LESSONS-LEARNED §60)
+- **Fix** — Post-send refresh now uses `Promise.allSettled`. A transient error on `listPendingInvites` can no longer discard a fulfilled `getProjectMembers` value, and the members list updates independently (LESSONS-LEARNED §64)
+- **Refactor** — `useInvitationLanding` initial state now derived in a `useState` lazy initializer. Pages Router has no SSR justification for `setState`-in-effect, so the `react-hooks/set-state-in-effect` rule holds without an `eslint-disable`. Eliminates the visible “idle → pre_auth” flicker on invite-link arrivals (LESSONS-LEARNED §66)
+- **UX** — `InvitationBanner` renders as a 512 px max-width centered card so the sign-in CTA sits at the visual focus of the page. `FirstRunBanner` stays full-width as a passive info strip — the deliberate divergence is documented inline (LESSONS-LEARNED §56)
+- **Tests** — +6 EMAIL_RE coverage tests on `parseBulkEmails`, +3 transaction-guard tests on `removeCollaborator`, +1 service-wrapper test for owner self-removal. Suite total: 1167 → 1173 (no regressions)
 
 ---
 
@@ -1204,6 +1239,14 @@ Two independent snapshot-bar fixes shipped together.
 - A11y: Chip is now a single `<button>` with `aria-haspopup`, `aria-expanded`, and a descriptive `aria-label`; Escape dismisses the popover
 - Reliability: Sign Out uses a loading state with re-entry guards so the popover cannot be dismissed mid-await
 
+## Version 13.9 (2026-04-05)
+- **Legal** — Updated Terms of Service and Privacy Policy to v04-05-2026
+- **Legal** — Added SPERT® AHP to list of covered apps
+- **Legal** — Updated effective date to April 5, 2026
+
+## Version 13.8 (2026-04-04)
+- **UX** — Added storage & auth status chip in the upper-right header: shows a "Local" pill (with database icon) in local storage mode, and a user avatar initial + display name + cloud icon in cloud mode; clicking navigates to Settings
+
 ## Version 13.7 (2026-04-02)
 - UX: Added amber warning banner on every app load when using local storage mode, reminding users to export their data; dismissible per session via "Got it" button
 - Settings: New "Notifications" section with a checkbox to permanently suppress the local storage warning banner (visible only in local storage mode)
@@ -1253,6 +1296,67 @@ Two independent snapshot-bar fixes shipped together.
 - Added legal/ directory with reference copies of ToS and Privacy Policy PDFs
 - Added README.md with Legal section
 - Synced package.json version to 13.0.0
+
+## Version 12.6 (2026-03-09)
+- **Improvement** — Added copyright headers to all 117 human-authored source files (GNU GPL v3 attribution)
+- **Improvement** — Strengthened LICENSE file with author attribution block and Section 7 additional terms (Attribution Preservation, UI Notice Preservation)
+
+## Version 12.5 (2026-03-09)
+- **Bug Fix** — Drag-and-drop release reordering now persists to Firestore in cloud mode (was silently lost on reload because diff-based saves only checked content fields, not array position)
+- **Bug Fix** — Drag-and-drop project reordering now persists to Firestore in cloud mode (added `order` field to project documents)
+
+## Version 12.4 (2026-03-08)
+- **Docs** — Added Quick Start Guide section to the About tab with a downloadable PDF covering project creation, releases, chart reading, and snapshots
+
+## Version 12.3 (2026-03-08)
+- **Bug Fix** — Cloud sync no longer replaces local data with empty cloud results — guards added to both initial load and real-time sync to prevent silent data loss
+- **Bug Fix** — “Skip — Connect Without Uploading” replaced with “Cancel” that stays in local mode, preventing data loss when cloud has no data
+- **UX** — Cancelling the upload prompt during re-sign-in now reverts stored mode to local instead of switching to cloud without data
+
+## Version 12.2 (2026-02-22)
+- **Security** — Firebase error messages are now sanitized before display, preventing internal details (project IDs, collection paths) from leaking to the UI
+- **Security** — Project `owner` field from Firestore is now sanitized with `sanitizeId()` to prevent injection of control characters or oversized strings
+- **Security** — User profile data (displayName, email) is now sanitized with `sanitizeString()` before writing to Firestore (defense-in-depth)
+- **Security** — Project names in error messages are now sanitized to prevent control character injection
+- **Tests** — Added 10 new security tests: sanitizeFirebaseError (6), owner sanitization (2), StorageContext error handling (2). Total: 696 tests across 45 files
+
+## Version 12.1 (2026-02-22)
+- **Bug Fix** — “Skip — Connect Without Uploading” now correctly connects to cloud without uploading local data (was triggering upload)
+- **Bug Fix** — Skipping the upload prompt now persists the cloud mode preference (was re-prompting on every reload)
+- **Bug Fix** — Fixed `as any` type cast in cloud storage service (now uses proper `FirestoreSnapshot` type)
+- **Refactor** — Created shared `ConfirmDialog` component for inline and modal confirmation dialogs, reducing code duplication across StorageSection and ProjectsTab
+- **Tests** — Added 47 new tests: ConfirmDialog (13), StorageSection (30), StorageContext (4). Total: 686 tests across 45 files
+
+## Version 12.0 (2026-02-22)
+- **Architecture** — Cloud is now the source of truth: switching to local no longer downloads cloud data (one-way upload only)
+- **Feature** — Existence-based dedup: re-uploading projects that already exist in the cloud are automatically skipped, preventing duplicates
+- **Feature** — Post-upload cleanup dialog prompts users to clear local copies after successful cloud upload
+- **Feature** — Smart re-sign-in: detects local projects on cloud mode restoration and prompts to upload or skip
+- **Feature** — “Download All Projects as JSON” button in cloud mode for backup and portability
+- **UX** — Sign-out no longer downloads data — flushes pending writes and switches to local mode cleanly
+- **Robustness** — Network errors during upload are surfaced to the user instead of silently creating duplicate projects
+
+## Version 11.3 (2026-02-21)
+- **UX** — Cloud storage radio button now disabled until user signs in (was showing an error after click)
+- **UX** — Sign-in buttons moved into the Storage section with helper text “Sign in to enable cloud storage and sharing”
+- **Refactor** — AccountSection merged into StorageSection for a more intuitive settings layout
+
+## Version 11.2 (2026-02-20)
+- **Security** — Sharing functions now enforce owner-only access (prevents editors from adding/removing project members)
+- **Security** — All user text inputs sanitized at point of entry via `sanitizeString()` (project names, release names, snapshot names, export attribution, Prepared By)
+- **Security** — HTTP security headers added: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- **UI** — Share button now only visible to project owners in cloud mode
+- **UI** — Export attribution inputs now have `maxLength` enforcement
+
+## Version 11.1 (2026-02-20)
+- **Bug Fix** — export attribution now persists correctly in cloud mode (was lost on save/load)
+- **Bug Fix** — “Prepared By” field can now be cleared to empty in cloud mode
+- **Bug Fix** — changing export attribution now triggers cloud save
+- **Refactor** — ChangelogTab converted to data-driven rendering (512 → ~50 LOC component + data file)
+- **Refactor** — FirestoreGanttStorageService decomposed into focused modules (559 → ~280 LOC)
+- **Refactor** — StorageContext switchMode logic extracted to standalone functions (217 → 105 LOC)
+- **Refactor** — SettingsTab split into StorageSection, AccountSection, and ExportAttributionSection sub-components
+- 35 new tests across 2 new test files; total test count: 616 across 40 files
 
 ## Version 11.0 (2026-02-20)
 - Added Firebase Authentication with Google and Microsoft SSO (AuthContext)

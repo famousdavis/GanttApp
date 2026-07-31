@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.18',
+    date: 'July 31, 2026',
+    items: [
+      <>
+        <strong>Changed</strong> &mdash; tooling only. Nothing in the app changed &mdash; it
+        behaves identically to v0.27.17.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; the automated release checks now read the Node version
+        this repository pins, from the file kept alongside the source, rather than a version
+        written directly into the checks themselves. The two were free to disagree, and did.
+      </>,
+    ],
+  },
+  {
     version: '0.27.17',
     date: 'July 31, 2026',
     items: [

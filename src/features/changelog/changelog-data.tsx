@@ -15,6 +15,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.19',
+    date: 'July 31, 2026',
+    items: [
+      <>
+        <strong>Changed</strong> &mdash; tooling only. Nothing in the app changed &mdash; it
+        behaves identically to v0.27.18.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; the release checks now cover all three copies of this
+        changelog, not just one. This project keeps its version history in the file alongside
+        the source, in a served copy, and here inside the app. Only the first was ever checked,
+        which is how seventeen versions went missing from it before they were transcribed back.
+      </>,
+    ],
+  },
+  {
     version: '0.27.18',
     date: 'July 31, 2026',
     items: [

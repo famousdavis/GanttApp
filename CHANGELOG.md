@@ -1,5 +1,23 @@
 # Change Log
 
+## Version 0.27.16 (2026-07-31)
+### Changed: backfilled the four plain-text versions missing from this file
+
+Record-keeping only &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.15.
+
+**v3.1 through v3.4 have always rendered in the app and were never written into this file.** They are the four entries in the backlog whose items are plain strings rather than JSX, so they transcribe directly. All four are now in place above v3.0, matching the bare-bullet shape that every other entry of that era uses &mdash; no `###` heading, no `---` rule, one blank line between entries.
+
+Two conversions were needed even for these. This file's headings are ISO dates (`## Version X.Y (YYYY-MM-DD)`) while `changelog-data.tsx` stores `Month D, YYYY`, so the dates are converted rather than copied. And GanttApp's version numbers are **not** monotonic &mdash; the history runs 1.0 → 18.0.0 and then renumbers *down* to the 0.20.x era &mdash; so placement is taken from the data file's array order and asserted against it before writing, never from sorting.
+
+The recorded gap falls from 17 versions to 13. What remains is the harder half: every one of them stores its items as JSX, so backfilling means converting `<strong>`, `<code>` and `<em>` plus a range of HTML entities into markdown. That is a different kind of work and is left to the next release.
+
+**GanttApp is the last repository in the suite still carrying this.** SPERT AHP closed its single missing version in v0.18.16, MyScrumBudget 21 of them in v0.34.6, and SPERT Scheduler 33 in v0.59.6.
+
+### Changed
+- Backfilled v3.1, v3.2, v3.3 and v3.4 into `CHANGELOG.md`, transcribed verbatim from the in-app changelog data, and re-synced `public/CHANGELOG.md`.
+- Lowered `KNOWN_MISSING_FROM_MARKDOWN` in `src/lib/__tests__/changelog-surfaces.test.ts` from 17 entries to 13, as the ratchet requires, and recorded there that a malformed backfilled heading fails **silently** while a version remains on that list &mdash; the entry sits in the file uncounted and every assertion still passes.
+- Corrected that guard's header comment, which claimed 101 in-app and 84 markdown entries; both were off by one, having been written before the release that shipped them.
+
 ## Version 0.27.15 (2026-07-30)
 ### Changed: a release gate, and a changelog test that no longer needs hand-maintenance
 
@@ -1441,6 +1459,18 @@ Two independent snapshot-bar fixes shipped together.
 - Add configurable chart colors with preset themes
 - Users can now customize solid bar, hatched bar, and today's line colors
 - Includes preset color themes: Classic Blue, Ocean Green, Purple Haze, Sunset Orange, Ruby Red
+
+## Version 3.4 (2026-01-19)
+- Add intelligent label hiding on Gantt chart to prevent overlapping date labels
+
+## Version 3.3 (2026-01-19)
+- Add real-time validation for project names, release names, and date logic
+
+## Version 3.2 (2026-01-19)
+- Add Change Log accessible via footer link
+
+## Version 3.1 (2026-01-18)
+- Fix timezone bug in date display
 
 ## Version 3.0 (2026-01-18)
 - Initial release with Firebase integration

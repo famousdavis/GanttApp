@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 0.27.18 (2026-07-31)
+### Changed: the release checks now read this repository's own Node version
+
+Tooling only &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.17.
+
+The automated release checks were told to run on &ldquo;Node 24&rdquo;, written directly into the workflow file. That is not the same thing as the version this repository pins: it resolves to whichever 24.x release the build service happens to have on hand, and the pin recorded alongside the source was never consulted. The workflow now reads that file instead, so the version is stated in exactly one place.
+
+The version actually selected is unchanged today, because the pin here names a major line rather than an exact release &mdash; that is deliberate, so each build picks up the newest secure patch in the line. What changes is that a companion repository which holds back from the newest Node release on purpose &mdash; avoiding a fault that breaks server-rendered pages &mdash; will have that instruction honoured once it gains the same checks, instead of silently overridden.
+
 ## Version 0.27.17 (2026-07-31)
 ### Changed: changelog backfill complete &mdash; the suite-wide backlog is closed
 

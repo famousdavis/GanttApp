@@ -14,8 +14,8 @@ import { CHANGELOG_ENTRIES } from '../../features/changelog/changelog-data';
  * together:
  *
  *   - `src/features/changelog/changelog-data.tsx` — what the app renders. This
- *     is the authoritative, complete history (102 entries).
- *   - `CHANGELOG.md` — the record in the repository (89 entries).
+ *     is the authoritative, complete history.
+ *   - `CHANGELOG.md` — the record in the repository.
  *   - `public/CHANGELOG.md` — served at /CHANGELOG.md on the deployed site.
  *
  * The public copy is the one that rots invisibly. Nothing in the app reads it,
@@ -23,57 +23,53 @@ import { CHANGELOG_ENTRIES } from '../../features/changelog/changelog-data';
  * equivalent sat 43 releases behind for five months, serving a March changelog,
  * before a guard like this was written.
  *
- * `CHANGELOG.md` was missing 17 versions that the app has always rendered. The
- * four plain-text ones — 3.1 through 3.4 — were transcribed in v0.27.16. The 13
- * left in KNOWN_MISSING_FROM_MARKDOWN below are the ones whose items are JSX
- * rather than strings, so they need converting rather than copying. The list may
- * only shrink: removing an entry from it after backfilling is the intended
- * direction, and adding to it should require a deliberate argument.
+ * The first two now hold the same 104 versions in the same order, and this is
+ * the first point at which that has ever been true. `CHANGELOG.md` was missing
+ * 17 versions the app had always rendered: the four plain-text ones, 3.1 through
+ * 3.4, were transcribed in v0.27.16, and the remaining 13 — whose items are JSX,
+ * so they had to be converted rather than copied — in v0.27.17.
+ * KNOWN_MISSING_FROM_MARKDOWN is deliberately kept at zero length rather than
+ * deleted; see the note on it below.
  *
- * GanttApp is the last repository in the suite still carrying this. SPERT AHP
- * closed its single missing version in v0.18.16, MyScrumBudget 21 of them in
- * v0.34.6, and SPERT Scheduler 33 in v0.59.6.
+ * That completes the suite. SPERT AHP closed its single missing version in
+ * v0.18.16, MyScrumBudget 21 in v0.34.6, SPERT Scheduler 33 in v0.59.6, and
+ * GanttApp was the last one carrying it.
  *
  * If the public copy fails: cp CHANGELOG.md public/CHANGELOG.md
  */
 
 /**
- * Versions present in `changelog-data.tsx` but absent from `CHANGELOG.md`, as
- * measured on 2026-07-31. Every one that remains has JSX items rather than
- * plain strings, so backfilling means converting `<strong>`/`<code>`/`<em>` and
- * HTML entities into markdown — not copying.
+ * Versions present in `changelog-data.tsx` but absent from `CHANGELOG.md`. Empty
+ * as of 2026-07-31, and it should stay that way.
  *
- * DO NOT add to this list to make a failing test pass. A new name here means a
+ * This is kept at zero length on purpose rather than deleted, and the two tests
+ * that read it are kept with it. Emptied, they assert something stronger than
+ * they did while it had names in it: the "no NEW gap" test becomes a plain
+ * every-version-is-in-both check with no exemptions, and the ratchet below it
+ * becomes a guard against anyone reintroducing an exemption. Deleting the list
+ * would mean deleting both, and the next release that forgot a changelog entry
+ * would land unnoticed — which is the exact defect that took 17 versions to
+ * accumulate here. Both directions were re-verified by mutation once the list
+ * was emptied, not assumed.
+ *
+ * DO NOT add a name here to make a failing test pass. A name here means a
  * release was written into the app and never into the repository's changelog.
+ * Write the entry instead; that is a two-minute job and this list is not.
  *
- * Two traps for whoever finishes this, both learned on the sibling repos:
+ * Three things to know when adding an entry to `CHANGELOG.md` by hand:
  *
  * 1. An entry whose heading does not match `## Version X.Y (YYYY-MM-DD)`
- *    exactly is invisible to the regex below, and while a version sits on this
- *    list that failure is SILENT — the entry is in the file, uncounted, and
- *    every assertion here still passes. Removing the version from this list in
- *    the same commit is what exposes it. Move both halves together, always.
+ *    exactly is invisible to the regex below. While a version could sit on this
+ *    list that failure was SILENT; with the list empty the hole is closed,
+ *    because there is nothing left to exempt a malformed entry from the
+ *    "no NEW gap" check.
  * 2. This file's dates are ISO, but `changelog-data.tsx` stores `Month D, YYYY`.
- *    They must be converted, not copied. And GanttApp's version numbers are NOT
- *    monotonic — the history runs 1.0 → 18.0.0 and then renumbers down to the
- *    0.20.x era — so placement must come from the data file's array order, never
- *    from sorting.
+ *    They must be converted, not copied.
+ * 3. GanttApp's version numbers are NOT monotonic — the history runs 1.0 → 18.0.0
+ *    and then renumbers down to the 0.20.x era — so an entry's position must come
+ *    from the data file's array order, never from sorting the numbers.
  */
-const KNOWN_MISSING_FROM_MARKDOWN = [
-  '0.22.0',
-  '13.9',
-  '13.8',
-  '12.6',
-  '12.5',
-  '12.4',
-  '12.3',
-  '12.2',
-  '12.1',
-  '12.0',
-  '11.3',
-  '11.2',
-  '11.1',
-];
+const KNOWN_MISSING_FROM_MARKDOWN: string[] = [];
 
 describe('changelog surfaces agree', () => {
   const rootPath = join(process.cwd(), 'CHANGELOG.md');

@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.27.19 (2026-07-31)
+### Changed: the release checks now cover all three copies of this changelog
+
+Tooling only &mdash; no functional, data, or interface changes. The app behaves identically to v0.27.18.
+
+The release checks could only ever be told about **one** changelog file, so the other copies this project keeps were invisible to them. There are three: this file, the served copy under `public/`, and the version history built into the app itself. A release could pass every check while two of the three were left behind &mdash; which is exactly how seventeen versions went missing from this file before v0.27.16 and v0.27.17 transcribed them back.
+
+All three are now checked on every release. The served copy must match this file byte for byte, and the in-app history must carry an entry for the version being shipped.
+
+Each new check was deliberately broken before being trusted: a copy was altered, an entry was removed, and a file was deleted, and the checks were confirmed to fail in each case.
+
 ## Version 0.27.18 (2026-07-31)
 ### Changed: the release checks now read this repository's own Node version
 

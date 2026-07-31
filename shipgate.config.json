@@ -8,7 +8,22 @@
 
   "changelog": {
     "file": "CHANGELOG.md",
-    "headingPattern": "^## Version (\\d+\\.\\d+\\.\\d+)\\s*\\("
+    "headingPattern": "^## Version (\\d+\\.\\d+\\.\\d+)\\s*\\(",
+
+    "_extraSurfacesNote": "This repo has the most changelog surfaces in the suite — three. Before 2026-07-31 the gate checked only CHANGELOG.md, so a release could pass green with the other two stale. v0.27.16 and v0.27.17 exist because exactly that drift accumulated to 17 missing versions.",
+
+    "extraSurfaces": [
+      {
+        "file": "public/CHANGELOG.md",
+        "match": "identical",
+        "note": "Served copy. Keep byte-identical — copy the root file, do not hand-edit both."
+      },
+      {
+        "file": "src/features/changelog/changelog-data.tsx",
+        "match": "firstVersion",
+        "note": "In-app changelog rendered by ChangelogTab. Items are JSX, not strings, so a new entry must be authored as <>...</> fragments — see the existing entries. Do NOT copy markdown in verbatim."
+      }
+    ]
   },
 
   "claudeMdVersionPatterns": [

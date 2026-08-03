@@ -15,6 +15,48 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.20',
+    date: 'August 2, 2026',
+    items: [
+      <>
+        <strong>Changed</strong> &mdash; licensing only. Nothing in the app changed &mdash; it
+        behaves identically to v0.27.19.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; the conditions attached to this project&apos;s licence
+        now number six rather than four, and each follows the wording of the standard licence
+        itself rather than paraphrasing it. What the licence permits is unchanged: anyone may
+        still use, study, modify and share this software freely.
+      </>,
+      <>
+        <strong>Added</strong> &mdash; the author&apos;s name may not be used to endorse or
+        promote a product built from this software without permission. The project&apos;s
+        trademarks are protected whether the licence mentions them or not, but a personal name
+        has no such protection, and another condition requires that name to stay in the source
+        code.
+      </>,
+      <>
+        <strong>Added</strong> &mdash; anyone who resells this software with a warranty or
+        support contract of their own covers any liability those promises impose on the
+        original author.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; the condition covering on-screen credit used to require
+        any modified version with a user interface to display a notice. The standard licence
+        permits requiring that existing notices be preserved, not that new ones be created, so
+        a condition reaching past that could simply be deleted by whoever received it. It now
+        requires that where a modified version already shows legal notices, the original
+        author&apos;s name is kept among them.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; a modified version may no longer misrepresent where
+        this software came from, and the trademark condition now says plainly that naming this
+        project to describe honestly what a fork was derived from is not itself prohibited,
+        provided it does not suggest this project endorses the result.
+      </>,
+    ],
+  },
+  {
     version: '0.27.19',
     date: 'July 31, 2026',
     items: [

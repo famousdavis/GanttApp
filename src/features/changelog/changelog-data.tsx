@@ -15,6 +15,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.27.21',
+    date: 'August 4, 2026',
+    items: [
+      <>
+        <strong>Fixed</strong> &mdash; the browser tab now shows a name as soon as the page
+        arrives, instead of the web address until the app finished loading. Anything that reads
+        a page without running it &mdash; search engines, link previews, a screen reader
+        announcing the page, the monitoring that checks the site is up &mdash; previously found
+        nothing to go on.
+      </>,
+      <>
+        <strong>Fixed</strong> &mdash; the page description and the tab icon were missing from
+        that first page for the same reason, and now arrive with it too.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; the tab reads &ldquo;GanttApp&trade; &mdash; Split-bar
+        Gantt charts for visualizing release uncertainty&rdquo;, matching how the other SPERT®
+        Suite apps name themselves. The version number that used to sit in the tab is gone; it
+        remains in the footer and on this tab.
+      </>,
+      <>
+        <strong>Added</strong> &mdash; a check that keeps the title where the first page can
+        reach it. It was deliberately broken twice before being trusted.
+      </>,
+    ],
+  },
+  {
     version: '0.27.20',
     date: 'August 2, 2026',
     items: [

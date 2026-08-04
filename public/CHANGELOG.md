@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.27.21 (2026-08-04)
+### Fixed: the page carries its name before the app finishes loading
+
+The site hands the browser a nearly empty page first and fills it in once the app starts. That first page had no title on it. Until the app finished loading, the browser tab showed the web address rather than a name &mdash; and anything that reads a page without running it found nothing to go on at all: search engines, link previews, a screen reader announcing the page, and the monitoring that checks whether the site is still up.
+
+A title had in fact been written &mdash; along with the page description and the tab icon &mdash; but in a place that never got the chance to run. The app hides itself until it knows whether to draw in light or dark mode, so the page does not flash white on a dark screen. Everything behind that curtain was skipped when the first page was built, the title included. It appeared only once the app was already running, which is precisely when it was no longer needed.
+
+The title, description and tab icon now sit outside that curtain and ship with the first page. The tab reads &ldquo;GanttApp&trade; &mdash; Split-bar Gantt charts for visualizing release uncertainty&rdquo; straight away, matching how the other SPERT® Suite apps name themselves. The version number that used to sit in the tab is gone; it remains in the footer and on the Change Log tab, and keeping it out means the tab name no longer changes on every release &mdash; so uptime monitoring can watch for a name that stays put.
+
+A check now guards this. It was deliberately broken twice before being trusted: the title was moved back behind the curtain, and separately its wording was altered, and the check was confirmed to fail in both cases.
+
 ## Version 0.27.20 (2026-08-02)
 ### Changed: the licence gains two conditions, and one that asked too much was rewritten
 

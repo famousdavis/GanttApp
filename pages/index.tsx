@@ -4,7 +4,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
-import Head from 'next/head';
 import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
 import { APP_VERSION } from '../src/lib/version';
@@ -247,13 +246,6 @@ function AppContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
-      <Head>
-        <title>GanttApp - Version {APP_VERSION}</title>
-        <meta name="description" content="Simple Gantt chart app with delivery uncertainty visualization" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" type="image/png" href="/spert-favicon-ganttapp.png" />
-      </Head>
-
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
         <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>

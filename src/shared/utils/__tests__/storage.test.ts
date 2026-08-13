@@ -228,6 +228,34 @@ describe('storage utilities', () => {
     });
   });
 
+  describe('status date override (v0.28.0)', () => {
+    it('round-trips a valid status date', () => {
+      saveData(makeTestData({ todayDateOverride: '2026-08-19' }));
+      expect(loadData()!.todayDateOverride).toBe('2026-08-19');
+    });
+
+    it('omits the field when no override is set', () => {
+      saveData(makeTestData());
+      expect(loadData()!.todayDateOverride).toBeUndefined();
+    });
+
+    it('drops a malformed or out-of-range status date rather than clamping it', () => {
+      for (const bad of ['08/19/2026', '2026-13-01', '2026-02-30', '1999-12-31', '2051-01-01', '']) {
+        localStorage.setItem('ganttAppData', JSON.stringify({
+          ...makeTestData(), todayDateOverride: bad,
+        }));
+        expect(loadData()!.todayDateOverride).toBeUndefined();
+      }
+    });
+
+    it('drops a non-string status date (tampered localStorage)', () => {
+      localStorage.setItem('ganttAppData', JSON.stringify({
+        ...makeTestData(), todayDateOverride: 12345,
+      }));
+      expect(loadData()!.todayDateOverride).toBeUndefined();
+    });
+  });
+
   describe('work week fields (v15.0)', () => {
     it('preserves workDays on a project', () => {
       const data = makeTestData({

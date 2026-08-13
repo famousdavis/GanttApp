@@ -65,6 +65,31 @@ describe('ChartLegend', () => {
     expect(screen.queryByText(/Today.*Date/)).not.toBeInTheDocument();
   });
 
+  // v0.28.0 — with a status date set, the line no longer marks today. Keeping
+  // the "Today's Date" wording would put a future date labelled "today" next to
+  // a real "Date Prepared" on a chart handed to stakeholders.
+  describe('status date wording (v0.28.0)', () => {
+    it("reads Today's Date when no status date is set", () => {
+      render(<ChartLegend {...defaultProps} showTodayLine={true} />);
+
+      expect(screen.getByText("Today's Date")).toBeInTheDocument();
+      expect(screen.queryByText('Status Date')).not.toBeInTheDocument();
+    });
+
+    it('reads Status Date when a status date is in effect', () => {
+      render(<ChartLegend {...defaultProps} showTodayLine={true} isStatusDate={true} />);
+
+      expect(screen.getByText('Status Date')).toBeInTheDocument();
+      expect(screen.queryByText("Today's Date")).not.toBeInTheDocument();
+    });
+
+    it('stays hidden entirely when the today line is toggled off', () => {
+      render(<ChartLegend {...defaultProps} showTodayLine={false} isStatusDate={true} />);
+
+      expect(screen.queryByText('Status Date')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows finish date legend when both toggle and project finish date exist', () => {
     render(
       <ChartLegend

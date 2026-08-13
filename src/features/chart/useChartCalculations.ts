@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { Release, ChartDisplaySettings } from '../../shared/types';
-import { parseDateLocal, getQuarterBoundaries, getMonthBoundaries, getTodayString } from '../../shared/utils';
+import { parseDateLocal, getQuarterBoundaries, getMonthBoundaries, getTodayString, isValidDateFormat } from '../../shared/utils';
 import { darkenColor } from '../../shared/utils/colors';
 
 export interface ChartDimensions {
@@ -23,8 +23,15 @@ export interface ChartDateInfo {
   minDate: number;
   maxDate: number;
   dateRange: number;
+  /**
+   * v0.28.0: every `today*` field below reflects the EFFECTIVE date the today
+   * line is drawn at — the status-date override when one is set, otherwise the
+   * real current date. "Date Prepared" is computed separately and always
+   * reports the real date.
+   */
   today: Date;
   todayTime: number;
+  todayDateString: string;
   todayInRange: boolean;
   todayX: number | null;
   quarterBoundaries: Date[];
@@ -42,7 +49,8 @@ export function useChartCalculations(
   releases: Release[],
   displaySettings: ChartDisplaySettings,
   projectFinishDate?: string,
-  showMonths?: boolean
+  showMonths?: boolean,
+  todayDateOverride?: string
 ) {
   const barHeight = parseInt(displaySettings.barHeight);
   const rowSpacing = parseInt(displaySettings.rowSpacing);
@@ -71,13 +79,18 @@ export function useChartCalculations(
     const maxDate = Math.max(...allDates);
     const dateRange = maxDate - minDate;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTime = today.getTime();
+    // v0.28.0: the today line is drawn at the status-date override when one is
+    // set and parses, otherwise at the real current date. The format guard is
+    // defence-in-depth — every ingestion path already validates — but a bad
+    // value here would produce NaN coordinates and a broken SVG.
+    const todayDateString = todayDateOverride && isValidDateFormat(todayDateOverride)
+      ? todayDateOverride
+      : getTodayString();
+    const todayTime = parseDateLocal(todayDateString);
+    const today = new Date(todayTime);
 
     const todayInRange = todayTime >= minDate && todayTime <= maxDate;
-    const todayString = getTodayString();
-    const todayX = todayInRange ? dateToX(todayString, minDate, dateRange, dimensions) : null;
+    const todayX = todayInRange ? dateToX(todayDateString, minDate, dateRange, dimensions) : null;
 
     const quarterBoundaries = getQuarterBoundaries(minDate, maxDate);
     const monthBoundaries = getMonthBoundaries(minDate, maxDate);
@@ -88,12 +101,13 @@ export function useChartCalculations(
       dateRange,
       today,
       todayTime,
+      todayDateString,
       todayInRange,
       todayX,
       quarterBoundaries,
       monthBoundaries
     };
-  }, [releases, dimensions]);
+  }, [releases, dimensions, todayDateOverride]);
 
   const finishDateInfo = useMemo(() => {
     if (!projectFinishDate) {

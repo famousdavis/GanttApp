@@ -18,6 +18,8 @@ interface SaveSnapshotParams {
   chartColors: ChartColors;
   legendLabels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };
   preparedBy: string;
+  /** v0.28.0 — status-date override to freeze ('' / undefined = none). */
+  todayDateOverride?: string;
 }
 
 export function useSnapshots(selectedProjectId: string) {
@@ -95,7 +97,10 @@ export function useSnapshots(selectedProjectId: string) {
       projectFinishDate: params.projectFinishDate,
       chartColors: structuredClone(params.chartColors),
       legendLabels: { ...params.legendLabels },
-      preparedBy: params.preparedBy
+      preparedBy: params.preparedBy,
+      // v0.28.0: omit the key entirely when there is no override, so the
+      // snapshot records "drawn at the real date" rather than an empty string.
+      ...(params.todayDateOverride ? { todayDateOverride: params.todayDateOverride } : {})
     };
 
     const result = await storage.addSnapshot(snapshot);

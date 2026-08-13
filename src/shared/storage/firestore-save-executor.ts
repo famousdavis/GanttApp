@@ -39,6 +39,10 @@ export function settingsChanged(prev: AppData | null, curr: AppData): boolean {
     prev.activePreset !== curr.activePreset ||
     JSON.stringify(prev.legendLabels) !== JSON.stringify(curr.legendLabels) ||
     prev.showTodayLine !== curr.showTodayLine ||
+    // v0.28.0 — without this, changing the status date alone never reaches
+    // Firestore (same silent-write-skip class as v12.5 reorder, v15.0 workDays,
+    // v16.0 status, v16.1 legendLabels). Regression-tested.
+    prev.todayDateOverride !== curr.todayDateOverride ||
     prev.showFinishDateLine !== curr.showFinishDateLine ||
     prev.showMostLikelyLine !== curr.showMostLikelyLine ||
     prev.showMonths !== curr.showMonths ||

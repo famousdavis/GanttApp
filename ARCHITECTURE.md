@@ -231,6 +231,12 @@ interface Snapshot {
   chartColors?: ChartColors;
   legendLabels?: { solidBar?: string; hatchedBar?: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };  // v16.2: all fields optional
   preparedBy?: string;
+  // v0.28.0 — frozen status date. UNLIKE every other frozen field above, this one
+  // deliberately has NO fallback to the live value in useEffectiveChartProps: a
+  // snapshot saved without an override must keep drawing at the real current date,
+  // and pre-v0.28.0 snapshots must not inherit an override chosen months later.
+  // `?? live.todayDateOverride` here would rewrite history on every view.
+  todayDateOverride?: string;
 }
 
 // Chart color customization
@@ -279,6 +285,15 @@ interface AppData {
   // handleSaveSnapshot). First-time users have no legendLabels entries in storage at all —
   // the field is stripped by AppDataContext when the payload is empty.
   showTodayLine?: boolean;        // v8.0 (persisted, was transient)
+  // v0.28.0 — status-date override: the date the "today" line is drawn at.
+  // Absent = the real current date (pre-v0.28.0 behaviour). Surfaced in the UI as
+  // the "Status Date"; the legend switches wording when set so the chart never
+  // labels a future date as today. Does NOT affect "Date Prepared", which is
+  // computed separately from getTodayFormatted() and always reports the real date.
+  // Stripped from the payload by AppDataContext when empty (field-deletion via
+  // the full set() in appDataToUserSettings) — note that `...data` in the save
+  // effect carries the previous value, so clearing requires an explicit delete.
+  todayDateOverride?: string;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;   // v8.0
   chartDisplaySettings?: ChartDisplaySettings;

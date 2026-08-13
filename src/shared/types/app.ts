@@ -20,6 +20,14 @@ export interface AppData {
     inProgress?: string;
   };
   showTodayLine?: boolean;
+  /**
+   * Optional override for the date the "today" line is drawn at (v0.28.0).
+   * Absent/empty = draw at the real current date (the pre-v0.28.0 behavior).
+   * Surfaced in the UI as the "Status Date" (the MS Project / PMBOK term) —
+   * set when a chart is prepared ahead of the review it will be presented at.
+   * Does NOT affect "Date Prepared", which always reports the real date.
+   */
+  todayDateOverride?: string;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;
   showMonths?: boolean;

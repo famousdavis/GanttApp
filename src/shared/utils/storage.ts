@@ -103,6 +103,12 @@ export function validateLoadedData(data: unknown): AppData | null {
     result.showMonths = d.showMonths;
   }
 
+  // Validate optional status-date override (v0.28.0). An out-of-range or
+  // malformed value is dropped, not clamped — absent means "use the real date".
+  if (typeof d.todayDateOverride === 'string' && isValidDateFormat(d.todayDateOverride)) {
+    result.todayDateOverride = d.todayDateOverride;
+  }
+
   // Validate optional prepared by
   if (typeof d.preparedBy === 'string') {
     result.preparedBy = sanitizeString(d.preparedBy, 100);

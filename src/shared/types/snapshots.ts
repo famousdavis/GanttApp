@@ -22,4 +22,11 @@ export interface Snapshot {
     inProgress?: string;
   };
   preparedBy?: string;          // Frozen preparedBy value
+  /**
+   * Frozen status-date override (v0.28.0). Deliberately has NO fallback to the
+   * live value when absent: a snapshot taken with no override must keep showing
+   * the real current date forever, and pre-v0.28.0 snapshots must not inherit a
+   * status date set months later. See useEffectiveChartProps.
+   */
+  todayDateOverride?: string;
 }

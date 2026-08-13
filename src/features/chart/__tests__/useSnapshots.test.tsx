@@ -236,6 +236,46 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots[0].name).toBe('My Snapshot');
   });
 
+  // v0.28.0 — the status date is frozen into the snapshot so a historical plan
+  // keeps drawing its line where it was captured.
+  it('freezes the status date onto the snapshot', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('Sprint Review');
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await act(async () => {
+      await result.current.saveSnapshot({
+        releases: [],
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
+        legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
+        preparedBy: 'William',
+        todayDateOverride: '2026-08-19'
+      });
+    });
+
+    expect(result.current.snapshots[0].todayDateOverride).toBe('2026-08-19');
+  });
+
+  it('omits the status date key entirely when no override is set', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('No Status Date');
+
+    const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
+
+    await act(async () => {
+      await result.current.saveSnapshot({
+        releases: [],
+        chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
+        legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
+        preparedBy: 'William',
+        todayDateOverride: ''
+      });
+    });
+
+    // Recorded as "drawn at the real date", not as an empty string.
+    expect(result.current.snapshots[0].todayDateOverride).toBeUndefined();
+    expect('todayDateOverride' in result.current.snapshots[0]).toBe(false);
+  });
+
   it('does not save snapshot when user cancels prompt', async () => {
     vi.spyOn(window, 'prompt').mockReturnValue(null);
 

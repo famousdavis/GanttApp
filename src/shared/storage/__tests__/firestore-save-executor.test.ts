@@ -147,6 +147,30 @@ describe('firestore-save-executor', () => {
       expect(settingsChanged(base, { ...base, preparedBy: 'Bob' })).toBe(true);
     });
 
+    // v0.28.0 regression guard. Without the todayDateOverride comparison in
+    // settingsChanged, setting a status date is a no-op for cloud users: it
+    // saves locally, never writes to Firestore, and is gone on reload. Same
+    // silent-write-skip class as v12.5 reorder / v15.0 workDays / v16.1
+    // legendLabels. Do NOT delete these three tests.
+    it('detects todayDateOverride being set', () => {
+      expect(settingsChanged(base, { ...base, todayDateOverride: '2026-08-19' })).toBe(true);
+    });
+
+    it('detects todayDateOverride being cleared', () => {
+      const withOverride = { ...base, todayDateOverride: '2026-08-19' };
+      expect(settingsChanged(withOverride, { ...base, todayDateOverride: undefined })).toBe(true);
+    });
+
+    it('detects todayDateOverride being changed to a different date', () => {
+      const withOverride = { ...base, todayDateOverride: '2026-08-19' };
+      expect(settingsChanged(withOverride, { ...withOverride, todayDateOverride: '2026-08-26' })).toBe(true);
+    });
+
+    it('returns false when todayDateOverride is identical', () => {
+      const withOverride = { ...base, todayDateOverride: '2026-08-19' };
+      expect(settingsChanged(withOverride, { ...withOverride })).toBe(false);
+    });
+
     it('detects exportAttribution change', () => {
       expect(settingsChanged(base, {
         ...base, exportAttribution: { name: 'Alice', identifier: 'team-1' },

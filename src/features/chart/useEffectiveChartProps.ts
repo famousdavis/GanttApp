@@ -16,6 +16,7 @@ interface LiveChartData {
   labels: { solidBar: string; hatchedBar: string; finishDateLine: string; mostLikelyLine: string; inProgress: string };
   preparedBy: string;
   finishDate?: string;
+  todayDateOverride?: string;
 }
 
 interface EffectiveChartProps {
@@ -24,6 +25,7 @@ interface EffectiveChartProps {
   labels: { solidBar: string; hatchedBar: string; finishDateLine?: string; mostLikelyLine?: string; inProgress?: string };
   preparedBy: string;
   finishDate?: string;
+  todayDateOverride?: string;
   datePreparedOverride?: string;
 }
 
@@ -49,7 +51,8 @@ export function useEffectiveChartProps(
         colors: live.chartColors,
         labels: mergedLabels,
         preparedBy: live.preparedBy,
-        finishDate: live.finishDate
+        finishDate: live.finishDate,
+        todayDateOverride: live.todayDateOverride
       };
     }
 
@@ -65,9 +68,14 @@ export function useEffectiveChartProps(
         : mergedLabels,
       preparedBy: activeSnapshot.preparedBy ?? live.preparedBy,
       finishDate: activeSnapshot.projectFinishDate ?? live.finishDate,
+      // v0.28.0 — deliberately NO `?? live.todayDateOverride`. A snapshot taken
+      // with no status date must keep drawing the today line at the real current
+      // date, and a pre-v0.28.0 snapshot must not inherit an override set later.
+      // Falling through to the live value would rewrite history on every view.
+      todayDateOverride: activeSnapshot.todayDateOverride,
       datePreparedOverride: new Date(activeSnapshot.timestamp).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
       })
     };
-  }, [activeSnapshot, live.releases, live.chartColors, live.labels, live.preparedBy, live.finishDate, projectLegendLabels]);
+  }, [activeSnapshot, live.releases, live.chartColors, live.labels, live.preparedBy, live.finishDate, live.todayDateOverride, projectLegendLabels]);
 }

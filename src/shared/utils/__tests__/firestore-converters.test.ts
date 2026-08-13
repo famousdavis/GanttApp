@@ -609,4 +609,75 @@ describe('firestore-converters', () => {
       expect(partial.globalWorkDays).toBeUndefined();
     });
   });
+
+  // --- status date override (v0.28.0) ---
+
+  describe('todayDateOverride — user settings (v0.28.0)', () => {
+    it('includes the override when set', () => {
+      const data: AppData = { projects: [], releases: [], todayDateOverride: '2026-08-19' };
+      expect(appDataToUserSettings(data).todayDateOverride).toBe('2026-08-19');
+    });
+
+    it('omits the override when unset or empty', () => {
+      expect(appDataToUserSettings({ projects: [], releases: [] }).todayDateOverride).toBeUndefined();
+      expect(appDataToUserSettings({ projects: [], releases: [], todayDateOverride: '' }).todayDateOverride).toBeUndefined();
+    });
+
+    it('reads the override back from Firestore', () => {
+      const settings = { todayDateOverride: '2026-08-19' } as FirestoreUserSettings;
+      expect(userSettingsToAppData(settings).todayDateOverride).toBe('2026-08-19');
+    });
+
+    it('drops an invalid override coming back from Firestore', () => {
+      for (const bad of ['08/19/2026', '2026-02-30', '1999-01-01']) {
+        const settings = { todayDateOverride: bad } as FirestoreUserSettings;
+        expect(userSettingsToAppData(settings).todayDateOverride).toBeUndefined();
+      }
+    });
+
+    it('round-trips through both converters', () => {
+      const data: AppData = { projects: [], releases: [], todayDateOverride: '2026-12-01' };
+      const back = userSettingsToAppData(appDataToUserSettings(data));
+      expect(back.todayDateOverride).toBe('2026-12-01');
+    });
+  });
+
+  describe('todayDateOverride — snapshots (v0.28.0)', () => {
+    const baseSnapshot: Snapshot = {
+      id: 'snap1', projectId: 'p1', name: 'Sprint 1',
+      timestamp: '2026-02-15T10:00:00.000Z', releases: [],
+    };
+
+    it('freezes the override onto the Firestore snapshot', () => {
+      const result = snapshotToFirestore({ ...baseSnapshot, todayDateOverride: '2026-02-15' });
+      expect(result.todayDateOverride).toBe('2026-02-15');
+    });
+
+    it('omits the override for a snapshot saved without one', () => {
+      expect(snapshotToFirestore(baseSnapshot).todayDateOverride).toBeUndefined();
+    });
+
+    it('reads a frozen override back', () => {
+      const snap = firestoreSnapshotToFlat('snap1', 'p1', {
+        name: 'Sprint 1', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
+        todayDateOverride: '2026-02-15',
+      });
+      expect(snap.todayDateOverride).toBe('2026-02-15');
+    });
+
+    it('drops an invalid frozen override', () => {
+      const snap = firestoreSnapshotToFlat('snap1', 'p1', {
+        name: 'Sprint 1', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
+        todayDateOverride: 'not-a-date',
+      });
+      expect(snap.todayDateOverride).toBeUndefined();
+    });
+
+    it('leaves a pre-v0.28.0 snapshot document without the field', () => {
+      const snap = firestoreSnapshotToFlat('snap1', 'p1', {
+        name: 'Legacy', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
+      });
+      expect(snap.todayDateOverride).toBeUndefined();
+    });
+  });
 });

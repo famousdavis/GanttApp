@@ -121,6 +121,87 @@ describe('useChartCalculations', () => {
       expect(result.current.dateInfo.todayX).toBeNull();
     });
 
+    // v0.28.0 — status-date override
+    describe('todayDateOverride (v0.28.0)', () => {
+      const releases = [makeRelease({ startDate: '2026-01-01', lateFinishDate: '2026-06-01' })];
+
+      it('draws the line at the override instead of the real date', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 2, 15)); // March 15, 2026
+
+        const { result: real } = renderHook(() => useChartCalculations(releases, defaultSettings));
+        const { result: overridden } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '2026-05-20')
+        );
+
+        expect(real.current.dateInfo.todayDateString).toBe('2026-03-15');
+        expect(overridden.current.dateInfo.todayDateString).toBe('2026-05-20');
+        expect(overridden.current.dateInfo.todayX).not.toBe(real.current.dateInfo.todayX);
+      });
+
+      it('positions the line exactly where the same date maps on the axis', () => {
+        const { result } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '2026-05-20')
+        );
+
+        expect(result.current.dateInfo.todayX).toBeCloseTo(result.current.dateToX('2026-05-20'), 5);
+      });
+
+      it('falls back to the real date when the override is empty', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 2, 15));
+
+        const { result } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '')
+        );
+
+        expect(result.current.dateInfo.todayDateString).toBe('2026-03-15');
+      });
+
+      it('falls back to the real date when the override is malformed or out of the allowed year range', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 2, 15));
+
+        for (const bad of ['not-a-date', '2026-02-30', '1999-05-20', '2051-01-01']) {
+          const { result } = renderHook(() =>
+            useChartCalculations(releases, defaultSettings, undefined, false, bad)
+          );
+          expect(result.current.dateInfo.todayDateString).toBe('2026-03-15');
+          expect(Number.isNaN(result.current.dateInfo.todayX ?? 0)).toBe(false);
+        }
+      });
+
+      it('hides the line when the override falls after the last release', () => {
+        const { result } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '2026-09-01')
+        );
+
+        expect(result.current.dateInfo.todayInRange).toBe(false);
+        expect(result.current.dateInfo.todayX).toBeNull();
+      });
+
+      it('hides the line when the override falls before the first release', () => {
+        const { result } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '2025-01-01')
+        );
+
+        expect(result.current.dateInfo.todayInRange).toBe(false);
+        expect(result.current.dateInfo.todayX).toBeNull();
+      });
+
+      it('shows the line for an override inside the range even when the real date is outside it', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2027, 0, 1)); // real date is past the chart
+
+        const { result } = renderHook(() =>
+          useChartCalculations(releases, defaultSettings, undefined, false, '2026-04-01')
+        );
+
+        expect(result.current.dateInfo.todayInRange).toBe(true);
+        expect(result.current.dateInfo.todayX).not.toBeNull();
+      });
+    });
+
     it('includes quarter boundaries within the date range', () => {
       const releases = [makeRelease({ startDate: '2026-01-01', lateFinishDate: '2026-12-31' })];
       const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));

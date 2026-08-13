@@ -63,6 +63,7 @@ export interface FirestoreSnapshot {
     inProgress?: string;
   };
   preparedBy?: string;
+  todayDateOverride?: string;           // Frozen status-date override (v0.28.0)
 }
 
 export interface FirestoreUserProfile {
@@ -99,6 +100,7 @@ export interface FirestoreUserSettings {
     inProgress?: string;
   };
   showTodayLine?: boolean;
+  todayDateOverride?: string;           // Optional status-date override (v0.28.0)
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;
   showMonths?: boolean;

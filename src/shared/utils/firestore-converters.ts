@@ -19,6 +19,7 @@ import {
 import {
   sanitizeId,
   sanitizeString,
+  isValidDateFormat,
   sanitizeWorkDays,
   sanitizeProjectLegendLabels,
   migrateReleaseStatus,
@@ -77,6 +78,7 @@ export function appDataToUserSettings(data: AppData): FirestoreUserSettings {
     ...(data.activePreset && { activePreset: data.activePreset }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),
     ...(data.showTodayLine !== undefined && { showTodayLine: data.showTodayLine }),
+    ...(data.todayDateOverride && { todayDateOverride: data.todayDateOverride }),
     ...(data.showFinishDateLine !== undefined && { showFinishDateLine: data.showFinishDateLine }),
     ...(data.showMostLikelyLine !== undefined && { showMostLikelyLine: data.showMostLikelyLine }),
     ...(data.showMonths !== undefined && { showMonths: data.showMonths }),
@@ -98,6 +100,7 @@ export function snapshotToFirestore(snapshot: Snapshot): FirestoreSnapshot {
     ...(snapshot.chartColors && { chartColors: snapshot.chartColors }),
     ...(snapshot.legendLabels && { legendLabels: snapshot.legendLabels }),
     ...(snapshot.preparedBy !== undefined && { preparedBy: snapshot.preparedBy }),
+    ...(snapshot.todayDateOverride && { todayDateOverride: snapshot.todayDateOverride }),
   };
 }
 
@@ -160,6 +163,7 @@ export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<
     ...(settings.activePreset && { activePreset: settings.activePreset }),
     ...(settings.legendLabels && { legendLabels: settings.legendLabels }),
     ...(settings.showTodayLine !== undefined && { showTodayLine: settings.showTodayLine }),
+    ...(settings.todayDateOverride && isValidDateFormat(settings.todayDateOverride) && { todayDateOverride: settings.todayDateOverride }),
     ...(settings.showFinishDateLine !== undefined && { showFinishDateLine: settings.showFinishDateLine }),
     ...(settings.showMostLikelyLine !== undefined && { showMostLikelyLine: settings.showMostLikelyLine }),
     ...(settings.showMonths !== undefined && { showMonths: settings.showMonths }),
@@ -202,6 +206,7 @@ export function firestoreSnapshotToFlat(
     ...(data.chartColors && { chartColors: sanitizeChartColors(data.chartColors) }),
     ...(data.legendLabels && { legendLabels: data.legendLabels }),
     ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
+    ...(data.todayDateOverride && isValidDateFormat(data.todayDateOverride) && { todayDateOverride: data.todayDateOverride }),
   };
 }
 

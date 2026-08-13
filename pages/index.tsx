@@ -43,6 +43,8 @@ function AppContent() {
     finishDateLabel,
     showTodayLine,
     setShowTodayLine,
+    todayDateOverride,
+    setTodayDateOverride,
     showFinishDateLine,
     setShowFinishDateLine,
     showColorSettings,
@@ -161,7 +163,8 @@ function AppContent() {
       inProgress: inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
     },
     preparedBy,
-    finishDate: selectedProject?.finishDate
+    finishDate: selectedProject?.finishDate,
+    todayDateOverride: todayDateOverride || undefined
   }, selectedProject?.legendLabels);
 
   // v16.1: clear a single per-project legend label override (↺ button handler)
@@ -201,9 +204,12 @@ function AppContent() {
         mostLikelyLine: resolveLabel('mostLikelyLine', projectLabels, mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine),
         inProgress: resolveLabel('inProgress', projectLabels, inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress),
       },
-      preparedBy
+      preparedBy,
+      // v0.28.0: freeze the status date so a snapshot keeps rendering the line
+      // where it was when the plan was captured.
+      todayDateOverride
     });
-  }, [snapshotState, visibleReleases, selectedProject?.finishDate, selectedProject?.legendLabels, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy]);
+  }, [snapshotState, visibleReleases, selectedProject?.finishDate, selectedProject?.legendLabels, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy, todayDateOverride]);
 
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'settings', 'about'], []);
@@ -355,6 +361,8 @@ function AppContent() {
                 setShowColorSettings,
                 showTodayLine,
                 setShowTodayLine,
+                liveTodayDateOverride: todayDateOverride,
+                setTodayDateOverride,
                 showFinishDateLine,
                 setShowFinishDateLine,
                 preparedBy: effective.preparedBy,
@@ -369,6 +377,7 @@ function AppContent() {
               projectLegendLabels={selectedProject?.legendLabels}
               onClearProjectLabelOverride={handleClearProjectLabelOverride}
               workDays={getEffectiveWorkDays(selectedProject, globalWorkDays)}
+              todayDateOverride={effective.todayDateOverride}
             />
           )}
 

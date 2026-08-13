@@ -15,6 +15,48 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.0',
+    date: 'August 12, 2026',
+    items: [
+      <>
+        <strong>Added</strong> &mdash; you can now choose the date the &ldquo;today&rdquo; line is
+        drawn at. A date box sits beside the Show Today&rsquo;s Date toggle in Chart Settings.
+        Leave it empty and nothing changes. Put a date in it &mdash; an upcoming sprint review,
+        say &mdash; and the line moves there, with that date printed above it. Useful when a
+        chart is prepared days before it is presented.
+      </>,
+      <>
+        <strong>Unchanged</strong> &mdash; Date Prepared still reports the real date the chart was
+        made. The two are separate on purpose: one says when the chart was drawn, the other says
+        what point in the plan it describes.
+      </>,
+      <>
+        <strong>Changed</strong> &mdash; with a date chosen, the legend reads &ldquo;Status
+        Date&rdquo; rather than &ldquo;Today&rsquo;s Date&rdquo;, so a chart never shows a future
+        date labelled as today next to a Date Prepared showing the real one. With no date chosen
+        the legend is unchanged.
+      </>,
+      <>
+        <strong>Added</strong> &mdash; a note appears if the chosen date falls outside the span the
+        chart covers, where no line can be drawn. Previously such a date would simply vanish with
+        no explanation.
+      </>,
+      <>
+        <strong>Added</strong> &mdash; snapshots freeze the status date they were saved with and go
+        on drawing the line where it was when the plan was captured. Older snapshots, and any saved
+        without a status date, still draw at the real current date &mdash; they never inherit a date
+        chosen later.
+      </>,
+      <>
+        <strong>Fixed</strong> &mdash; emptying <em>all five</em> boxes under Settings &rarr; Default
+        Legend Labels now restores the default names. Previously the old names were written back over
+        the top and reappeared on the next reload; clearing only some of them always worked. A saving
+        rule could add a setting but never remove one. Dating from v16.2, and found because the new
+        status date would have had the same flaw.
+      </>,
+    ],
+  },
+  {
     version: '0.27.21',
     date: 'August 4, 2026',
     items: [

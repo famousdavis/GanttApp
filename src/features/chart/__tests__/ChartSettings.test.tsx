@@ -18,6 +18,9 @@ describe('ChartSettings', () => {
     setShowColorSettings: vi.fn(),
     showTodayLine: false,
     setShowTodayLine: vi.fn(),
+    todayDateOverride: '',
+    setTodayDateOverride: vi.fn(),
+    statusDateOutOfRange: false,
     showFinishDateLine: false,
     setShowFinishDateLine: vi.fn(),
     hasProjectFinishDate: false,
@@ -122,6 +125,101 @@ describe('ChartSettings', () => {
     // v0.27.0 (Pass 4, A3): useBufferedField commits on blur, not on change.
     fireEvent.blur(input);
     expect(setPrepared).toHaveBeenCalledWith('Jane');
+  });
+
+  // v0.28.0 — status date input
+  describe('status date (v0.28.0)', () => {
+    const statusDateInput = () => screen.getByLabelText(/Status date/i);
+
+    it('renders the status date input next to the today-line toggle', () => {
+      renderWithTheme(<ChartSettings {...defaultProps} showColorSettings={true} />);
+
+      expect(statusDateInput()).toBeInTheDocument();
+      expect(statusDateInput()).toHaveAttribute('type', 'date');
+      expect(statusDateInput()).toHaveAttribute('min', '2000-01-01');
+      expect(statusDateInput()).toHaveAttribute('max', '2050-12-31');
+    });
+
+    it('shows the current override as its value', () => {
+      renderWithTheme(
+        <ChartSettings {...defaultProps} showColorSettings={true} todayDateOverride="2026-08-19" />
+      );
+
+      expect(statusDateInput()).toHaveValue('2026-08-19');
+    });
+
+    it('commits a valid date on blur', () => {
+      const setOverride = vi.fn();
+      renderWithTheme(
+        <ChartSettings {...defaultProps} showColorSettings={true} setTodayDateOverride={setOverride} />
+      );
+
+      fireEvent.change(statusDateInput(), { target: { value: '2026-08-19' } });
+      fireEvent.blur(statusDateInput());
+      expect(setOverride).toHaveBeenCalledWith('2026-08-19');
+    });
+
+    it('commits an empty value to clear the override', () => {
+      const setOverride = vi.fn();
+      renderWithTheme(
+        <ChartSettings
+          {...defaultProps}
+          showColorSettings={true}
+          todayDateOverride="2026-08-19"
+          setTodayDateOverride={setOverride}
+        />
+      );
+
+      fireEvent.change(statusDateInput(), { target: { value: '' } });
+      fireEvent.blur(statusDateInput());
+      expect(setOverride).toHaveBeenCalledWith('');
+    });
+
+    it('clears rather than storing an out-of-range date', () => {
+      const setOverride = vi.fn();
+      renderWithTheme(
+        <ChartSettings {...defaultProps} showColorSettings={true} setTodayDateOverride={setOverride} />
+      );
+
+      fireEvent.change(statusDateInput(), { target: { value: '1999-01-01' } });
+      fireEvent.blur(statusDateInput());
+      expect(setOverride).toHaveBeenCalledWith('');
+    });
+
+    it('warns while the typed date is not a usable date', () => {
+      renderWithTheme(<ChartSettings {...defaultProps} showColorSettings={true} />);
+
+      fireEvent.change(statusDateInput(), { target: { value: '1999-01-01' } });
+      expect(screen.getByText(/between 2000-01-01 and 2050-12-31/)).toBeInTheDocument();
+    });
+
+    it('shows no warning for a valid date', () => {
+      renderWithTheme(<ChartSettings {...defaultProps} showColorSettings={true} />);
+
+      fireEvent.change(statusDateInput(), { target: { value: '2026-08-19' } });
+      expect(screen.queryByText(/between 2000-01-01 and 2050-12-31/)).not.toBeInTheDocument();
+    });
+
+    it('warns when the status date falls outside the chart range', () => {
+      renderWithTheme(
+        <ChartSettings
+          {...defaultProps}
+          showColorSettings={true}
+          todayDateOverride="2030-01-01"
+          statusDateOutOfRange={true}
+        />
+      );
+
+      expect(screen.getByText(/outside the chart's date range/)).toBeInTheDocument();
+    });
+
+    it('shows no range warning when the status date is inside the chart range', () => {
+      renderWithTheme(
+        <ChartSettings {...defaultProps} showColorSettings={true} todayDateOverride="2026-08-19" />
+      );
+
+      expect(screen.queryByText(/outside the chart's date range/)).not.toBeInTheDocument();
+    });
   });
 
   it('renders color presets when expanded', () => {

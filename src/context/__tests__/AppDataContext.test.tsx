@@ -9,6 +9,7 @@ import { AppDataProvider, useAppData } from '../AppDataContext';
 import { StorageProvider } from '../StorageContext';
 import { AuthProvider } from '../AuthContext';
 import { AppData } from '../../shared/types/app';
+import { DEFAULT_WORK_DAYS } from '../../shared/utils/validation';
 
 // Mock firebase modules
 vi.mock('../../lib/firebase', () => ({
@@ -217,6 +218,161 @@ describe('AppDataContext', () => {
       expect(result.current.showTodayLine).toBe(false);
       expect(result.current.showFinishDateLine).toBe(false);
       expect(result.current.showColorSettings).toBe(true);
+    });
+  });
+
+  // v0.28.0 — status date override
+  describe('todayDateOverride', () => {
+    it('defaults to empty (line drawn at the real date)', () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      expect(result.current.todayDateOverride).toBe('');
+    });
+
+    it('persists a status date to localStorage', async () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.setTodayDateOverride('2026-08-19');
+      });
+
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.todayDateOverride).toBe('2026-08-19');
+      });
+    });
+
+    it('strips the field from storage when the override is cleared', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify({
+        projects: [], releases: [], todayDateOverride: '2026-08-19',
+      }));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.todayDateOverride).toBe('2026-08-19'));
+
+      act(() => {
+        result.current.setTodayDateOverride('');
+      });
+
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.todayDateOverride).toBeUndefined();
+      });
+    });
+
+    it('hydrates a stored status date on mount', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify({
+        projects: [], releases: [], todayDateOverride: '2026-12-01',
+      }));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => expect(result.current.todayDateOverride).toBe('2026-12-01'));
+    });
+
+    it('is cleared by clearAllData (sign-out must not leak it to the next user)', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify({
+        projects: [], releases: [], todayDateOverride: '2026-08-19',
+      }));
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.todayDateOverride).toBe('2026-08-19'));
+
+      act(() => {
+        result.current.clearAllData();
+      });
+
+      expect(result.current.todayDateOverride).toBe('');
+    });
+  });
+
+  // A conditional spread can ADD a field but never REMOVE one, because `...data`
+  // in the save effect re-supplies whatever was loaded from storage. legendLabels
+  // carried that bug from v16.2 until v0.28.0 — clearing every custom label wrote
+  // the old labels straight back and they reappeared on the next reload.
+  describe('clearing conditionally-spread fields (v0.28.0)', () => {
+    const seedLabels = (legendLabels: Record<string, string>) =>
+      localStorage.setItem('ganttAppData', JSON.stringify({ projects: [], releases: [], legendLabels }));
+
+    const storedLabels = () => JSON.parse(localStorage.getItem('ganttAppData')!).legendLabels;
+
+    it('strips legendLabels entirely when every custom label is cleared', async () => {
+      seedLabels({ solidBar: 'Custom Solid', hatchedBar: 'Custom Hatched' });
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.solidBarLabel).toBe('Custom Solid'));
+
+      act(() => {
+        result.current.setSolidBarLabel('');
+        result.current.setHatchedBarLabel('');
+      });
+
+      await waitFor(() => expect(storedLabels()).toBeUndefined());
+    });
+
+    it('strips legendLabels when all five labels are cleared', async () => {
+      seedLabels({
+        solidBar: 'A', hatchedBar: 'B', finishDateLine: 'C', mostLikelyLine: 'D', inProgress: 'E',
+      });
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.inProgressLabel).toBe('E'));
+
+      act(() => {
+        result.current.setSolidBarLabel('');
+        result.current.setHatchedBarLabel('');
+        result.current.setFinishDateLabel('');
+        result.current.setMostLikelyLineLabel('');
+        result.current.setInProgressLabel('');
+      });
+
+      await waitFor(() => expect(storedLabels()).toBeUndefined());
+    });
+
+    it('keeps the remaining labels when only some are cleared', async () => {
+      seedLabels({ solidBar: 'Custom Solid', hatchedBar: 'Custom Hatched' });
+
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.solidBarLabel).toBe('Custom Solid'));
+
+      act(() => {
+        result.current.setSolidBarLabel('');
+      });
+
+      await waitFor(() => expect(storedLabels()).toEqual({ hatchedBar: 'Custom Hatched' }));
+    });
+
+    // Reachability audit from v0.28.0 — these two fields are spread the same way
+    // but cannot be emptied through the UI. If either assertion ever fails, the
+    // field has become clearable and needs an explicit delete like legendLabels.
+    it('globalWorkDays cannot be emptied — Reset writes the Mon–Fri default', async () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.setGlobalWorkDays([...DEFAULT_WORK_DAYS]);
+      });
+
+      await waitFor(() => {
+        expect(JSON.parse(localStorage.getItem('ganttAppData')!).globalWorkDays).toEqual([1, 2, 3, 4, 5]);
+      });
+    });
+
+    it('exportAttribution is always committed as a whole object, never undefined', async () => {
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // Mirrors ExportAttributionSection: clearing the visible text still commits
+      // an object, so the field never needs removing from the payload.
+      act(() => {
+        result.current.setExportAttribution({ name: '', identifier: '' });
+      });
+
+      await waitFor(() => {
+        expect(JSON.parse(localStorage.getItem('ganttAppData')!).exportAttribution)
+          .toEqual({ name: '', identifier: '' });
+      });
     });
   });
 

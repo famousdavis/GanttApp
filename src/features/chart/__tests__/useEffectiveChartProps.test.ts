@@ -99,6 +99,55 @@ describe('useEffectiveChartProps', () => {
     expect(result.current.datePreparedOverride).toContain('January');
   });
 
+  // v0.28.0 — the status date is frozen, and unlike colors/labels/preparedBy it
+  // deliberately does NOT fall back to the live value. These tests encode that
+  // asymmetry: a snapshot must keep rendering the line where it was captured.
+  describe('todayDateOverride (v0.28.0)', () => {
+    it('passes the live override through when no snapshot is active', () => {
+      const { result } = renderHook(() =>
+        useEffectiveChartProps(null, { ...liveData, todayDateOverride: '2026-02-10' }, undefined)
+      );
+
+      expect(result.current.todayDateOverride).toBe('2026-02-10');
+    });
+
+    it('uses the snapshot frozen override when a snapshot is active', () => {
+      const frozen: Snapshot = { ...mockSnapshot, todayDateOverride: '2026-01-15' };
+      const { result } = renderHook(() =>
+        useEffectiveChartProps(frozen, { ...liveData, todayDateOverride: '2026-08-19' }, undefined)
+      );
+
+      expect(result.current.todayDateOverride).toBe('2026-01-15');
+    });
+
+    it('does NOT inherit the live override for a snapshot saved without one', () => {
+      // Regression: `?? live.todayDateOverride` here would retroactively move the
+      // line on every historical snapshot each time the user picks a new status date.
+      const { result } = renderHook(() =>
+        useEffectiveChartProps(mockSnapshot, { ...liveData, todayDateOverride: '2026-08-19' }, undefined)
+      );
+
+      expect(result.current.todayDateOverride).toBeUndefined();
+    });
+
+    it('leaves pre-v0.28.0 snapshots drawing at the real date', () => {
+      const legacy = { ...mockSnapshot } as Snapshot;
+      delete (legacy as { todayDateOverride?: string }).todayDateOverride;
+
+      const { result } = renderHook(() =>
+        useEffectiveChartProps(legacy, { ...liveData, todayDateOverride: '2026-08-19' }, undefined)
+      );
+
+      expect(result.current.todayDateOverride).toBeUndefined();
+    });
+
+    it('is undefined when neither live nor snapshot sets one', () => {
+      const { result } = renderHook(() => useEffectiveChartProps(null, liveData, undefined));
+
+      expect(result.current.todayDateOverride).toBeUndefined();
+    });
+  });
+
   it('falls back to live chartColors when snapshot has none', () => {
     const snapshotWithoutColors: Snapshot = {
       ...mockSnapshot,

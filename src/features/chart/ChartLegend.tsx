@@ -18,6 +18,12 @@ interface ChartLegendProps {
   mostLikelyLineLabel: string;
   inProgressLabel: string;
   showTodayLine: boolean;
+  /**
+   * v0.28.0 — true when a status-date override is in effect. The line no longer
+   * marks today, so calling it "Today's Date" next to a real "Date Prepared"
+   * would contradict the chart. Falls back to "Today's Date" when unset.
+   */
+  isStatusDate?: boolean;
   showFinishDateLine: boolean;
   showMostLikelyLine: boolean;
   hasProjectFinishDate: boolean;
@@ -114,6 +120,7 @@ export function ChartLegend({
   mostLikelyLineLabel,
   inProgressLabel,
   showTodayLine,
+  isStatusDate,
   showFinishDateLine,
   showMostLikelyLine,
   hasProjectFinishDate,
@@ -263,7 +270,7 @@ export function ChartLegend({
             background: chartColors.todayLine,
             borderRadius: '2px'
           }}></div>
-          <span>Today&apos;s Date</span>
+          <span>{isStatusDate ? 'Status Date' : "Today's Date"}</span>
         </div>
       )}
 

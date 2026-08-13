@@ -1,5 +1,30 @@
 # Change Log
 
+## Version 0.28.0 (2026-08-12)
+### Added: you can choose the date the &ldquo;today&rdquo; line is drawn at
+
+The vertical line marking today has always been drawn at whatever date it actually is. That works when a chart is presented the day it is made. It does not work for the common case: a chart prepared several days before the sprint review it will be shown at, where the line ought to sit on the review date rather than on the day the work was done.
+
+Chart Settings now has a date box beside the **Show Today&rsquo;s Date** toggle. Leave it empty and nothing changes &mdash; the line is drawn at today, exactly as before. Put a date in it and the line moves there, correctly positioned against the timeline, with that date printed above it. The idea is a standard one; other planning tools call it the status date, and project-management practice calls it the data date.
+
+**Date Prepared is deliberately untouched.** It continues to report the real date the chart was made. The two are separate on purpose: one says when the chart was drawn, the other says what point in the plan it is describing.
+
+**The legend stops calling it today when it isn&rsquo;t.** With a date chosen, the legend entry reads &ldquo;Status Date&rdquo; instead of &ldquo;Today&rsquo;s Date&rdquo;. Without that, a chart handed to someone else would show a date a week in the future labelled as today, sitting next to a Date Prepared showing the real date &mdash; a chart that contradicts itself in front of the people it is meant to convince. With no date chosen the legend reads &ldquo;Today&rsquo;s Date&rdquo; as it always has.
+
+**A date the chart cannot show now says so.** The line is only drawn if the date falls inside the span the chart covers, which has always been true of today as well. A date the user typed on purpose vanishing without explanation reads as a broken feature, so a note now appears under the setting explaining that the date sits outside the chart&rsquo;s range and no line will be drawn. A date outside the years the app accepts is refused the same way rather than being silently ignored.
+
+**Snapshots freeze the date they were taken with.** A saved snapshot keeps its own status date and goes on drawing the line where it was when the plan was captured, no matter what date is chosen later. Snapshots saved before this release, and any saved without a status date, continue to draw at the real current date &mdash; they do not inherit a date chosen afterwards. A historical record that quietly rewrote itself every time the setting changed would be worth nothing.
+
+The setting is per user, not per project, and is saved in both local and cloud storage as well as through export and import. In cloud mode it syncs like every other chart setting.
+
+### Fixed: clearing every custom legend label now actually clears them
+
+Separate, older bug found while building the above. The five legend labels under Settings &rarr; Default Legend Labels can be renamed, and emptying a box is meant to restore that label&rsquo;s default. Emptying **all five** did not work: the old names were written straight back over the top and reappeared on the next reload. Clearing some but not all was unaffected, so the failure only showed up for anyone trying to reset the lot.
+
+The cause was a saving rule that could add a setting but never remove one &mdash; when nothing was left to save, the previous values were kept instead of being dropped. The status-date setting added in this release would have had exactly the same flaw, which is how the older one came to light. Both now clear properly.
+
+This dates from v16.2 (April 2026). The two other settings saved the same way &mdash; the work week and the export attribution &mdash; were checked and cannot be emptied through the app, so neither was affected.
+
 ## Version 0.27.21 (2026-08-04)
 ### Fixed: the page carries its name before the app finishes loading
 

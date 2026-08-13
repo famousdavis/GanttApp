@@ -8,7 +8,7 @@ import { ChartColors, ChartDisplaySettings } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup } from '../../shared/components/ColorPickers';
 import { COLOR_PRESETS } from '../../shared/utils/colors';
-import { sanitizeString } from '../../shared/utils/validation';
+import { sanitizeString, isValidDateFormat } from '../../shared/utils/validation';
 import { useBufferedField } from '../../shared/hooks';
 
 interface ChartSettingsProps {
@@ -16,6 +16,11 @@ interface ChartSettingsProps {
   setShowColorSettings: (show: boolean) => void;
   showTodayLine: boolean;
   setShowTodayLine: (show: boolean) => void;
+  /** v0.28.0 — status-date override ('' = draw the line at the real date). */
+  todayDateOverride: string;
+  setTodayDateOverride: (date: string) => void;
+  /** True when the committed status date sits outside the chart's date span. */
+  statusDateOutOfRange: boolean;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
   showMostLikelyLine: boolean;
@@ -40,6 +45,9 @@ export function ChartSettings({
   setShowColorSettings,
   showTodayLine,
   setShowTodayLine,
+  todayDateOverride,
+  setTodayDateOverride,
+  statusDateOutOfRange,
   showFinishDateLine,
   setShowFinishDateLine,
   showMostLikelyLine,
@@ -69,6 +77,19 @@ export function ChartSettings({
     sanitize: (v) => sanitizeString(v, 100),
   });
 
+  // v0.28.0 — status date. Buffered for the same reason as Prepared By, and
+  // because a date input fires onChange for each completed segment while the
+  // user types a year ("0002-…", "0020-…"): committing per keystroke would
+  // fight the typing. A committed value is either a valid date or ''; anything
+  // else clears the override, having warned via the hint below.
+  const statusDateField = useBufferedField({
+    storeValue: todayDateOverride,
+    onCommit: setTodayDateOverride,
+    sanitize: (v) => (v === '' || isValidDateFormat(v) ? v : ''),
+  });
+
+  const statusDateDraftInvalid = statusDateField.draft !== '' && !isValidDateFormat(statusDateField.draft);
+
   return (
     <div style={{ marginTop: '2rem' }}>
       <h3
@@ -89,16 +110,41 @@ export function ChartSettings({
           {/* Toggle Settings */}
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', gap: '2rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input
+                    name="showTodayLine"
+                    type="checkbox"
+                    checked={showTodayLine}
+                    onChange={(e) => setShowTodayLine(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Show Today&apos;s Date</span>
+                </label>
                 <input
-                  name="showTodayLine"
-                  type="checkbox"
-                  checked={showTodayLine}
-                  onChange={(e) => setShowTodayLine(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
+                  name="todayDateOverride"
+                  aria-label="Status date — leave blank to use today's date"
+                  title="Draw the line at a date other than today (e.g. an upcoming sprint review). Leave blank to use today. Date Prepared is unaffected."
+                  type="date"
+                  className={statusDateField.draft ? 'has-value' : ''}
+                  value={statusDateField.draft}
+                  onChange={statusDateField.handleChange}
+                  onFocus={statusDateField.handleFocus}
+                  onBlur={statusDateField.handleBlur}
+                  onKeyDown={statusDateField.handleKeyDown}
+                  min="2000-01-01"
+                  max="2050-12-31"
+                  style={{
+                    padding: '0.3rem 0.5rem',
+                    border: `1px solid ${statusDateDraftInvalid ? '#dc2626' : colors.inputBorder}`,
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    background: colors.inputBg,
+                    color: colors.text,
+                    width: '150px'
+                  }}
                 />
-                <span>Show Today&apos;s Date</span>
-              </label>
+              </div>
               {hasProjectFinishDate && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input
@@ -168,6 +214,19 @@ export function ChartSettings({
                 />
               </div>
             </div>
+
+            {/* v0.28.0 — status-date feedback. An invalid or out-of-range date
+                draws no line at all; without this the field reads as broken. */}
+            {statusDateDraftInvalid && (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#dc2626' }}>
+                Enter a date between 2000-01-01 and 2050-12-31. Leaving this blank uses today&apos;s date.
+              </p>
+            )}
+            {!statusDateDraftInvalid && statusDateOutOfRange && (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#d97706' }}>
+                This status date falls outside the chart&apos;s date range, so no line is drawn. Pick a date between the earliest start and the latest finish.
+              </p>
+            )}
           </div>
 
           {/* Display Settings */}

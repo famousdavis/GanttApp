@@ -257,6 +257,30 @@ describe('parseImportedData', () => {
     expect(result!.appData.showMostLikelyLine).toBe(true);
   });
 
+  it('preserves a valid todayDateOverride in imported data (v0.28.0)', () => {
+    const json = JSON.stringify({
+      projects: [{ id: '1', name: 'Test' }],
+      releases: [],
+      todayDateOverride: '2026-08-19',
+    });
+    const result = parseImportedData(json);
+    expect(result).not.toBeNull();
+    expect(result!.appData.todayDateOverride).toBe('2026-08-19');
+  });
+
+  it('drops an invalid todayDateOverride on import (v0.28.0)', () => {
+    for (const bad of ['08/19/2026', '2026-02-30', '1999-01-01', 42, null]) {
+      const json = JSON.stringify({
+        projects: [{ id: '1', name: 'Test' }],
+        releases: [],
+        todayDateOverride: bad,
+      });
+      const result = parseImportedData(json);
+      expect(result).not.toBeNull();
+      expect(result!.appData.todayDateOverride).toBeUndefined();
+    }
+  });
+
   it('ignores non-boolean showTodayLine values', () => {
     const json = JSON.stringify({
       projects: [{ id: '1', name: 'Test' }],

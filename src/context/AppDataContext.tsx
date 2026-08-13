@@ -41,6 +41,9 @@ interface AppDataContextType {
   // Toggles
   showTodayLine: boolean;
   setShowTodayLine: (show: boolean) => void;
+  /** v0.28.0 — status-date override ('' = draw the today line at the real date). */
+  todayDateOverride: string;
+  setTodayDateOverride: (date: string) => void;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
   showMostLikelyLine: boolean;
@@ -127,6 +130,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Toggles
   const [showTodayLine, setShowTodayLine] = useState(true);
+  // v0.28.0 — '' means "no override": the today line is drawn at the real
+  // current date. The save effect strips the field entirely when empty.
+  const [todayDateOverride, setTodayDateOverride] = useState('');
   const [showFinishDateLine, setShowFinishDateLine] = useState(true);
   const [showMostLikelyLine, setShowMostLikelyLine] = useState(false);
   const [showMonths, setShowMonths] = useState(false);
@@ -216,6 +222,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             // Load toggle states if they exist
             if (loadedData.showTodayLine !== undefined) {
               setShowTodayLine(loadedData.showTodayLine);
+            }
+            if (typeof loadedData.todayDateOverride === 'string') {
+              setTodayDateOverride(loadedData.todayDateOverride);
             }
             if (loadedData.showFinishDateLine !== undefined) {
               setShowFinishDateLine(loadedData.showFinishDateLine);
@@ -329,6 +338,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       // v16.2: conditionally spread only non-empty label values into the payload,
       // then strip the entire legendLabels field when no customizations exist.
       // Matches the workDays / globalWorkDays / project.legendLabels pattern.
+      //
+      // TRAP (v0.28.0) — a conditional spread can ADD a field but can never
+      // REMOVE one, because `...data` below re-supplies whatever was loaded from
+      // storage. Any field that must disappear when the user clears it needs an
+      // explicit `delete` after the literal (see the two below). Reachability of
+      // the other conditionally-spread fields was audited in v0.28.0:
+      //   • exportAttribution — ExportAttributionSection always commits a full
+      //     object and the context setter's type forbids undefined. Unreachable.
+      //   • globalWorkDays — initial state and Reset both write DEFAULT_WORK_DAYS,
+      //     and WorkWeekSelector refuses to emit an empty array. Unreachable.
       const legendLabelsPayload = {
         ...(solidBarLabel && { solidBar: solidBarLabel }),
         ...(hatchedBarLabel && { hatchedBar: hatchedBarLabel }),
@@ -336,7 +355,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ...(mostLikelyLineLabel && { mostLikelyLine: mostLikelyLineLabel }),
         ...(inProgressLabel && { inProgress: inProgressLabel }),
       };
-      const newData = {
+      const newData: AppData = {
         ...data,
         ...(Object.keys(legendLabelsPayload).length > 0 && { legendLabels: legendLabelsPayload }),
         chartDisplaySettings: displaySettings,
@@ -346,12 +365,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         showFinishDateLine,
         showMostLikelyLine,
         showMonths,
+        // v0.28.0: strip when empty so clearing the override deletes the field
+        // (field-deletion semantics via the full set() in the Firestore writer).
+        ...(todayDateOverride ? { todayDateOverride } : {}),
         ...(exportAttribution ? { exportAttribution } : {}),
         ...(globalWorkDays && globalWorkDays.length > 0 ? { globalWorkDays } : {})
       };
+      // v0.28.0: the conditional spreads above cannot CLEAR a field — `...data`
+      // still carries the previously-saved value, so omitting the key leaves the
+      // stale one in place. Drop them explicitly. (Firestore then deletes the
+      // field via the full set() in appDataToUserSettings.)
+      //
+      // legendLabels carried this bug from v16.2 until v0.28.0: clearing every
+      // custom label in Settings → Default Legend Labels wrote the old labels
+      // straight back, and they reappeared on the next reload.
+      if (Object.keys(legendLabelsPayload).length === 0) delete newData.legendLabels;
+      if (!todayDateOverride) delete newData.todayDateOverride;
       storage.saveAppData(newData);
     }
-  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
+  }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, todayDateOverride, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
 
   // Real-time sync: subscribe to Firestore changes in cloud mode
   // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
@@ -441,6 +473,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setMostLikelyLineLabel('');
     setInProgressLabel('');
     setShowTodayLine(true);
+    setTodayDateOverride('');
     setShowFinishDateLine(true);
     setShowMostLikelyLine(false);
     setShowMonths(false);
@@ -482,6 +515,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setInProgressLabel,
     showTodayLine,
     setShowTodayLine,
+    todayDateOverride,
+    setTodayDateOverride,
     showFinishDateLine,
     setShowFinishDateLine,
     showMostLikelyLine,

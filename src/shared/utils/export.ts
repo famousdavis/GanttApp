@@ -218,6 +218,11 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       sanitizedData.showMonths = imported.showMonths;
     }
 
+    // Sanitize optional status-date override (v0.28.0)
+    if (typeof imported.todayDateOverride === 'string' && isValidDateFormat(imported.todayDateOverride)) {
+      sanitizedData.todayDateOverride = imported.todayDateOverride;
+    }
+
     // Sanitize optional display settings
     if (imported.chartDisplaySettings) {
       sanitizedData.chartDisplaySettings = sanitizeDisplaySettings(imported.chartDisplaySettings);

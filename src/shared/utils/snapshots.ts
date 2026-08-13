@@ -83,6 +83,11 @@ export function validateSnapshot(data: unknown): Snapshot | null {
     snapshot.preparedBy = sanitizeString(s.preparedBy, 100);
   }
 
+  // Validate optional frozen status-date override (v0.28.0)
+  if (typeof s.todayDateOverride === 'string' && isValidDateFormat(s.todayDateOverride)) {
+    snapshot.todayDateOverride = s.todayDateOverride;
+  }
+
   return snapshot;
 }
 

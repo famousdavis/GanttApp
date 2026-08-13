@@ -8,7 +8,8 @@ import { useState, useRef } from 'react';
 import { Project, Release, ChartColors, ChartDisplaySettings, Snapshot } from '../../shared/types';
 import { ProjectLegendLabels } from '../../shared/types/models';
 import { useTheme } from '../../context/ThemeContext';
-import { getTodayFormatted, formatDateShort, getTodayString } from '../../shared/utils/dates';
+import { getTodayFormatted, formatDateShort, parseDateLocal } from '../../shared/utils/dates';
+import { isValidDateFormat } from '../../shared/utils/validation';
 import { ChartLegend } from './ChartLegend';
 import { ChartSettings } from './ChartSettings';
 import { ChartReleaseBar } from './ChartReleaseBar';
@@ -68,6 +69,14 @@ export interface ChartSettingsGroupProps {
   setShowColorSettings: (show: boolean) => void;
   showTodayLine: boolean;
   setShowTodayLine: (show: boolean) => void;
+  /**
+   * v0.28.0 — the user's CURRENT global status-date setting ('' = none), bound
+   * to the Chart Settings input. Deliberately the live value, not the effective
+   * one: while a snapshot is open the chart draws the snapshot's frozen date,
+   * but the input must keep showing (and editing) the user's own setting.
+   */
+  liveTodayDateOverride: string;
+  setTodayDateOverride: (date: string) => void;
   showFinishDateLine: boolean;
   setShowFinishDateLine: (show: boolean) => void;
   preparedBy: string;
@@ -98,6 +107,12 @@ interface GanttChartProps {
   onClearProjectLabelOverride?: (key: keyof ProjectLegendLabels) => void;
   /** v16.3: effective work days (project override → global → undefined). Used to tint non-workday date labels. */
   workDays?: number[];
+  /**
+   * v0.28.0: the EFFECTIVE status-date override the chart should draw at
+   * (snapshot's frozen value when viewing a snapshot, else the live setting).
+   * Undefined = draw the today line at the real current date.
+   */
+  todayDateOverride?: string;
 }
 
 export function GanttChart({
@@ -113,6 +128,7 @@ export function GanttChart({
   projectLegendLabels,
   onClearProjectLabelOverride,
   workDays,
+  todayDateOverride,
 }: GanttChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
@@ -125,10 +141,20 @@ export function GanttChart({
 
   // Chart calculations (dimensions, date math, coordinate mapping)
   const { dimensions, dateInfo, finishDateInfo, dateToX, years, getReleaseColors, minLabelSpacing } =
-    useChartCalculations(releases, displaySettings, projectFinishDate, showMonths);
+    useChartCalculations(releases, displaySettings, projectFinishDate, showMonths, todayDateOverride);
   const { chartWidth, chartHeight, leftMargin, topMargin, barHeight, rowHeight } = dimensions;
-  const { todayX, quarterBoundaries, monthBoundaries } = dateInfo;
+  const { todayX, todayDateString, quarterBoundaries, monthBoundaries } = dateInfo;
   const { finishDateX } = finishDateInfo;
+
+  // v0.28.0: does the user's LIVE status date fall outside the chart's span?
+  // Drives the Chart Settings hint — an out-of-range date draws no line at all,
+  // which reads as "broken" for a date the user deliberately picked. Computed
+  // from the live setting (not the effective one) because the hint sits next to
+  // the input the user is editing.
+  const liveStatusDate = settings.liveTodayDateOverride;
+  const liveStatusDateOutOfRange = !!liveStatusDate
+    && isValidDateFormat(liveStatusDate)
+    && (parseDateLocal(liveStatusDate) < dateInfo.minDate || parseDateLocal(liveStatusDate) > dateInfo.maxDate);
 
   // When months are shown, push year/quarter labels up to make room for month row
   const headerLabelY = showMonths ? topMargin - 25 : topMargin - 15;
@@ -323,7 +349,7 @@ export function GanttChart({
                   textAnchor="middle"
                   fontWeight="600"
                 >
-                  {formatDateShort(getTodayString())}
+                  {formatDateShort(todayDateString)}
                 </text>
               </g>
             )}
@@ -386,6 +412,7 @@ export function GanttChart({
           mostLikelyLineLabel={labels.mostLikelyLineLabel}
           inProgressLabel={labels.inProgressLabel}
           showTodayLine={showTodayLine}
+          isStatusDate={!!todayDateOverride}
           showFinishDateLine={showFinishDateLine}
           showMostLikelyLine={showMostLikelyLine}
           hasProjectFinishDate={hasProjectFinishDate}
@@ -431,6 +458,9 @@ export function GanttChart({
         setShowColorSettings={settings.setShowColorSettings}
         showTodayLine={showTodayLine}
         setShowTodayLine={settings.setShowTodayLine}
+        todayDateOverride={settings.liveTodayDateOverride}
+        setTodayDateOverride={settings.setTodayDateOverride}
+        statusDateOutOfRange={liveStatusDateOutOfRange}
         showFinishDateLine={showFinishDateLine}
         setShowFinishDateLine={settings.setShowFinishDateLine}
         showMostLikelyLine={showMostLikelyLine}

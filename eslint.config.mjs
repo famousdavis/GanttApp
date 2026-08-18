@@ -20,7 +20,12 @@ const config = [
     rules: { 'sonarjs/cognitive-complexity': ['error', 15] },
   },
   ...nextConfig,
-  { ignores: ['.next/*', 'coverage/**', '**/*-old.*', '**/*.backup'] },
+  // .stryker-tmp holds Stryker's sandbox COPIES of every mutated file, including
+  // deliberately mutated source mid-run. reports/ is its generated output. Linting them
+  // is not optional now that expectProblems: 13 is live — MyScrumBudget measured 522
+  // problems against a baseline of 14 from exactly this, and the gate fails saying "new
+  // problems were introduced" while naming Stryker nowhere.
+  { ignores: ['.next/*', 'coverage/**', '.stryker-tmp/**', 'reports/**', '**/*-old.*', '**/*.backup'] },
 ];
 
 export default config;

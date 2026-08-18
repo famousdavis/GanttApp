@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "First mutation baseline (v0.28.6). Scope is THREE files only — see docs/mutation-baseline.md for the candidacy gate that selected them and, just as importantly, for what was excluded and why. Run via `npm run mutate`, never `npx stryker` directly: the wrapper deletes the previous report before running, because a run that fails to start emits no survivors and no score, which is indistinguishable from a perfect result. This is a BASELINE, not a gate — `npm run mutate` is deliberately NOT a shipgate step and must not be wired into shipgate.config.json.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "_vitestNote": "No scoped vitest config. The full suite runs in ~9s and coverageAnalysis perTest already restricts execution to covering tests. A scoped config would also reintroduce the transitive-import-derivation hazard that a narrowed `include` creates; not having one removes it rather than mitigating it.",
+  "checkers": [
+    "typescript"
+  ],
+  "tsconfigFile": "tsconfig.json",
+  "_tsconfigNote": "The plain tsconfig, not a stryker-specific one. v0.28.2 made `tsc --noEmit` clean INCLUDING test files, so there is nothing for a side-step config to work around here.",
+  "mutate": [
+    "src/shared/utils/validation.ts",
+    "src/shared/utils/export.ts",
+    "src/shared/utils/storage.ts"
+  ],
+  "_mutateNote": "546 branches, all >=85% branch coverage. Selected because the canonical Firestore rules carry 44 keys().hasOnly() field allowlists and ZERO is-string / size() / matches() value checks — so a mutant corrupting a date validator or a sanitiser has no independent expression anywhere in the system. Excluded: snapshots.ts (58.49% br) and local-storage-driver.ts (33.33% br) fail the coverage gate, where mutation would only rediscover that they are uncovered; six zero-branch constant/barrel files have nothing to mutate; the 100%-branch small utilities would return near-total kill and little information; the three Firebase-importing storage files are not pure logic.",
+  "reporters": [
+    "json",
+    "clear-text",
+    "progress"
+  ],
+  "_reportersNote": "⚠️ Passing --reporters on the CLI REPLACES this array, silently dropping `json` and with it the report file that mutation-guard.mjs and every future comparison depend on. If a run needs a different reporter set, change it here.",
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "_jsonReporterNote": "⚠️ Load-bearing, with no compile-time link to its consumer: scripts/mutation-guard.mjs:31 hard-codes path.resolve('reports/mutation/mutation.json'). Changing either side alone breaks the guard silently — it would report 'no report written' for a run that succeeded.",
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 60000,
+  "concurrency": 4,
+  "_excludedMutationsNote": "None, deliberately. The suite disagrees here — the Vite siblings exclude StringLiteral/ObjectLiteral, MyScrumBudget excludes nothing. A FIRST baseline should see the full mutant population: excluding shrinks the denominator before anyone knows what is in it. If StringLiteral proves to be a large EQUIV cluster of unasserted error messages, that is a finding to record and a reason to exclude in a later COMPARISON run.",
+  "_thresholdsComment": "No `break` threshold. A baseline is a measurement, not a gate; it must not be able to fail a release. Wiring one in is a separate, deliberate decision, and §8 of this item's brief is explicit that a recorded baseline with classified survivors is the deliverable — not a score target.",
+  "thresholds": {
+    "high": 90,
+    "low": 70,
+    "break": null
+  }
+}

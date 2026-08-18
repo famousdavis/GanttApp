@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cc": "node scripts/measure-complexity.mjs",
+    "mutate": "node scripts/mutation-guard.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
@@ -24,6 +25,9 @@
     "react-dom": "19.2.5"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "@stryker-mutator/typescript-checker": "9.6.1",
+    "@stryker-mutator/vitest-runner": "9.6.1",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",

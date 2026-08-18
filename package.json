@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "0.28.3",
+  "version": "0.28.4",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -40,8 +40,8 @@
   },
   "overrides": {
     "vite": "7.3.5",
-    "postcss": "^8.5.18",
-    "protobufjs": "^7.6.5",
-    "sharp": "^0.35.0"
+    "postcss": "8.5.23",
+    "protobufjs": "7.6.5",
+    "sharp": "0.35.3"
   }
 }

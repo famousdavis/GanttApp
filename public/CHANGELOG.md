@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.28.4 (2026-08-18)
+### Maintenance: pinned dependency overrides and a deterministic lint
+
+Dev-tooling only &mdash; no shipped-bundle impact and no app behavior changes. Both halves exist to make an upcoming code-quality measurement trustworthy, and both had to land before it.
+
+The three remaining floating version ranges in `overrides` are now pinned exact: `postcss` `^8.5.18` &rarr; `8.5.23`, `sharp` `^0.35.0` &rarr; `0.35.3`, `protobufjs` `^7.6.5` &rarr; `7.6.5`. Each target equals the version already installed, so nothing moves &mdash; the lockfile is untouched by the change. The reason for pinning is that overridden packages are, by construction, indirect dependencies, and the tooling that watches for versions adopted too soon after publication only inspects direct ones. Nothing was watching these three. Both floors were confirmed still doing their job: `next` asks for `postcss` 8.4.31 and `sharp` 0.34.x, and neither appears anywhere in the installed tree.
+
+`coverage/` is now excluded from linting. The coverage reporter writes generated JavaScript carrying suppression comments that the linter then reports as unnecessary &mdash; three warnings that appear only in a working copy where coverage has been run, and never in a clean checkout. Since an upcoming change reads the linter's problem count as a fixed baseline, a count that depends on whether someone happened to run coverage recently is not a baseline at all. The exclusion was verified in both directions with the coverage output present, so the check could not pass merely because there was nothing to find.
+
+All 1323 tests pass, and lint, type-check and the production build are clean.
+
 ## Version 0.28.3 (2026-08-18)
 ### Maintenance: dependency security updates
 

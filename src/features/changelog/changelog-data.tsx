@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.4',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; dev-tooling only, no shipped-bundle impact. The three remaining floating ranges in <code>overrides</code> are pinned exact: <code>postcss</code> 8.5.23, <code>sharp</code> 0.35.3, <code>protobufjs</code> 7.6.5. Each equals the version already installed, so nothing moves and the lockfile is untouched. Overridden packages are indirect by construction, and the tooling that watches for versions adopted too soon after publication inspects only direct ones &mdash; so nothing was watching these three. Both floors were confirmed still holding: <code>next</code> asks for <code>postcss</code> 8.4.31 and <code>sharp</code> 0.34.x, and neither appears anywhere in the installed tree.</>,
+      <><strong>Maintenance</strong> &mdash; <code>coverage/</code> is excluded from linting. The coverage reporter writes generated JavaScript carrying suppression comments the linter reports as unnecessary &mdash; three warnings present only in a working copy that has run coverage, never in a clean checkout. An upcoming change reads the linter&rsquo;s problem count as a fixed baseline, and a count that depends on whether someone ran coverage recently is not a baseline. Verified in both directions with the coverage output present, so the check could not pass merely because there was nothing to find. All 1323 tests pass.</>,
+    ],
+  },
+  {
     version: '0.28.3',
     date: 'August 18, 2026',
     items: [

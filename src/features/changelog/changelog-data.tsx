@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.3',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; dev-tooling only, no shipped-bundle impact. <code>brace-expansion</code> moves to its fix floor on all three release lines this project installs (1.1.16 &rarr; 1.1.18, 2.1.2 &rarr; 2.1.4 &times;3, 5.0.8 &rarr; 5.0.9), clearing GHSA-mh99-v99m-4gvg and GHSA-rgw5-rvv9-x895. Done with <code>npm update</code> and deliberately not an override: <code>brace-expansion</code> 5.x drops the <code>expand</code> export that <code>minimatch</code> below 5 still calls, so forcing a 5.x copy installs cleanly, dedupes, lowers the audit count, then throws at the first brace expansion. Every <code>minimatch</code> was checked afterwards by resolving what it actually loads rather than what it declares.</>,
+      <><strong>Maintenance</strong> &mdash; <code>@vitejs/plugin-react</code> 5.1.4 &rarr; 5.2.0. No advisories at any version; taken now for sequencing, being the first release whose <code>vite</code> peer range spans both the current major and the next, which keeps that later upgrade a single-package edit. Pulls in no new dependencies. The four packages held at fixed versions &mdash; <code>postcss</code>, <code>sharp</code>, <code>protobufjs</code>, <code>vite</code> &mdash; were verified unchanged. All 1323 tests pass.</>,
+    ],
+  },
+  {
     version: '0.28.2',
     date: 'August 18, 2026',
     items: [

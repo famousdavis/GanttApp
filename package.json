@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "0.28.4",
+  "version": "0.28.5",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "cc": "node scripts/measure-complexity.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "@vitest/coverage-v8": "4.1.5",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.11",
+    "eslint-plugin-sonarjs": "4.0.3",
     "firebase-tools": "15.24.0",
     "jsdom": "29.1.1",
     "typescript": "6.0.3",

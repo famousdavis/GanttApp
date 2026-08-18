@@ -33,7 +33,12 @@
   "_claudeMdNote": "CLAUDE.md is gitignored, so the release checklist's consistency grep could never see version drift inside it — and this file sat at 0.21.1 / 'May 5, 2026' while the repo was at 0.27.13, THIRTEEN releases stale. Both `**Current Version:**` lines are checked. The `**Last Updated:**` line carries a date, not a version, so it cannot be machine-checked against package.json — update it by hand. Historical prose naming an old release is correct as written and is deliberately not matched. Skipped in CI, where the file is never checked out.",
 
   "commands": [
-    { "name": "lint", "run": "npm run lint" },
+    {
+      "name": "lint",
+      "run": "npm run lint",
+      "expectProblems": 13,
+      "_note": "Cognitive-complexity ratchet (eslint-plugin-sonarjs 4.0.3, threshold 15, whole repo). GATE ON THE NUMBER, NOT THE EXIT CODE — `npm run lint` exits non-zero at an accepted baseline and that is correct; expectProblems is the single place the number lives. AT TRUE ZERO, DELETE THIS KEY — do not set it to 0: at zero findings ESLint emits no problem-count line at all (measured v0.28.4: 0 bytes of output), so shipgate.mjs:331 reads count===null and fails with 'could not read a problem count', naming neither complexity nor the fix. WHOLE REPO rather than a pure-logic core, because the function-level cut at v0.28.5 found no complex-and-untested code here: 0 dark functions, 0 thin, all 13 executed, minimum 6 hits. That is what justified narrowing at spert-story-map, where 61 of 70 findings sat below the coverage floor; the condition is absent here. A narrow scope is also a bet on where churn lands, which is unmakeable pre-1.0 — and the core boundary excludes src/features/chart, which holds the two worst findings (cx 105 and 89), while src/shared/storage contributes zero. Baseline 13 is the smallest accepted in the suite (MyScrumBudget 13, Forecaster 10, Story Map 22, Scheduler 3-from-23). Zero is NOT the target; refactoring purely to satisfy a threshold is the wrong trade."
+    },
     {
       "name": "typecheck",
       "run": "npm run typecheck",

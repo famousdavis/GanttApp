@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "cc": "node scripts/measure-complexity.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {

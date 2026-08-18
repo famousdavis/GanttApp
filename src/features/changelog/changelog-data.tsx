@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.5',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; dev-tooling only; no shipped-bundle impact and no application code changed. The release gate now measures <em>cognitive complexity</em> &mdash; roughly, how hard a function is to hold in your head while changing it safely &mdash; and holds the current number steady. Thirteen functions sit above the threshold of 15; that count is the accepted baseline, and the gate fails if it moves either way: upward because new hard-to-follow code arrived, downward because something was simplified and the record should be updated. Both directions were provoked and confirmed before release.</>,
+      <><strong>Note</strong> &mdash; nothing was refactored to satisfy the new measurement, and zero is explicitly not the goal. These thirteen are accepted, not owed. The measurement covers the whole repository rather than a subset: all thirteen functions are exercised by the test suite, so there was no case for narrowing to the better-tested parts, and the two most complex live in the chart-drawing code that any narrower boundary would have excluded. A companion command, <code>npm run cc</code>, reports the complexity of every function in a file &mdash; including those under the threshold &mdash; and can estimate what a block would measure if lifted into its own function.</>,
+    ],
+  },
+  {
     version: '0.28.4',
     date: 'August 18, 2026',
     items: [

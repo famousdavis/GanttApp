@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 0.28.5 (2026-08-18)
+### Maintenance: a complexity ratchet on the release gate
+
+Dev-tooling only &mdash; no shipped-bundle impact and no app behavior changes. No application code was modified in this release.
+
+The release gate now measures **cognitive complexity** &mdash; roughly, how hard a function is to hold in your head while changing it safely &mdash; and holds the current number steady. Thirteen functions across the codebase sit above the threshold of 15. That count is now recorded as the accepted baseline, and the gate fails if it moves in either direction: upward, because new hard-to-follow code was introduced; downward, because something was simplified and the record should be updated to match. Both directions were deliberately provoked and confirmed before release.
+
+**Nothing was refactored to satisfy it, and zero is explicitly not the goal.** These thirteen are accepted, not owed. Refactoring a function purely to move a number is the wrong trade; the ratchet exists to make the number visible and to stop it drifting quietly upward.
+
+The measurement covers the whole repository rather than a chosen subset. The deciding evidence was that all thirteen functions are exercised by the test suite &mdash; none sits in untested code &mdash; so there was no case for narrowing to the better-tested parts. The two most complex functions also live in the chart-drawing code, which any narrower boundary would have excluded.
+
+A companion command, `npm run cc`, reports the complexity of every function in a file, including those under the threshold, and can estimate what a block of code would measure if it were lifted into its own function. It is a measuring instrument, not a gate.
+
 ## Version 0.28.4 (2026-08-18)
 ### Maintenance: pinned dependency overrides and a deterministic lint
 

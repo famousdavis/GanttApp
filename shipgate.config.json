@@ -37,7 +37,7 @@
     {
       "name": "typecheck",
       "run": "npm run typecheck",
-      "_note": "Catches type errors in files `next build` never typechecks — tests, and anything else outside the production import graph. Three TS2802 errors sat in `src/lib/__tests__/` from v0.27.15 (c4e174a, the ship-gate install itself) to v0.28.2 with every gate step green, because vitest transpiles without typechecking and `next build` only walks the production graph. Falsified at v0.28.2: an injected TS2322 in a test file fails `npm run typecheck` and passes `npm run build`."
+      "_note": "Catches type errors in files `next build` never typechecks — tests, and anything else outside the production import graph. Three TS2802 errors sat in `src/lib/__tests__/` from v0.27.15 (c4e174a, the ship-gate install itself) to v0.28.2 with every gate step green, because vitest transpiles without typechecking and `next build` only walks the production graph. Falsified at v0.28.2: an injected TS2322 in a test file fails `npm run typecheck` and passes `npm run build`. This step also needs `src/types/css.d.ts` — without it tsc only passes when a previous `next build` has left a gitignored next-env.d.ts in the tree, so it passed locally and failed on a fresh CI checkout. See that file."
     },
     { "name": "test", "run": "npm test" },
     {

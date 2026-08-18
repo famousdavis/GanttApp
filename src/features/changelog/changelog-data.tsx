@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.1',
+    date: 'August 17, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; internal tooling only; nothing about the app changes. The tool that measures how much of the code the test suite exercises, <code>@vitest/coverage-v8</code>, was named in the lockfile only as an optional companion of the test runner and had no install entry of its own &mdash; so a clean checkout never installed it and coverage could not be measured from a fresh clone. It is now declared as a development dependency in its own right, pinned exactly (4.1.5) because the package requires an exact match with the installed test runner. No new script and no new configuration were added. All 1323 tests pass; lint, type-check and the production build are clean.</>,
+    ],
+  },
+  {
     version: '0.28.0',
     date: 'August 12, 2026',
     items: [

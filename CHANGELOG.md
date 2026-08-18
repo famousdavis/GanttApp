@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.28.1 (2026-08-17)
+### Maintenance: the test-coverage instrument is now actually installed
+
+Internal tooling only &mdash; nothing about the app changes. The tool that measures how much of the code the test suite exercises, `@vitest/coverage-v8`, was named in the lockfile only as an optional companion of the test runner and had no install entry of its own. A clean checkout therefore never installed it, and `npm` would remove it if it were installed by other means, so coverage could not be measured from a fresh clone &mdash; the run failed outright with a missing-dependency error. It is now declared as a development dependency in its own right.
+
+The version is pinned exactly (4.1.5) rather than given a range, because the package requires an exact match with the installed test runner; a range would describe something that cannot in fact be installed. Nothing else was added: no new script and no new configuration, matching how the other apps in the suite invoke coverage on demand. All 1323 tests pass, and lint, type-check and the production build are clean.
+
 ## Version 0.28.0 (2026-08-12)
 ### Added: you can choose the date the &ldquo;today&rdquo; line is drawn at
 

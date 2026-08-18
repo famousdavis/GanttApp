@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.6',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; dev-tooling only; no shipped-bundle impact and no application code changed. A first <em>mutation-testing</em> baseline was recorded. Mutation testing checks a test suite by deliberately introducing small faults &mdash; flipping a comparison, emptying a branch, altering a constant &mdash; and asking whether any test notices; a fault nothing notices marks a place where the tests assert less than they appear to. Three modules were measured &mdash; data validation, import/export, and local storage &mdash; chosen because a fault in them has no independent check anywhere else in the system.</>,
+      <><strong>Note</strong> &mdash; 1,311 faults were introduced, 893 could be judged, and 611 were caught. Of the 209 that survived, 33 were confirmed harmless (a guard duplicating a check performed a line later, or log text nothing asserts on); the other 176 are recorded as genuine observations. <strong>Nothing was fixed in response and no target was set</strong> &mdash; the result is a record, not a gate, and cannot fail a release. Full detail, including how every surviving fault was classified and why, is in <code>docs/mutation-baseline.md</code>.</>,
+    ],
+  },
+  {
     version: '0.28.5',
     date: 'August 18, 2026',
     items: [

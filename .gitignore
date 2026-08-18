@@ -89,3 +89,7 @@ next-env.d.ts
 !/SECURITY.md
 !/CONTRIBUTING.md
 !/CODE_OF_CONDUCT.md
+
+# Stryker mutation testing (v0.28.6)
+.stryker-tmp
+reports/

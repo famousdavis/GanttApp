@@ -43,7 +43,7 @@ describe('static assets referenced from source exist in public/', () => {
 
   for (const file of sourceFiles(join(root, 'src'))) {
     const text = readFileSync(file, 'utf-8');
-    for (const match of text.matchAll(ASSET_HREF)) {
+    for (const match of Array.from(text.matchAll(ASSET_HREF))) {
       const href = match[1];
       if (href === undefined) continue;
       const list = references.get(href) ?? [];
@@ -61,7 +61,7 @@ describe('static assets referenced from source exist in public/', () => {
   it('resolves every referenced asset in public/', () => {
     const missing: string[] = [];
 
-    for (const [href, files] of references) {
+    for (const [href, files] of Array.from(references)) {
       if (!existsSync(join(root, 'public', href))) {
         missing.push(`${href} — referenced from ${files.join(', ')}`);
       }

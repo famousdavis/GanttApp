@@ -76,7 +76,7 @@ describe('changelog surfaces agree', () => {
   const publicPath = join(process.cwd(), 'public/CHANGELOG.md');
   const markdown = readFileSync(rootPath, 'utf-8');
 
-  const markdownVersions = [...markdown.matchAll(/^## Version ([\d.]+)/gm)]
+  const markdownVersions = Array.from(markdown.matchAll(/^## Version ([\d.]+)/gm))
     .map((m) => m[1])
     .filter((v): v is string => v !== undefined);
   const dataVersions = CHANGELOG_ENTRIES.map((e) => e.version);

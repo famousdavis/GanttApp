@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.28.2 (2026-08-18)
+### Maintenance: type errors in test files are now caught before release
+
+Internal tooling only &mdash; nothing about the app changes. Three type errors had been sitting in the project&rsquo;s own test files since v0.27.15 with nothing reporting them. The test runner converts TypeScript without checking it, and the production build checks only the code that actually ships; test files fall between the two, so neither looked, and six releases went out green over the top of them.
+
+The three are fixed, and &mdash; the substantive part &mdash; a type-checking step now runs as part of the release gate, so the next three cannot arrive the same way. Fixing the errors alone would have removed the instance and left the cause.
+
+The gap was confirmed rather than assumed. A deliberate type error was planted in a test file: the production build passes it without comment, and the new step catches it and names the line. That is why the step exists, and the record of it now sits in the gate&rsquo;s own configuration, where a later reader might otherwise remove the step as duplicating the build.
+
+All three errors were the same kind &mdash; iterating a pattern match or a lookup table in a form the project&rsquo;s TypeScript settings disallow &mdash; and are rewritten using the form the project already uses elsewhere for exactly this reason. Those settings are deliberately left alone: loosening them would have silenced this class of error across the whole codebase rather than fixing the three at hand.
+
 ## Version 0.28.1 (2026-08-17)
 ### Maintenance: the test-coverage instrument is now actually installed
 

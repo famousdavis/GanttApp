@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.2',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; internal tooling only; nothing about the app changes. Three type errors had been sitting in the project&rsquo;s own test files since v0.27.15 with nothing reporting them: the test runner converts TypeScript without checking it, and the production build checks only the code that ships, so test files fell between the two and six releases went out green over the top of them. The three are fixed, and a type-checking step now runs as part of the release gate so the next three cannot arrive the same way &mdash; fixing the errors alone would have removed the instance and left the cause. The gap was confirmed rather than assumed: a type error planted deliberately in a test file passes the production build and is caught by the new step.</>,
+    ],
+  },
+  {
     version: '0.28.1',
     date: 'August 17, 2026',
     items: [

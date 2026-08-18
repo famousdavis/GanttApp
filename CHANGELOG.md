@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.28.7 (2026-08-18)
+### Changed: a v11.0 changelog entry now says what it records, not why
+
+Documentation only &mdash; no code changed, and nothing about how the app behaves is different.
+
+An entry from v11.0 (February 2026) described a data-recording feature by its motive rather than its mechanism. It was headed &ldquo;Academic Integrity&rdquo; and said that cloud projects &ldquo;track origin references and change logs&rdquo;. That names a purpose someone might have for the feature and leaves the reader to work out what is actually stored about them.
+
+It now says what is recorded: a project stored in the cloud carries the account that created it, and keeps a rolling audit trail of edits, capped at fifty entries with the oldest dropped. **The behaviour is unchanged and has been in place since v11.0** &mdash; only the description of it has. Exports have always been labelled plainly and are untouched.
+
+The entry was reworded rather than annotated because it is not only a historical record: it is served from this site and rendered inside the app, so anyone reading it today was being told the less useful of the two things. Recording the correction here is the changelog doing the job it exists for.
+
 ## Version 0.28.6 (2026-08-18)
 ### Maintenance: a first mutation-testing baseline
 
@@ -1502,7 +1513,7 @@ Two independent snapshot-bar fixes shipped together.
 - Added project sharing with role-based access control (owner/editor/viewer) via ShareDialog
 - Added Firestore security rules (firestore.rules)
 - Added export attribution: name/identifier injected as _exportedBy in JSON exports
-- Added academic integrity metadata: _changeLog and _originRef on cloud-stored projects
+- Added origin and edit history on cloud-stored projects: _originRef records the account that created the project, and _changeLog keeps a rolling audit trail of edits (capped at 50 entries, oldest dropped)
 - Updated About page with dual-storage messaging (Local Storage default, Cloud Storage optional)
 - Tab order: Projects, Releases, Gantt Chart, Settings, About
 - Provider hierarchy: AuthProvider > StorageProvider > ThemeProvider > AppDataProvider

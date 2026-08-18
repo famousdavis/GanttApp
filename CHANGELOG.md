@@ -1,5 +1,16 @@
 # Change Log
 
+## Version 0.28.3 (2026-08-18)
+### Maintenance: dependency security updates
+
+Dev-tooling only &mdash; no shipped-bundle impact and no app behavior changes.
+
+`brace-expansion` moves to its fix floor on all three release lines this project installs &mdash; 1.1.16 &rarr; 1.1.18, 2.1.2 &rarr; 2.1.4 (three copies), 5.0.8 &rarr; 5.0.9 &mdash; clearing GHSA-mh99-v99m-4gvg and GHSA-rgw5-rvv9-x895. Done with `npm update`, deliberately not an override: `brace-expansion` 5.x drops the `expand` export that `minimatch` below 5 still calls, so forcing a 5.x copy under an old `minimatch` installs cleanly, dedupes, lowers the audit count, and then throws at the first brace expansion. Every `minimatch` in the tree was checked afterwards by resolving what it actually loads, not what it declares; all five still load a compatible line.
+
+`@vitejs/plugin-react` moves 5.1.4 &rarr; 5.2.0. No advisories at any version; it is taken now for sequencing, being the first release whose `vite` peer range spans both the current major and the next, which keeps that later upgrade a single-package edit rather than a coupled one. It pulls in no new dependencies.
+
+The four packages held at fixed versions &mdash; `postcss`, `sharp`, `protobufjs` and `vite` &mdash; were verified byte-identical before and after. All 1323 tests pass, and lint, type-check and the production build are clean.
+
 ## Version 0.28.2 (2026-08-18)
 ### Maintenance: type errors in test files are now caught before release
 

@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 0.28.6 (2026-08-18)
+### Maintenance: a first mutation-testing baseline
+
+Dev-tooling only &mdash; no shipped-bundle impact, and no application code was changed in this release.
+
+Mutation testing checks a test suite by deliberately introducing small faults into the code &mdash; flipping a comparison, emptying a branch, altering a constant &mdash; and asking whether any test notices. A fault no test notices marks a place where the tests assert less than they appear to. Three files were measured: the data-validation, import/export and local-storage modules, chosen because a fault in them has no independent check anywhere else in the system.
+
+The run produced 1,311 faults, of which 893 could be judged. 611 were caught. Of the 209 that survived, 33 were confirmed harmless &mdash; a guard duplicated a check already performed a line later, or the altered text was a log message nothing asserts on. The remaining 176 are recorded as genuine observations: mostly boundary comparisons tested from one side, whitelist entries where one member is exercised and the rest are not, and error-message mappings where individual cases are never reached.
+
+**Nothing was fixed in response, and no target was set.** The result is a record, not a gate &mdash; it cannot fail a release, and the survivors are written down rather than worked off. A first measurement whose findings are immediately remediated tells you nothing about what the measurement is worth.
+
+Full detail, including how each surviving fault was classified and why, is in `docs/mutation-baseline.md`.
+
 ## Version 0.28.5 (2026-08-18)
 ### Maintenance: a complexity ratchet on the release gate
 

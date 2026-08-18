@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.7',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; documentation only; no code changed and nothing about how the app behaves is different. A v11.0 entry (February 2026) described a data-recording feature by its motive rather than its mechanism &mdash; it was headed &ldquo;Academic Integrity&rdquo; and said cloud projects &ldquo;track origin references and change logs&rdquo;, which names a purpose someone might have for the feature and leaves you to work out what is actually stored about you.</>,
+      <><strong>Note</strong> &mdash; it now says what is recorded: a project stored in the cloud carries the account that created it and keeps a rolling audit trail of edits, capped at fifty entries with the oldest dropped. The behaviour is unchanged and has been in place since v11.0 &mdash; only the description of it has. The entry was reworded rather than annotated because it is rendered here in the app and served from the site, so anyone reading it today was being told the less useful of the two things.</>,
+    ],
+  },
+  {
     version: '0.28.6',
     date: 'August 18, 2026',
     items: [
@@ -968,7 +976,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       <><strong>Real-Time Sync</strong> &mdash; changes sync across devices and tabs in cloud mode via Firestore onSnapshot</>,
       <><strong>Project Sharing</strong> &mdash; share projects with team members as owner, editor, or viewer (cloud mode)</>,
       <><strong>Export Attribution</strong> &mdash; exported JSON now includes preparer name, identifier, and timestamp</>,
-      <><strong>Academic Integrity</strong> &mdash; cloud projects track origin references and change logs (up to 50 entries per project)</>,
+      <><strong>Origin and edit history</strong> &mdash; projects stored in the cloud record the account that created them and keep a rolling audit trail of edits (up to 50 entries per project, oldest dropped)</>,
       'Local/cloud mode switching with automatic data migration in both directions',
       'Firestore security rules for project-level access control',
       'About page updated with dual-storage documentation',

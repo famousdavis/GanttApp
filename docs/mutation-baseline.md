@@ -116,7 +116,8 @@ Registered before the run: *EQUIV survivors will cluster in the re-application p
 **Held exactly: 29 absorbed-EQUIV — 16 `export.ts`, 13 `storage.ts`, 0 `validation.ts`.**
 
 The mechanism is worth recording because an earlier reading of it was wrong. A call-site count
-measures **reuse**, not redundancy on a path: `sanitizeString` has 45 call sites, and a mutant
+measures **reuse**, not redundancy on a path: `sanitizeString` has 44 invocations in non-test
+source (45 lines match `sanitizeString(`, one of which is the definition), and a mutant
 inside it propagates to all of them at once and cannot be masked by its own reuse. EQUIV needs
 **two independent applications of one constraint on one path** — which is what the caller-guard
 plus sanitiser-guard pair produces, and what `validation.ts`'s internals, having nothing
@@ -195,7 +196,37 @@ config does not need an exclusion here: its include is `src/**/*.test.{ts,tsx}`,
 ## Cost
 
 58m47s for 546 branches across three files, against a per-file estimate of 5–13 min drawn from
-another repo. Roughly 4.5× the top of that estimate. The dominant term is 1311 mutants each
-type-checked and then run against covering tests. If this is repeated regularly, the levers are
-narrowing scope, `excludedMutations` (`StringLiteral` alone accounts for 35 survivors and a
-large share of compile errors), or raising `concurrency` above 4.
+another repo — roughly 4.5× the top of it.
+
+⚠️ **An earlier draft of this section blamed `StringLiteral`'s share of the 418 CompileErrors.
+That is refuted, not merely unsupported: CompileError mutants never execute tests, so they
+cannot explain a per-executing-mutant slowdown.** The correction is recorded rather than
+silently replaced, because the wrong explanation is the more intuitive one and will otherwise
+be re-derived.
+
+The measured overrun is per *executing* mutant:
+
+```
+control  (storage.ts alone)   91s /  63 executing = 1.44s each
+baseline (all three files)  3527s / 893 executing = 3.95s each   -> 2.73x
+projection at the control rate: 893 x 1.44s = 21.5 min, against 58.8 min actual
+```
+
+**Supported hypothesis — not a measurement.** `coverageAnalysis: perTest` re-runs a mutant's
+*covering* tests, so cost scales with how widely the mutated file is imported. The control
+measured the narrowest covering set in the repo and the baseline is dominated by the widest:
+
+| file | direct source importers |
+|---|---:|
+| `validation.ts` | 19 |
+| `export.ts` | 3 |
+| `storage.ts` | 1 ← the control |
+
+Against a jsdom suite, paid per mutant, that is a plausible 2.7×. It is consistent with the
+numbers and in the predicted direction, but it has **not** been tested. **The direct test is a
+timed `validation.ts`-only run, which nobody has done.** Anyone repeating this should do that
+before acting on the explanation.
+
+If the cost matters, the levers in likely order of effect are: a scoped vitest config (this run
+deliberately has none — see `stryker.config.json`'s `_vitestNote`), narrowing scope, raising
+`concurrency` above 4, and only then `excludedMutations`.

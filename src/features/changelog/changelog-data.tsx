@@ -15,10 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.8',
+    date: 'August 18, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; documentation only; no code changed and nothing about how the app behaves is different. The v0.28.7 entry explained its own change by quoting the old heading it had just removed, which put the discarded wording into the first item shown here &mdash; more prominently than it had ever appeared in the entry being corrected. The explanation now describes the problem without restating it. The v11.0 entry itself is unchanged and remains correct.</>,
+    ],
+  },
+  {
     version: '0.28.7',
     date: 'August 18, 2026',
     items: [
-      <><strong>Changed</strong> &mdash; documentation only; no code changed and nothing about how the app behaves is different. A v11.0 entry (February 2026) described a data-recording feature by its motive rather than its mechanism &mdash; it was headed &ldquo;Academic Integrity&rdquo; and said cloud projects &ldquo;track origin references and change logs&rdquo;, which names a purpose someone might have for the feature and leaves you to work out what is actually stored about you.</>,
+      <><strong>Changed</strong> &mdash; documentation only; no code changed and nothing about how the app behaves is different. A v11.0 entry (February 2026) described a data-recording feature by its purpose rather than by what it records, which left you to work out what is actually stored about you.</>,
       <><strong>Note</strong> &mdash; it now says what is recorded: a project stored in the cloud carries the account that created it and keeps a rolling audit trail of edits, capped at fifty entries with the oldest dropped. The behaviour is unchanged and has been in place since v11.0 &mdash; only the description of it has. The entry was reworded rather than annotated because it is rendered here in the app and served from the site, so anyone reading it today was being told the less useful of the two things.</>,
     ],
   },

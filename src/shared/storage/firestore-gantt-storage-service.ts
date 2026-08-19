@@ -485,6 +485,19 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
    * loadAppData, loadSnapshots, and saveSnapshots.
    */
   private async listMemberProjects(): Promise<QueryDocumentSnapshot<FirestoreProjectMeta>[]> {
+    // ⚠️ This filter's SHAPE is a security boundary, not a convenience.
+    // firestore.rules constrains `list` on this collection to
+    // members[request.auth.uid] in ['owner', 'editor', 'viewer'], and Firestore
+    // permits a list query ONLY when its filter PROVES that constraint. Drop or
+    // change this filter and you do not get more rows — you get
+    // PERMISSION_DENIED, and no project loads at all.
+    // Until 2026-08-19 the rule was `allow list: if isAuth()`, which let any
+    // signed-in SPERT user read every project in this collection.
+    // ⚠️ The rule and this query are pinned together by
+    // rules-tests/project-collections-list.test.ts in the spert-landing-page
+    // repo (`npm run test:rules`). That test encodes this query AS WRITTEN and
+    // lives in a DIFFERENT repository, so it will NOT fail when you edit this
+    // line. Change one, change the other.
     const snap = await getDocs(
       query(
         collection(this.db, 'ganttapp_projects'),

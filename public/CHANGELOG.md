@@ -1,11 +1,20 @@
 # Change Log
 
+## Version 0.28.8 (2026-08-18)
+### Changed: the previous entry no longer repeats the wording it replaced
+
+Documentation only &mdash; no code changed, and nothing about how the app behaves is different.
+
+The v0.28.7 entry explained its own change by quoting the old heading it had just removed. That put the discarded wording back into the newest entry of this file and into the first item shown on the in-app Change Log &mdash; more prominently than it had ever appeared in the entry being corrected.
+
+The explanation now describes the problem without restating it. The v11.0 entry itself is unchanged from v0.28.7 and remains correct.
+
 ## Version 0.28.7 (2026-08-18)
 ### Changed: a v11.0 changelog entry now says what it records, not why
 
 Documentation only &mdash; no code changed, and nothing about how the app behaves is different.
 
-An entry from v11.0 (February 2026) described a data-recording feature by its motive rather than its mechanism. It was headed &ldquo;Academic Integrity&rdquo; and said that cloud projects &ldquo;track origin references and change logs&rdquo;. That names a purpose someone might have for the feature and leaves the reader to work out what is actually stored about them.
+An entry from v11.0 (February 2026) described a data-recording feature by its purpose rather than by what it records, which left the reader to work out what is actually stored about them.
 
 It now says what is recorded: a project stored in the cloud carries the account that created it, and keeps a rolling audit trail of edits, capped at fifty entries with the oldest dropped. **The behaviour is unchanged and has been in place since v11.0** &mdash; only the description of it has. Exports have always been labelled plainly and are untouched.
 

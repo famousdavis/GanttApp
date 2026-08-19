@@ -155,8 +155,21 @@ describe('FirestoreGanttStorageService', () => {
 
     // v0.21.0 — verify the constrained query is built correctly so the
     // server-side filter in Firestore (not just client-side) returns only
-    // the user's projects. This is the load-bearing fix that makes the
-    // list rule `allow list: if isAuth()` safe in a multi-tenant collection.
+    // the user's projects.
+    //
+    // ⚠️ This comment used to end: "This is the load-bearing fix that makes
+    // the list rule `allow list: if isAuth()` safe in a multi-tenant
+    // collection." THAT WAS FALSE, and it is the belief that kept the hole
+    // open. A client-side query is not a security boundary — an attacker uses
+    // their own Firestore client and omits the filter. On 2026-08-19 an
+    // unfiltered list against production returned every project in the
+    // collection, including ones the caller was not a member of. The rule is
+    // now membership-constrained, and THAT is what makes the collection safe;
+    // this query merely has to satisfy it.
+    //
+    // Pinned from the other side by rules-tests/project-collections-list.test.ts
+    // in the spert-landing-page repo, which runs the real rules against an
+    // emulator but cannot see edits made here.
     it('builds a constrained query with where(`members.${uid}`, in, roles)', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: [] });
       mockGetDoc.mockResolvedValueOnce({ exists: () => false });

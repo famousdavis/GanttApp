@@ -302,6 +302,11 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                     </button>
                   </div>
 
+                  <p style={{ fontSize: '0.8rem', color: '#718096', marginTop: '0.5rem' }}>
+                    Microsoft sign-in requires a work or school account. For a
+                    personal account, use Google.
+                  </p>
+
                   {gate.authError && (
                     <p style={{
                       color: '#e53e3e',

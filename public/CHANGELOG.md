@@ -1,5 +1,39 @@
 # Change Log
 
+## Version 0.28.10 (2026-08-20)
+
+### Fixed: a snapshot that fails to save no longer fails silently
+
+Saving a chart snapshot could fail and the app would not tell you. No error, no warning, nothing
+on screen — the snapshot simply never appeared, and it was left to you to notice it was missing.
+Deleting a snapshot could fail the same silent way, and so could the snapshot tidy-up that runs
+when you delete or clone a project.
+
+All four of those actions now tell you when they do not work, and say what it was they could not
+do. Deleting a project whose snapshots could not be removed says exactly that, rather than
+implying the whole thing failed.
+
+Where the app already has something specific and useful to tell you, that is what you now see.
+Running out of room in your browser says so and tells you to export your data and clear some
+space, instead of being flattened into a vague "something went wrong".
+
+This matters in both places your data can live. On the app's default local storage, the likely
+cause is the browser running out of room. With cloud storage turned on, it is more likely a
+permissions problem with your account. Either way, the app now says so.
+
+The particular fault that prompted this was repaired separately: for seven days in August,
+snapshots saved by cloud users who had set a status date were being rejected by the server. That
+is fixed. What this release fixes is the reason nobody noticed for seven days.
+
+Importing a file that replaces your snapshots already reported its own failures, and is
+unchanged.
+
+### Removed: an obsolete backup copy of the app's main page
+
+A superseded copy of the main page had been sitting in the project since January — 2,616 lines
+of code replaced long ago. It was never loaded and never run; it was only a confusing thing to
+stumble across when reading the source. Its history is kept in version control.
+
 ## Version 0.28.9 (2026-08-19)
 
 ### Changed: Microsoft sign-in now requires a work or school account

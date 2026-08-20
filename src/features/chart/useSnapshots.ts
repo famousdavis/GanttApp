@@ -10,7 +10,7 @@ import { getSnapshotsForProject } from '../../shared/utils/snapshots';
 import { generateId, getTodayFormatted } from '../../shared/utils/dates';
 import { Release, ChartColors } from '../../shared/types';
 import { useStorage } from '../../context/StorageContext';
-import { sanitizeString } from '../../shared/utils/validation';
+import { sanitizeString, sanitizeFirebaseError } from '../../shared/utils/validation';
 
 interface SaveSnapshotParams {
   releases: Release[];
@@ -44,7 +44,8 @@ export function useSnapshots(selectedProjectId: string) {
   // storage swap.
   //
   // In-flight addSnapshot writes for the revoked project will still attempt
-  // Firestore and fail with one permission-denied toast. Not an infinite loop.
+  // Firestore and fail. As of v0.28.10 saveSnapshot catches that rejection and
+  // raises one alert. Not an infinite loop.
   useEffect(() => {
     const handler = (e: Event) => {
       const { projectId } = (e as CustomEvent<{ projectId: string }>).detail;
@@ -103,7 +104,20 @@ export function useSnapshots(selectedProjectId: string) {
       ...(params.todayDateOverride ? { todayDateOverride: params.todayDateOverride } : {})
     };
 
-    const result = await storage.addSnapshot(snapshot);
+    // v0.28.10: a rejected write must not leave the UI showing a snapshot that
+    // was never stored, so the state append below runs only on a resolved write.
+    // Rejects in BOTH modes: Firestore permission-denied, and the local driver's
+    // QuotaExceededError. sanitizeFirebaseError passes an already-user-facing
+    // message through untouched and maps raw Firebase codes.
+    let result: Snapshot[] | null;
+    try {
+      result = await storage.addSnapshot(snapshot);
+    } catch (error) {
+      console.error('Failed to save snapshot:', error);
+      alert(`Snapshot not saved. ${sanitizeFirebaseError(error)}`);
+      return;
+    }
+
     if (result === null) {
       alert('Snapshot limit reached. Delete old snapshots to save new ones.');
     } else {
@@ -115,7 +129,15 @@ export function useSnapshots(selectedProjectId: string) {
 
   // Delete a snapshot (caller is responsible for confirmation UI)
   const handleDeleteSnapshot = useCallback(async (snapshotId: string) => {
-    await storage.deleteSnapshot(snapshotId);
+    // v0.28.10: mirror of saveSnapshot. A rejected delete must not remove the
+    // snapshot from the UI, or it reads as gone while it is still stored.
+    try {
+      await storage.deleteSnapshot(snapshotId);
+    } catch (error) {
+      console.error('Failed to delete snapshot:', error);
+      alert(`Snapshot not deleted. ${sanitizeFirebaseError(error)}`);
+      return;
+    }
     // Optimistic update: remove from existing state rather than replacing
     // with cloud service's return array (avoids Firestore cache staleness)
     setAllSnapshots(prev => prev.filter(s => s.id !== snapshotId));

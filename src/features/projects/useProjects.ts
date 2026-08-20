@@ -11,7 +11,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
 import { generateId } from '../../shared/utils';
-import { sanitizeString } from '../../shared/utils/validation';
+import { sanitizeString, sanitizeFirebaseError } from '../../shared/utils/validation';
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 
 export function useProjects() {
@@ -71,8 +71,16 @@ export function useProjects() {
       releases: data.releases.filter(r => r.projectId !== id)
     };
     updateData(newData);
-    // Cascade delete: remove all snapshots for this project
-    await storage.deleteSnapshotsForProject(id);
+    // Cascade delete: remove all snapshots for this project.
+    // v0.28.10: updateData above already removed the project from state, so a
+    // failure here is partial. Say what actually survived rather than implying
+    // the delete was undone, and still fall through to the selection reset.
+    try {
+      await storage.deleteSnapshotsForProject(id);
+    } catch (error) {
+      console.error('Failed to delete project snapshots:', error);
+      alert(`Project deleted, but its saved snapshots could not be removed. ${sanitizeFirebaseError(error)}`);
+    }
     if (selectedProjectId === id) {
       const remaining = data.projects.filter(p => p.id !== id);
       setSelectedProjectId(remaining.length > 0 ? remaining[0].id : '');
@@ -174,7 +182,14 @@ export function useProjects() {
       projectId: clonedProject.id,
     }));
 
-    await storage.saveSnapshots([...allSnapshots, ...clonedSnapshots]);
+    // v0.28.10: the project and its releases are already committed above, so
+    // only the snapshot copy can fail here. Name that precisely.
+    try {
+      await storage.saveSnapshots([...allSnapshots, ...clonedSnapshots]);
+    } catch (error) {
+      console.error('Failed to copy snapshots to cloned project:', error);
+      alert(`Project cloned, but its snapshots could not be copied. ${sanitizeFirebaseError(error)}`);
+    }
   };
 
   return {

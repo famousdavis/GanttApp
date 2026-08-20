@@ -154,7 +154,10 @@ export function SnapshotBar({
                 label: 'Delete',
                 variant: 'danger',
                 onClick: () => {
-                  onDeleteSnapshot(deleteConfirmSnapshotId);
+                  // v0.28.10 backstop — see pages/index.tsx. The prop is typed
+                  // `=> void` but the wired handler is async, so resolve first.
+                  Promise.resolve(onDeleteSnapshot(deleteConfirmSnapshotId))
+                    .catch(err => console.error('Delete snapshot failed:', err));
                   setDeleteConfirmSnapshotId(null);
                 },
               },

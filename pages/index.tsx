@@ -208,7 +208,11 @@ function AppContent() {
       // v0.28.0: freeze the status date so a snapshot keeps rendering the line
       // where it was when the plan was captured.
       todayDateOverride
-    });
+    })
+      // v0.28.10 backstop. saveSnapshot catches its own write failures, so this
+      // cannot fire today. It is a control against a future regression inside
+      // the hook silently restoring the pre-v0.28.10 silence.
+      .catch(err => console.error('Save snapshot failed:', err));
   }, [snapshotState, visibleReleases, selectedProject?.finishDate, selectedProject?.legendLabels, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy, todayDateOverride]);
 
   // Keyboard shortcuts

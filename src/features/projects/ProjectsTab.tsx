@@ -642,7 +642,11 @@ export function ProjectsTab({
                     title="Edit project"
                   />
                   <CloneIconButton
-                    onClick={() => cloneProject(project.id)}
+                    onClick={() => {
+                      // v0.28.10 backstop — see pages/index.tsx.
+                      cloneProject(project.id)
+                        .catch(err => console.error('Clone project failed:', err));
+                    }}
                     ariaLabel="Clone project"
                     title="Clone project"
                   />
@@ -690,7 +694,9 @@ export function ProjectsTab({
                 label: 'Delete',
                 variant: 'danger',
                 onClick: () => {
-                  deleteProject(deleteConfirmProjectId, selectedProjectId, setSelectedProjectId);
+                  // v0.28.10 backstop — see pages/index.tsx.
+                  deleteProject(deleteConfirmProjectId, selectedProjectId, setSelectedProjectId)
+                    .catch(err => console.error('Delete project failed:', err));
                   setDeleteConfirmProjectId(null);
                 },
               },

@@ -303,6 +303,37 @@ describe('useImportState — state machine', () => {
     expect(result.current.applying).toBe(false);
   });
 
+  // v0.28.10 — SITE 3 GUARD. This is the reason useSnapshots.replaceAllSnapshots
+  // is deliberately left WITHOUT a try/catch while its four siblings gained one.
+  //
+  // A rejected onReplaceSnapshots is already surfaced here, with its message, by
+  // this hook's own catch. Catching inside the hook instead would stop the
+  // rejection propagating, control would fall through to the SUCCESS banner, and
+  // the user would be told the import worked while the snapshot write had failed.
+  // If this test ever fails, do not "fix" the hook — read the deleted comment.
+  it('12b. rejected onReplaceSnapshots surfaces its message via the error banner (v0.28.10)', async () => {
+    const quotaText = 'Storage quota exceeded. Please export your data and clear some space.';
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Alpha' }] });
+    const onReplaceSnapshots = vi.fn().mockRejectedValue(new Error(quotaText));
+    const { result } = setup({ data, onReplaceSnapshots });
+    const file = makeFile({
+      _exportType: 'ganttapp-project-export',
+      projects: [{ id: 'p2', name: 'Beta' }],
+      releases: [],
+    });
+    await act(async () => {
+      await result.current.handleImport(makeChangeEvent(file));
+    });
+    await act(async () => {
+      result.current.handleConfirmMerge();
+    });
+
+    expect(onReplaceSnapshots).toHaveBeenCalled();
+    expect(result.current.importBanner?.kind).toBe('error');
+    // Not a generic message, and emphatically not a success banner.
+    expect(result.current.importBanner?.text).toBe(quotaText);
+  });
+
   // ────────────────────────────────────────────────────────────────────────
   // 13a–13b Reentrancy guards (NEW-6 split)
   // ────────────────────────────────────────────────────────────────────────

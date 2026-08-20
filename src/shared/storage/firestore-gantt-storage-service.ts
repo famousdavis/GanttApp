@@ -346,9 +346,11 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           //
           // Known limitation: if executeSave is already in flight, it captured
           // the old pendingData at function entry. That batch may write to
-          // the revoked project's subcollections — surfaces as ONE
-          // permission-denied toast. Subsequent saves use the pruned state
-          // and succeed. The infinite loop is what's fixed.
+          // the revoked project's subcollections and fail once with
+          // permission-denied. executeSave's own catch logs that and reports it
+          // through onSaveResult, which StorageSection renders as a cloud-sync
+          // error under Settings -> Storage. Subsequent saves use the pruned
+          // state and succeed. The infinite loop is what's fixed.
           if (this.lastSavedState) {
             this.lastSavedState = {
               ...this.lastSavedState,

@@ -15,6 +15,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.9',
+    date: 'August 19, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; signing in with Microsoft now requires a work or school account. Personal Microsoft accounts &mdash; outlook.com, hotmail.com, live.com &mdash; are no longer accepted. Microsoft itself enforces this, so such an account is refused at the sign-in screen before any password is entered. The change was made for institutions evaluating the Suite, who reasonably expect &ldquo;sign in with Microsoft&rdquo; to mean an organisational account rather than any account at all.</>,
+      <><strong>Changed</strong> &mdash; nothing changes for personal use: Google still accepts personal accounts. The cloud storage window and the Settings page now say so, rather than letting you choose Microsoft and discover the restriction from an error message.</>,
+    ],
+  },
+  {
     version: '0.28.8',
     date: 'August 18, 2026',
     items: [

@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 0.28.9 (2026-08-19)
+
+### Changed: Microsoft sign-in now requires a work or school account
+
+Personal Microsoft accounts — outlook.com, hotmail.com, live.com — are no longer accepted. Microsoft
+itself enforces this, so such an account is refused at the sign-in screen before any password is
+entered. The change was made for institutions evaluating the Suite, who reasonably expect "sign in
+with Microsoft" to mean an organisational account rather than any account at all.
+
+Nothing changes for personal use: Google still accepts personal accounts. The cloud storage window
+and the Settings page now say so, rather than letting you choose Microsoft and discover the
+restriction from an error message.
+
 ## Version 0.28.8 (2026-08-18)
 ### Changed: the previous entry no longer repeats the wording it replaced
 

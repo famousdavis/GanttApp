@@ -208,6 +208,10 @@ export function StorageSection({
               Sign in with Microsoft
             </button>
           </div>
+            <p style={{ fontSize: '0.8rem', color: '#718096', marginTop: '0.5rem' }}>
+              Microsoft sign-in requires a work or school account. For a personal
+              account, use Google.
+            </p>
         </div>
       )}
 

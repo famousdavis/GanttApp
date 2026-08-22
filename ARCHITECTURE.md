@@ -119,7 +119,6 @@ GanttApp/
 ├── public/
 │   └── favicon.ico
 │
-├── firestore.rules            # Firestore security rules reference (v11.0)
 ├── .env.local.example         # Firebase config template (v11.0)
 ├── eslint.config.mjs          # ESLint 9 flat config
 ├── vitest.config.ts           # Vitest test configuration
@@ -367,11 +366,13 @@ Top-level collections use underscore-separated names (`ganttapp_projects`, not `
 
 ### Firestore Security Rules
 
-Defined in `firestore.rules` (repo root). Key rules:
-- Projects: `allow list` for all authenticated users (client-side membership filtering); `allow get/update/delete` gated on `members` map
+Defined in `spert-landing-page/firestore.rules` — this repo keeps no copy. See the `match /ganttapp_projects/` block, marked `LIST-1`. Key rules:
+- Projects: `allow list` is **membership-constrained** — `resource.data.members[request.auth.uid]` must be `owner`, `editor` or `viewer`; the client `where()` query mirrors that predicate rather than substituting for it. `allow get/update/delete` gated on the `members` map
 - Subcollections (releases, snapshots): derived from parent project's `members` via `get()`
-- User profile (`ganttapp_profiles`): readable by any authenticated user, writable only by owner
+- User profile (`ganttapp_profiles`): `get` by any authenticated user, but `list` is constrained to `request.query.limit <= 1` — bulk profile enumeration is blocked across the shared auth tenant; writable only by owner
 - User settings (`ganttapp_settings`): readable and writable only by owner
+
+**If this file and the canonical ruleset ever disagree, the ruleset is right and this section has rotted.**
 
 ### Key Firestore Patterns
 
@@ -674,7 +675,7 @@ The GanttChart component renders an SVG with:
 - **Component Tests**: UI components with React Testing Library
 - **Storage Tests**: StorageDriver and GanttStorageService implementations (mocked Firestore)
 - **Context Tests**: AuthContext, StorageContext, AppDataContext providers
-- **808 total tests** across 49 test files
+- **Suite size:** run `npx vitest run` for the current test and test-file counts. A number written here goes stale within a release and nothing checks it
 
 ## Build & Deployment
 

@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.11',
+    date: 'August 22, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; development and release tooling only; no application code changed and nothing about how the app behaves is different. The script that checks a release before it ships is the same file in all nine SPERT&reg; Suite projects, and the note at the top of it said there was no automated checking anywhere in the suite &mdash; that a green tick on a proposed change meant only that a preview copy had been built, and that nothing ran the tests. That has not been true since the script existed: automated checking runs on every one of the nine projects, on every proposed change and on every merge, and what it runs is this very script.</>,
+      <><strong>Note</strong> &mdash; the statement did not go out of date. It was untrue on the day it was written, because the same set of edits that added the script also switched the automated checking on. A statement that decays can be helped by recording when it was made; a statement that was never true cannot &mdash; which is why the fix was to correct it rather than to date it.</>,
+      <><strong>Added</strong> &mdash; two explanations that were missing from the same file: that automated checking and a check run by hand catch different things, so neither is sufficient alone; and how the code-style step is judged &mdash; it holds a count steady rather than reading pass or fail, for opposite reasons in different projects, and the count must be removed rather than set to zero when it reaches zero.</>,
+      <><strong>Changed</strong> &mdash; a note in this project cited two line numbers inside that shared script, and adding lines to the top of it moved both. The note now names the part of the script it means. A stale line number is worse than a missing one: it lands on real code, so a reader who follows it finds something plausible and concludes the reference was sound.</>,
+    ],
+  },
+  {
     version: '0.28.10',
     date: 'August 20, 2026',
     items: [

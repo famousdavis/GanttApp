@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.12',
+    date: 'August 22, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; development tooling only; no application code changed and nothing about how the app behaves is different. Mutation testing makes small deliberate changes to the code and asks whether any test notices, and a wrapper around it exists to refuse a run that produced no real results but reports a clean-looking one. That wrapper counted &ldquo;no test reaches this code&rdquo; as a real result, so a run in which every single change went unchecked &mdash; a score of zero per cent, nothing actually tested &mdash; was reported as having produced real verdicts. The precise failure it was written to prevent, surviving inside it.</>,
+      <><strong>Fixed</strong> &mdash; the fix separates two questions that had been sharing one sum. Whether a change was left unchecked is a real fact about the code and still counts towards the score exactly as before; whether the suite ever ran at all is a different question, and an unchecked change is silence rather than evidence. Only the second question changed, and one line of running code differs.</>,
+      <><strong>Changed</strong> &mdash; the note explaining it now names no cause. The suite&rsquo;s records blamed one specific misconfiguration; five attempts to reproduce that state deliberately, across two sibling projects including the one where it should do the most damage, all failed. A note explaining a fault by pointing at one cause stops being true when the cause changes; a note describing what is being refused does not.</>,
+      <><strong>Note</strong> &mdash; this project keeps no stored measurement on disk, so it contributes none of the regression evidence for this change. Three projects checked is not four, and saying so is the point.</>,
+    ],
+  },
+  {
     version: '0.28.11',
     date: 'August 22, 2026',
     items: [

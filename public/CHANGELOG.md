@@ -1,5 +1,44 @@
 # Change Log
 
+## Version 0.28.12 (2026-08-22)
+
+### Fixed: the mutation-testing safety check no longer passes the run it exists to catch
+
+Development tooling only — no application code changed and nothing about how the app behaves is
+different.
+
+Mutation testing makes small deliberate changes to the code and asks whether any test notices. A
+wrapper around it exists to refuse a run that produced no real results but reports a clean-looking
+one, because that failure is silent and flattering — the worst combination.
+
+The wrapper counted "no test reaches this code" as a real result. So a run in which every single
+change went unchecked — a score of zero per cent, nothing actually tested — was reported as having
+produced real verdicts. That is the precise failure it was written to prevent, surviving inside it.
+
+The fix separates two questions that had been sharing one sum. Whether a change was left unchecked
+is a real fact about the code, and still counts towards the score exactly as before. Whether the
+suite ever ran at all is a different question, and an unchecked change is silence rather than
+evidence. Only the second question changed. One line of running code differs.
+
+### Changed: the note explaining it names no cause, deliberately
+
+The suite's records attributed the all-unchecked state to one specific misconfiguration. Five
+attempts were made to produce that state on purpose, across two sibling projects, including the one
+where the misconfiguration should do the most damage. None of them produced it — the tool either
+refuses to start when no test covers the changed code, or runs the whole suite and reports the
+changes as surviving instead. The records were describing behaviour the tools no longer have.
+
+So the replacement note describes the state being refused and names no trigger for it. A note that
+explains a fault by pointing at one cause stops being true when the cause changes; a note describing
+what is refused does not.
+
+### Note: this project has no stored measurement, so it contributes no evidence here
+
+Four hand-built cases were run through the real checking script, before and after the change, and
+every stored measurement in the projects that keep one still passes with an identical score. This
+project does not keep one on disk, so it is covered by the shared-file check and by its own build,
+but not by that regression evidence. Saying so is the point: three projects checked is not four.
+
 ## Version 0.28.11 (2026-08-22)
 
 ### Fixed: the release-checking script no longer says there is no automated checking

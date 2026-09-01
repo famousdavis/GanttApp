@@ -7,10 +7,6 @@
 import { Snapshot } from '../types/snapshots';
 import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeRelease, sanitizeLegendLabels } from './validation';
 
-const SNAPSHOTS_KEY = 'ganttAppSnapshots';
-const MAX_SNAPSHOTS_TOTAL = 100;
-const MAX_SNAPSHOTS_PER_PROJECT = 50;
-
 /**
  * Validate and sanitize a single snapshot
  */
@@ -92,88 +88,10 @@ export function validateSnapshot(data: unknown): Snapshot | null {
 }
 
 /**
- * Load all snapshots from localStorage
- */
-export function loadSnapshots(): Snapshot[] {
-  try {
-    const saved = localStorage.getItem(SNAPSHOTS_KEY);
-    if (!saved) return [];
-
-    const parsed = JSON.parse(saved);
-    if (!Array.isArray(parsed)) return [];
-
-    const validated: Snapshot[] = [];
-    for (const item of parsed) {
-      const snapshot = validateSnapshot(item);
-      if (snapshot) {
-        validated.push(snapshot);
-      }
-    }
-    return validated;
-  } catch (error) {
-    console.error('Error loading snapshots from localStorage:', error instanceof Error ? error.message : 'Unknown error');
-    return [];
-  }
-}
-
-/**
- * Save all snapshots to localStorage
- */
-export function saveSnapshots(snapshots: Snapshot[]): void {
-  try {
-    localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
-  } catch (error) {
-    console.error('Error saving snapshots to localStorage:', error instanceof Error ? error.message : 'Unknown error');
-  }
-}
-
-/**
- * Add a new snapshot. Returns updated snapshot list, or null if limit exceeded.
- */
-export function addSnapshot(snapshot: Snapshot): Snapshot[] | null {
-  const all = loadSnapshots();
-
-  // Check total limit
-  if (all.length >= MAX_SNAPSHOTS_TOTAL) {
-    return null;
-  }
-
-  // Check per-project limit
-  const projectCount = all.filter(s => s.projectId === snapshot.projectId).length;
-  if (projectCount >= MAX_SNAPSHOTS_PER_PROJECT) {
-    return null;
-  }
-
-  all.push(snapshot);
-  saveSnapshots(all);
-  return all;
-}
-
-/**
- * Delete a snapshot by ID. Returns updated snapshot list.
- */
-export function deleteSnapshot(snapshotId: string): Snapshot[] {
-  const all = loadSnapshots();
-  const filtered = all.filter(s => s.id !== snapshotId);
-  saveSnapshots(filtered);
-  return filtered;
-}
-
-/**
  * Get snapshots for a specific project, sorted by timestamp descending (newest first)
  */
 export function getSnapshotsForProject(snapshots: Snapshot[], projectId: string): Snapshot[] {
   return snapshots
     .filter(s => s.projectId === projectId)
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
-/**
- * Delete all snapshots for a project (used when project is deleted)
- */
-export function deleteSnapshotsForProject(projectId: string): Snapshot[] {
-  const all = loadSnapshots();
-  const filtered = all.filter(s => s.projectId !== projectId);
-  saveSnapshots(filtered);
-  return filtered;
 }

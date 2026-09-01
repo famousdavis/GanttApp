@@ -1,5 +1,91 @@
 # Change Log
 
+## Version 0.28.14 (2026-09-01)
+
+### Removed: five unused functions that wrote snapshots straight to browser storage
+
+Internal cleanup — no application code path changed and nothing about how the app behaves is
+different.
+
+A utility file for chart snapshots exported seven functions. Five of them had no callers anywhere in
+the project. They read and wrote snapshots directly into browser storage, which is how the app
+worked before it gained a storage layer that decides between your browser and the cloud depending on
+which you have chosen. Once that layer arrived the five became unreachable, and they had sat there
+since.
+
+They did not look unused, which is why they lasted. The live storage layer declares operations with
+exactly the same names, so searching for any one of them returns dozens of results across the
+project — the interface, both implementations, and every place the app saves or deletes a snapshot.
+Every one of those is the storage layer. None of them is this file.
+
+Deleted with them: three settings the five functions needed and nothing else did — the name under
+which snapshots were filed in browser storage, and two limits on how many snapshots may be kept. The
+limits already exist in one other place that describes itself as the single source of truth, so the
+copies were a second answer to a question that should only have one.
+
+### Added: a check that the browser-storage key cannot come back
+
+Removing a function that something still uses is caught immediately — the project stops building.
+Removing a setting is caught by nothing. This project has no rule that reports an unused setting and
+no build option that would fail on one, so the three deleted settings were invisible to every
+automated check the release runs, in both directions: leaving them in and taking them out looked
+identical.
+
+One of the three is now pinned by name. If that storage key returns to that file, the release fails
+and says why. The key is the whole point — anything writing snapshots under it is going around the
+storage layer, and would quietly disagree with cloud storage.
+
+What this does not do, stated plainly: it looks for one exact word in one file. The same code
+written with a different key, or placed in another file, passes.
+
+### Changed: one line of the architecture notes, and a check pointing the other way
+
+The architecture notes described that file as handling snapshot creation, validation and browser
+storage. Only the validation half is true now, and the line names the two things the file actually
+still does.
+
+A second check was added that points in the opposite direction from every other check on those
+notes: it requires text to be present. The notes correctly list the storage layer's operations, and
+those share their names with the five deleted functions. Anyone searching the notes for the deleted
+names finds nine lines of accurate documentation and is invited to delete them while believing they
+are correcting an error. One of those nine lines is now pinned, so deleting it fails the release.
+
+Both checks look for exact wording, like the two added in the previous release, and have the same
+weakness: reword a stale claim and it passes. They guard the specific sentences this release
+touched, and nothing beyond them.
+
+### Added: the first tests for the keyboard-shortcuts handler
+
+The app has a keyboard-shortcuts handler wired into three screens. It listens for every key press
+across the whole window, cancels the browser's own response when it recognises a combination, and
+takes over Ctrl+S and Cmd+S so the browser's save dialog does not open. It had never once run in a
+test. One of its twenty-one possible outcomes was covered, and that one was the default value of an
+argument.
+
+All twenty-one are covered now. Four of them are worth naming, because they are easy to get wrong
+and invisible from the outside:
+
+- Escape reaches you even while you are typing in a text field. It is deliberately checked before
+  the rule that ignores shortcuts in text fields, so it is the one shortcut that still works there.
+- Escape does not cancel the browser's own response, while every other recognised shortcut does.
+- That is only true when an Escape shortcut has actually been registered. Without one, Escape is
+  treated as an ordinary key — so a combination such as Ctrl+Escape does cancel the browser's
+  response, contradicting both points above in the case nobody thinks to check.
+- Combinations are matched in one fixed order: Ctrl, then Shift, then the key. Written the other way
+  round, a shortcut can never match.
+
+The handler itself was not changed.
+
+### Note: what the coverage figures do and do not entitle
+
+Measured coverage of the snapshot utility file rose because its untested half is gone, not because
+anything new was tested there: statements from 41% to 84%, branches from 58% to 79%. That clears the
+coverage threshold recorded as the reason for leaving the file out of the project's mutation-testing
+scope.
+
+It does not meet the higher standard the files actually in that scope were held to. This release
+therefore makes no claim that the file is now a candidate; that decision is separate and unchanged.
+
 ## Version 0.28.13 (2026-08-31)
 
 ### Fixed: the architecture notes described files and behaviour that no longer exist

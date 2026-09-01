@@ -3,18 +3,26 @@
 // See LICENSE file in the project root for full license text.
 
 /**
- * ARCHITECTURE.md guards (v0.28.13).
+ * ARCHITECTURE.md guards (v0.28.13; extended v0.28.14).
  *
  * `ARCHITECTURE.md` is read by every later brief to decide what to build, and it
  * had drifted: it named two files that no longer exist, one that never existed,
  * a class deleted in v0.22.2, and a UI affordance this app has never had.
  *
- * Three assertions, deliberately narrow. Each guards a CLASS of claim that has
+ * Five assertions, deliberately narrow. Each guards a CLASS of claim that has
  * actually rotted here, not a hypothetical one.
  *
  *   1. Every filename named in the doc resolves in `git ls-files`.
  *   2. The phrase `permission-denied toast` does not reappear.
  *   3. The token `FirestoreDriver` does not reappear.
+ *   4. The stale `snapshots.ts` descriptor does not reappear.      (v0.28.14)
+ *   5. The GanttStorageService snapshot methods stay documented.   (v0.28.14)
+ *
+ * 4 and 5 point in OPPOSITE directions on purpose. The five functions v0.28.14
+ * deleted from `src/shared/utils/snapshots.ts` share their names with live
+ * `GanttStorageService` methods, so a name search for them returns nine lines of
+ * correct interface documentation. 4 catches the descriptor that went stale; 5
+ * catches an editor who reads those nine false positives as rot and deletes them.
  *
  * WHAT THIS DOES NOT GUARD, stated so the gap is not mistaken for coverage:
  *
@@ -29,7 +37,12 @@
  *     again.
  *   - Assertion 2 guards a PHRASE, not a class. "produces one permission-denied
  *     notification" passes this test. It exists because that exact wording
- *     reached its fourth copy across the docs before anyone noticed.
+ *     reached its fourth copy across the docs before anyone noticed. Assertion 4
+ *     has the same weakness: a REWORDED stale descriptor passes it.
+ *   - Assertion 5 pins ONE of the nine interface lines. The other eight say the
+ *     same thing in prose and no phrase can enumerate them. What covers those is
+ *     `git show --numstat HEAD -- ARCHITECTURE.md` read on the release commit,
+ *     which is a review step and not a test.
  *
  * `CLAUDE.md` is deliberately NOT guarded here. It is gitignored, so it is
  * absent from a clean checkout, and every test in this directory is a hard
@@ -177,5 +190,44 @@ describe('ARCHITECTURE.md — retired claims stay retired', () => {
           `and are correct — this file holds live description only.`
       ).toBe(false);
     }
+  });
+
+  it('does not describe snapshots.ts as CRUD or localStorage', () => {
+    // v0.28.14 deleted five dead exports from `src/shared/utils/snapshots.ts`
+    // along with the three constants they orphaned -- including SNAPSHOTS_KEY,
+    // the `ganttAppSnapshots` localStorage key. What remains is validateSnapshot
+    // and getSnapshotsForProject; the file touches localStorage nowhere.
+    const stale = 'Snapshot CRUD, validation, localStorage';
+    expect(
+      doc.includes(stale),
+      `ARCHITECTURE.md describes snapshots.ts as "${stale}". Both halves are ` +
+        `false as of v0.28.14, which deleted every CRUD export and every ` +
+        `localStorage access from that file. It now exports validateSnapshot ` +
+        `and getSnapshotsForProject and nothing else.`
+    ).toBe(false);
+  });
+});
+
+describe('ARCHITECTURE.md - live interface docs are not collateral damage', () => {
+  /**
+   * Added v0.28.14, and it points the opposite way from every other assertion
+   * here: it requires text to be PRESENT.
+   *
+   * `GanttStorageService` declares methods with the SAME NAMES as the five
+   * functions v0.28.14 deleted from `src/shared/utils/snapshots.ts`. A name
+   * search for the deleted functions therefore returns nine lines of live,
+   * correct interface documentation in this file -- and invites whoever ran the
+   * search to delete them while believing they are fixing the doc's accuracy.
+   */
+  it('still documents the GanttStorageService snapshot methods', () => {
+    const box = 'addSnapshot, deleteSnapshot, deleteSnapshotsForProject';
+    expect(
+      doc.includes(box),
+      `ARCHITECTURE.md no longer lists "${box}" in its GanttStorageService box. ` +
+        `Those are LIVE interface methods -- declared in src/shared/types/storage.ts ` +
+        `and implemented by both storage services. They share names with functions ` +
+        `deleted from src/shared/utils/snapshots.ts in v0.28.14, which is precisely ` +
+        `why they look deletable and are not. Restore the line.`
+    ).toBe(true);
   });
 });

@@ -113,7 +113,7 @@ GanttApp/
 │   │       ├── dates.ts       # Date parsing, formatting, ID generation
 │   │       ├── export.ts      # JSON export/import + Smart Import logic (v0.24.0)
 │   │       ├── firestore-converters.ts # Flat AppData ↔ Firestore translation (v11.0)
-│   │       ├── snapshots.ts   # Snapshot CRUD, validation, localStorage
+│   │       ├── snapshots.ts   # validateSnapshot + getSnapshotsForProject
 │   │       ├── storage.ts     # localStorage wrapper with validation
 │   │       ├── theme.ts       # Theme color constants
 │   │       ├── validation.ts  # Input validation + security sanitization

@@ -23,8 +23,12 @@ import { CHANGELOG_ENTRIES } from '../../features/changelog/changelog-data';
  * equivalent sat 43 releases behind for five months, serving a March changelog,
  * before a guard like this was written.
  *
- * The first two now hold the same 104 versions in the same order, and this is
- * the first point at which that has ever been true. `CHANGELOG.md` was missing
+ * The first two now hold the same versions in the same order, and this is
+ * the first point at which that has ever been true. The count is deliberately
+ * not written here: it rises every release, nothing checks a number in a
+ * comment, and a stale one reads exactly like a true one. The tests below
+ * derive it from the data. (It was 104 when this note was written; it is
+ * whatever `CHANGELOG_ENTRIES` holds when you read it.) `CHANGELOG.md` was missing
  * 17 versions the app had always rendered: the four plain-text ones, 3.1 through
  * 3.4, were transcribed in v0.27.16, and the remaining 13 — whose items are JSX,
  * so they had to be converted rather than copied — in v0.27.17.

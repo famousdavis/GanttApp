@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.13',
+    date: 'August 31, 2026',
+    items: [
+      <><strong>Maintenance</strong> &mdash; documentation only; no application code changed and nothing about how the app behaves is different. The project&rsquo;s architecture notes are what every later piece of work reads to decide what to build, and they had drifted. They named a file deleted in an earlier release, a second deleted before that, and a third that never existed at all; described a pop-up error message this app has never had in any version; gave the versions of six of the project&rsquo;s own tools, all six wrong, one of them wrong about which major version the project is on; and described a saved-changes delay as more than twice its real length. Each was true when written. None was true any more.</>,
+      <><strong>Added</strong> &mdash; every filename mentioned in the architecture notes is now checked against the files actually in the project, and a name that resolves nowhere fails the release. One exception is recorded on purpose, a security-rules file that genuinely lives in another repository, and the check refuses to let that exception quietly grow: if the file moves into this project, or stops being mentioned, the exception itself is flagged as stale.</>,
+      <><strong>Added</strong> &mdash; two retired claims are pinned separately. The pop-up error wording is refused if it reappears, having already reached a fourth copy before anyone noticed; so is the name of a deleted storage class, guarded on its own because the filename check only sees filenames, and that name appears in prose and in a diagram where a filename check is blind to it.</>,
+      <><strong>Note</strong> &mdash; the check only proves that what is named exists. It cannot notice something the notes forgot, and 29 of the project&rsquo;s 100 source files are not mentioned. So the directory listing now says it is a guide to the important files rather than a complete index, which makes an omission stop being a fault. Regenerating it automatically was considered and rejected: three fifths of its lines carry hand-written explanations a regenerated listing would delete, and it would more than double in length while explaining less.</>,
+      <><strong>Changed</strong> &mdash; two recorded deviations from the import specification named a version by which they would be resolved; that version shipped without them and the project is several releases past it. Both now say they are open and unscheduled, with the date removed rather than moved to a new one that would rot the same way. A third is marked accepted rather than pending, because it describes a problem that cannot occur in the current design.</>,
+      <><strong>Note</strong> &mdash; the backlog is not now honest and this release does not claim it is. Ten items were reviewed; five live in historical release records, which are deliberately not edited, because a record accurate when written is not stale and rewriting it would assert it had been wrong. Those five are exactly as hard to find as before. The five that could be corrected were. A release that closed half a list and reported it as closed would be the same failure this one exists to fix.</>,
+      <><strong>Note</strong> &mdash; part of the corrected documentation lives in a file excluded from version control, so those changes appear in no comparison of what changed and are covered by no automated check beyond two version numbers the release gate verifies. They were reviewed by hand and recorded in full in the release report.</>,
+    ],
+  },
+  {
     version: '0.28.12',
     date: 'August 22, 2026',
     items: [

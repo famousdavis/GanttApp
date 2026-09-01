@@ -1,5 +1,66 @@
 # Change Log
 
+## Version 0.28.15 (2026-09-01)
+
+### Fixed: a number in the mutation-testing configuration that never described the file it named
+
+Development tooling only — no application code changed and nothing about how the app behaves is
+different.
+
+Mutation testing makes small deliberate changes to the code and asks whether any test notices. It is
+expensive, so it runs against three files rather than all of them, and the configuration records why
+each of the others was left out. Two files were listed as excluded for having too little test
+coverage, each with a percentage beside it.
+
+One of those percentages had never described the file it was attached to. It was the second of two
+figures on a single line of a coverage report — the branch figure and the function figure for the
+same file, sitting side by side — and the second had been read as belonging to the file on the next
+line. The file it was attributed to has, and has always had, complete coverage of the thing being
+measured; neither it nor its test has changed in more than a dozen releases.
+
+The exclusion itself is still right, for a reason the configuration already gives elsewhere: the
+file is small and fully covered, and mutating it would return almost nothing. Only the stated reason
+was wrong.
+
+### Fixed: a second figure in the same sentence, out of date since the previous release
+
+The other excluded file's coverage rose from 58% to 79% in v0.28.14, when five unused functions were
+deleted from it. That clears the threshold its exclusion cited.
+
+Both exclusions still stand and the scope is unchanged. Whether that file should now come into scope
+is a separate decision and this release does not make it — the note says so explicitly, so that a
+later reader cannot mistake a corrected number for a decision.
+
+### Fixed: a cross-reference that pointed at a document which does not contain what it promised
+
+The same configuration told anyone reading it to see the mutation-testing report "for what was
+excluded and why". That report has never contained the name of either excluded file and documents no
+exclusion at all — it records the run itself: the score, every surviving change and how each was
+classified, and what the run cost. The reference was false on the day it was written and survived
+seven releases, because a pointer to a document is exactly the kind of claim nothing ever executes.
+
+The pointer now says where the information actually is.
+
+### Added: a check that the mutation scope and its written record cannot drift apart
+
+Two things are now verified on every release. Every file the configuration puts in scope must exist
+— a renamed or deleted entry would otherwise shrink the scope silently, since the tool treats those
+entries as patterns and a pattern matching nothing raises no error while quietly lowering the amount
+of code under test. And every file in scope must appear in the written record of the run, so the
+record cannot describe a run that nobody could reproduce from it.
+
+Stated plainly, because it is the same weakness as the checks added in the last two releases: this
+reads names, not prose. A percentage going stale — which is what this release fixed twice — is
+invisible to it.
+
+### Changed: the project's own working notes described a source file by what it used to do
+
+The notes listed a snapshot utility file as handling snapshot creation, validation and browser
+storage. Only the validation half survived the previous release, and the entry now names the two
+things the file actually still does. That file is excluded from version control, so this change
+appears in no comparison of what changed and is covered by no automated check beyond the two version
+numbers the release gate verifies; it was made by hand and is recorded here.
+
 ## Version 0.28.14 (2026-09-01)
 
 ### Removed: five unused functions that wrote snapshots straight to browser storage

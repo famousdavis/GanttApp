@@ -2,8 +2,14 @@
 
 Documents deliberate architectural departures from the Level 4 import spec
 defined in `~/Documents/SPERT Documentation/robust-import-guide/`. Each entry
-explains the pattern not implemented, the behavioral consequence, the partial
-mitigation in place (if any), and the target version for full compliance.
+explains the pattern not implemented, the behavioral consequence, and the partial
+mitigation in place (if any).
+
+**Not every entry names a target version.** Some deviations are accepted rather than
+scheduled; those carry a `**Status:**` line saying so. A `**Full closure (vX):**` line is a
+description of what full compliance would require — it is **not** a commitment that it landed
+in that version. Where a named version has shipped without the work, the line is corrected to
+say so rather than left to read as a delivered promise.
 
 ---
 
@@ -29,8 +35,13 @@ drift-abort.
 **Mitigation:** Delete window is closed. Add window is bounded to milliseconds
 in practice.
 
-**Full closure (v0.27.0):** Re-read from storage at apply time inside
+**Full closure (not yet scheduled):** Re-read from storage at apply time inside
 `applyMergeDecisions` instead of relying on the render closure.
+
+**Status:** Open. A previous revision of this entry named v0.27.0 as the target; v0.27.0
+shipped without it and the repo is now past it. `applyMergeDecisions` still reads `data`
+from the render closure. The date has been removed rather than moved — this deviation is
+open, not scheduled.
 
 ---
 
@@ -44,6 +55,11 @@ render; no subscriber observes the intermediate state.
 **Consequence:** Theoretical for the current architecture.
 
 **Full closure:** Zustand migration; atomic store action that updates both.
+
+**Status:** Accepted as theoretical — not scheduled, and no target version. React's
+auto-batching means no subscriber can observe the intermediate state, so there is no
+user-visible defect to close. This entry is retained to record the deviation, not to
+track outstanding work. It would reopen only if the two updates stopped being batched.
 
 ---
 
@@ -79,7 +95,10 @@ back to 'add' rather than clobbering the unrelated project.
 abort (error banner + retry) rather than graceful per-decision fallback.
 Data-safe — no wrong project is clobbered, only a UX regression.
 
-**Full closure (v0.27.0):** Per-decision re-validation in `applyMergeDecisions`.
+**Full closure (not yet scheduled):** Per-decision re-validation in `applyMergeDecisions`.
+
+**Status:** Open. As with SD-1, a previous revision named v0.27.0; that version shipped
+without the work. Coarse-grain abort is still what runs.
 
 ---
 

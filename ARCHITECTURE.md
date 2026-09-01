@@ -6,26 +6,33 @@ This document describes the technical architecture of GanttApp, a browser-based 
 
 | Layer | Technology | Version |
 |-------|------------|---------|
-| Framework | Next.js (Pages Router) | 16.1.6 |
+| Framework | Next.js (Pages Router) | 16.2.11 |
 | UI Library | React | 19 |
-| Language | TypeScript | 5 |
+| Language | TypeScript | 6.0.3 |
 | Bundler | Turbopack (default in Next.js 16) | - |
 | Storage (default) | Browser localStorage | - |
-| Storage (optional) | Firebase Firestore | ^12.9.0 |
-| Auth (optional) | Firebase Auth (Google/Microsoft SSO) | ^12.9.0 |
+| Storage (optional) | Firebase Firestore | 12.12.1 (exact-pinned) |
+| Auth (optional) | Firebase Auth (Google/Microsoft SSO) | 12.12.1 (exact-pinned) |
 | Chart Export | html2canvas | 1.4.1 |
-| Testing | Vitest + React Testing Library | 4.0.18 |
-| Linting | ESLint 9 (flat config) | 9.17.0 |
+| Testing | Vitest + React Testing Library | 4.1.5 |
+| Linting | ESLint 9 (flat config) | 9.39.4 |
 | Hosting | Vercel (serverless) | - |
 
-## Directory Structure
+## Directory Structure (key files)
+
+> **Illustrative, not exhaustive.** This tree names the files worth orienting by; it is not a
+> complete listing of the source, and files absent from it are not thereby undocumented. A
+> `git ls-files` regeneration would flatten the hand-written annotations that make it useful,
+> so it is maintained by hand. The guard in `src/lib/__tests__/architecture-doc.test.ts`
+> enforces the direction that matters: **everything named here must exist.** Nothing here
+> promises the converse.
 
 ```
 GanttApp/
 ├── pages/
 │   ├── index.tsx              # Main app entry + orchestration
 │   ├── _app.tsx               # Provider hierarchy (Auth > Storage > Theme > AppData)
-│   └── index-old.tsx          # Pre-refactor backup (reference only)
+│   └── _document.tsx          # Document shell + pre-hydration theme script
 │
 ├── src/
 │   ├── context/
@@ -58,7 +65,9 @@ GanttApp/
 │   │   │   ├── ReleasesTab.tsx
 │   │   │   └── useReleases.ts
 │   │   └── settings/
-│   │       ├── SettingsTab.tsx        # Storage mode, auth, export attribution (v11.0)
+│   │       ├── SettingsTab.tsx        # Settings orchestrator
+│   │       ├── DefaultLegendLabelsSection.tsx # 5 default legend labels (v16.2)
+│   │       ├── ExportAttributionSection.tsx   # Name + Identifier (v11.1)
 │   │       └── ExportProjectsSection.tsx # Settings export-projects picker (v19.0)
 │   │
 │   ├── lib/
@@ -81,6 +90,7 @@ GanttApp/
 │   │   │   ├── ShareIconButton.tsx          # Per-project share, owner+cloud only (v0.23.0)
 │   │   │   └── Tabs.tsx
 │   │   ├── hooks/
+│   │   │   ├── useBufferedField.ts          # Buffered cloud-write text inputs (v0.27.0)
 │   │   │   ├── useDragAndDrop.ts
 │   │   │   └── useKeyboardShortcuts.ts
 │   │   ├── storage/                   # Storage abstraction layer (v10.0/v11.0)
@@ -88,8 +98,9 @@ GanttApp/
 │   │   │   ├── snapshot-limits.ts            # Shared snapshot caps (v19.0)
 │   │   │   ├── local-storage-driver.ts      # LocalStorageDriver
 │   │   │   ├── local-gantt-storage-service.ts # LocalGanttStorageService
-│   │   │   ├── firestore-driver.ts          # FirestoreDriver (v11.0)
-│   │   │   └── firestore-gantt-storage-service.ts # Cloud service (v11.0)
+│   │   │   ├── firestore-gantt-storage-service.ts # Cloud service (v11.0)
+│   │   │   ├── firestore-save-executor.ts   # Extracted diff-based save logic (v11.1)
+│   │   │   └── firestore-sharing.ts         # Membership + invitation calls (v11.1/v18.0.0)
 │   │   ├── types/
 │   │   │   ├── models.ts      # Core data models (Project, Release, etc.)
 │   │   │   ├── app.ts         # App-level types (AppData, TabType)
@@ -117,7 +128,10 @@ GanttApp/
 │   └── globals.css            # Global styles + date input styling
 │
 ├── public/
-│   └── favicon.ico
+│   ├── CHANGELOG.md           # Served copy, byte-identical to root (gate-checked)
+│   ├── GanttApp_Quick_Reference_Guide.pdf
+│   ├── spert-favicon-ganttapp.png
+│   └── spert-favicon-ganttapp-dark.png
 │
 ├── .env.local.example         # Firebase config template (v11.0)
 ├── eslint.config.mjs          # ESLint 9 flat config
@@ -154,7 +168,7 @@ AuthProvider > StorageProvider > ThemeProvider > AppDataProvider
 │  │                                                                     │  │
 │  │  StorageDriver (I/O)         GanttStorageService (app logic)       │  │
 │  │  ├── LocalStorageDriver      ├── LocalGanttStorageService          │  │
-│  │  └── FirestoreDriver         └── FirestoreGanttStorageServiceImpl  │  │
+│  │                              └── FirestoreGanttStorageServiceImpl  │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 │         ▲                                      │                          │
 │         │ save                                 │ load                     │
@@ -295,6 +309,7 @@ interface AppData {
   todayDateOverride?: string;
   showFinishDateLine?: boolean;
   showMostLikelyLine?: boolean;   // v8.0
+  showMonths?: boolean;           // v13.5 — month labels + separator lines
   chartDisplaySettings?: ChartDisplaySettings;
   preparedBy?: string;
   showPreparedBy?: boolean;
@@ -318,7 +333,7 @@ interface AppData {
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **StorageDriver**: Thin I/O wrapper. `LocalStorageDriver` wraps `window.localStorage`. `FirestoreDriver` wraps Firestore SDK.
+- **StorageDriver**: Thin I/O wrapper. `LocalStorageDriver` wraps `window.localStorage`. The cloud path does not use a driver — `FirestoreGanttStorageServiceImpl` calls the Firestore SDK directly.
 - **GanttStorageService**: App-level operations. Translates between flat `AppData` and storage backend. `LocalGanttStorageService` uses validation/sanitization. `FirestoreGanttStorageServiceImpl` adds debouncing, diff-based writes, real-time subscriptions.
 
 ### CloudGanttStorageService (v11.0)
@@ -328,17 +343,19 @@ Extends `GanttStorageService` with cloud-specific methods:
 ```typescript
 interface CloudGanttStorageService extends GanttStorageService {
   subscribeToProject(projectId, callback): () => void;
-  shareProject(projectId, targetEmail, role): Promise<void>;
-  removeProjectMember(projectId, targetUid): Promise<void>;
+  removeCollaborator(projectId, targetUid): Promise<void>;   // renamed from removeProjectMember in v18.0.0 (D3)
   getProjectMembers(projectId): Promise<{ uid, role, email? }[]>;
-  createUserProfile(displayName, email): Promise<void>;
+  listPendingInvites(projectId): Promise<PendingInvite[]>;   // v18.0.0
+  revokeInvite(tokenId): Promise<void>;                      // v18.0.0
+  resendInvite(tokenId): Promise<void>;                      // v18.0.0
   flushPendingWrites(): Promise<void>;
+  cancelPendingSaves(): void;                                // v16.6 (A3) — discard, do not flush
   dispose(): void;
 }
 ```
 
 Key behaviors:
-- **Write debouncing**: 500ms `setTimeout` with coalescing; structural mutations bypass debounce
+- **Write debouncing**: `DEBOUNCE_MS` (200 ms since v0.27.0, reduced from 500 ms) `setTimeout` with coalescing; structural mutations bypass debounce
 - **Diff-based saves**: In-memory `lastSavedState` cache — only writes changed data via batch writes
 - **beforeunload handler**: Flushes pending writes on tab close. Removed on `dispose()`.
 - **Real-time sync**: `subscribeToProject()` returns `onSnapshot` unsubscribe function. Echo prevention via `snapshot.metadata.hasPendingWrites`.
@@ -351,6 +368,13 @@ Key behaviors:
 | `ganttAppSnapshots` | Snapshot[] | All historical snapshots across projects |
 | `gantt-theme` | Theme preference | Light/dark/system |
 | `ganttapp-storage-mode` | `"local"` or `"cloud"` | Storage mode preference (v11.0) |
+| `spert_firstRun_seen` | `"true"` | First-run banner dismissed (v13.0) |
+| `spert_tos_accepted_version` | ToS version string | Locally cached ToS acceptance (v13.0) |
+| `spert_tos_write_pending` | `"true"` | Firestore ToS write owed after auth (v13.0) |
+| `ganttapp-suppress-local-warning` | `"true"` | Suppress the local-storage warning banner (v13.7) |
+
+All eight live keys are listed. `ganttapp_pending_invite_token` is **sessionStorage**, not
+localStorage, and is deliberately absent from this table.
 
 ### Firestore Structure (Cloud Mode)
 
@@ -413,7 +437,7 @@ Handlers:
 - `AppDataContext` listens (gated on `storage.mode === 'cloud'`) and removes the project and its releases from in-memory state.
 - `useSnapshots` listens (ungated — driver is sole dispatcher; ungated keeps the hook free of `useStorage` dependency cascade) and removes snapshots for the project.
 
-Known limitation: an in-flight `executeSave` that already started writing to the revoked project's subcollections will produce one permission-denied toast before the pruned state takes effect.
+Known limitation: an in-flight `executeSave` that already started writing to the revoked project's subcollections will surface one permission-denied error before the pruned state takes effect. It reaches the user through the `onSaveResult` channel, which renders **only** in Settings → Storage as "Cloud sync error: …" (v17.3.2) — a user on any other tab sees nothing.
 
 ### Save-Side and Real-Time UID Guards (v0.27.0, I1a)
 
@@ -467,7 +491,7 @@ When `readOnly=true`:
 ```
 Save: Current view → window.prompt() → structuredClone(releases) → addSnapshot() → storage
 View: Click chip → setActiveSnapshotId → effective props swap → chart re-renders
-Delete: Click trash → window.confirm() → deleteSnapshot() → reset to Current
+Delete: Click trash → ConfirmDialog (v13.1, replaced window.confirm) → deleteSnapshot() → reset to Current
 Cascade: Delete project → deleteSnapshotsForProject() → all project snapshots removed
 Export: loadSnapshots() → included in JSON alongside AppData
 Import: parseImportedData() → validateSnapshot() each → saveSnapshots()
@@ -587,7 +611,7 @@ User Input / Import File
 | MAX_RELEASES | 500 | Prevent array exhaustion |
 | MAX_SNAPSHOTS | 100 | Prevent snapshot accumulation |
 
-### Snapshot Storage Limits (snapshots.ts)
+### Snapshot Storage Limits (`storage/snapshot-limits.ts`)
 
 | Limit | Value | Purpose |
 |-------|-------|---------|
@@ -614,10 +638,14 @@ index.tsx (AppContent)
 │   ├── ChartLegend (editable labels incl. Most Likely)
 │   ├── Read-only banner (snapshot view)
 │   └── ChartSettings (display/color/toggle options)
-├── SettingsTab (v11.0)
-│   ├── Storage mode selector (Local/Cloud radio)
-│   ├── Account section (sign-in/sign-out)
-│   └── Export attribution fields
+├── SettingsTab (v11.0, sections since v11.3/v13.7/v15.0/v16.2/v19.0)
+│   ├── StorageSection (Local/Cloud radio + sign-in/sign-out; absorbed the
+│   │   separate Account section, which was removed as its own component in v11.3)
+│   ├── WorkWeekSection (v15.0)
+│   ├── DefaultLegendLabelsSection (v16.2)
+│   ├── ExportAttributionSection (v11.1)
+│   ├── ExportProjectsSection (v19.0)
+│   └── Notifications (local-storage warning toggle, v13.7)
 ├── AboutTab
 └── ChangelogTab (via footer version link)
 ```
@@ -647,6 +675,9 @@ The GanttChart component renders an SVG with:
      - Hatched bar: earlyFinishDate → lateFinishDate (SVG pattern fill)
      - Most Likely line: optional vertical line within hatched bar (v8.0)
      - Date labels below bars (with collision detection, 40px minimum spacing)
+   - **In-progress releases (v16.0):**
+     - Split-bar shape, same as not-started
+     - Solid section uses `chartColors.inProgressBar` (customizable, default amber `#f59e0b`)
    - **Completed releases (v9.0):**
      - Single solid bar: startDate → lateFinishDate (no hatching — no uncertainty)
      - Color: `chartColors.completedBar` (customizable, default `#90ee90`)
@@ -680,11 +711,19 @@ The GanttChart component renders an SVG with:
 ## Build & Deployment
 
 ```bash
-npm run dev      # Development with Turbopack (hot reload)
-npm run build    # Production build
-npm run lint     # ESLint 9 flat config
-npm test         # Vitest test runner
+npm run dev       # Development with Turbopack (hot reload)
+npm run build     # Production build
+npm run lint      # ESLint 9 flat config — see the baseline note below
+npm run typecheck # tsc --noEmit (its own gate step since v0.28.2)
+npm test          # Vitest test runner
+npm run shipgate  # Full release gate: lint · typecheck · test · build
 ```
+
+⚠️ `npm run lint` exits **non-zero** at its accepted baseline (`expectProblems` in
+`shipgate.config.json`). **Gate on the reported problem count, never on the exit code.**
+
+Two measurement instruments are deliberately **not** gate steps: `npm run cc`
+(cognitive complexity) and `npm run mutate` (Stryker, ~59 min).
 
 **Deployment**: Push to `main` branch triggers Vercel auto-deploy.
 

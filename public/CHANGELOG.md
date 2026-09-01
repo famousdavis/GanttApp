@@ -1,5 +1,72 @@
 # Change Log
 
+## Version 0.28.13 (2026-08-31)
+
+### Fixed: the architecture notes described files and behaviour that no longer exist
+
+Documentation only — no application code changed and nothing about how the app behaves is
+different.
+
+The project's architecture notes are what every later piece of work reads to decide what to build.
+They had drifted. They named a file deleted in an earlier release, a second deleted before that, and
+a third that never existed at all. They described a pop-up error message this app has never had, in
+any version. They listed the versions of six of the project's own tools, and all six were wrong —
+one of them wrong about which major version the project is on. They described a saved-changes delay
+as more than twice its actual length, and a delete confirmation as a browser pop-up that was
+replaced with an in-app dialog many releases ago.
+
+Each of those was true when it was written. None of them was true any more, and nothing anywhere
+would have caught that.
+
+### Added: a check that the architecture notes cannot name a file that does not exist
+
+Every filename mentioned in the architecture notes is now checked against the files actually in the
+project. A name that resolves nowhere fails the release. One exception is recorded on purpose — a
+security-rules file that genuinely lives in a different repository — and the check refuses to let
+that exception quietly grow: if the file ever moves into this project, or stops being mentioned, the
+exception itself is flagged as stale.
+
+Two retired claims are also pinned. The pop-up error message wording is refused if it reappears; it
+had already been copied to a fourth place before anyone noticed. So is the name of the deleted
+storage class, separately — because the filename check only sees filenames, and the class name
+appears in prose and in a diagram, where a filename check is blind to it.
+
+### Note: what this check does not do, stated plainly
+
+It only checks that what is named exists. It cannot notice something the notes forgot to mention,
+and 29 of the project's 100 source files are not mentioned. Rather than pretend otherwise, the
+directory listing in those notes now says it is a guide to the important files rather than a
+complete index — so an omission stops being a fault. Regenerating it automatically was considered
+and rejected: three fifths of its lines carry hand-written explanations that a regenerated listing
+would delete, and it would grow to more than twice the length while explaining less.
+
+The check also cannot see a claim that names no file. Wrong version numbers, wrong timings, and
+wrong descriptions of behaviour were all corrected by hand here, and nothing stops them going stale
+again.
+
+### Changed: two deferred items now say they are deferred
+
+Two recorded deviations from the import specification named a version by which they would be fully
+resolved. That version shipped without them and the project is now several releases past it, so the
+notes were promising something already overdue. Both now say they are open and unscheduled, with the
+date removed rather than moved to a new one that would rot the same way. A third is marked as
+accepted rather than pending: it describes a problem that cannot occur in the current design, and
+recording it as outstanding work overstated it.
+
+### Note: the backlog is not now honest, and this release does not claim it is
+
+Ten items were reviewed. Five of them live in historical release records, which are deliberately not
+edited — a record that was accurate when written is not stale, and rewriting it would assert it had
+been wrong. Those five are exactly as hard to find today as they were before this release. The five
+that could be corrected were corrected. Naming that limit is the point; a release that closed half a
+list and reported it as closed would be the same failure this one exists to fix.
+
+### Note: some of this release is invisible to review
+
+Part of the corrected documentation is a file excluded from version control, so those changes appear
+in no comparison of what changed and are covered by no automated check beyond two version numbers
+the release gate verifies. They were reviewed by hand and recorded in full in the release report.
+
 ## Version 0.28.12 (2026-08-22)
 
 ### Fixed: the mutation-testing safety check no longer passes the run it exists to catch

@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.17',
+    date: 'September 3, 2026',
+    items: [
+      <><strong>Added</strong> &mdash; the release step that was enforced only by a written instruction is now enforced by code. Development tooling only: no application code changed and nothing about how the app behaves is different. Releasing this app includes bringing the local copy of the project back into line with the copy on the server once a release has landed. Merging advances the server; it does not touch the local copy. If the local one is left behind, every report still reads as though the release arrived everywhere, and the next release is then built on the wrong starting point.</>,
+      <><strong>Note</strong> &mdash; why nothing had caught it. Two mechanisms that look like they should have covered this could not. The release gate runs <em>before</em> a release is merged, so the condition it would check does not exist yet. The automated build cannot check it either, because it is a fact about the machine doing the release rather than about the project, and a fresh automated copy has no view of anyone&rsquo;s working copy. The gap was invisible rather than merely unaddressed.</>,
+      <><strong>Added</strong> &mdash; a check before the release, inside the gate. The gate now refuses to proceed if the local copy is behind the server. A release cut on a stale starting point silently leaves out whatever landed in the meantime, and no other check in the gate can see it, because the files on disk look entirely correct. Being <em>ahead</em> is normal and is not reported &mdash; that is what the release itself is.</>,
+      <><strong>Added</strong> &mdash; a check after the release, as its own command. It compares the local copy, the local record of the server, and the server&rsquo;s own answer, and reports which one disagrees. Three sources rather than two, because the first two can be stale together and agree with each other while both are wrong.</>,
+      <><strong>Note</strong> &mdash; what the gate deliberately does not check. It does not require a clean working copy, and must not start to. The gate runs partway through a release, after the version and release-notes edits are made and before they are committed, so uncommitted work is expected at that exact moment; requiring cleanliness there would fail every release. That check belongs to the after-the-merge command, where it is correct.</>,
+      <><strong>Note</strong> &mdash; why it compares fingerprints instead of reading a command&rsquo;s output. The step had once been reported as done on the strength of a command&rsquo;s closing message, where the informative line had been cut off by the way the output was trimmed. The message that remained &mdash; that everything was already current &mdash; cannot distinguish <em>checked, nothing to do</em> from <em>never checked</em>. Both checks read the resulting state and compare fingerprints instead. Running a command is not the same as checking its effect.</>,
+      <><strong>Note</strong> &mdash; the shared gate script now differs from its siblings until it is copied across. The gate script is deliberately identical in all nine projects in the suite, so no project can quietly drift onto its own version of the rules. This release changes it here first, so it is briefly the odd one out. Anyone comparing the nine and finding this one different should copy this version outward rather than replace it with an older one: the older copies are the ones missing the check. The new behaviour is switched on by a single setting, so a project that receives the script without that setting keeps working exactly as before.</>,
+    ],
+  },
+  {
     version: '0.28.16',
     date: 'September 3, 2026',
     items: [

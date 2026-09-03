@@ -1,17 +1,13 @@
 {
   "repo": "GanttApp",
-
   "versionConstant": {
     "file": "src/lib/version.ts",
     "export": "APP_VERSION"
   },
-
   "changelog": {
     "file": "CHANGELOG.md",
     "headingPattern": "^## Version (\\d+\\.\\d+\\.\\d+)\\s*\\(",
-
     "_extraSurfacesNote": "This repo has the most changelog surfaces in the suite — three. Before 2026-07-31 the gate checked only CHANGELOG.md, so a release could pass green with the other two stale. v0.27.16 and v0.27.17 exist because exactly that drift accumulated to 17 missing versions.",
-
     "extraSurfaces": [
       {
         "file": "public/CHANGELOG.md",
@@ -25,13 +21,12 @@
       }
     ]
   },
-
   "claudeMdVersionPatterns": [
     "^\\*\\*Current Version:\\*\\*\\s+(\\d+\\.\\d+\\.\\d+)"
   ],
-
   "_claudeMdNote": "CLAUDE.md is gitignored, so the release checklist's consistency grep could never see version drift inside it — and this file sat at 0.21.1 / 'May 5, 2026' while the repo was at 0.27.13, THIRTEEN releases stale. Both `**Current Version:**` lines are checked. The `**Last Updated:**` line carries a date, not a version, so it cannot be machine-checked against package.json — update it by hand. Historical prose naming an old release is correct as written and is deliberately not matched. Skipped in CI, where the file is never checked out.",
-
+  "gitBaseBranch": "main",
+  "_gitBaseBranchNote": "Consumed by TWO scripts at two different moments, and the split is the point. shipgate.mjs uses it PRE-merge for one assertion only — that this clone is not BEHIND origin/<branch>, i.e. the release is being cut on top of current main. verify-sync.mjs uses it POST-merge for the three-way SHA comparison (local, remote-tracking, GitHub API) plus a clean-tree check. Neither check can live in the other's moment: the gate runs at Releasing step 5 with the version and changelog edits UNCOMMITTED, so a clean-tree assertion there would fail every release; and the post-merge SHA condition does not exist yet when the gate runs. Both self-skip under CI: actions/checkout is shallow and detached, so origin/<branch> is not a meaningful local ref there, and a CI runner has no view of a developer's clone at all — which is why this drift was invisible to every mechanism the suite already had. Remove this key to disable both checks; the gate then prints nothing for them rather than passing silently.",
   "commands": [
     {
       "name": "lint",
@@ -44,7 +39,10 @@
       "run": "npm run typecheck",
       "_note": "Catches type errors in files `next build` never typechecks — tests, and anything else outside the production import graph. Three TS2802 errors sat in `src/lib/__tests__/` from v0.27.15 (c4e174a, the ship-gate install itself) to v0.28.2 with every gate step green, because vitest transpiles without typechecking and `next build` only walks the production graph. Falsified at v0.28.2: an injected TS2322 in a test file fails `npm run typecheck` and passes `npm run build`. This step also needs `src/types/css.d.ts` — without it tsc only passes when a previous `next build` has left a gitignored next-env.d.ts in the tree, so it passed locally and failed on a fresh CI checkout. See that file."
     },
-    { "name": "test", "run": "npm test" },
+    {
+      "name": "test",
+      "run": "npm test"
+    },
     {
       "name": "build (next build — production graph only)",
       "run": "npm run build",

@@ -1,5 +1,58 @@
 # Change Log
 
+## Version 0.28.17 (2026-09-03)
+
+### Added: the release step that was enforced only by a written instruction is now enforced by code
+
+Development tooling only &mdash; no application code changed and nothing about how the app behaves is
+different.
+
+Releasing this app includes bringing the local copy of the project back into line with the copy on the
+server once a release has landed. Merging advances the server; it does not touch the local copy. If the
+local one is left behind, every report still reads as though the release arrived everywhere, and the
+next release is then built on top of the wrong starting point.
+
+That step existed only as a line in a written checklist, and two mechanisms that look like they should
+have covered it could not. The release gate runs *before* a release is merged, so the condition it
+would be checking does not exist yet. The automated build cannot check it either, because it is a fact
+about the machine doing the release rather than about the project &mdash; a fresh automated copy has no
+view of anyone's working copy. That is why the gap was invisible rather than merely unaddressed.
+
+Two checks now cover the two moments.
+
+**Before the release, inside the gate.** The gate now refuses to proceed if the local copy is behind
+the server. A release cut on a stale starting point silently leaves out whatever landed in the
+meantime, and no other check in the gate can see it, because the files on disk look entirely correct.
+Being *ahead* is normal and is not reported &mdash; that is what the release itself is.
+
+**After the release, as its own command.** A new command compares the local copy, the local record of
+the server, and the server's own answer, and reports which one disagrees. Three sources rather than
+two, because the first two can be stale together and agree with each other while both are wrong.
+
+### Note: what the gate deliberately does not check
+
+The gate does not require a clean working copy, and must not start to. It runs partway through a
+release, after the version and release-notes edits are made and before they are committed, so at that
+exact moment uncommitted work is expected. Requiring cleanliness there would fail every release. The
+clean-copy check belongs to the after-the-merge command, where it is correct.
+
+### Note: why it compares fingerprints instead of reading a command's output
+
+The step had once been reported as done on the strength of a command's closing message, where the
+informative line had been cut off by the way the output was trimmed. The message that remained
+&mdash; that everything was already current &mdash; cannot distinguish *checked, nothing to do* from
+*never checked*. Both checks therefore read the resulting state and compare fingerprints, rather than
+trusting what a command said about itself. Running a command is not the same as checking its effect.
+
+### Note: the shared gate script now differs from its siblings until it is copied across
+
+The gate script is deliberately identical in all nine projects in the suite, so that no project can
+quietly drift onto its own version of the rules. This release changes that script here first, which
+means it is briefly the odd one out. Anyone comparing the nine and finding this one different should
+copy this version outward, not replace it with an older one: the older copies are the ones missing the
+check. The new behaviour is switched on by a single setting, so a project that receives the script
+without that setting keeps working exactly as before.
+
 ## Version 0.28.16 (2026-09-03)
 
 ### Fixed: typing into a chart date or label and clicking away threw the edit away

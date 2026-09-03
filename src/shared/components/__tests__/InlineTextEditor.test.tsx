@@ -50,14 +50,18 @@ describe('InlineTextEditor', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('calls onCancel when input loses focus', () => {
+  // v0.28.16 (F1) — this test asserted the DEFECT until v0.28.15: blur called
+  // onCancel, so clicking away destroyed the rename. Blur now commits.
+  // saveReleaseNameEdit always closes, so blur cannot trap focus here.
+  it('commits (not cancels) when the input loses focus', () => {
+    const onSave = vi.fn();
     const onCancel = vi.fn();
-    render(<InlineTextEditor {...defaultProps} onCancel={onCancel} />);
+    render(<InlineTextEditor {...defaultProps} onSave={onSave} onCancel={onCancel} />);
 
-    const input = screen.getByRole('textbox');
-    fireEvent.blur(input);
+    fireEvent.blur(screen.getByRole('textbox'));
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   it('calls onSave when save button is clicked', () => {

@@ -148,6 +148,7 @@ export function ChartReleaseBar({
             value={editing.tempDateValue}
             onChange={editing.setTempDateValue}
             onSave={editing.saveDateEdit}
+            onCommit={editing.commitDateEdit}
             onCancel={editing.cancelDateEdit}
             hasError={!!editing.dateEditError}
             warning={activeEditWarning}
@@ -175,6 +176,7 @@ export function ChartReleaseBar({
               value={editing.tempDateValue}
               onChange={editing.setTempDateValue}
               onSave={editing.saveDateEdit}
+              onCommit={editing.commitDateEdit}
               onCancel={editing.cancelDateEdit}
               hasError={!!editing.dateEditError}
               warning={activeEditWarning}
@@ -202,6 +204,7 @@ export function ChartReleaseBar({
             value={editing.tempDateValue}
             onChange={editing.setTempDateValue}
             onSave={editing.saveDateEdit}
+            onCommit={editing.commitDateEdit}
             onCancel={editing.cancelDateEdit}
             hasError={!!editing.dateEditError}
             warning={activeEditWarning}
@@ -229,6 +232,7 @@ export function ChartReleaseBar({
               value={editing.tempDateValue}
               onChange={editing.setTempDateValue}
               onSave={editing.saveDateEdit}
+              onCommit={editing.commitDateEdit}
               onCancel={editing.cancelDateEdit}
               hasError={!!editing.dateEditError}
               warning={activeEditWarning}

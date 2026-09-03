@@ -7,14 +7,21 @@
 interface InlineDateEditorProps {
   value: string;
   onChange: (value: string) => void;
+  /** ✓ button and Enter. An invalid date keeps the editor open so it can be fixed. */
   onSave: () => void;
+  /**
+   * v0.28.16 — blur. Commits when valid, discards when invalid, always closes.
+   * Distinct from onSave: routing blur through onSave would leave an editor open
+   * on an invalid value, following the user's focus around the page.
+   */
+  onCommit: () => void;
   onCancel: () => void;
   hasError: boolean;
   /** v16.3: optional non-workday warning message shown in amber beneath the input. */
   warning?: string;
 }
 
-export function InlineDateEditor({ value, onChange, onSave, onCancel, hasError, warning }: InlineDateEditorProps) {
+export function InlineDateEditor({ value, onChange, onSave, onCommit, onCancel, hasError, warning }: InlineDateEditorProps) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -28,7 +35,10 @@ export function InlineDateEditor({ value, onChange, onSave, onCancel, hasError, 
             if (e.key === 'Enter') onSave();
             if (e.key === 'Escape') onCancel();
           }}
-          onBlur={onCancel}
+          // v0.28.16: blur COMMITS (or discards an invalid value). Clicking away
+          // used to destroy the edit — invisibly, since a wrong date just moves a
+          // bar a few pixels on a months-long chart.
+          onBlur={onCommit}
           autoFocus
           min="2000-01-01"
           max="2050-12-31"

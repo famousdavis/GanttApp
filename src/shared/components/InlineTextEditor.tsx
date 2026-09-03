@@ -33,7 +33,10 @@ export function InlineTextEditor({
           if (e.key === 'Enter') onSave();
           if (e.key === 'Escape') onCancel();
         }}
-        onBlur={onCancel}
+        // v0.28.16: blur COMMITS. Clicking away used to discard the edit outright
+        // — the save button's onMouseDown+preventDefault exists to beat this very
+        // handler. saveReleaseNameEdit always closes, so blur cannot trap focus.
+        onBlur={onSave}
         autoFocus
         style={{
           fontSize,

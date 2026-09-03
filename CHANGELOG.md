@@ -76,6 +76,25 @@ at all. Coverage of its functions went from two of seven to seven of seven, and 
 gained its first keyboard and click-away tests. 41 tests were added and two rewritten: both of the
 rewritten pair had been asserting the defect.
 
+### Note: a writing convention moved into the file it constrains
+
+Three of the automated checks on the architecture notes work by requiring a retired phrase to be
+absent from those notes. That makes correcting one of them delicate: a correction written into the
+notes that quotes the wording it is retiring puts that wording straight back into the file and fails
+the very check the correction was honouring, with a failure message that looks like a fresh
+regression.
+
+The convention that avoids this &mdash; describe a correction without restating what it replaced
+&mdash; was set in v0.28.8, but until now it was written down only in a project file that is
+excluded from version control, so it was absent from every fresh copy of the repository. That is
+exactly the state someone is in the first time they meet the problem. It is now stated in full in
+the check file itself, which is also the one place in the repository where naming those retired
+phrases is safe, since the checks read the architecture notes and nothing else.
+
+This records the convention; it does not enforce it. Nothing checks that a correction avoids
+reprinting, and nothing can: the three checks can only notice a reprint after it has already landed
+in the notes, and cannot tell one apart from the original error.
+
 ## Version 0.28.15 (2026-09-01)
 
 ### Fixed: a number in the mutation-testing configuration that never described the file it named

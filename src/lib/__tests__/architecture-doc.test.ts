@@ -44,6 +44,37 @@
  *     `git show --numstat HEAD -- ARCHITECTURE.md` read on the release commit,
  *     which is a review step and not a test.
  *
+ * THE NO-REPRINT CONVENTION, stated here in full because this is the file it
+ * most directly constrains and the only tracked file that records it.
+ *
+ * Set in v0.28.8: when you correct a piece of wording, describe the correction
+ * WITHOUT reprinting the wording you are correcting. v0.28.7 had reworded a
+ * v11.0 changelog entry away from a euphemism and then quoted the euphemism
+ * verbatim to explain why -- moving it from an entry 1,500 lines down into the
+ * newest entry of a served file and the first item rendered in the in-app
+ * Change Log, more prominent than it had ever been in the entry being fixed.
+ *
+ * Why it bites HERE specifically. Three of the assertions above are of the form
+ * `doc.includes(phrase) === false`. So a correction written INTO ARCHITECTURE.md
+ * that quotes the phrase it is retiring puts that phrase straight back into the
+ * file and fails the very assertion the correction was honouring. The failure
+ * message will name the phrase and look like a regression, when what actually
+ * happened is that someone documented a removal by performing it in reverse.
+ *
+ * The retired phrases appear as string literals in THIS file, which is correct
+ * and is not a reprint: the assertions read `ARCHITECTURE.md` and nothing else,
+ * so a test file is the one safe place in the repository to name them. Write
+ * the correction in ARCHITECTURE.md so that it needs no quotation -- say what
+ * the file now describes, not what it used to.
+ *
+ * ⚠️ This DOCUMENTS the convention; it does not ENFORCE it. Nothing here checks
+ * that a correction avoids reprinting, and no assertion can: the three above can
+ * only fail AFTER a reprint has already landed in the doc, and they cannot tell
+ * a reprint apart from the original rot. Until v0.28.16 the convention was
+ * recorded only in `CLAUDE.md`, which is gitignored and therefore absent from
+ * every clean checkout -- exactly the state a new contributor is in when they
+ * first hit this.
+ *
  * `CLAUDE.md` is deliberately NOT guarded here. It is gitignored, so it is
  * absent from a clean checkout, and every test in this directory is a hard
  * assertion with no self-skip. The existing `claudeMdVersionPatterns` mechanism

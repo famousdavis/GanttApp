@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.18',
+    date: 'September 3, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; the two release scripts are byte-identical across the suite again. Development tooling only: no application code changed and nothing about how the app behaves is different.</>,
+      <><strong>Note</strong> &mdash; the post-merge check added in v0.28.17 went out to the nine projects in the suite in two slightly different forms. Partway through that rollout one project&rsquo;s code-style tool objected to how a line in it was written, so the line was rewritten; the projects that had already received the file kept the first version.</>,
+      <><strong>Note</strong> &mdash; the two behave identically. The difference is one function body, and the corrected form computes a value before using it rather than nesting one expression inside another. But these scripts are deliberately the same file everywhere, so that no project can quietly drift onto its own version of the release rules, and two forms in circulation is exactly the drift that arrangement exists to prevent. Every project now carries the corrected one.</>,
+      <><strong>Note</strong> &mdash; the lesson kept rather than the fix. A file that must be identical everywhere should be corrected at its source and re-sent, not corrected where the problem happened to surface. Fixing it in place is what produced two forms.</>,
+    ],
+  },
+  {
     version: '0.28.17',
     date: 'September 3, 2026',
     items: [

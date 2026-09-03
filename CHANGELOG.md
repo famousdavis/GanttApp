@@ -1,5 +1,26 @@
 # Change Log
 
+## Version 0.28.18 (2026-09-03)
+
+### Fixed: the two release scripts are byte-identical across the suite again
+
+Development tooling only. No application code changed and nothing about how the app behaves is different.
+
+The post-merge check added in v0.28.17 went out to the nine projects in the suite in two slightly
+different forms. Partway through that rollout one project's code-style tool objected to how a line in
+it was written, so the line was rewritten. The projects that had already received the file kept the
+first version.
+
+The two behave identically &mdash; the difference is one function body, and the corrected form simply
+computes a value before using it rather than nesting one expression inside another. But these scripts
+are deliberately the same file everywhere, so that no project can quietly drift onto its own version of
+the release rules, and two forms in circulation is exactly the drift that arrangement exists to
+prevent. Every project now carries the corrected one.
+
+The lesson kept rather than the fix: a file that must be identical everywhere should be corrected at
+its source and re-sent, not corrected where the problem happened to surface. Fixing it in place is what
+produced two forms in the first place.
+
 ## Version 0.28.17 (2026-09-03)
 
 ### Added: the release step that was enforced only by a written instruction is now enforced by code

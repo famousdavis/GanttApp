@@ -98,6 +98,14 @@ const EXTERNAL_ALLOWLIST = [
   // Canonical Firestore rules live in the SPERT Landing Page repo; CI deploys
   // them from there. This repo deliberately carries no firestore.rules.
   'spert-landing-page/firestore.rules',
+  // The Level 4 import spec guide lives outside this repo, in
+  // ~/Documents/SPERT Documentation/robust-import-guide/. The APPLYING Contract
+  // section cites it as the authority for the file-pick-boundary write site.
+  // ⚠️ It must be named in the doc as a BARE BASENAME. The extractor's character
+  // class excludes spaces, so writing the full path yields a different token
+  // ("Documentation/robust-import-guide/IMPORT-DESIGN-GUIDE.md") that this entry
+  // would not match, and the path-existence assertion would fail.
+  'IMPORT-DESIGN-GUIDE.md',
 ];
 
 /**

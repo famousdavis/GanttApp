@@ -76,7 +76,7 @@ export interface UseImportStateReturn {
   onDecisionChange: (projectId: string, action: ConflictAction) => void;
 }
 
-// APPLYING CONTRACT (full version in docs/SPEC_DEVIATIONS.md → APPLYING CONTRACT note).
+// APPLYING CONTRACT (discoverable form in ARCHITECTURE.md → "APPLYING Contract").
 //
 // applying = true means: "file is being read OR apply is in progress"
 //

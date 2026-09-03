@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.19',
+    date: 'September 3, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; an internal design note that pointed at a document it was never in. Documentation only: no application code changed and nothing about how the app behaves is different.</>,
+      <><strong>Note</strong> &mdash; two comments in the import code sent readers to a &ldquo;full version&rdquo; of a design note, said to live in the project&rsquo;s register of known departures from the import specification. It was never there. The note itself did exist, as a block of comments at the top of one of the files doing the pointing, so anyone who followed the pointer found the document they were sent to and no note inside it.</>,
+      <><strong>Changed</strong> &mdash; the note now lives in the architecture document, where it is discoverable from the documentation rather than only by reading the code, and both pointers aim at it. It records which places in the code switch the import into its busy state, which places switch it back, and the risk that gives the note its reason to exist: a new path that ends an import without switching the state back would leave the screen stuck until the page is reloaded.</>,
+      <><strong>Fixed</strong> &mdash; an entry in that register recorded a possible accessibility gap during a replace-everything import. Measured against what the page actually does, it describes nothing: the progress announcement it worried a screen reader might miss was never built, so there is nothing to miss. The entry is kept rather than deleted, because how it came to be written is the part worth recording &mdash; it reasoned forward from a design that was intended and never built, rather than backward from what the page does.</>,
+      <><strong>Fixed</strong> &mdash; a second entry warned that changes to the duplicate-a-project logic may need copying by hand into the import code. That is right for shared behaviour and wrong for one specific thing: the two paths name their copies differently on purpose, and each naming style is pinned by its own tests, so copying one into the other breaks whichever side is changed. The entry now says which parts may be copied and which must not.</>,
+      <><strong>Note</strong> &mdash; both entries now carry a status line saying they are accepted rather than scheduled, following the register&rsquo;s own stated convention.</>,
+    ],
+  },
+  {
     version: '0.28.18',
     date: 'September 3, 2026',
     items: [

@@ -1,6 +1,6 @@
 {
   "name": "gantt-chart-app",
-  "version": "0.28.16",
+  "version": "0.28.17",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "cc": "node scripts/measure-complexity.mjs",
     "mutate": "node scripts/mutation-guard.mjs",
-    "shipgate": "node scripts/shipgate.mjs"
+    "shipgate": "node scripts/shipgate.mjs",
+    "verify:sync": "node scripts/verify-sync.mjs"
   },
   "dependencies": {
     "firebase": "12.12.1",

@@ -37,6 +37,8 @@ export interface ChartEditingProps {
   setTempDateValue: (value: string) => void;
   startEditDate: (releaseId: string, dateType: DateType, currentDate: string) => void;
   saveDateEdit: () => void;
+  /** v0.28.16 — blur commit: valid commits, invalid discards, always closes. */
+  commitDateEdit: () => void;
   cancelDateEdit: () => void;
   dateEditError: string;
 }

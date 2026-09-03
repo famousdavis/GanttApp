@@ -1,5 +1,81 @@
 # Change Log
 
+## Version 0.28.16 (2026-09-03)
+
+### Fixed: typing into a chart date or label and clicking away threw the edit away
+
+The Gantt chart lets you click a date under a bar, a release name, or a legend label and change it
+where it sits. Typing a new value and then clicking anywhere else &mdash; another part of the chart,
+a tab, a snapshot chip &mdash; discarded what you had typed. Only the small tick button, or the
+Enter key on two of the three, saved anything. Clicking away now saves.
+
+The code already knew. The tick button is wired to fire on mouse-down rather than on click, purely
+so that it beats the handler that was throwing the edit away; without that trick, pressing the tick
+would have discarded the edit too.
+
+Dates are where this mattered. A lost release name or legend label is visible immediately &mdash; the
+old text is still there on screen, in your own words. A lost date is not: dates render as a bar on a
+chart that may span many months, so a change of a few days moves it by a few pixels. You could
+retype it, but only if you noticed, and there is no undo anywhere in this app.
+
+### Changed: an invalid date is now discarded when you click away, rather than trapping you
+
+Nothing valid is lost, and the editor always closes.
+
+If the date you typed cannot be accepted &mdash; a start date after its early finish, say &mdash; then
+clicking away discards it and the original date stays. The alternative was worse: keeping the editor
+open would have left it following your cursor around the page, unclosable except by fixing a value
+you may have been trying to abandon. The tick button and the Enter key are unchanged, and still hold
+the editor open on an invalid date so you can correct it.
+
+The check runs against what is in the box at the moment you leave it. An earlier version of this fix
+was going to read the "there is an error" flag instead, which records whether a *previous* attempt to
+save had failed and is therefore silent about the value you are actually leaving behind.
+
+### The cost, stated plainly
+
+An edit you did not mean to make is now permanent. Clicking away commits, this app has no undo, and
+in cloud mode the change reaches everyone the project is shared with. If you take a snapshot while an
+edit has just been committed this way, the snapshot records it &mdash; and a snapshot is this app's
+only historical record.
+
+Escape still discards, on all three editors, and now does so on the legend labels through the
+label's own keyboard handling rather than only through the app-wide one.
+
+### Fixed: opening a legend label and leaving without typing quietly created a project override
+
+Legend labels have two scopes: a global default set in Settings, and a per-project override. Clicking
+a label to edit it, then leaving it exactly as you found it, wrote an override anyway. The label
+looked identical, but it had silently detached from the global default, a reset arrow appeared beside
+it, and a write went out to cloud storage. This was already reachable by pressing the tick on an
+unchanged label; making click-away save would have made it reachable by accident. A label committed
+unchanged &mdash; including one you typed into and then restored &mdash; now writes nothing.
+
+### Fixed: a legend label editor stayed open on a read-only snapshot
+
+Selecting a saved snapshot puts the chart into a read-only view. Clicking a legend label was already
+blocked there, but an editor that was *already open* when you selected the snapshot kept rendering
+over the frozen chart. All five legend labels now close, matching the release name and the four dates,
+which have always closed. The architecture notes have claimed since v7.0 that read-only mode disables
+all inline editing; that claim is true for the first time.
+
+### Note: what this release did not change
+
+Only clicking away commits. Programmatic reloads, a release deleted from another device mid-edit, and
+Escape all still discard, deliberately.
+
+Whether a click on a button blurs a text field is browser-dependent and was not measured here, so
+nothing above names a specific gesture as guaranteed to save. In every browser the fix is at worst
+what the app already did.
+
+### Note: the tests this needed
+
+The two shared editor components were well covered, but the file that renders five of the ten editors
+&mdash; four dates and a release name for every release on the chart &mdash; had no interaction tests
+at all. Coverage of its functions went from two of seven to seven of seven, and the legend editor
+gained its first keyboard and click-away tests. 41 tests were added and two rewritten: both of the
+rewritten pair had been asserting the defect.
+
 ## Version 0.28.15 (2026-09-01)
 
 ### Fixed: a number in the mutation-testing configuration that never described the file it named

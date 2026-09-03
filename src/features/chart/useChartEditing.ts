@@ -12,8 +12,14 @@ import type { ProjectLegendLabels } from '../../shared/types/models';
 export type DateType = 'start' | 'early' | 'late' | 'mostLikely';
 export type LegendLabelType = 'solid' | 'hatched' | 'finishDate' | 'mostLikelyLine' | 'inProgress';
 
-/** Map LegendLabelType (UI terminology) → keyof ProjectLegendLabels (storage terminology). */
-const LEGEND_TYPE_TO_KEY: Record<LegendLabelType, keyof ProjectLegendLabels> = {
+/** Map LegendLabelType (UI terminology) → keyof ProjectLegendLabels (storage terminology).
+ *
+ * v0.28.16: exported. Types erase, so there is no runtime enumeration of
+ * LegendLabelType; `Object.keys()` on this Record is the only enumeration that
+ * stays exhaustive BY TYPECHECK when a sixth legend label is added. A
+ * hand-written array would not — see the readOnly parity test in
+ * ChartLegend.test.tsx. */
+export const LEGEND_TYPE_TO_KEY: Record<LegendLabelType, keyof ProjectLegendLabels> = {
   solid: 'solidBar',
   hatched: 'hatchedBar',
   finishDate: 'finishDateLine',
@@ -32,6 +38,12 @@ export function useChartEditing(activeProjectId?: string) {
   // Legend label editing
   const [editingLegendLabel, setEditingLegendLabel] = useState<LegendLabelType | null>(null);
   const [tempLabelValue, setTempLabelValue] = useState('');
+  // v0.28.16 (§5): the effective value the editor OPENED with. saveLabelEdit
+  // compares against it so a no-change commit writes nothing. Shape chosen by
+  // measurement: recomputing the resolveLabel chain inside saveLabelEdit puts it
+  // at cognitive complexity 27 and would add a 14th lint finding; holding the
+  // seed in state keeps it at 14, under the 15 threshold.
+  const [seededLabelValue, setSeededLabelValue] = useState('');
 
   // Release name editing
   const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
@@ -58,13 +70,27 @@ export function useChartEditing(activeProjectId?: string) {
       : type === 'finishDate' ? (finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine)
       : type === 'mostLikelyLine' ? (mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine)
       : (inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress);
-    setTempLabelValue(resolveLabel(key, projectLabels, globalLabel));
+    const seed = resolveLabel(key, projectLabels, globalLabel);
+    setTempLabelValue(seed);
+    setSeededLabelValue(seed);
   };
 
   const saveLabelEdit = () => {
     const sanitized = sanitizeString(tempLabelValue, 50);
     if (!sanitized) {
       // Reject empty/whitespace-only labels — cancel instead
+      cancelLabelEdit();
+      return;
+    }
+
+    // v0.28.16 (§5): no-change commits write nothing. Without this, opening a
+    // label and leaving without typing would create a PROJECT-SCOPE OVERRIDE —
+    // saveLabelEdit writes `{ ...project.legendLabels, [key]: sanitized }`
+    // unconditionally — surfacing ↺, detaching the label from Settings, and
+    // firing a Firestore project-meta write. That was already reachable via a
+    // deliberate ✓ on an unchanged label; commit-on-blur would have extended it
+    // to an accidental gesture. This closes both paths.
+    if (sanitized === seededLabelValue) {
       cancelLabelEdit();
       return;
     }
@@ -128,7 +154,7 @@ export function useChartEditing(activeProjectId?: string) {
     setDateEditError('');
   };
 
-  const saveDateEdit = () => {
+  const applyDateEdit = (discardInvalid: boolean) => {
     if (!editingDateInfo || !tempDateValue) {
       cancelDateEdit();
       return;
@@ -145,7 +171,10 @@ export function useChartEditing(activeProjectId?: string) {
     // Validate using shared function
     const error = validateReleaseDateChange(release, dateType, tempDateValue);
     if (error) {
-      setDateEditError(error);
+      // ✓ / Enter: keep the editor open on the bad value so it can be corrected.
+      // Blur: the editor is closing either way, so discard and keep the original.
+      if (discardInvalid) cancelDateEdit();
+      else setDateEditError(error);
       return;
     }
 
@@ -164,6 +193,23 @@ export function useChartEditing(activeProjectId?: string) {
     updateData({ ...data, releases: updatedReleases });
     cancelDateEdit();
   };
+
+  /** ✓ button and Enter. An invalid date sets the error and keeps the editor open. */
+  const saveDateEdit = () => applyDateEdit(false);
+
+  /**
+   * v0.28.16 (§4) — blur. Commits when valid, DISCARDS when invalid, always closes.
+   *
+   * This re-validates the CURRENT value rather than reading `dateEditError`. That
+   * flag records a PRIOR failed save and is stale at blur, so gating on it (in
+   * either spelling — `dateEditError === ''` and the `hasError` prop are the same
+   * boolean) would leave the editor open and following the user's focus: a trap.
+   * The `!editingDateInfo` and `!release` guards inside applyDateEdit still carry
+   * their own weight; only the empty-string half is subsumed by the validator,
+   * whose first line rejects '' as an invalid date format. That matters because
+   * startDate / earlyFinishDate / lateFinishDate are REQUIRED fields.
+   */
+  const commitDateEdit = () => applyDateEdit(true);
 
   const cancelDateEdit = useCallback(() => {
     setEditingDateInfo(null);
@@ -198,6 +244,7 @@ export function useChartEditing(activeProjectId?: string) {
     dateEditError,
     startEditDate,
     saveDateEdit,
+    commitDateEdit,
     cancelDateEdit,
 
     // Utility

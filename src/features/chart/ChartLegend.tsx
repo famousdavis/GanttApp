@@ -89,11 +89,27 @@ function EditableLabelInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onBlur={onCancel}
+        // v0.28.16 (§3, Option B): Enter saves and Escape cancels LOCALLY, matching
+        // InlineTextEditor. Before this, neither key did anything here — Escape
+        // only worked through the window-bound global handler in pages/index.tsx,
+        // so after commit-on-blur a user who pressed Enter to save would see
+        // nothing happen and reach for Escape, discarding the edit they meant to keep.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSave();
+          if (e.key === 'Escape') onCancel();
+        }}
+        // v0.28.16: blur COMMITS. saveLabelEdit closes on every path (write, empty,
+        // and no-change), so blur cannot trap focus.
+        onBlur={onSave}
         autoFocus
         style={{ padding: '0.25rem', fontSize: '0.9rem', border: '1px solid #ddd', borderRadius: '4px' }}
       />
       <button
+        // Unlike InlineTextEditor / InlineDateEditor this deliberately does NOT
+        // preventDefault, so a blur may fire before the unmount and call
+        // saveLabelEdit twice. The second call is a no-op: editingLegendLabel is
+        // already null, so the project-scope branch is skipped and every
+        // else-if is false — nothing is written.
         onMouseDown={onSave}
         style={{
           padding: '0.25rem 0.5rem',
@@ -184,7 +200,7 @@ export function ChartLegend({
       {hasInProgressReleases && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{ width: '30px', height: '20px', background: chartColors.inProgressBar, borderRadius: '4px' }}></div>
-          {editingLegendLabel === 'inProgress' ? (
+          {!readOnly && editingLegendLabel === 'inProgress' ? (
             <EditableLabelInput
               value={tempLabelValue}
               onChange={onTempLabelChange}
@@ -209,7 +225,7 @@ export function ChartLegend({
       {/* Solid bar legend — represents Not Started */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <div style={{ width: '30px', height: '20px', background: chartColors.solidBar, borderRadius: '4px' }}></div>
-        {editingLegendLabel === 'solid' ? (
+        {!readOnly && editingLegendLabel === 'solid' ? (
           <EditableLabelInput
             value={tempLabelValue}
             onChange={onTempLabelChange}
@@ -240,7 +256,7 @@ export function ChartLegend({
           </defs>
           <rect width="30" height="20" fill="url(#legend-hatch)" stroke={chartColors.hatchedBar} strokeWidth="2" rx="4" />
         </svg>
-        {editingLegendLabel === 'hatched' ? (
+        {!readOnly && editingLegendLabel === 'hatched' ? (
           <EditableLabelInput
             value={tempLabelValue}
             onChange={onTempLabelChange}
@@ -283,7 +299,7 @@ export function ChartLegend({
             background: chartColors.finishDateLine,
             borderRadius: '2px'
           }}></div>
-          {editingLegendLabel === 'finishDate' ? (
+          {!readOnly && editingLegendLabel === 'finishDate' ? (
             <EditableLabelInput
               value={tempLabelValue}
               onChange={onTempLabelChange}
@@ -314,7 +330,7 @@ export function ChartLegend({
             background: chartColors.mostLikelyLine,
             borderRadius: '2px'
           }}></div>
-          {editingLegendLabel === 'mostLikelyLine' ? (
+          {!readOnly && editingLegendLabel === 'mostLikelyLine' ? (
             <EditableLabelInput
               value={tempLabelValue}
               onChange={onTempLabelChange}

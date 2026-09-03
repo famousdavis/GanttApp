@@ -6,6 +6,8 @@ import type { ReactElement } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import { ChartLegend } from '../ChartLegend';
+import { LEGEND_TYPE_TO_KEY } from '../useChartEditing';
+import type { LegendLabelType } from '../useChartEditing';
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS } from '../../../shared/utils/colors';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 
@@ -434,6 +436,110 @@ describe('ChartLegend', () => {
       expect(new Set(calls)).toEqual(
         new Set(['inProgress', 'solidBar', 'hatchedBar', 'finishDateLine', 'mostLikelyLine'])
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // v0.28.16 — legend editor: commit-on-blur, local keyboard, and readOnly parity.
+  //
+  // ChartLegend.test.tsx had 7 fireEvent calls but ZERO blur or keyboard coverage
+  // before this release, and none of the five editor branches carried !readOnly.
+  // ---------------------------------------------------------------------------
+  describe('ChartLegend — editor commit, keyboard, and readOnly parity (v0.28.16)', () => {
+    // Every gating prop enabled, so all five editor branches are reachable.
+    // Without this, a parity test passes VACUOUSLY for three of the five members:
+    // inProgress, finishDate and mostLikelyLine are each behind their own guard.
+    const allGatesOpen = {
+      ...defaultProps,
+      hasInProgressReleases: true,
+      showFinishDateLine: true,
+      hasProjectFinishDate: true,
+      showMostLikelyLine: true,
+      hasMostLikelyReleases: true,
+    };
+
+    // Exhaustive BY TYPECHECK: LEGEND_TYPE_TO_KEY is a
+    // Record<LegendLabelType, keyof ProjectLegendLabels>, so adding a sixth legend
+    // label makes this array grow on its own. A hand-written list would not —
+    // there is one such list at useChartEditing.test.tsx and it is NOT exhaustive.
+    const ALL_LEGEND_TYPES = Object.keys(LEGEND_TYPE_TO_KEY) as LegendLabelType[];
+
+    it('enumerates exactly the five legend label types', () => {
+      expect(ALL_LEGEND_TYPES).toHaveLength(5);
+    });
+
+    // F1 — blur commits instead of discarding.
+    it('commits (not cancels) when the legend editor loses focus', () => {
+      const onSaveLabelEdit = vi.fn();
+      const onCancelLabelEdit = vi.fn();
+      render(
+        <ChartLegend
+          {...allGatesOpen}
+          editingLegendLabel="solid"
+          tempLabelValue="Renamed"
+          onSaveLabelEdit={onSaveLabelEdit}
+          onCancelLabelEdit={onCancelLabelEdit}
+        />
+      );
+
+      fireEvent.blur(screen.getByLabelText('Edit legend label'));
+
+      expect(onSaveLabelEdit).toHaveBeenCalledTimes(1);
+      expect(onCancelLabelEdit).not.toHaveBeenCalled();
+    });
+
+    // F4 / §3 Option B — Enter and Escape are now handled LOCALLY. Before this
+    // release EditableLabelInput had no onKeyDown at all: Enter did nothing, and
+    // Escape reached the editor only through the window-bound global handler in
+    // pages/index.tsx, which a component test cannot exercise.
+    it('saves on Enter (local handler, added v0.28.16)', () => {
+      const onSaveLabelEdit = vi.fn();
+      render(
+        <ChartLegend {...allGatesOpen} editingLegendLabel="solid" onSaveLabelEdit={onSaveLabelEdit} />
+      );
+
+      fireEvent.keyDown(screen.getByLabelText('Edit legend label'), { key: 'Enter' });
+
+      expect(onSaveLabelEdit).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels on Escape (local handler, added v0.28.16)', () => {
+      const onSaveLabelEdit = vi.fn();
+      const onCancelLabelEdit = vi.fn();
+      render(
+        <ChartLegend
+          {...allGatesOpen}
+          editingLegendLabel="solid"
+          onSaveLabelEdit={onSaveLabelEdit}
+          onCancelLabelEdit={onCancelLabelEdit}
+        />
+      );
+
+      fireEvent.keyDown(screen.getByLabelText('Edit legend label'), { key: 'Escape' });
+
+      expect(onCancelLabelEdit).toHaveBeenCalledTimes(1);
+      expect(onSaveLabelEdit).not.toHaveBeenCalled();
+    });
+
+    // F8 — readOnly parity, with a POSITIVE CONTROL so the assertion cannot pass
+    // because the branch was unreachable for some unrelated reason.
+    it.each(ALL_LEGEND_TYPES)('renders no editor for %s when readOnly', (type) => {
+      const live = render(
+        <ChartLegend {...allGatesOpen} editingLegendLabel={type} tempLabelValue="x" />
+      );
+      // Positive control: this member's editor IS reachable when editable.
+      expect(live.container.querySelector('input[name="legendLabelEdit"]')).toBeTruthy();
+      live.unmount();
+
+      const frozen = render(
+        <ChartLegend
+          {...allGatesOpen}
+          editingLegendLabel={type}
+          tempLabelValue="x"
+          readOnly={true}
+        />
+      );
+      expect(frozen.container.querySelector('input[name="legendLabelEdit"]')).toBeNull();
     });
   });
 });

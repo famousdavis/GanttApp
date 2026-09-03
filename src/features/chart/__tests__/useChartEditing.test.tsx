@@ -451,4 +451,172 @@ describe('useChartEditing', () => {
       }
     });
   });
+
+  // -------------------------------------------------------------------------
+  // v0.28.16 — commit-on-blur semantics at the hook level.
+  // -------------------------------------------------------------------------
+  describe('commitDateEdit — blur (v0.28.16)', () => {
+    const renderWithData = () => {
+      const useCombined = () => ({ editing: useChartEditing(), appData: useAppData() });
+      return renderHook(useCombined, { wrapper });
+    };
+
+    const seed = (result: { current: { appData: ReturnType<typeof useAppData> } }) => {
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1' }],
+          releases: [testRelease],
+        });
+      });
+    };
+
+    // F1 — a valid edit survives the click-away that used to destroy it.
+    it('commits a valid date on blur and closes the editor', () => {
+      const { result } = renderWithData();
+      seed(result);
+
+      act(() => { result.current.editing.startEditDate('r1', 'start', '2026-01-01'); });
+      act(() => { result.current.editing.setTempDateValue('2026-01-15'); });
+      act(() => { result.current.editing.commitDateEdit(); });
+
+      expect(result.current.appData.data.releases[0].startDate).toBe('2026-01-15');
+      expect(result.current.editing.editingDateInfo).toBeNull();
+    });
+
+    // F2 — invalid, with dateEditError still ''. The editor must CLOSE and the
+    // ORIGINAL date must survive. Gating on the error flag instead of
+    // re-validating would leave the editor open, following the user's focus.
+    it('discards an invalid date on blur and closes, with dateEditError still empty', () => {
+      const { result } = renderWithData();
+      seed(result);
+
+      act(() => { result.current.editing.startEditDate('r1', 'start', '2026-01-01'); });
+      // Start after Early Finish — rejected by validateReleaseDateChange.
+      act(() => { result.current.editing.setTempDateValue('2026-05-01'); });
+      expect(result.current.editing.dateEditError).toBe('');
+
+      act(() => { result.current.editing.commitDateEdit(); });
+
+      expect(result.current.appData.data.releases[0].startDate).toBe('2026-01-01');
+      expect(result.current.editing.editingDateInfo).toBeNull();
+      expect(result.current.editing.dateEditError).toBe('');
+    });
+
+    // F2b — same outcome after a FAILED submit has set the flag. Proves the fix
+    // re-validates rather than reading a flag that records a prior failure.
+    it('discards an invalid date on blur after a failed save has set the error', () => {
+      const { result } = renderWithData();
+      seed(result);
+
+      act(() => { result.current.editing.startEditDate('r1', 'start', '2026-01-01'); });
+      act(() => { result.current.editing.setTempDateValue('2026-05-01'); });
+      act(() => { result.current.editing.saveDateEdit(); });
+
+      // The ✓ path deliberately keeps the editor open on the bad value.
+      expect(result.current.editing.dateEditError).not.toBe('');
+      expect(result.current.editing.editingDateInfo).not.toBeNull();
+
+      act(() => { result.current.editing.commitDateEdit(); });
+
+      expect(result.current.appData.data.releases[0].startDate).toBe('2026-01-01');
+      expect(result.current.editing.editingDateInfo).toBeNull();
+    });
+
+    // The ✓ / Enter path must NOT adopt the discard behaviour.
+    it('saveDateEdit still keeps the editor open on an invalid date', () => {
+      const { result } = renderWithData();
+      seed(result);
+
+      act(() => { result.current.editing.startEditDate('r1', 'start', '2026-01-01'); });
+      act(() => { result.current.editing.setTempDateValue('2026-05-01'); });
+      act(() => { result.current.editing.saveDateEdit(); });
+
+      expect(result.current.editing.editingDateInfo).not.toBeNull();
+      expect(result.current.editing.dateEditError).toBe('Start must be before Early Finish');
+    });
+
+    // The empty-string half of the old guard is subsumed by the validator, whose
+    // first line rejects '' as an invalid date format. startDate is REQUIRED, so
+    // an implementation that committed '' would corrupt the release.
+    it('never commits an empty date on blur', () => {
+      const { result } = renderWithData();
+      seed(result);
+
+      act(() => { result.current.editing.startEditDate('r1', 'start', '2026-01-01'); });
+      act(() => { result.current.editing.setTempDateValue(''); });
+      act(() => { result.current.editing.commitDateEdit(); });
+
+      expect(result.current.appData.data.releases[0].startDate).toBe('2026-01-01');
+      expect(result.current.editing.editingDateInfo).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // v0.28.16 (§5) — a no-change legend commit must not create a project override.
+  // -------------------------------------------------------------------------
+  describe('saveLabelEdit dirty check (v0.28.16)', () => {
+    const renderBoth = (activeProjectId?: string) => {
+      const useCombined = () => ({
+        editing: useChartEditing(activeProjectId),
+        appData: useAppData(),
+      });
+      return renderHook(useCombined, { wrapper });
+    };
+
+    const seedProject = (result: { current: { appData: ReturnType<typeof useAppData> } }) => {
+      act(() => {
+        result.current.appData.updateData({
+          ...result.current.appData.data,
+          projects: [{ id: 'p1', name: 'Project 1' }],
+        });
+      });
+    };
+
+    // F7 — open a legend editor over a global-only label and leave without
+    // typing. Before this release saveLabelEdit wrote
+    // `{ ...project.legendLabels, [key]: sanitized }` unconditionally, so this
+    // created a project override, surfaced ↺, detached the label from Settings,
+    // and fired a Firestore project-meta write.
+    it('creates no project override when the label is committed unchanged', () => {
+      const { result } = renderBoth('p1');
+      seedProject(result);
+
+      act(() => { result.current.editing.startEditLabel('solid'); });
+      act(() => { result.current.editing.saveLabelEdit(); });
+
+      const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+      expect(project?.legendLabels).toBeUndefined();
+      expect(result.current.editing.editingLegendLabel).toBeNull();
+    });
+
+    // Positive control: F7 must not pass because saving is broken outright.
+    it('still creates the override when the label actually changed', () => {
+      const { result } = renderBoth('p1');
+      seedProject(result);
+
+      act(() => { result.current.editing.startEditLabel('solid'); });
+      act(() => { result.current.editing.setTempLabelValue('Build Phase'); });
+      act(() => { result.current.editing.saveLabelEdit(); });
+
+      const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+      expect(project?.legendLabels?.solidBar).toBe('Build Phase');
+    });
+
+    // The dirty check compares against the value the editor OPENED with, so
+    // typing and then restoring the original also writes nothing.
+    it('writes nothing when the user types and then restores the seeded value', () => {
+      const { result } = renderBoth('p1');
+      seedProject(result);
+
+      act(() => { result.current.editing.startEditLabel('solid'); });
+      const seeded = result.current.editing.tempLabelValue;
+      act(() => { result.current.editing.setTempLabelValue('Temporary'); });
+      act(() => { result.current.editing.setTempLabelValue(seeded); });
+      act(() => { result.current.editing.saveLabelEdit(); });
+
+      const project = result.current.appData.data.projects.find(p => p.id === 'p1');
+      expect(project?.legendLabels).toBeUndefined();
+    });
+  });
 });

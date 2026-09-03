@@ -456,7 +456,7 @@ In use at:
 - `DefaultLegendLabelsSection.tsx` — 5 default legend labels (via a `BufferedLabelInput` sub-component)
 - `ExportAttributionSection.tsx` — Name + Identifier
 
-Explicitly NOT used at: inline chart label editors (`ChartLegend.tsx`, `useChartEditing.ts`, `InlineTextEditor.tsx`) — these are per-project and shared with collaborators; they need different conflict-resolution semantics (deferred to a future pass).
+Explicitly NOT used at: the inline chart editors (`ChartLegend.tsx`, `useChartEditing.ts`, `InlineTextEditor.tsx`, `InlineDateEditor.tsx`) — these are per-project and shared with collaborators; they need different conflict-resolution semantics. v0.28.16 gave them commit-on-blur directly (blur only — not Enter-or-unmount, and with an invalid date discarded rather than sanitised to `''`, which is what `useBufferedField` would do to a REQUIRED date field); adopting the hook itself remains deferred. `InlineDateEditor.tsx` was missing from this list until v0.28.16.
 
 ## Snapshot Architecture (v7.0)
 

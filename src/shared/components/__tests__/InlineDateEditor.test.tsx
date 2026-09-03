@@ -11,6 +11,7 @@ describe('InlineDateEditor', () => {
     value: '2026-01-15',
     onChange: vi.fn(),
     onSave: vi.fn(),
+    onCommit: vi.fn(),
     onCancel: vi.fn(),
     hasError: false
   };
@@ -54,14 +55,28 @@ describe('InlineDateEditor', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('calls onCancel when input loses focus', () => {
+  // v0.28.16 (F1) — this test asserted the DEFECT until v0.28.15: blur called
+  // onCancel, so clicking away destroyed the edit. Blur now commits.
+  it('commits (not cancels) when the input loses focus', () => {
+    const onCommit = vi.fn();
     const onCancel = vi.fn();
-    render(<InlineDateEditor {...defaultProps} onCancel={onCancel} />);
+    const onSave = vi.fn();
+    render(
+      <InlineDateEditor
+        {...defaultProps}
+        onCommit={onCommit}
+        onCancel={onCancel}
+        onSave={onSave}
+      />
+    );
 
-    const input = getDateInput();
-    fireEvent.blur(input);
+    fireEvent.blur(getDateInput());
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    // onCommit is deliberately distinct from onSave: routing blur through onSave
+    // would leave the editor open on an invalid value, following the user's focus.
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('calls onSave when save button is clicked', () => {
@@ -86,6 +101,29 @@ describe('InlineDateEditor', () => {
 
     const input = getDateInput();
     expect(input.style.border).toBe('1px solid rgb(0, 112, 243)');
+  });
+
+  // v0.28.16 (T2) — the `warning && !hasError` guard at InlineDateEditor.tsx:49
+  // had both of the file's uncovered branch entries: no existing test ever
+  // rendered this component with a `warning`.
+  it('renders the non-workday warning when warning is set and there is no error', () => {
+    render(<InlineDateEditor {...defaultProps} warning="Falls on a Saturday" />);
+
+    expect(screen.getByText(/Falls on a Saturday/)).toBeTruthy();
+  });
+
+  it('suppresses the warning when hasError is true', () => {
+    render(
+      <InlineDateEditor {...defaultProps} warning="Falls on a Saturday" hasError={true} />
+    );
+
+    expect(screen.queryByText(/Falls on a Saturday/)).toBeNull();
+  });
+
+  it('renders no warning line when warning is absent', () => {
+    render(<InlineDateEditor {...defaultProps} />);
+
+    expect(screen.queryByText(/⚠/)).toBeNull();
   });
 
   it('has correct date constraints', () => {

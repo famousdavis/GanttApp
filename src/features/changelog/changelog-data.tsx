@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.20',
+    date: 'September 4, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; duplicating a project with a very long name produced a copy you could not tell apart from the original. If the name was at or near the maximum length the name field allows, the copy came back looking exactly like the original the next time the app loaded.</>,
+      <><strong>Note</strong> &mdash; why it happened. Duplicating a project adds a marker to the end of the new name so you can tell the two apart. The name field has a maximum length, and anything longer is trimmed to fit when the app saves and reloads your data. For a name already at that maximum, the marker sat entirely past the limit, so it was trimmed away and the copy came back with a name identical to the original.</>,
+      <><strong>Changed</strong> &mdash; the marker is now guaranteed to survive. When a name is long enough that adding the marker would push it past the limit, the name is shortened just enough to make room and the marker is kept. Short names are completely unaffected and duplicate exactly as before.</>,
+      <><strong>Fixed</strong> &mdash; a second, quieter half. The check that stops two copies sharing a name was comparing the untrimmed new name against the already-trimmed stored ones, so it could never match, and every duplicate of a long name came out with the same marker number. Shortening now happens before that check rather than after it, so the check compares like with like and the numbering works.</>,
+      <><strong>Note</strong> &mdash; the problem grew gradually rather than appearing all at once. Names one character below the limit lost the marker but stayed distinguishable; only at the limit itself did the two names become identical. Names comfortably under the limit were never affected.</>,
+    ],
+  },
+  {
     version: '0.28.19',
     date: 'September 3, 2026',
     items: [

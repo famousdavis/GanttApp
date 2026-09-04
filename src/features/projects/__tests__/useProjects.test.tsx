@@ -8,7 +8,9 @@ import { ReactNode } from 'react';
 import { AppDataProvider, useAppData } from '../../../context/AppDataContext';
 import { StorageProvider } from '../../../context/StorageContext';
 import { AuthProvider } from '../../../context/AuthContext';
-import { useProjects } from '../useProjects';
+import { useProjects, buildCloneCandidateName } from '../useProjects';
+import { validateLoadedData } from '../../../shared/utils/storage';
+import { MAX_NAME_LENGTH } from '../../../shared/utils/validation';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
 
@@ -855,5 +857,96 @@ describe('useProjects', () => {
 
       alertSpy.mockRestore();
     });
+  });
+});
+
+
+// ==========================================================================
+// v0.28.20 — clone-name overflow (Brief 09 §1). F1–F6.
+//
+// The defect: cloneProject built `${source.name} - Copy (N)` with no length
+// cap. sanitizeString truncates to MAX_NAME_LENGTH on EVERY load, so a clone
+// of a 100-character name was stored, then loaded back byte-identical to its
+// source — the marker that told them apart was gone.
+//
+// ⚠️ Every assertion below is on the RELOADED name, not the pre-save one. The
+// defect only appears after the sanitise, so asserting the in-memory value
+// would pass against the broken code.
+// ==========================================================================
+describe('cloneProject — name length (v0.28.20)', () => {
+  /** Round-trip through the real load-side sanitiser, as every reload does. */
+  function reload(): Project[] {
+    const raw = JSON.parse(localStorage.getItem('ganttAppData')!);
+    return validateLoadedData(raw)!.projects;
+  }
+
+  async function cloneOnce(sourceName: string) {
+    seedData({ projects: [makeProject({ id: 'p1', name: sourceName })], releases: [] });
+    const { result } = renderProjectsHook();
+    await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+    await act(async () => { await result.current.cloneProject('p1'); });
+    return reload();
+  }
+
+  it('F1 — a 100-char source keeps a distinguishable clone after reload', async () => {
+    const source = 'X'.repeat(100);
+    const projects = await cloneOnce(source);
+    expect(projects).toHaveLength(2);
+    expect(projects[1].name).not.toBe(projects[0].name);
+    expect(projects[1].name.endsWith(' - Copy (1)')).toBe(true);
+    expect(projects[1].name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+  });
+
+  it('F3 — a short source is untouched: "Short - Copy (1)"', async () => {
+    const projects = await cloneOnce('Short');
+    expect(projects.map(p => p.name)).toEqual(['Short', 'Short - Copy (1)']);
+  });
+
+  it.each([89, 90])('F4 — boundary %i keeps the full suffix', async (n) => {
+    const projects = await cloneOnce('X'.repeat(n));
+    expect(projects[1].name.endsWith(' - Copy (1)')).toBe(true);
+    expect(projects[1].name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+    expect(projects[1].name).not.toBe(projects[0].name);
+  });
+
+  it('F5 — boundary 99 is not source + " ", and stays distinct across TWO loads', async () => {
+    const source = 'X'.repeat(99);
+    const projects = await cloneOnce(source);
+    expect(projects[1].name).not.toBe(source + ' ');
+    // ⚠️ sanitizeString trims BEFORE it slices, so a trailing space survives one
+    // load and is trimmed by the next. Before the fix, n=99 became byte-identical
+    // to its source on the SECOND load. Assert stability across both.
+    const secondLoad = validateLoadedData({ projects, releases: [] })!.projects;
+    expect(secondLoad[1].name).not.toBe(secondLoad[0].name);
+  });
+
+  it('F6 — the collision loop past suffix 9 never overflows MAX_NAME_LENGTH', async () => {
+    // buildCloneCandidateName is the unit the loop calls; (10)+ is where a
+    // constant reserve of 11 would overflow by exactly one character.
+    for (const n of [1, 9, 10, 42, 99]) {
+      const name = buildCloneCandidateName('X'.repeat(100), n);
+      expect(name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+      expect(name.endsWith(` - Copy (${n})`)).toBe(true);
+    }
+  });
+
+  it('F6b — successive clones with reloads stay distinct past suffix 9', async () => {
+    const source = 'X'.repeat(100);
+    seedData({ projects: [makeProject({ id: 'p1', name: source })], releases: [] });
+    const { result } = renderProjectsHook();
+    await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+    for (let i = 0; i < 11; i++) {
+      await act(async () => { await result.current.cloneProject('p1'); });
+    }
+    const names = reload().map(p => p.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.every(x => x.length <= MAX_NAME_LENGTH)).toBe(true);
+  });
+
+  it('truncation does not leave a trailing space before the suffix', () => {
+    // Slicing at the reserve boundary can land on a space; .trimEnd() removes it.
+    const name = buildCloneCandidateName('A'.repeat(88) + ' ' + 'B'.repeat(11), 1);
+    expect(name).not.toContain('  ');
+    expect(name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
   });
 });

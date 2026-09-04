@@ -1,5 +1,30 @@
 # Change Log
 
+## Version 0.28.22 (2026-09-04)
+
+### Fixed: a release check that quietly stopped running whenever a release was prepared the usual way
+
+Development tooling only. No application code changed and nothing about how the app behaves is different.
+
+The release gate checks that this project&rsquo;s internal notes file declares the same version number as
+everything else, so the notes cannot drift out of date unnoticed. That check has a skip condition: the
+notes file is deliberately excluded from the repository, so on the automated build server it genuinely
+is not there, and skipping is correct.
+
+The trouble is that the file is also missing for a second, completely different reason. When a release
+is prepared in a separate working copy &mdash; which is how these releases are normally prepared &mdash; the
+tooling that creates that copy leaves excluded files behind. The check saw the same absence, assumed
+the automated-build reason, and skipped. It reported a skip and the gate went green, so nothing looked
+wrong.
+
+The check now tells the two reasons apart. When it is running on the build server it skips as before.
+Otherwise it looks for the notes file in the main working copy and checks it there. If it still cannot
+find it, that is now a failure rather than a skip, because a check that cannot run should say so
+instead of passing quietly.
+
+This is the same class of problem the notes file itself once had: it sat thirteen releases out of date
+because the tool that was supposed to notice could not see it.
+
 ## Version 0.28.21 (2026-09-04)
 
 ### Fixed: confirmation dialogs are now reachable by keyboard, and Escape no longer throws away an import review

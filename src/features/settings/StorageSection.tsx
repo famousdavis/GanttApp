@@ -169,6 +169,10 @@ export function StorageSection({
       {/* v16.6 (UX-2): cloud→local keep-or-discard prompt */}
       {needsCloudToLocalPrompt && (
         <ConfirmDialog
+          // User-initiated: this appears because the user clicked the Local
+          // radio, so taking focus is right. (The re-sign-in prompt above is
+          // spontaneous and deliberately does NOT take focus.)
+          blocking
           message={<>Keep a local copy of your <strong>{needsCloudToLocalPrompt.projectCount}</strong> cloud project(s)?</>}
           colors={colors}
           buttons={[

@@ -472,6 +472,7 @@ export function ProjectsTab({
           onConfirm={handleConfirmMerge}
           onRequestReplaceAll={openReplaceAllConfirm}
           onCancel={handleImportCancel}
+          dismissalSuppressed={replaceAllPending}
         />
       )}
 
@@ -710,6 +711,7 @@ export function ProjectsTab({
       {replaceAllPending && importPreview && (
         <ConfirmDialog
           modal
+          onEscape={cancelReplaceAllConfirm}
           title="Replace All Data"
           message="This will replace all existing projects, releases, snapshots, and settings with the contents of this file. This cannot be undone. Export your current data first if you want to keep it."
           colors={colors}

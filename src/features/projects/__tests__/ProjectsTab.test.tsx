@@ -857,3 +857,65 @@ describe('ProjectsTab', () => {
     });
   });
 });
+
+
+// ==========================================================================
+// v0.28.21 — Brief 09 §2b. F10, asserting BOTH halves.
+//
+// ⚠️ A row that asserted only "the preview survives" would pass on a fix that
+// suppresses Escape entirely while the modal is open — modal still open,
+// preview untouched — which is indistinguishable from a correct fix and leaves
+// the user unable to dismiss the confirmation at all.
+// ==========================================================================
+describe('Escape on the Replace-All confirmation (v0.28.21)', () => {
+  function escapeProbeFile(data: object): File {
+    return new File([JSON.stringify(data)], 'test.json', { type: 'application/json' });
+  }
+
+  it('F10 — Escape dismisses the confirmation AND leaves the preview intact', async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [escapeProbeFile({ projects: [{ id: 'p2', name: 'Beta' }], releases: [] })] },
+    });
+    await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace All Data' }));
+    await waitFor(() => expect(screen.getByText(/replace all existing projects/i)).toBeTruthy());
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    // half 1 — the confirmation is dismissed
+    await waitFor(() => {
+      expect(screen.queryByText(/replace all existing projects/i)).toBeNull();
+    });
+    // half 2 — the preview and the user's review survive
+    expect(screen.queryByTestId('import-preview-section')).toBeTruthy();
+    // and nothing was applied
+    const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+    expect(stored.projects[0].name).toBe('Alpha');
+  });
+
+  it('F10b — Escape a second time, with the modal closed, cancels the preview', async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [escapeProbeFile({ projects: [{ id: 'p2', name: 'Beta' }], releases: [] })] },
+    });
+    await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Replace All Data' }));
+    await waitFor(() => expect(screen.getByText(/replace all existing projects/i)).toBeTruthy());
+
+    fireEvent.keyDown(document, { key: 'Escape' });   // dismisses the confirmation
+    await waitFor(() => expect(screen.queryByText(/replace all existing projects/i)).toBeNull());
+
+    fireEvent.keyDown(document, { key: 'Escape' });   // now cancels the preview
+    await waitFor(() => expect(screen.queryByTestId('import-preview-section')).toBeNull());
+  });
+});

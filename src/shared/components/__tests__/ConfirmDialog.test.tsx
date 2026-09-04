@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent } from '@testing-library/react';
 import { ConfirmDialog } from '../ConfirmDialog';
 import type { ConfirmDialogButton } from '../ConfirmDialog';
 import { LIGHT_THEME } from '../../utils/theme';
@@ -235,5 +235,119 @@ describe('ConfirmDialog', () => {
     expect(primaryBtn.style.color).toBe('white');
     // jsdom serializes the `border: 'none'` shorthand as borderStyle: 'none'
     expect(primaryBtn.style.borderStyle).toBe('none');
+  });
+});
+
+
+// ==========================================================================
+// v0.28.21 — focus management (Brief 09 §2a). F7, F8, F9, F11, F15.
+//
+// ⚠️ TWO OF THESE ROWS HAD TO BE REWRITTEN BEFORE THEY COULD FAIL AT ALL.
+//
+// F8 originally asserted only "focus returns to the invoker". With no focus
+// management, focus never LEAVES the invoker, so that passed trivially — a
+// correct restore and a total absence of handling were indistinguishable. It
+// now asserts the precondition too: focus must have entered the dialog first.
+//
+// F11 originally asserted "focus stays inside on Tab". jsdom does not traverse
+// on Tab at all — measured: focus is unchanged after a Tab keydown — so that
+// was true no matter what the code did. It now asserts the TRAP's own
+// observable behaviour: preventDefault, and focus moved by the handler.
+// That is why the implementation must move focus itself.
+// ==========================================================================
+describe('ConfirmDialog — focus management (v0.28.21)', () => {
+  const destructive = [
+    { label: 'Replace', onClick: vi.fn(), variant: 'danger' as const },
+    { label: 'Cancel', onClick: vi.fn(), variant: 'secondary' as const },
+  ];
+
+  function withInvoker(): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.textContent = 'Replace All Data';
+    document.body.appendChild(b);
+    b.focus();
+    return b;
+  }
+
+  it('F7 — opening a modal dialog moves focus inside it', () => {
+    render(<ConfirmDialog modal title="Replace All Data" message="cannot be undone" buttons={destructive} colors={colors} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('F7b — focus lands on the non-destructive button, so a stray Enter cancels', () => {
+    render(<ConfirmDialog modal title="Replace All Data" message="cannot be undone" buttons={destructive} colors={colors} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+  });
+
+  it('F8 — closing restores focus to the element captured at open time', () => {
+    const invoker = withInvoker();
+    const { unmount } = render(<ConfirmDialog modal title="Replace All Data" message="x" buttons={destructive} colors={colors} />);
+    // ⚠️ Precondition. Without it this row passes on code that never moves focus.
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(invoker);
+    unmount();
+    expect(document.activeElement).toBe(invoker);
+    invoker.remove();
+  });
+
+  it('F11 — Tab at the last focusable is handled BY THE TRAP, not by the browser', () => {
+    render(<ConfirmDialog modal title="t" message="x" buttons={destructive} colors={colors} />);
+    const dialog = screen.getByRole('dialog');
+    const btns = Array.from(dialog.querySelectorAll('button'));
+    const last = btns[btns.length - 1];
+    last.focus();
+    const ev = createEvent.keyDown(last, { key: 'Tab' });
+    fireEvent(last, ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(btns[0]);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('F11b — Shift+Tab at the first focusable wraps to the last', () => {
+    render(<ConfirmDialog modal title="t" message="x" buttons={destructive} colors={colors} />);
+    const dialog = screen.getByRole('dialog');
+    const btns = Array.from(dialog.querySelectorAll('button'));
+    btns[0].focus();
+    const ev = createEvent.keyDown(btns[0], { key: 'Tab', shiftKey: true });
+    fireEvent(btns[0], ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(btns[btns.length - 1]);
+  });
+
+  it('F9 — a NON-blocking inline dialog does not move focus and is not trapped', () => {
+    const invoker = withInvoker();
+    const { container } = render(<ConfirmDialog message="Upload them to the cloud?" buttons={makeButtons()} colors={colors} />);
+    // Control: the harness really did render an inline dialog with buttons.
+    expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(invoker);
+    // Not trapped: a Tab keydown is left entirely to the browser.
+    const btn = container.querySelector('button')!;
+    const ev = createEvent.keyDown(btn, { key: 'Tab' });
+    fireEvent(btn, ev);
+    expect(ev.defaultPrevented).toBe(false);
+    invoker.remove();
+  });
+
+  it('F15 — a BLOCKING inline dialog takes focus but is still not trapped', () => {
+    const invoker = withInvoker();
+    const { container } = render(<ConfirmDialog blocking message="Keep a local copy?" buttons={makeButtons()} colors={colors} />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(invoker);
+    // No trap: inline dialogs never claim Tab, even when they take focus. The
+    // enclosing surface (e.g. CloudStorageModal) is the boundary.
+    const btn = container.querySelector('button')!;
+    const ev = createEvent.keyDown(btn, { key: 'Tab' });
+    fireEvent(btn, ev);
+    expect(ev.defaultPrevented).toBe(false);
+    invoker.remove();
+  });
+
+  it('modal dialog exposes dialog semantics, not a bare div', () => {
+    render(<ConfirmDialog modal title="Replace All Data" message="x" buttons={destructive} colors={colors} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-labelledby')).toBe(screen.getByText('Replace All Data').id);
   });
 });

@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.21',
+    date: 'September 4, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; confirmation dialogs did not take keyboard focus. When a dialog such as &ldquo;Replace All Data&rdquo; opened, the keyboard stayed wherever it had been, behind the dialog. Anyone navigating by keyboard or using a screen reader was never moved into it, could tab through the page behind it, and was dropped back to the top of the document afterwards.</>,
+      <><strong>Changed</strong> &mdash; dialogs now move focus to the safe choice, the button that cancels rather than the one that destroys; they keep the keyboard inside while open; and they return it to whatever you were on when they close. They also now identify themselves as dialogs to screen readers, which they previously did not.</>,
+      <><strong>Fixed</strong> &mdash; pressing Escape on the &ldquo;replace everything&rdquo; confirmation discarded the entire import. The import review sits behind that confirmation and was still listening for Escape, so the key reached the review instead of the dialog and cancelled the whole thing, including every per-file choice you had made.</>,
+      <><strong>Changed</strong> &mdash; Escape now dismisses the confirmation and leaves your review exactly as it was. Pressing Escape again, with the confirmation closed, cancels the review as it always did.</>,
+      <><strong>Changed</strong> &mdash; dialogs that appear on their own do not steal your place. Some confirmations appear because you clicked something; others appear by themselves when a background task finishes. Only the first kind takes focus, so a prompt arriving unannounced while you are typing elsewhere leaves you where you are.</>,
+    ],
+  },
+  {
     version: '0.28.20',
     date: 'September 4, 2026',
     items: [

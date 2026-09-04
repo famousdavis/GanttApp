@@ -555,6 +555,43 @@ State machine has three permitted transitions: `showPreview`, `showBanner`, `cle
 
 `applyImportDecisions(existing, incoming, existingSnapshots, decisions, idGenerator?)` is the v0.24.0 replacement for `mergeImportedProjects`. Self-contained: recomputes conflicts internally. Slot-preserves on `'replace'` (avoids cloud reorder rewrites). `'copy'` regenerates project + release IDs and top-level snapshot IDs but leaves embedded `snapshot.releases[]` untouched (frozen historical record). Missing decisions key → `'skip'` (safe-by-default).
 
+### APPLYING Contract (v0.24.0)
+
+`applying` means *"a file is being read OR an apply is in progress."* It disables every interactive
+control in the import flow, so any path that sets it and never clears it locks the UI until reload.
+The authoritative statement is the comment block at the head of `useImportState.ts`; this section is
+its discoverable form, and the two are kept in agreement deliberately.
+
+**Write sites — 3.** ⚠️ Counting rule: `setApplying(true)` matches **4 lines** across `src/`, but one
+is prose inside a comment, leaving three real sites — the `handleImport` entry point, and the first
+synchronous line after the `applyingRef` guard in each of the two apply functions. Setting it at the
+file-pick boundary is a deliberate departure from pitfall #53's "exactly two", which is specific to a
+different state library; `IMPORT-DESIGN-GUIDE.md` places the write at that boundary for Context-based
+apps.
+
+**Reset sites — 4 categories, 5 call sites.** ⚠️ Counting rule: `setApplying(false)` matches **6
+lines** across `src/`, of which only **5** are call sites — the sixth is prose in
+`changelog-data.tsx`. Every terminal path must go through one of these four:
+
+| category | covers |
+|---|---|
+| `showBanner` | pre-apply errors, drift-abort, apply failure, apply success |
+| `showPreview` | the file resolves to a preview |
+| `clearImportFlow` | `handleImportCancel` (defensive) |
+| `try`/`finally` in both apply functions | the primary reset — one category, two call sites |
+
+**Risk.** A new terminal path that bypasses all four locks the UI permanently. This is the reason the
+contract is written down rather than inferred.
+
+**Same-tick reentrancy.** `applyingRef` is the definitive guard inside the apply functions, immune to
+stale closure because a ref is read synchronously at call time. The `if (applying) return` checks in
+the confirm handlers are a belt-and-braces UI guard and *are* stale-closure-prone on the same tick,
+before React commits. `readerPendingRef` guards the file-read window specifically.
+
+⚠️ **`docs/SPEC_DEVIATIONS.md` is a deviations register and does not carry this contract.** The two
+places it lives are the block in `useImportState.ts` and this section; the pointers in
+`useImportState.ts` and `ProjectsTab.tsx` aim here.
+
 ## Security Architecture
 
 ### Input Validation Pipeline

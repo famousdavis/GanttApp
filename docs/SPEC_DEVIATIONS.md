@@ -114,10 +114,34 @@ A shared `cloneProjectContent(source, opts)` helper with an `owner?: string`
 option would close the gap, but the refactor is non-trivial and out of scope
 for the retrograde.
 
-**Consequence:** Maintenance risk — clone-logic changes in `cloneProject` may
-need to be mirrored manually in `applyImportDecisions`.
+**Consequence:** Maintenance risk, in one direction only. **Mirror behaviour;
+never mirror format.** The deviation this entry records is `owner` binding, and
+mirroring is exactly right for that — and for any other shared-semantics change,
+such as a new `Project` field both paths should copy or a new sanitisation step.
+It is destructive only for the **name suffix format**, which is deliberately
+different on the two paths and is pinned by tests on both sides. Changing either
+format to match the other breaks whichever side you change.
 
-**Full closure (future):** Extract shared helper.
+**Format pins** — counts as of v0.28.19. ⚠️ Each carries its unit: lines and
+occurrences are different rules and they do not always agree.
+
+| pin | value |
+|---|---|
+| `'Source - Copy (1)'` in `useProjects.test.tsx` | **8** — lines and occurrences agree |
+| `'Alpha (2)'` in `export.test.ts` | **1** — lines and occurrences agree |
+| `- Copy (` in `useProjects.test.tsx` | ⚠️ **15 lines / 18 occurrences** — the rules disagree here |
+| `- Copy (` elsewhere in `src/` | `ProjectsTab.test.tsx` 1 · `useProjects.writeFailures.test.tsx` 1 · `useProjects.ts` 4 · `changelog-data.tsx` 1 — lines and occurrences agree at each |
+
+**Full closure (future):** Extract a shared `cloneProjectContent(source, opts)`
+helper carrying the shared behaviour, while leaving each caller its own suffix
+format.
+
+**Status:** Accepted as a deliberate split — not scheduled, and no target
+version. The `owner` semantics that require the divergence are correct on both
+paths, and the two suffix formats are intentionally different and separately
+pinned. This entry is retained to record the deviation and to say which parts of
+it may be mirrored, not to track outstanding work. It would reopen only if the
+two paths were required to share a suffix format.
 
 ---
 
@@ -131,8 +155,30 @@ completes on the Replace-All path.
 `applyMergeDecisions` has `await storage.loadSnapshots()` before the synchronous
 work, providing a yield point; `aria-busy` is observable on that path.
 
-**Consequence:** Screen readers may miss the "Applying…" state announcement on
-Replace-All.
+**Consequence:** ⚠️ **None that can be observed.** This entry originally
+promised that screen readers may miss an in-progress state announcement on
+Replace-All. Measured against the DOM: `aria-busy` **is** committed on the
+preview-confirm path, and applying the closure below produces a **byte-identical**
+mutation sequence under an instrument proven sensitive at that line. There is no
+in-progress announcement for a reader to miss — the string this entry promised
+exists nowhere in `src/`, and the only live region in the import flow announces
+the **result**, after the work has finished. The in-progress signal is `aria-busy`
+itself, which is present and bound to the applying state.
+
+⚠️ **How this entry came to describe nothing, in good faith:** it reasoned
+forward from an intended design rather than backward from the DOM. The design it
+described was coherent and the gap it predicted followed from it; the design was
+simply never built. **That method is the defect**, and naming it is the reason to
+keep this entry rather than delete it.
 
 **Full closure:** `flushSync(() => setApplying(true))` from `react-dom` before
-`updateData()` in `applyReplaceAll`. Deferred — not in current retrograde scope.
+`updateData()` in `applyReplaceAll`. A description of what full compliance would
+require — not a commitment that it is scheduled.
+
+**Status:** Accepted as unobservable — not scheduled, and no target version.
+There is no user-visible defect to close: the announcement whose absence this
+entry predicted was never implemented, so the batching it describes has nothing
+to suppress. This entry is retained to record the deviation and the reasoning
+error that produced it, not to track outstanding work. It would reopen if an
+in-progress announcement were added to the import flow, at which point the
+batching would become observable.

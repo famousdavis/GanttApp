@@ -112,8 +112,8 @@ export function ProjectsTab({
 
   // v0.26.0 — Smart Import state machine extracted to useImportState hook (pitfall #59).
   // NOTE: ProjectsTab unmounts on tab switch — preview state is lost on navigation.
-  // Known limitation; do not lift state up to compensate. See APPLYING CONTRACT
-  // and docs/SPEC_DEVIATIONS.md for the full state-machine spec.
+  // Known limitation; do not lift state up to compensate. The state-machine spec
+  // is the APPLYING Contract section of ARCHITECTURE.md.
   const {
     importPreview,
     importBanner,

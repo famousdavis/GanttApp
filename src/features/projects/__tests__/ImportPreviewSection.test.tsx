@@ -360,3 +360,42 @@ describe('ImportPreviewSection (v0.24.0)', () => {
     });
   });
 });
+
+
+// ==========================================================================
+// v0.28.21 — Escape ownership (Brief 09 §2b). F13, F14, and the suppression gate.
+// ==========================================================================
+describe('Escape handling (v0.28.21)', () => {
+  it('F13 — with nothing suppressing it, Escape still cancels the preview', () => {
+    // The v0.26.0 behaviour. A suppression that is too broad silently deletes
+    // a shipped accessibility feature, and no other row would notice.
+    const onCancel = vi.fn();
+    render(<ImportPreviewSection {...defaultProps({ onCancel })} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('F14 — Escape while applying is a no-op', () => {
+    const onCancel = vi.fn();
+    render(<ImportPreviewSection {...defaultProps({ onCancel, applying: true })} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('Escape is suppressed while a surface above owns the key', () => {
+    const onCancel = vi.fn();
+    render(<ImportPreviewSection {...defaultProps({ onCancel, dismissalSuppressed: true })} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('suppression is released again when the surface above closes', () => {
+    const onCancel = vi.fn();
+    const { rerender } = render(<ImportPreviewSection {...defaultProps({ onCancel, dismissalSuppressed: true })} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+    rerender(<ImportPreviewSection {...defaultProps({ onCancel, dismissalSuppressed: false })} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});

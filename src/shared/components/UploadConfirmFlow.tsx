@@ -103,6 +103,8 @@ export const UploadConfirmFlow = forwardRef<UploadConfirmFlowHandle, UploadConfi
       <>
         {showUploadConfirm && (
           <ConfirmDialog
+            // User-initiated: shown because the user clicked the Cloud radio.
+            blocking
             message="You have local projects. Upload them to the cloud?"
             colors={colors}
             buttons={[
@@ -114,6 +116,13 @@ export const UploadConfirmFlow = forwardRef<UploadConfirmFlowHandle, UploadConfi
 
         {cleanupVisible && (
           <ConfirmDialog
+            // ⚠️ DELIBERATELY NOT `blocking`, even though its primary action is
+            // destructive. This prompt appears SPONTANEOUSLY when an async
+            // upload completes, not because the user asked for it — stealing
+            // focus from someone mid-task is the wrong answer for a surface
+            // that arrives on its own. The right answer is to ANNOUNCE it, via
+            // a live region, which is new scope and an open question with the
+            // owner. Do not "fix" this by adding `blocking`.
             message="Your projects are now in the cloud. Clear local copies to prevent duplicates on future sign-ins?"
             colors={colors}
             borderColor="#e53e3e"

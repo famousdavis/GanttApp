@@ -1,5 +1,31 @@
 # Change Log
 
+## Version 0.28.21 (2026-09-04)
+
+### Fixed: confirmation dialogs are now reachable by keyboard, and Escape no longer throws away an import review
+
+Two problems in the same interaction, fixed together because fixing only one would have left the same
+person stuck in the same place.
+
+**Confirmation dialogs did not take keyboard focus.** When a dialog such as &ldquo;Replace All Data&rdquo; opened,
+the keyboard stayed wherever it had been, behind the dialog. Anyone navigating by keyboard or using a
+screen reader was never moved into the dialog, could tab through the page behind it, and was dropped
+back to the top of the document afterwards. Dialogs now move focus to the safe choice &mdash; the button
+that cancels, never the one that destroys &mdash; keep the keyboard inside while they are open, and return
+it to whatever you were on when the dialog closes. They also now identify themselves as dialogs to
+screen readers, which they previously did not.
+
+**Pressing Escape on the &ldquo;replace everything&rdquo; confirmation discarded the entire import.** The import
+review sits behind that confirmation and was still listening for Escape, so the key reached the review
+instead of the dialog and cancelled the whole thing &mdash; including every per-file choice you had made.
+Escape now dismisses the confirmation and leaves your review exactly as it was. Pressing Escape again,
+with the confirmation closed, cancels the review as it always did.
+
+**Dialogs that appear on their own do not steal your place.** Some confirmations appear because you
+clicked something; others appear by themselves when a background task finishes. Only the first kind
+takes focus. A prompt that arrives unannounced while you are typing somewhere else leaves you where you
+are.
+
 ## Version 0.28.20 (2026-09-04)
 
 ### Fixed: duplicating a project with a very long name produced a copy you could not tell apart

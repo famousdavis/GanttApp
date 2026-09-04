@@ -6,6 +6,7 @@
 // Inline mode: card with border, message, button row (StorageSection pattern).
 // Modal mode: full-screen overlay with centered dialog, title, description (ProjectsTab pattern).
 
+import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { ThemeColors } from '../utils/theme';
 
@@ -23,6 +24,33 @@ interface ConfirmDialogProps {
   colors: ThemeColors;
   modal?: boolean;             // false=inline (default), true=overlay
   borderColor?: string;        // Override card border color (e.g. red for destructive)
+  /**
+   * Move focus into the dialog on open and restore it on close.
+   *
+   * ⚠️ DEFAULTS TO `modal`, AND IS A SEPARATE AXIS FROM IT ON PURPOSE. `modal`
+   * decides whether this is a full-screen overlay that owns the viewport, which
+   * is the only correct gate for the Tab TRAP. Focus-on-open is a different
+   * question: it belongs to any dialog presenting a blocking decision the user
+   * just asked for — including inline ones rendered inside an already-modal
+   * surface, where a trap would be wrong but taking focus is right.
+   *
+   * The axis is USER-INITIATED vs SPONTANEOUS, not destructive vs not. A prompt
+   * that appears on its own — because an async operation finished — must NOT
+   * steal focus from someone mid-task, even when its primary action is
+   * destructive. See UploadConfirmFlow for one of each.
+   */
+  blocking?: boolean;
+  /**
+   * Escape handler. Modal only. When supplied, the dialog claims Escape in the
+   * CAPTURE phase and stops propagation, so document-level listeners belonging
+   * to surfaces underneath it do not also fire.
+   */
+  onEscape?: () => void;
+}
+
+/** Enabled buttons inside a dialog root, in DOM order. */
+function focusablesIn(root: HTMLElement): HTMLButtonElement[] {
+  return Array.from(root.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
 }
 
 const btnBase = {
@@ -46,6 +74,7 @@ function renderButton(btn: ConfirmDialogButton, colors: ThemeColors, index: numb
   return (
     <button
       key={index}
+      data-variant={variant}
       onClick={btn.onClick}
       disabled={disabled}
       style={style}
@@ -55,7 +84,72 @@ function renderButton(btn: ConfirmDialogButton, colors: ThemeColors, index: numb
   );
 }
 
-export function ConfirmDialog({ message, title, buttons, colors, modal, borderColor }: ConfirmDialogProps) {
+export function ConfirmDialog({
+  message, title, buttons, colors, modal, borderColor, blocking, onEscape,
+}: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreTargetRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  // Focus behaviour defaults to `modal` but is independently overridable.
+  const takesFocus = blocking ?? Boolean(modal);
+
+  // Hooks must run before the `if (modal)` early return below — putting them
+  // inside that branch is a Rules-of-Hooks violation that lint would catch.
+
+  // Focus in on open, back out on close.
+  useEffect(() => {
+    if (!takesFocus) return;
+    const active = document.activeElement;
+    restoreTargetRef.current = active instanceof HTMLElement ? active : null;
+    const root = dialogRef.current;
+    if (root) {
+      const btns = focusablesIn(root);
+      // Destructive dialogs focus the NON-destructive choice, so that a stray
+      // Enter cancels rather than confirms.
+      const safe = btns.find((b) => b.dataset.variant !== 'danger');
+      (safe ?? btns[0] ?? root).focus();
+    }
+    return () => {
+      const prev = restoreTargetRef.current;
+      if (prev && document.contains(prev)) prev.focus();
+    };
+  }, [takesFocus]);
+
+  // Escape, and the Tab trap. Modal only.
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!onEscape) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onEscape();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const btns = focusablesIn(root);
+      if (btns.length === 0) return;
+      // ⚠️ CONTRACT: the trap moves focus ITSELF and never relies on the
+      // browser's native Tab order. That is what makes the behaviour
+      // observable — jsdom does not traverse on Tab, so a trap that merely
+      // "lets the browser wrap" is untestable and silently unverified. Do not
+      // simplify this back to letting the browser do it.
+      e.preventDefault();
+      const idx = btns.indexOf(document.activeElement as HTMLButtonElement);
+      const last = btns.length - 1;
+      let next: number;
+      if (e.shiftKey) next = idx <= 0 ? last : idx - 1;
+      else next = idx === -1 || idx === last ? 0 : idx + 1;
+      btns[next].focus();
+    };
+    // Capture phase: this dialog sees Escape before any bubble-phase
+    // document listener belonging to a surface rendered underneath it.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [modal, onEscape]);
+
   if (modal) {
     return (
       <div style={{
@@ -70,7 +164,13 @@ export function ConfirmDialog({ message, title, buttons, colors, modal, borderCo
         justifyContent: 'center',
         zIndex: 9999,
       }}>
-        <div style={{
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          tabIndex={-1}
+          style={{
           background: colors.surface,
           borderRadius: '12px',
           padding: '2rem',
@@ -79,7 +179,7 @@ export function ConfirmDialog({ message, title, buttons, colors, modal, borderCo
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
         }}>
           {title && (
-            <h3 style={{
+            <h3 id={titleId} style={{
               fontSize: '1.25rem',
               fontWeight: '700',
               color: colors.text,
@@ -109,7 +209,7 @@ export function ConfirmDialog({ message, title, buttons, colors, modal, borderCo
                   : { padding: '0.6rem 1.25rem', background: colors.surface, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: '6px', cursor, fontWeight: '600' as const, fontSize: '0.9rem' };
 
               return (
-                <button key={i} onClick={btn.onClick} disabled={disabled} style={modalBtnStyle}>
+                <button key={i} data-variant={variant} onClick={btn.onClick} disabled={disabled} style={modalBtnStyle}>
                   {btn.label}
                 </button>
               );
@@ -122,7 +222,7 @@ export function ConfirmDialog({ message, title, buttons, colors, modal, borderCo
 
   // Inline mode (default)
   return (
-    <div style={{
+    <div ref={dialogRef} style={{
       marginTop: '0.5rem',
       paddingLeft: '1.5rem',
     }}>

@@ -23,6 +23,31 @@ interface ImportPreviewSectionProps {
   onConfirm: () => void;
   onRequestReplaceAll: () => void;
   onCancel: () => void;
+  /**
+   * Suppress this section's document-level Escape handler while a surface
+   * rendered ON TOP of it owns the key.
+   *
+   * ⚠️ The preview stays MOUNTED underneath the Replace-All confirmation
+   * (ProjectsTab gates that modal on `replaceAllPending && importPreview`), so
+   * without this, Escape on the "cannot be undone" dialog reached this listener
+   * and discarded the whole preview — every per-conflict decision the user had
+   * made — instead of dismissing the confirmation.
+   *
+   * Same shape as CloudStorageModal's `dismissalSuppressed`.
+   *
+   * ⚠️ MEASURED, v0.28.21: this prop is REDUNDANT for the Replace-All case and
+   * is kept deliberately. `ConfirmDialog` claims Escape in the CAPTURE phase
+   * and calls `stopPropagation`, which halts the event at `document` before it
+   * can reach this listener on the way back up — so removing this gate does NOT
+   * fail F10. It is kept as a second, legible control, because "the capture
+   * listener will always get there first" is a property of propagation order
+   * that a later edit could silently change (moving that listener to the bubble
+   * phase would break F10 with nothing else to catch it). Its own behaviour is
+   * pinned directly by the suppression tests, so it is not an untested
+   * decoration — it is a tested backstop for a mechanism nothing else guards.
+   * Same reasoning as the v0.28.10 `.catch()` backstops.
+   */
+  dismissalSuppressed?: boolean;
 }
 
 const ACTION_LABELS: Record<ConflictAction, string> = {
@@ -46,6 +71,7 @@ export function ImportPreviewSection({
   onConfirm,
   onRequestReplaceAll,
   onCancel,
+  dismissalSuppressed = false,
 }: ImportPreviewSectionProps) {
   const isModeToggleable =
     imported.exportType === 'ganttapp-all-projects' ||
@@ -76,11 +102,11 @@ export function ImportPreviewSection({
   }, []);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !applying) onCancel();
+      if (e.key === 'Escape' && !applying && !dismissalSuppressed) onCancel();
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [applying, onCancel]);
+  }, [applying, onCancel, dismissalSuppressed]);
 
   const cardStyle: React.CSSProperties = {
     marginBottom: '1rem',

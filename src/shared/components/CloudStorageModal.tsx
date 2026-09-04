@@ -420,6 +420,11 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
           {/* Cloud→local keep/discard prompt (driven by StorageContext global state) */}
           {needsCloudToLocalPrompt && (
             <ConfirmDialog
+              // Inline INSIDE an already-modal surface: user-initiated, so it
+              // takes focus — but it must NOT trap, because the enclosing
+              // CloudStorageModal is already the boundary. That is exactly why
+              // `blocking` and `modal` are separate props.
+              blocking
               message={<>Keep a local copy of your <strong>{needsCloudToLocalPrompt.projectCount}</strong> cloud project(s)?</>}
               colors={colors}
               buttons={[

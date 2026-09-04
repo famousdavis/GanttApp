@@ -122,19 +122,34 @@ It is destructive only for the **name suffix format**, which is deliberately
 different on the two paths and is pinned by tests on both sides. Changing either
 format to match the other breaks whichever side you change.
 
-**Format pins** — counts as of v0.28.19. ⚠️ Each carries its unit: lines and
+**Format pins** — counts as of v0.28.20. ⚠️ Each carries its unit: lines and
 occurrences are different rules and they do not always agree.
 
 | pin | value |
 |---|---|
 | `'Source - Copy (1)'` in `useProjects.test.tsx` | **8** — lines and occurrences agree |
 | `'Alpha (2)'` in `export.test.ts` | **1** — lines and occurrences agree |
-| `- Copy (` in `useProjects.test.tsx` | ⚠️ **15 lines / 18 occurrences** — the rules disagree here |
-| `- Copy (` elsewhere in `src/` | `ProjectsTab.test.tsx` 1 · `useProjects.writeFailures.test.tsx` 1 · `useProjects.ts` 4 · `changelog-data.tsx` 1 — lines and occurrences agree at each |
+| `- Copy (` in `useProjects.test.tsx` | ⚠️ **21 lines / 24 occurrences** |
+| `- Copy (` in `useProjects.ts` | ⚠️ **4 lines / 5 occurrences** |
+| `- Copy (` elsewhere in `src/` | `ProjectsTab.test.tsx` 1 · `useProjects.writeFailures.test.tsx` 1 · `changelog-data.tsx` 1 — lines and occurrences agree at each |
+
+⚠️ **These figures moved in v0.28.20 and the v0.28.19 set is superseded** —
+that release added the clone-length tests and the `buildCloneCandidateName`
+doc comment. `useProjects.ts` **gained a rule disagreement it did not have**
+(4/4 → 4 lines / 5 occurrences). That is the reason the unit is stated rather
+than assumed: a count published without one silently becomes wrong when the
+rules diverge, and nothing in the gate can see it.
 
 **Full closure (future):** Extract a shared `cloneProjectContent(source, opts)`
 helper carrying the shared behaviour, while leaving each caller its own suffix
 format.
+
+⚠️ **v0.28.20 is a worked example of the rule.** `cloneProject` adopted the
+truncate-before-the-collision-check *behaviour* that `applyImportDecisions`
+already had, and deliberately did **not** adopt its *reserve strategy*:
+`export.ts` reserves a constant `MAX_SUFFIX_LEN = 5` sized for its worst case,
+while `cloneProject` reserves the chosen suffix's own length so the common
+`(1)` case loses no character. Behaviour mirrored, format not.
 
 **Status:** Accepted as a deliberate split — not scheduled, and no target
 version. The `owner` semantics that require the divergence are correct on both

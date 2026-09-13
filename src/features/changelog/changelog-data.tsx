@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.24',
+    date: 'September 13, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; A note in the release checks said the licence is copied into nine projects. It is eight. Nothing about the app changed. A comment in a release check only: no application code, no behaviour, no appearance, no data.</>,
+      <><strong>Note</strong> &mdash; The licence file is copied byte-for-byte into every project in the suite, and each project carries a check that its own copy still matches. The note explaining that check said the licence lives in nine projects. It has been eight since August 21, 2026, when one project &mdash; private, instructor-only and distributed to nobody &mdash; withdrew the open-source grant and deleted its copy.</>,
+      <><strong>Note</strong> &mdash; The note now says eight, and says why. It also warns against &ldquo;correcting&rdquo; the references to nine that remain in the same note: those describe the July 2026 audit, when there really were nine, and changing them would make them false.</>,
+      <><strong>Note</strong> &mdash; Worth a release on its own because the note is an instruction, not decoration. It tells whoever changes the licence next how many projects to update in the same pass, and a wrong number there sends them hunting for a project that no longer carries the file.</>,
+    ],
+  },
+  {
     version: '0.28.23',
     date: 'September 13, 2026',
     items: [

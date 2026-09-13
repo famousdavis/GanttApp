@@ -1,5 +1,35 @@
 # Change Log
 
+## Version 0.28.23 (2026-09-13)
+
+### Changed: the licence names the company that owns the SPERT&reg; marks
+
+Licence text only. No application code changed and nothing about how the app behaves is different.
+
+The SPERT&reg; Suite business &mdash; the spertsuite.com website, the hosting it runs on, and the
+SPERT&reg;, Statistical PERT&reg; and Estimation Made Easy&reg; trademarks &mdash; transferred to
+famousdavis, LLC on September 12, 2026. The licence&rsquo;s trademark clause still named the previous
+owner while the newly published Terms of Service named the company, so two published legal documents
+disagreed about who owns the marks.
+
+The clause now names the company. Fifteen lines changed, all inside that one clause; the file is still
+756 lines and the clause is still what it was, a declination to grant trademark rights permitted by
+Section 7(e) of the GPL.
+
+Copyright in the software did not transfer, and the licence still says so. It is held by William W.
+Davis, MSPM, PMP personally and licensed to the company. The clauses requiring his name to be kept as
+the author, and withholding his name from promotional use, are unchanged &mdash; as are the copyright
+notices in every source file and the credit shown on the About tab. Two different names now appear in
+the licence and both are correct: the company operates the service, the individual owns the code.
+
+Nothing you may do with this software changed. It is still the GNU General Public License v3 with the
+same additional terms &mdash; the code is free to take, change and share, a modified version must
+still be released under a different name, and credit to the original author must still travel with it.
+
+The licence is one file copied byte-for-byte into eight projects, each of which pins a checksum of it,
+so changing it in one place alone fails the other seven at once. All eight were updated in the same
+pass and are released separately.
+
 ## Version 0.28.22 (2026-09-04)
 
 ### Fixed: a release check that quietly stopped running whenever a release was prepared the usual way

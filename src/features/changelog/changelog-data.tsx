@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.28.25',
+    date: 'September 28, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; a code comment put Firebase&apos;s automatic retry in the wrong place. Nothing about how the app works changed. Code comments only: no behaviour, no appearance, no data.</>,
+      <><strong>Note</strong> &mdash; In cloud mode the app listens for changes to each project, so collaborators&apos; edits appear without a reload. A comment on the listener&apos;s error handler said that errors other than a permission error are temporary and left to Firebase&apos;s automatic retry. The retry is real, but it happens below the handler. Tested against the Firestore emulator on Firebase 12.12.1 (its Firestore library, 4.14.0), in Node and in one Chromium browser, none of the dropped, stalled or dead connections tried ever reached the error handler, and in the browser the listener caught up afterwards with nothing lost. An error that does reach the handler is different: Firebase&apos;s documentation says no further updates follow it, and the app does not start listening again in response. The one such error the app handles specially is a permission error, such as when a project&apos;s owner removes you; the app then takes that project out of your list.</>,
+      <><strong>Note</strong> &mdash; The comment now says this, and names the Firebase version and platforms it was tested on. Three more comments about the same cloud-storage code are corrected or removed too: two about how the app sets up and re-creates these listeners, and one that described the rule for listing projects as it was before August 19, 2026.</>,
+      <><strong>Note</strong> &mdash; Two older entries made related claims: Version 0.22.2 (item S9) and Version 17.3.2. They are left as written, as the record of what was believed then, and corrected here. Version 0.22.2 said the other errors are temporary and left to Firebase&apos;s automatic retry. In the tests dropped connections were retried, but they never reached the handler that entry describes, and, by Firebase&apos;s documentation, an error that does reach it is final. The Markdown changelog&apos;s copy of that entry also said that, before it, a removed user&apos;s listener kept retrying; Firebase&apos;s documentation says a listener that reports an error receives nothing further. Version 17.3.2 said network drops would no longer go unnoticed. The drops tested never reached the error handler, so that change did not make them visible. In the browser tests the listener caught up after each drop without the app&apos;s help, so the app did not need a reconnect of its own for them. Both releases used an earlier Firebase, 12.10.0, which was not tested.</>,
+    ],
+  },
+  {
     version: '0.28.24',
     date: 'September 13, 2026',
     items: [

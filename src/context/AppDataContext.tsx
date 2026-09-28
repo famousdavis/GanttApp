@@ -386,7 +386,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, displaySettings, preparedBy, showPreparedBy, showTodayLine, todayDateOverride, showFinishDateLine, showMostLikelyLine, showMonths, exportAttribution, globalWorkDays, data, loading, storage]);
 
   // Real-time sync: subscribe to Firestore changes in cloud mode
-  // Stable dependency: sorted project IDs (re-subscribes only when projects are added/removed)
+  // Stable dependency: sorted project IDs, so renaming or reordering a
+  // project does not re-subscribe. (The subscription effect below, which
+  // uses it, also re-runs when `storage` or `loading` changes.)
   const projectIds = useMemo(
     () => JSON.stringify(data.projects.map(p => p.id).sort()),
     [data.projects]

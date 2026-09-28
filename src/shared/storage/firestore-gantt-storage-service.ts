@@ -300,9 +300,6 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     const releasesRef = collection(this.db, `ganttapp_projects/${projectId}/releases`);
     const q = query(releasesRef);
 
-    // Hold a forward reference so the error callback can call the latest
-    // unsubscribe — `unsubscribe` itself isn't initialized until onSnapshot
-    // returns, but the error callback may fire on the same tick.
     let unsubscribe: () => void = () => {};
 
     unsubscribe = onSnapshot(
@@ -331,8 +328,22 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         // permanently rejected (e.g., the owner just removed this user
         // from the project). Tear down the subscription and remove our
         // entry from the unsubscribers list so dispose() doesn't run a
-        // dead handle. Other error codes (unavailable, deadline-exceeded)
-        // are transient — leave them to the SDK's internal retry.
+        // dead handle.
+        //
+        // v0.28.25: per the SDK's onSnapshot contract, no further callbacks
+        // follow onError, so whatever the code this listener is finished.
+        // Nothing here re-subscribes it, deliberately: any re-subscribe
+        // would need a code filter and a backoff. For any code other than
+        // permission-denied, the log and onSaveResult above are all that
+        // happens; AppDataContext re-creates listeners only when its
+        // subscription effect re-runs. In emulator tests (@firebase/firestore
+        // 4.14.0 via firebase 12.12.1; Node, and one Chromium run per failure
+        // mode), no dropped, stalled or dead connection reached an error
+        // callback registered this way. In Node the SDK retried dropped
+        // connections itself; in the browser its WebChannel transport
+        // re-opened the channel; and the listener caught up afterwards
+        // without the app's help, except in Node, where a connection that
+        // died without closing stayed silent until the client next wrote.
         const code = (error as { code?: string }).code;
         if (code === 'permission-denied') {
           unsubscribe();
@@ -472,12 +483,9 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
    * List the project documents the current user is a member of.
    *
    * Server-side membership filtering via `where('members.${uid}', 'in', [...])`
-   * — this is required because the Firestore `list` rule on
-   * `ganttapp_projects` is `allow list: if isAuth()`. An unconstrained
-   * `getDocs(collection(...))` would fail as soon as the collection contains
-   * any project the user is not a member of, since Firestore evaluates list
-   * rules against the query shape (resource.data is undefined for list ops).
-   * See cloud-storage-guide/ARCHITECTURE.md §6.5.
+   * is required by the `list` rule on `ganttapp_projects`. The comment at the
+   * top of the method body says why, and what pins the rule and this query
+   * together.
    *
    * Defense-in-depth: even though the server-side `where()` guarantees
    * membership, we keep the client-side filter to protect against future

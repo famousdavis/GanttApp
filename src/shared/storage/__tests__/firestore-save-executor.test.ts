@@ -3,9 +3,41 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { releaseChanged, settingsChanged } from '../firestore-save-executor';
+
+// A recording stand-in for the three firebase/firestore calls the executor
+// makes. Each writeBatch() gets its own number, so tests can tell the
+// new-project batch (committed first) from the batch that carries everything
+// else. `stored` holds the project documents getDoc() finds.
+const fs = vi.hoisted(() => {
+  const log: { batch: number; op: 'set' | 'delete' | 'commit'; path?: string; data?: Record<string, unknown> }[] = [];
+  const stored = new Map<string, Record<string, unknown>>();
+  let batches = 0;
+  return {
+    log,
+    stored,
+    getDoc: vi.fn(),
+    nextBatch: () => ++batches,
+    reset: () => { log.length = 0; stored.clear(); batches = 0; },
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  doc: (_db: unknown, path: string) => ({ path }),
+  getDoc: (ref: { path: string }) => fs.getDoc(ref),
+  writeBatch: () => {
+    const batch = fs.nextBatch();
+    return {
+      set: (ref: { path: string }, data: Record<string, unknown>) => { fs.log.push({ batch, op: 'set', path: ref.path, data }); },
+      delete: (ref: { path: string }) => { fs.log.push({ batch, op: 'delete', path: ref.path }); },
+      commit: async () => { fs.log.push({ batch, op: 'commit' }); },
+    };
+  },
+}));
+
+import { executeFirestoreSave, releaseChanged, settingsChanged } from '../firestore-save-executor';
 import type { Release, Project } from '../../types/models';
 import type { AppData } from '../../types/app';
+import type { Firestore } from 'firebase/firestore';
 
 describe('firestore-save-executor', () => {
   describe('releaseChanged', () => {
@@ -83,30 +115,6 @@ describe('firestore-save-executor', () => {
       // because order detection is done externally by comparing prevIndex !== index
       expect(releaseChanged(r1, r1)).toBe(false);
       expect(releaseChanged(r2, r2)).toBe(false);
-    });
-
-    it('release order change triggers write via index comparison (integration note)', () => {
-      // Given prev = [r1, r2] and curr = [r2, r1]:
-      //   - r2 at curr index 0: prevIndex = 1 !== 0 → write triggered
-      //   - r1 at curr index 1: prevIndex = 0 !== 1 → write triggered
-      // This is NOT tested in releaseChanged — it's tested by the index comparison
-      // in executeFirestoreSave: prevIndex !== index
-      const prevReleases = [r1, r2];
-      const currReleases = [r2, r1]; // swapped order
-
-      // r2 moved from index 1 to index 0
-      const r2PrevIndex = prevReleases.findIndex(r => r.id === 'r2');
-      const r2CurrIndex = currReleases.findIndex(r => r.id === 'r2');
-      expect(r2PrevIndex).toBe(1);
-      expect(r2CurrIndex).toBe(0);
-      expect(r2PrevIndex !== r2CurrIndex).toBe(true); // order changed → triggers write
-
-      // r1 moved from index 0 to index 1
-      const r1PrevIndex = prevReleases.findIndex(r => r.id === 'r1');
-      const r1CurrIndex = currReleases.findIndex(r => r.id === 'r1');
-      expect(r1PrevIndex).toBe(0);
-      expect(r1CurrIndex).toBe(1);
-      expect(r1PrevIndex !== r1CurrIndex).toBe(true); // order changed → triggers write
     });
   });
 
@@ -194,54 +202,178 @@ describe('firestore-save-executor', () => {
     });
   });
 
-  // v16.1: Risk 1 regression guard for per-project legendLabels.
-  // The `contentChanged` expression in executeFirestoreSave uses JSON.stringify
-  // comparison for nested project fields (workDays, legendLabels). These tests
-  // verify the comparison semantics directly — if someone removes or weakens
-  // the legendLabels comparison in the inline `contentChanged` OR-chain, a
-  // project-scope label edit in cloud mode will silently NOT trigger a Firestore
-  // write (same class of bug as v12.5 reorder and v15.0 workDays).
-  describe('project contentChanged — legendLabels (Risk 1 guard)', () => {
-    const baseProject: Project = { id: 'p1', name: 'Proj', owner: 'uid1' };
+  // executeFirestoreSave, run for real against a recording Firestore stand-in.
+  // Until these existed, the write/no-write decisions below were tested only
+  // through copies of the executor's comparisons, so deleting a comparison from
+  // the executor passed every test. A missing comparison throws nothing: the
+  // edit saves locally, never reaches Firestore, and is gone on the next load
+  // (v12.5 reorder, v15.0 workDays and v16.1 legendLabels were all this bug).
+  describe('executeFirestoreSave', () => {
+    const db = {} as Firestore;
+    const UID = 'editor-uid';
+    const OWNER = 'owner-uid';
 
-    // Helper that mirrors the exact check used inline in executeFirestoreSave.
-    const legendLabelsChanged = (prev: Project, curr: Project): boolean =>
-      JSON.stringify(prev.legendLabels) !== JSON.stringify(curr.legendLabels);
+    const release = (id: string, projectId = 'p1', name = id.toUpperCase()): Release => ({
+      id, projectId, name,
+      startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+    });
+    // The stored project document: owned by someone else, shared with UID as an editor.
+    const storedMeta = (id: string, name: string) => ({
+      name, owner: OWNER, members: { [OWNER]: 'owner', [UID]: 'editor' },
+      schemaVersion: 1, _originRef: `uid:${OWNER}`, createdAt: 'created-at', updatedAt: 'updated-at',
+      _changeLog: [{ timestamp: 't0', uid: OWNER, action: 'create', target: `project:${id}` }],
+    });
+    const state = (projects: Project[], releases: Release[] = [], extra: Partial<AppData> = {}): AppData =>
+      ({ projects, releases, ...extra });
+    const alpha: Project = { id: 'p1', name: 'Alpha' };
 
-    it('detects legendLabels value change', () => {
-      const prev = { ...baseProject, legendLabels: { solidBar: 'A' } };
-      const curr = { ...baseProject, legendLabels: { solidBar: 'B' } };
-      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    const sets = (path: string) => fs.log.filter(e => e.op === 'set' && e.path === path);
+    const releaseSets = () => fs.log.filter(e => e.op === 'set' && e.path!.includes('/releases/'));
+    const deletes = () => fs.log.filter(e => e.op === 'delete').map(e => e.path);
+    const commits = () => fs.log.filter(e => e.op === 'commit').map(e => e.batch);
+
+    beforeEach(() => {
+      fs.reset();
+      fs.getDoc.mockReset();
+      fs.getDoc.mockImplementation(async (ref: { path: string }) => ({
+        exists: () => fs.stored.has(ref.path),
+        data: () => fs.stored.get(ref.path),
+      }));
+      fs.stored.set('ganttapp_projects/p1', storedMeta('p1', 'Alpha'));
+      fs.stored.set('ganttapp_projects/p2', storedMeta('p2', 'Beta'));
     });
 
-    it('does not detect change when legendLabels is identical', () => {
-      const prev = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
-      const curr = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
-      expect(legendLabelsChanged(prev, curr)).toBe(false);
+    it('commits a new project, with a create entry, in its own batch before everything else', async () => {
+      const next = state([alpha, { id: 'p9', name: 'New' }], [release('r9', 'p9')]);
+      await executeFirestoreSave(db, UID, next, state([alpha]));
+
+      const created = sets('ganttapp_projects/p9');
+      expect(created).toHaveLength(1);
+      expect(created[0].batch).toBe(1);
+      expect(created[0].data).toMatchObject({ name: 'New', owner: UID, members: { [UID]: 'owner' }, order: 1 });
+      expect(created[0].data!._changeLog).toEqual([
+        expect.objectContaining({ uid: UID, action: 'create', target: 'project:p9' }),
+      ]);
+      // The release rides in batch 2, which commits only after batch 1 has:
+      // subcollection rules read the parent project document.
+      expect(sets('ganttapp_projects/p9/releases/r9').map(e => e.batch)).toEqual([2]);
+      expect(commits()).toEqual([1, 2]);
     });
 
-    it('detects change when legendLabels is added', () => {
-      const prev = { ...baseProject };
-      const curr = { ...baseProject, legendLabels: { solidBar: 'X' } };
-      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    it.each([
+      ['name', alpha, { ...alpha, name: 'Renamed' }, { name: 'Renamed' }],
+      ['finishDate', alpha, { ...alpha, finishDate: '2026-06-30' }, { finishDate: '2026-06-30' }],
+      ['workDays', { ...alpha, workDays: [1, 2, 3, 4, 5] }, { ...alpha, workDays: [1, 2, 3, 4, 5, 6] }, { workDays: [1, 2, 3, 4, 5, 6] }],
+    ])('rewrites an existing project whose %s changed', async (_field, before, after, written) => {
+      await executeFirestoreSave(db, UID, state([after]), state([before]));
+      const writes = sets('ganttapp_projects/p1');
+      expect(writes).toHaveLength(1);
+      expect(writes[0].data).toMatchObject(written);
     });
 
-    it('detects change when legendLabels is removed (cleared to undefined)', () => {
-      const prev = { ...baseProject, legendLabels: { solidBar: 'X' } };
-      const curr = { ...baseProject }; // legendLabels cleared
-      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    // Per-project legend labels. Six shapes of edit, one of them no edit.
+    it.each([
+      ['a label changes', true, { solidBar: 'A' }, { solidBar: 'B' }],
+      ['nothing changes', false, { solidBar: 'A', hatchedBar: 'B' }, { solidBar: 'A', hatchedBar: 'B' }],
+      ['labels are added', true, undefined, { solidBar: 'X' }],
+      ['labels are cleared', true, { solidBar: 'X' }, undefined],
+      ['a key is added', true, { solidBar: 'A' }, { solidBar: 'A', hatchedBar: 'B' }],
+      ['a key is removed', true, { solidBar: 'A', hatchedBar: 'B' }, { solidBar: 'A' }],
+    ])('legendLabels — %s: project rewritten = %s', async (_edit, rewritten, before, after) => {
+      const withLabels = (labels: Project['legendLabels']): Project => ({ ...alpha, ...(labels && { legendLabels: labels }) });
+      await executeFirestoreSave(db, UID, state([withLabels(after)]), state([withLabels(before)]));
+
+      expect(commits()).toEqual([2]);
+      const writes = sets('ganttapp_projects/p1');
+      expect(writes).toHaveLength(rewritten ? 1 : 0);
+      if (rewritten) expect(writes[0].data!.legendLabels).toEqual(after);
     });
 
-    it('detects change when a key is added to existing legendLabels', () => {
-      const prev = { ...baseProject, legendLabels: { solidBar: 'A' } };
-      const curr = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
-      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    it('rewrites both projects, each with its new order, when two projects swap places', async () => {
+      const beta: Project = { id: 'p2', name: 'Beta' };
+      await executeFirestoreSave(db, UID, state([beta, alpha]), state([alpha, beta]));
+      expect(sets('ganttapp_projects/p2').map(e => e.data!.order)).toEqual([0]);
+      expect(sets('ganttapp_projects/p1').map(e => e.data!.order)).toEqual([1]);
     });
 
-    it('detects change when a key is removed from existing legendLabels', () => {
-      const prev = { ...baseProject, legendLabels: { solidBar: 'A', hatchedBar: 'B' } };
-      const curr = { ...baseProject, legendLabels: { solidBar: 'A' } };
-      expect(legendLabelsChanged(prev, curr)).toBe(true);
+    it('keeps the stored owner and members, and appends an update entry, when it rewrites a project', async () => {
+      await executeFirestoreSave(db, UID, state([{ ...alpha, name: 'Renamed' }]), state([alpha]));
+      const writes = sets('ganttapp_projects/p1');
+      expect(writes).toHaveLength(1);
+      expect(writes[0].data).toMatchObject({
+        owner: OWNER,
+        members: { [OWNER]: 'owner', [UID]: 'editor' },
+        createdAt: 'created-at',
+      });
+      expect(writes[0].data!._changeLog).toEqual([
+        { timestamp: 't0', uid: OWNER, action: 'create', target: 'project:p1' },
+        expect.objectContaining({ uid: UID, action: 'update', target: 'project:p1' }),
+      ]);
+    });
+
+    it('writes nothing for a changed project whose document is gone', async () => {
+      fs.stored.delete('ganttapp_projects/p1');
+      await executeFirestoreSave(db, UID, state([{ ...alpha, name: 'Renamed' }]), state([alpha]));
+      // It looked for the document, found none, and wrote nothing.
+      expect(fs.getDoc).toHaveBeenCalledWith({ path: 'ganttapp_projects/p1' });
+      expect(sets('ganttapp_projects/p1')).toEqual([]);
+    });
+
+    it('neither reads nor rewrites an unchanged project that stayed in place', async () => {
+      const unchanged = state([alpha]);
+      await executeFirestoreSave(db, UID, structuredClone(unchanged), unchanged);
+      expect(commits()).toEqual([2]);
+      expect(fs.getDoc).not.toHaveBeenCalled();
+      expect(sets('ganttapp_projects/p1')).toEqual([]);
+    });
+
+    it('writes a new release with its position as its order', async () => {
+      await executeFirestoreSave(db, UID, state([alpha], [release('r1'), release('r2')]), state([alpha], [release('r1')]));
+      expect(releaseSets().map(e => [e.path, e.data!.order])).toEqual([['ganttapp_projects/p1/releases/r2', 1]]);
+    });
+
+    it('rewrites a release whose content changed in place', async () => {
+      await executeFirestoreSave(db, UID, state([alpha], [release('r1', 'p1', 'Changed')]), state([alpha], [release('r1')]));
+      expect(releaseSets().map(e => [e.path, e.data!.name, e.data!.order])).toEqual([
+        ['ganttapp_projects/p1/releases/r1', 'Changed', 0],
+      ]);
+    });
+
+    it('rewrites both releases, each with its new order, when two releases swap places', async () => {
+      await executeFirestoreSave(db, UID, state([alpha], [release('r2'), release('r1')]), state([alpha], [release('r1'), release('r2')]));
+      expect(releaseSets().map(e => [e.path, e.data!.order])).toEqual([
+        ['ganttapp_projects/p1/releases/r2', 0],
+        ['ganttapp_projects/p1/releases/r1', 1],
+      ]);
+    });
+
+    it('does not rewrite releases that are unchanged and in place', async () => {
+      const before = state([alpha], [release('r1'), release('r2')]);
+      await executeFirestoreSave(db, UID, structuredClone(before), before);
+      expect(commits()).toEqual([2]);
+      expect(releaseSets()).toEqual([]);
+    });
+
+    it('deletes a release that was removed, and only that one', async () => {
+      await executeFirestoreSave(db, UID, state([alpha], [release('r1')]), state([alpha], [release('r1'), release('r2')]));
+      expect(deletes()).toEqual(['ganttapp_projects/p1/releases/r2']);
+    });
+
+    it('deletes a project that was removed', async () => {
+      await executeFirestoreSave(db, UID, state([alpha]), state([alpha, { id: 'p2', name: 'Beta' }]));
+      expect(deletes()).toEqual(['ganttapp_projects/p2']);
+    });
+
+    it('writes the settings document only when a setting changed', async () => {
+      const before = state([], [], { showTodayLine: true, preparedBy: 'Ann' });
+      const after = { ...before, showTodayLine: false };
+      await executeFirestoreSave(db, UID, after, before);
+      expect(sets(`ganttapp_settings/${UID}`)).toHaveLength(1);
+
+      fs.reset();
+      await executeFirestoreSave(db, UID, structuredClone(after), after);
+      expect(commits()).toEqual([2]);
+      expect(sets(`ganttapp_settings/${UID}`)).toEqual([]);
     });
   });
 });

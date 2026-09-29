@@ -1,5 +1,21 @@
 # Change Log
 
+## Version 0.28.26 (2026-09-29)
+
+### Changed: tests now cover how cloud data is saved, synced and reported, and coverage is measured over every file
+
+Nothing about how the app works changed. Tests and one test setting only: no application code, no behaviour, no appearance, no data.
+
+Future changes to how cloud-sync errors are shown will touch the code that saves and syncs your cloud data, so this release puts tests under that code first. A regression there now fails a test instead of reaching you. The tests cover what the app writes when it saves projects and settings to the cloud; how it reports a save that fails, and clears the report when the next save succeeds; what happens when a project's live connection reports an error; how switching between local and cloud storage behaves; and how your data loads and stays in sync while you work. One test follows a failed save all the way to the "Cloud sync error" message in Settings, with only Firebase itself replaced.
+
+Some older tests are gone. They checked copies of the cloud writer's own comparisons rather than the writer itself, so they still passed with the writer's comparison deleted. The writer now runs for real in its tests.
+
+The coverage report now lists every source file, including files no test loads, which it used to leave out. That lowers the reported figure although nothing got worse. On its own, this change takes statement coverage from 82.22% to 77.04% (−5.18 points), branch coverage from 77.16% to 72.70% (−4.46), function coverage from 77.73% to 71.28% (−6.45) and line coverage from 83.91% to 79.11% (−4.80).
+
+With this release's tests, coverage measured over every file is 81.12% of statements, 75.72% of branches, 75.33% of functions and 82.91% of lines. Against the figures previously reported that is −1.10, −1.44, −2.40 and −1.00 points; against the same every-file measure before these tests it is +4.08, +3.02, +4.05 and +3.80. No build or release check reads these figures.
+
+Five files outside this release's scope run inside the new tests, so their figures rose a little. They are not tested by this release: the Settings tab, its Storage and Export Attribution sections, the project-sharing helpers and the Firestore data converters.
+
 ## Version 0.28.25 (2026-09-28)
 
 ### Changed: a code comment put Firebase's automatic retry in the wrong place

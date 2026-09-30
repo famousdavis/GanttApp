@@ -175,6 +175,24 @@ describe('AppDataContext — loading, saving and sync', () => {
       act(() => result.current.setPreparedBy('After'));
       await waitFor(() => expect(storage.saveAppData).toHaveBeenCalledWith(expect.objectContaining({ preparedBy: 'After' })));
     });
+
+    // Signing out of the cloud removes the local copy, so the new local service
+    // loads nothing. When that empty load settles, the app also saves its
+    // cleared state once (no projects, default settings), before any edit.
+    // Whether that save should happen is not settled, so this test asserts
+    // nothing about it either way: it checks only that the user's own next
+    // edit is saved.
+    it('saves edits again after a sign-out reset whose local load finds nothing', async () => {
+      const { result } = await renderLoaded(makeStorage('cloud', { projects: [project('p1')], releases: [] }));
+      const local = makeStorage('local', null);
+
+      act(() => { result.current.clearAllData(); current.set(local); });
+      await waitFor(() => expect(local.loadAppData).toHaveBeenCalled());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => result.current.setPreparedBy('After sign-out'));
+      await waitFor(() => expect(local.saveAppData).toHaveBeenCalledWith(expect.objectContaining({ preparedBy: 'After sign-out' })));
+    });
   });
 
   describe('cloud sync', () => {

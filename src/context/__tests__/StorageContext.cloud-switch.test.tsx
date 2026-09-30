@@ -236,6 +236,19 @@ describe('StorageContext — cloud connection and switching', () => {
 
       expect(result.current.switchError).toBeNull();
     });
+
+    it('leaves no error from an earlier attempt once a switch to cloud succeeds', async () => {
+      const { result } = renderStorage();
+      await act(() => result.current.switchMode('cloud')); // fails: nobody is signed in
+      expect(result.current.switchError).not.toBeNull();
+
+      act(() => auth.set(signedIn));
+      cloud.switchToCloudMode.mockResolvedValue({ service: cloudService(), uploaded: 0, skipped: 0 });
+      await act(() => result.current.switchMode('cloud'));
+
+      expect(result.current.mode).toBe('cloud'); // the second attempt went through
+      expect(result.current.switchError).toBeNull();
+    });
   });
 
   describe('leaving cloud mode', () => {

@@ -132,8 +132,13 @@ const snapshot = (id: string, projectId: string) =>
   ({ id, projectId, name: id, timestamp: '2026-02-01T00:00:00.000Z', releases: [] });
 
 const projectWrites = (id: string) => fake.state.writes.filter((w) => w.path === `ganttapp_projects/${id}`);
-/** 'create' when the executor wrote the project as new, 'update' when it rewrote an existing one. */
-const action = (w: Write) => (w.data?._changeLog as { action: string }[]).at(-1)?.action;
+/**
+ * 'create' when the executor wrote the project as new, 'update' when it rewrote
+ * an existing one, 'delete' when it deleted it (a delete carries no data).
+ */
+const action = (w: Write) => (w.op === 'delete'
+  ? 'delete'
+  : (w.data?._changeLog as { action: string }[] | undefined)?.at(-1)?.action);
 const listenerOn = (projectId: string) =>
   fake.state.listeners.find((l) => l.path === `ganttapp_projects/${projectId}/releases`)!;
 const renamed = (data: AppData, projectId: string, name: string): AppData =>

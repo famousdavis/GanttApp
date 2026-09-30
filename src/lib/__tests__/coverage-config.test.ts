@@ -25,6 +25,13 @@ import { describe, it, expect } from 'vitest';
  * stricter than Vitest in one place: Vitest drops test files and setup files
  * from the report on its own, so removing the matching `exclude` entry would
  * not change a real report, but it fails here.
+ *
+ * The lists are also read from the text, not evaluated. Comments are removed
+ * first, so a commented-out line is not read as configuration. Only an inline
+ * list of single-quoted strings is read: entries in double quotes or
+ * backticks are skipped, and a list held in a variable or built by a call is
+ * not found at all. With no list found the check fails even when the config
+ * itself is right, so moving a list into a constant trips it.
  */
 
 const PRODUCTION_ROOTS = ['src', 'pages'];
@@ -48,8 +55,14 @@ function stringList(block: string, key: string): string[] {
   return Array.from(list[1].matchAll(/'([^']*)'/g), (m) => m[1]);
 }
 
+// The text with its comments removed. Quoted strings are matched first and
+// kept whole, so the "/**/" inside a glob such as 'src/**/*.ts' is never
+// taken for a comment.
+const withoutComments = (text: string) =>
+  text.replace(/('[^'\n]*'|"[^"\n]*"|`[^`]*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (_comment, quoted?: string) => quoted ?? '');
+
 const root = process.cwd();
-const configText = readFileSync(join(root, 'vitest.config.ts'), 'utf-8');
+const configText = withoutComments(readFileSync(join(root, 'vitest.config.ts'), 'utf-8'));
 const coverageBlock = configText.match(/coverage:\s*\{([\s\S]*?)\n\s*\},/)?.[1] ?? '';
 const include = stringList(coverageBlock, 'include');
 const exclude = stringList(coverageBlock, 'exclude');

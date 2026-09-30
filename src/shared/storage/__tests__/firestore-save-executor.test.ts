@@ -375,5 +375,70 @@ describe('firestore-save-executor', () => {
       expect(commits()).toEqual([2]);
       expect(sets(`ganttapp_settings/${UID}`)).toEqual([]);
     });
+
+    // Every setting holds a value, as in a returning user's saved state. Each
+    // row below changes one setting alone: if the executor stopped comparing
+    // that setting, the settings document would not be written and the change
+    // would be gone on the next load.
+    const everySetting = state([], [], {
+      chartColors: {
+        solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333',
+        mostLikelyLine: '#444', completedBar: '#555', inProgressBar: '#666',
+      },
+      activePreset: 'Default',
+      legendLabels: { solidBar: 'Build', hatchedBar: 'Risk' },
+      showTodayLine: true,
+      todayDateOverride: '2026-08-19',
+      showFinishDateLine: true,
+      showMostLikelyLine: false,
+      showMonths: false,
+      chartDisplaySettings: {
+        releaseNameFontSize: '14', dateLabelFontSize: '11', dateLabelColor: '#666',
+        verticalLineWidth: '2', barHeight: '30', rowSpacing: '25',
+      },
+      preparedBy: 'Ann',
+      showPreparedBy: false,
+      exportAttribution: { name: 'Ann', identifier: 'T1' },
+      globalWorkDays: [1, 2, 3, 4, 5],
+    });
+
+    it.each([
+      ['chartColors', { chartColors: { ...everySetting.chartColors!, solidBar: '#fff' } }],
+      ['activePreset', { activePreset: 'Ocean' }],
+      ['legendLabels', { legendLabels: { solidBar: 'Build', hatchedBar: 'Delay' } }],
+      ['showTodayLine', { showTodayLine: false }],
+      ['todayDateOverride', { todayDateOverride: '2026-08-26' }],
+      ['showFinishDateLine', { showFinishDateLine: false }],
+      ['showMostLikelyLine', { showMostLikelyLine: true }],
+      ['showMonths', { showMonths: true }],
+      ['chartDisplaySettings', { chartDisplaySettings: { ...everySetting.chartDisplaySettings!, barHeight: '50' } }],
+      ['preparedBy', { preparedBy: 'Bob' }],
+      ['showPreparedBy', { showPreparedBy: true }],
+      ['exportAttribution', { exportAttribution: { name: 'Ann', identifier: 'T2' } }],
+      ['globalWorkDays', { globalWorkDays: [1, 2, 3, 4, 5, 6] }],
+    ] as [string, Partial<AppData>][])('writes the settings document when only %s changes', async (_field, change) => {
+      await executeFirestoreSave(db, UID, { ...everySetting, ...change }, structuredClone(everySetting));
+      expect(sets(`ganttapp_settings/${UID}`)).toHaveLength(1);
+    });
+
+    // In production the copy a save is compared with is a structuredClone of
+    // the last save, so every object and array in it is a different object
+    // from the one in memory even when nothing changed. A comparison made by
+    // reference would see a change in each of them and rewrite the document.
+    it('writes no settings document when nothing changed and the saved copy is a clone', async () => {
+      await executeFirestoreSave(db, UID, everySetting, structuredClone(everySetting));
+      expect(commits()).toEqual([2]); // the save ran to its commit
+      expect(sets(`ganttapp_settings/${UID}`)).toEqual([]);
+    });
+
+    it('does not rewrite an unchanged project with a finish date, work week and labels when another project changed', async () => {
+      const detailed: Project = {
+        ...alpha, finishDate: '2026-06-30', workDays: [1, 2, 3, 4, 5, 6], legendLabels: { solidBar: 'S', hatchedBar: 'H' },
+      };
+      const beta: Project = { id: 'p2', name: 'Beta' };
+      await executeFirestoreSave(db, UID, state([detailed, { ...beta, name: 'Renamed' }]), structuredClone(state([detailed, beta])));
+      expect(sets('ganttapp_projects/p2')).toHaveLength(1); // the project that changed is rewritten
+      expect(sets('ganttapp_projects/p1')).toEqual([]);
+    });
   });
 });

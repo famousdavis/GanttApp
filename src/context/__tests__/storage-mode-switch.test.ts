@@ -39,12 +39,19 @@ vi.mock('../../shared/storage/local-gantt-storage-service', () => {
   return { LocalGanttStorageService: MockLocalGanttStorageService };
 });
 
+// Every cloud service constructed, with the arguments it was given, so a test
+// can tell which one switchToCloudMode returned.
+const cloud = vi.hoisted(() => ({ constructed: [] as { args: unknown[]; service: unknown }[] }));
+
 // Mock the Firestore service — must be a real class for `new` to work.
 // v18.0.0 (D2): createUserProfile method removed; profile writes are now
 // performed by writeUserProfile in AuthContext (see AuthContext.test.tsx).
 vi.mock('../../shared/storage/firestore-gantt-storage-service', () => {
   class MockFirestoreGanttStorageServiceImpl {
     mode = 'cloud' as const;
+    constructor(...args: unknown[]) {
+      cloud.constructed.push({ args, service: this });
+    }
   }
   return { FirestoreGanttStorageServiceImpl: MockFirestoreGanttStorageServiceImpl };
 });
@@ -77,6 +84,7 @@ describe('switchToCloudMode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     batches.length = 0;
+    cloud.constructed.length = 0;
     local.data = {
       projects: [
         { id: 'proj-1', name: 'Project One' },
@@ -160,13 +168,17 @@ describe('switchToCloudMode', () => {
     );
   });
 
-  it('returns cloud service in the result', async () => {
+  it('returns the cloud service it built with the save-result callback', async () => {
     mockGetDoc.mockResolvedValue({ exists: () => false });
+    const onSaveResult = vi.fn();
 
-    const result = await switchToCloudMode(mockFirestore, mockUser);
+    const result = await switchToCloudMode(mockFirestore, mockUser, onSaveResult);
 
-    expect(result.service).toBeDefined();
     expect(result.service.mode).toBe('cloud');
+    // Not just any cloud service: the one given the caller's callback, which
+    // is how a failed save reaches the "Cloud sync error" message.
+    const returned = cloud.constructed.find((c) => c.service === result.service);
+    expect(returned?.args).toEqual([mockFirestore, mockUser.uid, onSaveResult]);
   });
 
   // v18.0.0 (D2): "creates user profile during cloud switch" test removed.

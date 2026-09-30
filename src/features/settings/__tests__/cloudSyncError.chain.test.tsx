@@ -11,7 +11,10 @@
 //
 // Each test reaches the cloud through a different door, because each door
 // must hand the error callback on: restoring cloud mode on load, confirming
-// the upload prompt, and choosing Cloud in Settings.
+// the upload prompt, and choosing Cloud in Settings. Each checks both things
+// that callback carries: the error, and the all-clear a later good save
+// sends. A door that passed on only the errors would leave the message on
+// screen after the cloud had recovered.
 //
 // ⚠️ KNOWN DEFECT these tests pass through: when the storage switches to the
 // cloud service, the app-data save effect re-runs and queues the pre-switch
@@ -169,7 +172,7 @@ describe('cloud sync error, end to end', () => {
     await waitFor(() => expect(screen.queryByText(/Cloud sync error/)).toBeNull());
   });
 
-  it('confirming the upload prompt: a failed save shows the error', async () => {
+  it('confirming the upload prompt: a failed save shows the error, and the next good save clears it', async () => {
     localStorage.setItem('ganttapp-storage-mode', 'cloud');
     localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Alpha' }], releases: [] }));
     render(<FullWrapper><SettingsTab /></FullWrapper>);
@@ -180,9 +183,13 @@ describe('cloud sync error, end to end', () => {
     fake.state.failCommits = FAILURE;
     commitField('Name', 'Ann');
     expect(await screen.findByText(SHOWN)).toBeInTheDocument();
+
+    fake.state.failCommits = null;
+    commitField('Identifier', 'Team 1');
+    await waitFor(() => expect(screen.queryByText(/Cloud sync error/)).toBeNull());
   });
 
-  it('choosing Cloud in Settings: a failed save shows the error', async () => {
+  it('choosing Cloud in Settings: a failed save shows the error, and the next good save clears it', async () => {
     render(<FullWrapper><SettingsTab /></FullWrapper>);
     await screen.findByText(/Signed in as/);
     const cloudRadio = screen.getByRole('radio', { name: /Cloud \(sync across devices\)/ });
@@ -194,5 +201,9 @@ describe('cloud sync error, end to end', () => {
     fake.state.failCommits = FAILURE;
     commitField('Name', 'Ann');
     expect(await screen.findByText(SHOWN)).toBeInTheDocument();
+
+    fake.state.failCommits = null;
+    commitField('Identifier', 'Team 1');
+    await waitFor(() => expect(screen.queryByText(/Cloud sync error/)).toBeNull());
   });
 });

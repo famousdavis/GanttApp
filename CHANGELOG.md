@@ -6,7 +6,7 @@
 
 Nothing about how the app works changed. Tests and one test setting only: no application code, no behaviour, no appearance, no data.
 
-Future changes to how cloud-sync errors are shown will touch the code that saves and syncs your cloud data, so this release puts tests under that code first. The aim is that a regression there fails a test before it can reach you. The tests cover what the app writes when it saves projects and settings to the cloud; how it reports a save that fails, and clears the report when the next save succeeds; what happens when a project's live connection reports an error; how switching between local and cloud storage behaves; and how your data loads and stays in sync while you work. One test follows a failed save all the way to the "Cloud sync error" message in Settings, with only Firebase itself replaced.
+Future changes to how cloud-sync errors are shown will touch the code that saves and syncs your cloud data, so this release puts tests under that code first. The aim is that a regression there fails a test before it can reach you. The tests cover what the app writes when it saves projects and settings to the cloud; how it reports a save that fails, and clears the report when the next save succeeds; what happens when a project's live connection reports an error; how switching between local and cloud storage behaves; and how your data loads and stays in sync while you work. Three tests follow a failed save all the way to the "Cloud sync error" message in Settings, with only Firebase itself replaced.
 
 Some older tests are gone. They checked copies of the cloud writer's own comparisons rather than the writer itself, so they still passed with the writer's comparison deleted. The writer now runs for real in its tests.
 

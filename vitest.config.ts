@@ -13,6 +13,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      // Report every source file, including those no test loads. Without an
+      // include list the report covers only files some test imports, so a file
+      // with no test at all is missing rather than shown at 0%.
+      include: ['src/**/*.{ts,tsx}', 'pages/**/*.{ts,tsx}'],
+      exclude: ['**/*.test.{ts,tsx}', '**/__tests__/**', 'src/test/**', '**/*.d.ts'],
+    },
   },
   resolve: {
     alias: {

@@ -18,12 +18,12 @@ Why it mostly went unnoticed: for users with projects and a fast connection, the
 
 What changes:
 
-- Nothing is saved to the cloud until your cloud data has loaded. If it does not load, Settings → Storage says "Cloud sync error: Your cloud data did not load, so changes are not being saved. Reload the page to try again.", and edits made then are not saved.
+- Apart from the upload you confirm when switching to Cloud, your projects and settings are no longer saved to the cloud before your cloud data has loaded. If it does not load, Settings → Storage says "Cloud sync error: Your cloud data did not load, so changes are not being saved. Reload the page to try again.", and edits made then are not saved.
 - In that state, deleting or copying a project, importing, and saving or deleting a snapshot are refused with a message saying so, instead of appearing to work.
 - After a switch to the cloud, this browser's copies of the projects it uploaded are removed, and the prompt to clear local copies is gone. Projects already in your cloud are not uploaded: they are now listed by name, and you can download this browser's copies of them as a file and then remove them, or keep them, in which case GanttApp asks again on each visit.
-- Switching from Cloud to Local when this browser holds no projects now shows the default settings. Your cloud settings are no longer copied into this browser.
+- Switching from Cloud to Local with no projects open no longer copies your cloud settings into this browser: it shows what this browser has saved, or the default settings if it has nothing saved.
 
-What it cannot do: restore anything earlier versions overwrote or deleted. It stops the copies written at the switch, and copies of projects uploaded on this version when the upload is confirmed again. Copies kept in this browser under earlier versions are uploaded once more the first time the upload is confirmed on this version, and then removed from this browser.
+What it cannot do: restore anything earlier versions overwrote or deleted, or remove duplicate projects they created. It stops the copies written at the switch, and copies of projects uploaded on this version when the upload is confirmed again. Most copies kept in this browser under earlier versions are uploaded once more the first time the upload is confirmed on this version, and then removed from this browser; a kept copy of a project that is already in your cloud is listed with the skipped projects instead.
 
 ## Version 0.28.26 (2026-09-29)
 

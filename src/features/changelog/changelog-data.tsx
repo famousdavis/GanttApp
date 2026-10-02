@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.0',
+    date: 'October 1, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; in cloud mode, the app could save over your cloud data before it had loaded. When GanttApp opened in cloud mode, or switched to cloud storage, it could save what was on screen before the switch to the cloud before your cloud data had loaded. What that save did depended on timing.</>,
+      <><strong>Note</strong> &mdash; Cloud users with no projects lost their cloud settings on every page load: on slow loads since version 11.0, on fast loads since version 18.0.0. When the load finished just before the save, cloud projects were deleted (since version 18.0.0); when the save ran before the load finished, cloud settings were overwritten (since version 11.0).</>,
+      <><strong>Note</strong> &mdash; In a narrow timing band, projects were written again as if new: their collaborators were removed and their history reset. A slower switch to Cloud wrote again the projects this browser also held, removing their collaborators, and wrote the uploaded projects a second time, so they appeared twice (since version 11.0). When the cloud data failed to load, the app saved anyway: settings were reset without a word, and the workspace showed empty.</>,
+      <><strong>Note</strong> &mdash; The dates come from tests of today&apos;s code with a later safeguard removed, not from running the old versions. Why it mostly went unnoticed: for users with projects and a fast connection, the cloud&apos;s first live update usually arrived in time to replace the early save with the freshly loaded data, so nothing harmful was written.</>,
+      <><strong>Changed</strong> &mdash; Nothing is saved to the cloud until your cloud data has loaded. If it does not load, Settings &rarr; Storage says &ldquo;Cloud sync error: Your cloud data did not load, so changes are not being saved. Reload the page to try again.&rdquo;, and edits made then are not saved. In that state, deleting or copying a project, importing, and saving or deleting a snapshot are refused with a message saying so, instead of appearing to work.</>,
+      <><strong>Changed</strong> &mdash; After a switch to the cloud, this browser&apos;s copies of the projects it uploaded are removed, and the prompt to clear local copies is gone. Projects already in your cloud are not uploaded: they are now listed by name, and you can download this browser&apos;s copies of them as a file and then remove them, or keep them, in which case GanttApp asks again on each visit.</>,
+      <><strong>Changed</strong> &mdash; Switching from Cloud to Local when this browser holds no projects now shows the default settings. Your cloud settings are no longer copied into this browser.</>,
+      <><strong>Note</strong> &mdash; What it cannot do: restore anything earlier versions overwrote or deleted. It stops the copies written at the switch, and copies of projects uploaded on this version when the upload is confirmed again. Copies kept in this browser under earlier versions are uploaded once more the first time the upload is confirmed on this version, and then removed from this browser.</>,
+    ],
+  },
+  {
     version: '0.28.26',
     date: 'September 29, 2026',
     items: [

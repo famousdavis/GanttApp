@@ -20,10 +20,31 @@ import {
 import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 
+/** By its LOCAL id; its cloud copy may have another (see the existence check). */
+export interface UploadedProject {
+  id: string;
+  name: string;
+}
+
+/** Already in the cloud with this user as a member, so not uploaded. */
+export interface SkippedProject {
+  id: string;
+  localName: string;
+  cloudName: string;
+}
+
 export interface SwitchToCloudResult {
   service: GanttStorageService;
   uploaded: number;
   skipped: number;
+  uploadedProjects: UploadedProject[];
+  skippedProjects: SkippedProject[];
+}
+
+/** The project's name in the cloud, sanitized like every name read from it; the local name if it has none. */
+function cloudNameOf(data: { name?: unknown }, localName: string): string {
+  const name = typeof data.name === 'string' ? sanitizeString(data.name) : '';
+  return name || localName;
 }
 
 /**
@@ -33,7 +54,8 @@ export interface SwitchToCloudResult {
  * - If permission-denied (doc doesn't exist or user not member) → generate new ID
  * - Network/transient errors → throw (don't silently create duplicates)
  *
- * Returns { service, uploaded, skipped } so the caller can show results and trigger cleanup.
+ * Returns the service and which projects were uploaded and skipped, so the
+ * caller can remove the uploaded ones' local copies and ask about the rest.
  * Throws on failure (caller handles error state).
  */
 export async function switchToCloudMode(
@@ -52,6 +74,8 @@ export async function switchToCloudMode(
 
   let uploaded = 0;
   let skipped = 0;
+  const skippedProjects: SkippedProject[] = [];
+  let uploadedProjects: UploadedProject[] = [];
 
   // Upload data to Firestore with existence-based dedup.
   if (localData && localData.projects.length > 0) {
@@ -68,6 +92,7 @@ export async function switchToCloudMode(
           if (data.members && data.members[user.uid]) {
             // User already has this project in cloud — skip
             skipped++;
+            skippedProjects.push({ id: project.id, localName: project.name, cloudName: cloudNameOf(data, project.name) });
             continue;
           }
           // Belongs to someone else — generate new ID
@@ -150,6 +175,7 @@ export async function switchToCloudMode(
       }
 
       uploaded = projectsToUpload.length;
+      uploadedProjects = projectsToUpload.map(({ project }) => ({ id: project.id, name: project.name }));
     } else if (skipped > 0) {
       // All projects were skipped (already in cloud), but still upload settings
       const settingsBatch: WriteBatch = writeBatch(firestore);
@@ -161,5 +187,5 @@ export async function switchToCloudMode(
     }
   }
 
-  return { service: cloudService, uploaded, skipped };
+  return { service: cloudService, uploaded, skipped, uploadedProjects, skippedProjects };
 }

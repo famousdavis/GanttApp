@@ -61,18 +61,22 @@ export function settingsChanged(prev: AppData | null, curr: AppData): boolean {
  *          because subcollection security rules use get() on the parent).
  * Phase 2: All other operations (updates, releases, deletions, settings).
  *
+ * `lastSavedState` is what the cloud held at the last load or save. It is
+ * required: against nothing, every project would be written as new (a full
+ * set() with only this user as a member) and every setting overwritten.
+ *
  * Returns a deep clone of `data` suitable for caching as lastSavedState.
  */
 export async function executeFirestoreSave(
   db: Firestore,
   uid: string,
   data: AppData,
-  lastSavedState: AppData | null
+  lastSavedState: AppData
 ): Promise<AppData> {
   const prev = lastSavedState;
 
   // Determine what changed
-  const prevProjectIdList = prev?.projects.map(p => p.id) ?? [];
+  const prevProjectIdList = prev.projects.map(p => p.id);
   const currProjectIdSet = new Set(data.projects.map(p => p.id));
 
   // Identify new projects — these must be committed first
@@ -111,8 +115,8 @@ export async function executeFirestoreSave(
 
     if (!newProjectIds.has(project.id)) {
       // Existing project — check if name/finishDate/workDays/order changed
-      const prevProject = prev?.projects.find(p => p.id === project.id);
-      const prevProjectIndex = prev?.projects.findIndex(p => p.id === project.id) ?? -1;
+      const prevProject = prev.projects.find(p => p.id === project.id);
+      const prevProjectIndex = prev.projects.findIndex(p => p.id === project.id);
       const contentChanged = prevProject && (
         prevProject.name !== project.name ||
         prevProject.finishDate !== project.finishDate ||
@@ -139,7 +143,7 @@ export async function executeFirestoreSave(
     }
 
     // Handle releases for this project
-    const prevReleases = prev?.releases.filter(r => r.projectId === project.id) ?? [];
+    const prevReleases = prev.releases.filter(r => r.projectId === project.id);
     const currReleases = data.releases.filter(r => r.projectId === project.id);
     const prevReleaseIdList = prevReleases.map(r => r.id);
     const currReleaseIdSet = new Set(currReleases.map(r => r.id));

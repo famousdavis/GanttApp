@@ -242,13 +242,15 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
     });
   });
 
-  // Snapshot operations, on a load that succeeds. What they do when the
+  // Snapshot operations, on a load that succeeds (each test loads first:
+  // snapshot writes are refused until one has). What they do when the
   // snapshot load itself fails is left to the change that decides it.
   describe('snapshots', () => {
     it('refuses a 51st snapshot for one project, and writes nothing', async () => {
       seedProject('p1', 'Alpha');
       seedProject('p2', 'Beta');
       for (let i = 0; i < 50; i++) seedSnapshot('p1', `s${i}`);
+      await service.loadAppData();
 
       expect(await service.addSnapshot(snapshot('new-2', 'p2'))).toHaveLength(51); // p2 has room
       fake.state.writes.length = 0;
@@ -259,6 +261,7 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
     it("writes a new snapshot under its project and returns the list with it", async () => {
       seedProject('p1', 'Alpha');
       seedSnapshot('p1', 's1');
+      await service.loadAppData();
 
       const result = await service.addSnapshot(snapshot('s2', 'p1'));
 
@@ -272,6 +275,7 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       seedSnapshot('p1', 's1');
       seedSnapshot('p2', 's2');
       seedSnapshot('p2', 's3');
+      await service.loadAppData();
 
       const rest = await service.deleteSnapshot('s2');
 
@@ -282,6 +286,7 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
     it('deletes nothing for an unknown snapshot id', async () => {
       seedProject('p1', 'Alpha');
       seedSnapshot('p1', 's1');
+      await service.loadAppData();
 
       await expect(service.deleteSnapshot('no-such-id')).resolves.toEqual([expect.objectContaining({ id: 's1' })]);
       expect(fake.state.writes).toEqual([]);
@@ -293,6 +298,7 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       seedSnapshot('p1', 's1');
       seedSnapshot('p1', 's2');
       seedSnapshot('p2', 's3');
+      await service.loadAppData();
 
       const rest = await service.deleteSnapshotsForProject('p1');
 
@@ -407,9 +413,10 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       expect(projectWrites('p1')).toEqual([]);
     });
 
-    it('does not throw when nothing has loaded yet, and still prunes the pending save', async () => {
-      // Listeners can exist without a successful load: after a failed cloud
-      // load, AppDataContext subscribes to the projects it already holds.
+    it('does not throw when nothing has loaded yet, writes nothing, and still reports the revoke', async () => {
+      // AppDataContext opens no listener before a load applies, but the
+      // service must not depend on that. A save before any load is refused,
+      // so there is nothing to prune; the revoke event still goes out.
       service.subscribeToProject('p1', vi.fn());
       await service.saveAppData({ projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }], releases: [] });
 
@@ -417,8 +424,7 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       expect(revoked).toEqual(['p1']);
 
       await flushSave();
-      expect(projectWrites('p2').map(action)).toEqual(['create']);
-      expect(projectWrites('p1')).toEqual([]);
+      expect(fake.state.writes).toEqual([]);
     });
   });
 
@@ -561,5 +567,188 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       expect(projectWrites('p1')).toHaveLength(1);
       expect(onSaveResult.mock.calls).toEqual([[null]]);
     });
+  });
+});
+
+// Nothing is saved to the cloud before a load from it has succeeded. A save
+// against no baseline writes every project as new (a full set() with only
+// this user as a member) and every setting over the stored ones.
+describe('FirestoreGanttStorageServiceImpl — no save before a load', () => {
+  const LOAD_FAILED = 'Your cloud data did not load, so changes are not being saved. Reload the page to try again.';
+  const NOT_LOADED = 'Your cloud data did not load, so changes cannot be saved. Reload the page to try again.';
+  // The two methods these tests call are reached through optional access, so
+  // that against a service without them a test fails at its assertion rather
+  // than with a TypeError.
+  type LoadApi = { setAsideLoad?: (loaded: AppData) => void; canWrite?: () => boolean };
+  const loadApi = (s: FirestoreGanttStorageServiceImpl) => s as unknown as LoadApi;
+  const settingsWrites = () => fake.state.writes.filter((w) => w.path === 'ganttapp_settings/u1');
+  const failNextSettingsRead = () => {
+    fake.state.readHook = (path) => {
+      if (path !== 'ganttapp_settings/u1') return;
+      fake.state.readHook = null;
+      throw coded('permission-denied');
+    };
+  };
+
+  let service: FirestoreGanttStorageServiceImpl;
+  let onSaveResult: ReturnType<typeof vi.fn<(error: string | null) => void>>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const s = fake.state;
+    s.docs.clear();
+    s.writes.length = 0;
+    s.reads.length = 0;
+    s.listeners.length = 0;
+    s.commits = 0;
+    s.commitHook = null;
+    s.readHook = null;
+    s.auth.currentUser = { uid: 'u1' };
+    s.docs.set('ganttapp_settings/u1', { preparedBy: 'Cloud Person', showTodayLine: false });
+    onSaveResult = vi.fn<(error: string | null) => void>();
+    service = new FirestoreGanttStorageServiceImpl({} as Firestore, 'u1', onSaveResult);
+  });
+
+  afterEach(() => {
+    service.dispose();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('writes nothing for a save before the first load, and saves again once a load succeeds', async () => {
+    seedProject('p1', 'Alpha');
+    await service.saveAppData({ projects: [{ id: 'p1', name: 'Stale' }], releases: [] });
+    await flushSave();
+    expect(fake.state.writes).toEqual([]);
+
+    const loaded = (await service.loadAppData())!;
+    await service.saveAppData(renamed(loaded, 'p1', 'Renamed'));
+    await flushSave();
+    expect(projectWrites('p1').map(action)).toEqual(['update']);
+  });
+
+  it('writes nothing for an immediate save before the first load', async () => {
+    seedProject('p1', 'Alpha');
+    await service.saveAppDataImmediate({ projects: [{ id: 'p1', name: 'Stale' }], releases: [] });
+    expect(fake.state.writes).toEqual([]);
+  });
+
+  it('deletes nothing and writes no settings for a save queued before a load that then succeeds', async () => {
+    seedProject('p1', 'Alpha');
+    await service.saveAppData({ projects: [], releases: [] });
+    await service.loadAppData(); // finishes before the debounce
+    await flushSave();
+    expect(fake.state.writes).toEqual([]);
+  });
+
+  it('reports a failed first load in words that say changes are not being saved', async () => {
+    failNextSettingsRead();
+    expect(await service.loadAppData()).toBeNull();
+    expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED]]);
+  });
+
+  // Control: true before this release and after it.
+  it('reports nothing for a failed reload after a good load, and keeps saving against that load', async () => {
+    seedProject('p1', 'Alpha');
+    const loaded = (await service.loadAppData())!;
+    failNextSettingsRead();
+    expect(await service.loadAppData()).toBeNull();
+
+    await service.saveAppData(renamed(loaded, 'p1', 'Renamed'));
+    await flushSave();
+    expect(projectWrites('p1').map(action)).toEqual(['update']);
+    expect(onSaveResult.mock.calls).toEqual([[null]]);
+  });
+
+  // Guards the report above: cannot be red on code that never reports.
+  it('does not report a first load that fails after the service was disposed', async () => {
+    failNextSettingsRead();
+    const load = service.loadAppData();
+    service.dispose();
+    await load;
+    expect(onSaveResult).not.toHaveBeenCalled();
+  });
+
+  it('refuses saves after a first load is set aside, and reports it as a failed load', async () => {
+    const loaded = (await service.loadAppData())!; // an empty cloud
+    loadApi(service).setAsideLoad?.(loaded);
+
+    await service.saveAppData({ projects: [{ id: 'L1', name: 'Local' }], releases: [] });
+    await flushSave();
+    expect(projectWrites('L1')).toEqual([]);
+    expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED]]);
+  });
+
+  it('keeps the earlier baseline when a reload is set aside', async () => {
+    seedProject('p1', 'Alpha');
+    const first = (await service.loadAppData())!;
+    fake.state.docs.delete('ganttapp_projects/p1'); // deleted on another device
+    const reload = (await service.loadAppData())!;
+    loadApi(service).setAsideLoad?.(reload);
+
+    await service.saveAppData(structuredClone(first));
+    await flushSave();
+    expect(projectWrites('p1')).toEqual([]); // not re-created
+  });
+
+  // Guards against a set-aside that reverts too far: cannot be red on code without one.
+  it('changes nothing when the load set aside was already superseded by a newer one', async () => {
+    seedProject('p1', 'Alpha');
+    const older = (await service.loadAppData())!;
+    seedProject('p2', 'Beta');
+    const newer = (await service.loadAppData())!;
+    loadApi(service).setAsideLoad?.(older);
+
+    await service.saveAppData(renamed(newer, 'p2', 'Beta 2'));
+    await flushSave();
+    expect(projectWrites('p2').map(action)).toEqual(['update']);
+  });
+
+  it('clears its own failed-load report when a later load succeeds', async () => {
+    failNextSettingsRead();
+    await service.loadAppData();
+    await service.loadAppData();
+    expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED], [null]]);
+  });
+
+  // Guards the clear above: cannot be red on code that never clears on a load.
+  it('does not clear a failed save’s report when a later load succeeds', async () => {
+    seedProject('p1', 'Alpha');
+    const loaded = (await service.loadAppData())!;
+    fake.state.commitHook = () => Promise.reject(coded('unavailable'));
+    await service.saveAppData(renamed(loaded, 'p1', 'Renamed'));
+    await flushSave();
+    await service.loadAppData();
+    expect(onSaveResult.mock.calls).toEqual([['Service temporarily unavailable. Please try again later.']]);
+  });
+
+  it.each([
+    ['saveSnapshots', (s: FirestoreGanttStorageServiceImpl) => s.saveSnapshots([snapshot('s9', 'p1')])],
+    ['addSnapshot', (s: FirestoreGanttStorageServiceImpl) => s.addSnapshot(snapshot('s9', 'p1'))],
+    ['deleteSnapshot', (s: FirestoreGanttStorageServiceImpl) => s.deleteSnapshot('s1')],
+    ['deleteSnapshotsForProject', (s: FirestoreGanttStorageServiceImpl) => s.deleteSnapshotsForProject('p1')],
+  ] as const)('refuses %s before a load: it rejects with the not-loaded message and writes nothing', async (_name, write) => {
+    seedProject('p1', 'Alpha');
+    seedSnapshot('p1', 's1');
+    const error = await write(service).then(() => null, (e: unknown) => e as Error & { code?: string });
+    expect(error?.message).toBe(NOT_LOADED);
+    expect(error?.code).toBeUndefined(); // so sanitizeFirebaseError passes the message through
+    expect(fake.state.writes).toEqual([]);
+  });
+
+  it('says whether a write may go to the cloud: not before a load, yes after, not after dispose', async () => {
+    expect(loadApi(service).canWrite?.()).toBe(false);
+    await service.loadAppData();
+    expect(loadApi(service).canWrite?.()).toBe(true);
+    service.dispose();
+    expect(loadApi(service).canWrite?.()).toBe(false);
+  });
+
+  it('says a write may not go to the cloud after its first load is set aside', async () => {
+    const loaded = (await service.loadAppData())!;
+    loadApi(service).setAsideLoad?.(loaded);
+    expect(loadApi(service).canWrite?.()).toBe(false);
+    expect(settingsWrites()).toEqual([]);
   });
 });

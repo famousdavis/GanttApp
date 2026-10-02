@@ -30,6 +30,7 @@ const mockStorage: GanttStorageService = {
   deleteSnapshot: vi.fn(),
   deleteSnapshotsForProject: vi.fn(),
   cancelPendingSaves: vi.fn(),
+  canWrite: vi.fn(() => true),
 };
 
 function renderSection(overrides: Record<string, unknown> = {}) {
@@ -192,58 +193,36 @@ describe('StorageSection', () => {
     expect(screen.queryByText('Upload to Cloud')).not.toBeInTheDocument();
   });
 
-  // === Cleanup confirmation ===
+  // === After a switch to the cloud ===
 
-  it('shows cleanup confirmation when uploadResult has data', () => {
+  it('shows that every project was uploaded and its copy in this browser removed', () => {
+    renderSection({
+      uploadResult: {
+        uploaded: 3, skipped: 0, skippedProjects: [],
+        uploadedProjects: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }],
+      } as never,
+      onClearUploadResult: vi.fn(),
+    });
+
+    expect(screen.getByText('3 projects uploaded to the cloud. Their copies in this browser were removed.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep these copies' })).not.toBeInTheDocument();
+  });
+
+  it('offers to download or keep the copies of projects that were already in the cloud', () => {
     const onClearUploadResult = vi.fn();
     renderSection({
-      uploadResult: { uploaded: 2, skipped: 0 },
+      uploadResult: {
+        uploaded: 0, skipped: 1, uploadedProjects: [],
+        skippedProjects: [{ id: 'p1', localName: 'Local Plan', cloudName: 'Cloud Plan' }],
+      } as never,
       onClearUploadResult,
     });
 
-    expect(screen.getByText(/Clear Local Data/)).toBeInTheDocument();
-    expect(screen.getByText(/Keep Local Copies/)).toBeInTheDocument();
-    // v17.0: prop is cleared on user click in UploadConfirmFlow, not automatically.
+    expect(screen.getByText('Local Plan (named Cloud Plan in the cloud)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download these copies' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep these copies' })).toBeInTheDocument();
+    // The prompt is cleared by the user's choice, not when it appears.
     expect(onClearUploadResult).not.toHaveBeenCalled();
-  });
-
-  it('shows status message with upload count', () => {
-    renderSection({
-      uploadResult: { uploaded: 3, skipped: 1 },
-      onClearUploadResult: vi.fn(),
-    });
-
-    expect(screen.getByText(/3 project\(s\) uploaded to the cloud/)).toBeInTheDocument();
-    expect(screen.getByText(/1 already existed, skipped/)).toBeInTheDocument();
-  });
-
-  it('clears local data when Clear Local Data is clicked', () => {
-    localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'Test' }] }));
-    localStorage.setItem('ganttAppSnapshots', JSON.stringify([{ id: 's1' }]));
-
-    renderSection({
-      uploadResult: { uploaded: 1, skipped: 0 },
-      onClearUploadResult: vi.fn(),
-    });
-
-    fireEvent.click(screen.getByText('Clear Local Data'));
-
-    expect(localStorage.getItem('ganttAppData')).toBeNull();
-    expect(localStorage.getItem('ganttAppSnapshots')).toBeNull();
-  });
-
-  it('calls onClearUploadResult when Keep Local Copies is clicked', () => {
-    // v17.0: cleanup confirm visibility is derived from the uploadResult
-    // prop. Clicking Keep Local Copies calls onClearUploadResult; the parent
-    // is responsible for clearing the prop, which then hides the dialog.
-    const onClearUploadResult = vi.fn();
-    renderSection({
-      uploadResult: { uploaded: 1, skipped: 0 },
-      onClearUploadResult,
-    });
-
-    fireEvent.click(screen.getByText('Keep Local Copies'));
-    expect(onClearUploadResult).toHaveBeenCalledTimes(1);
   });
 
   // === Re-sign-in upload prompt ===

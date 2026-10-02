@@ -30,6 +30,29 @@ export function clearLocalProjectData(): void {
   localStorage.removeItem(SNAPSHOTS_KEY);
 }
 
+/**
+ * Remove projects' copies from this browser once they are in the cloud: each
+ * project with its releases and its snapshots. When no project is left, the
+ * local project data goes entirely, settings included, as clearLocalProjectData
+ * does; the switch to the cloud has already uploaded those settings.
+ */
+export async function removeLocalProjectCopies(projectIds: string[]): Promise<void> {
+  const remove = new Set(projectIds);
+  const local = new LocalGanttStorageService();
+  const data = await local.loadAppData();
+  if (!data || !data.projects.some(p => remove.has(p.id))) return;
+
+  const projects = data.projects.filter(p => !remove.has(p.id));
+  if (projects.length === 0) {
+    clearLocalProjectData();
+    return;
+  }
+  await local.saveAppData({ ...data, projects, releases: data.releases.filter(r => !remove.has(r.projectId)) });
+  const snapshots = await local.loadSnapshots();
+  const kept = snapshots.filter(s => !remove.has(s.projectId));
+  if (kept.length !== snapshots.length) await local.saveSnapshots(kept);
+}
+
 export class LocalGanttStorageService implements GanttStorageService {
   readonly mode: StorageMode = 'local';
   private driver: LocalStorageDriver;
@@ -103,5 +126,10 @@ export class LocalGanttStorageService implements GanttStorageService {
   // so consumers can call cancelPendingSaves() without mode-checking.
   cancelPendingSaves(): void {
     // intentionally empty
+  }
+
+  // Local storage always takes a write: there is no load to wait for.
+  canWrite(): boolean {
+    return true;
   }
 }

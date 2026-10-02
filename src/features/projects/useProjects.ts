@@ -13,6 +13,10 @@ import { useAuth } from '../../context/AuthContext';
 import { generateId } from '../../shared/utils';
 import { sanitizeString, sanitizeFirebaseError, MAX_NAME_LENGTH } from '../../shared/utils/validation';
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
+import { cloudRefusal, isCloudDataNotLoadedError } from '../../shared/storage/cloud-data-not-loaded';
+
+const NOT_DELETED = 'This project was not deleted.';
+const NOT_COPIED = 'This project was not copied.';
 
 /**
  * Build a clone candidate name, truncating the source ONLY when the chosen
@@ -105,6 +109,13 @@ export function useProjects() {
   };
 
   const deleteProject = async (id: string, selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
+    // Refused before the screen changes when nothing can be saved (a cloud
+    // session whose data never loaded): otherwise the project would vanish
+    // here and come back on reload.
+    if (!storage.canWrite()) {
+      alert(cloudRefusal(NOT_DELETED));
+      return;
+    }
     const newData = {
       ...data,
       projects: data.projects.filter(p => p.id !== id),
@@ -119,7 +130,9 @@ export function useProjects() {
       await storage.deleteSnapshotsForProject(id);
     } catch (error) {
       console.error('Failed to delete project snapshots:', error);
-      alert(`Project deleted, but its saved snapshots could not be removed. ${sanitizeFirebaseError(error)}`);
+      alert(isCloudDataNotLoadedError(error)
+        ? cloudRefusal(NOT_DELETED)
+        : `Project deleted, but its saved snapshots could not be removed. ${sanitizeFirebaseError(error)}`);
     }
     if (selectedProjectId === id) {
       const remaining = data.projects.filter(p => p.id !== id);
@@ -158,6 +171,11 @@ export function useProjects() {
   const cloneProject = async (projectId: string) => {
     const source = data.projects.find(p => p.id === projectId);
     if (!source) return;
+    // Refused before the clone appears, as deleteProject is.
+    if (!storage.canWrite()) {
+      alert(cloudRefusal(NOT_COPIED));
+      return;
+    }
 
     // Build cloned name with " - Copy (N)" suffix. Truncation happens inside
     // buildCloneCandidateName, i.e. BEFORE each collision check — see its
@@ -230,7 +248,9 @@ export function useProjects() {
       await storage.saveSnapshots([...allSnapshots, ...clonedSnapshots]);
     } catch (error) {
       console.error('Failed to copy snapshots to cloned project:', error);
-      alert(`Project cloned, but its snapshots could not be copied. ${sanitizeFirebaseError(error)}`);
+      alert(isCloudDataNotLoadedError(error)
+        ? cloudRefusal(NOT_COPIED)
+        : `Project cloned, but its snapshots could not be copied. ${sanitizeFirebaseError(error)}`);
     }
   };
 

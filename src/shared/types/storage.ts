@@ -67,4 +67,21 @@ export interface GanttStorageService {
    * to discard in-flight cloud writes at sign-out (discard-on-signout UX).
    */
   cancelPendingSaves(): void;
+
+  /**
+   * Whether a write may go to this storage now. Local: always. Cloud: only
+   * once a load from it has succeeded, and not after dispose; until then there
+   * is nothing to save against. An action that changes the screen before it
+   * writes checks this first, so a refused action never looks done.
+   */
+  canWrite(): boolean;
+
+  /**
+   * AppDataContext did not apply this load's result: the empty-result guard
+   * skipped it, or a newer load or a storage swap began first. Called in the
+   * same continuation as that decision, before any timer can run. Cloud
+   * storage restores the baseline it had before that load. Local storage keeps
+   * no baseline and does not implement it.
+   */
+  setAsideLoad?(loaded: AppData): void;
 }

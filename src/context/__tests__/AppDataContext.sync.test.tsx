@@ -285,3 +285,169 @@ describe('AppDataContext — loading, saving and sync', () => {
     });
   });
 });
+
+// Saves and listeners go only to the storage whose load produced the data on
+// screen. A storage swap re-runs the save and listener effects before the new
+// storage has loaded anything, while the data on screen still belongs to the
+// old one.
+describe('AppDataContext — nothing reaches a storage before its load applies', () => {
+  const wait = async (ms: number) => {
+    for (let t = 0; t < ms; t += 5) await act(() => new Promise<void>((r) => { setTimeout(r, 5); }));
+  };
+  const withSetAside = (s: FakeStorage) => Object.assign(s, { setAsideLoad: vi.fn((_loaded: AppData) => {}) });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('saves nothing to a new storage before its load applies', async () => {
+    await renderLoaded(makeStorage('local', { projects: [project('p1')], releases: [] }));
+    const load = deferred<AppData | null>();
+    const next = makeStorage('cloud', () => load.promise);
+
+    act(() => current.set(next));
+    await wait(30);
+
+    expect(next.saveAppData).not.toHaveBeenCalled();
+    await act(async () => { load.resolve({ projects: [project('p1')], releases: [] }); });
+  });
+
+  it('does not save an edit to a storage whose first load failed', async () => {
+    const { result } = await renderLoaded(makeStorage('local', { projects: [project('p1')], releases: [] }));
+    const next = makeStorage('cloud', null);
+    act(() => current.set(next));
+    await waitFor(() => expect(next.loadAppData).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.setPreparedBy('Edited'));
+    await wait(30);
+
+    expect(next.saveAppData).not.toHaveBeenCalled();
+  });
+
+  it('does not let updateData save to a storage whose first load failed', async () => {
+    const { result } = await renderLoaded(makeStorage('local', { projects: [project('p1')], releases: [] }));
+    const next = makeStorage('cloud', null);
+    act(() => current.set(next));
+    await waitFor(() => expect(next.loadAppData).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateData({ ...result.current.data, projects: [project('p1'), project('n1')] }));
+    await wait(30);
+
+    expect(next.saveAppData).not.toHaveBeenCalled();
+    expect(result.current.data.projects.map((p) => p.id)).toEqual(['p1', 'n1']); // the screen still changes
+  });
+
+  it('opens no listener on a new storage before its load applies, nor after its first load failed', async () => {
+    const { result } = await renderLoaded(makeStorage('local', { projects: [project('p1')], releases: [] }));
+    const load = deferred<AppData | null>();
+    const next = makeStorage('cloud', () => load.promise);
+
+    act(() => current.set(next));
+    await wait(30);
+    expect(next.subscribeToProject).not.toHaveBeenCalled();
+
+    await act(async () => { load.resolve(null); });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await wait(30);
+    expect(next.subscribeToProject).not.toHaveBeenCalled();
+  });
+
+  // Control: true before this release and after it.
+  it('keeps saving edits to a storage after a failed reload of it', async () => {
+    const storage = makeStorage('cloud', { projects: [project('p1')], releases: [] });
+    const { result } = await renderLoaded(storage);
+    storage.loadAppData.mockResolvedValueOnce(null);
+
+    act(() => { window.dispatchEvent(new CustomEvent('spert:models-changed')); });
+    await waitFor(() => expect(storage.loadAppData).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    storage.saveAppData.mockClear();
+
+    act(() => result.current.setPreparedBy('After'));
+    await waitFor(() => expect(storage.saveAppData).toHaveBeenCalledWith(expect.objectContaining({ preparedBy: 'After' })));
+  });
+
+  it('shows a local copy kept in the new local storage and does not overwrite it on the swap', async () => {
+    const { result } = await renderLoaded(makeStorage('cloud', { projects: [], releases: [], preparedBy: 'Cloud Person' }));
+    const load = deferred<AppData | null>();
+    const local = makeStorage('local', () => load.promise);
+
+    act(() => current.set(local));
+    await wait(30);
+    expect(local.saveAppData).not.toHaveBeenCalled();
+
+    await act(async () => { load.resolve({ projects: [project('k1')], releases: [] }); });
+    expect(result.current.data.projects.map((p) => p.id)).toEqual(['k1']);
+  });
+
+  it('saves nothing to a new storage whose first load is skipped by the empty-result guard', async () => {
+    const { result } = await renderLoaded(makeStorage('local', { projects: [project('p1')], releases: [] }));
+    const next = withSetAside(makeStorage('cloud', { projects: [], releases: [] }));
+    act(() => current.set(next));
+    await waitFor(() => expect(next.loadAppData).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.setPreparedBy('Edited'));
+    await wait(30);
+
+    expect(next.saveAppData).not.toHaveBeenCalled();
+    expect(result.current.data.projects.map((p) => p.id)).toEqual(['p1']);
+  });
+
+  it('sets an empty load skipped by the guard aside at once, before any timer can run', async () => {
+    const storage = withSetAside(makeStorage('cloud', { projects: [project('p1')], releases: [] }));
+    const { result } = await renderLoaded(storage);
+    const empty: AppData = { projects: [], releases: [] };
+    let timerRan = false;
+    storage.loadAppData.mockImplementationOnce(async () => {
+      setTimeout(() => { timerRan = true; }, 0);
+      return empty;
+    });
+    const timerRanAtSetAside: boolean[] = [];
+    storage.setAsideLoad.mockImplementation(() => { timerRanAtSetAside.push(timerRan); });
+
+    act(() => { window.dispatchEvent(new CustomEvent('spert:models-changed')); });
+    await waitFor(() => expect(storage.setAsideLoad).toHaveBeenCalledTimes(1));
+
+    expect(storage.setAsideLoad.mock.calls[0][0]).toBe(empty);
+    expect(timerRanAtSetAside).toEqual([false]);
+    expect(result.current.data.projects.map((p) => p.id)).toEqual(['p1']);
+  });
+
+  it('sets aside a load that finishes after the storage was swapped', async () => {
+    const load = deferred<AppData | null>();
+    const first = withSetAside(makeStorage('cloud', () => load.promise));
+    renderAppData(first);
+    act(() => current.set(makeStorage('cloud', { projects: [], releases: [] })));
+
+    const late: AppData = { projects: [project('p1')], releases: [] };
+    await act(async () => { load.resolve(late); });
+
+    expect(first.setAsideLoad.mock.calls.map((c) => c[0])).toEqual([late]);
+    expect(first.setAsideLoad.mock.calls[0]?.[0]).toBe(late);
+  });
+
+  it('sets aside a reload that finishes after a newer reload began', async () => {
+    const storage = withSetAside(makeStorage('cloud', { projects: [project('p1')], releases: [] }));
+    const { result } = await renderLoaded(storage);
+    const older = deferred<AppData | null>();
+    storage.loadAppData.mockImplementationOnce(() => older.promise);
+    act(() => { window.dispatchEvent(new CustomEvent('spert:models-changed')); });
+    await waitFor(() => expect(storage.loadAppData).toHaveBeenCalledTimes(2));
+    act(() => { window.dispatchEvent(new CustomEvent('spert:models-changed')); });
+    await waitFor(() => expect(storage.loadAppData).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const stale: AppData = { projects: [project('p1')], releases: [] };
+    await act(async () => { older.resolve(stale); });
+
+    expect(storage.setAsideLoad.mock.calls[0]?.[0]).toBe(stale);
+  });
+});

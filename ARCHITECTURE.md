@@ -327,6 +327,7 @@ interface AppData {
 │  GanttStorageService (app logic)                              │
 │  loadAppData, saveAppData, loadSnapshots, saveSnapshots,     │
 │  addSnapshot, deleteSnapshot, deleteSnapshotsForProject      │
+│  cancelPendingSaves, canWrite, setAsideLoad (cloud only)     │
 ├──────────────────────────────────────────────────────────────┤
 │  StorageDriver (raw I/O)                                      │
 │  load<T>, save<T>, remove, onRemoteChange                    │
@@ -351,12 +352,15 @@ interface CloudGanttStorageService extends GanttStorageService {
   flushPendingWrites(): Promise<void>;
   cancelPendingSaves(): void;                                // v16.6 (A3) — discard, do not flush
   dispose(): void;
+  setAsideLoad(loaded: AppData): void;                       // v0.29.0 — a load AppDataContext did not apply
 }
 ```
 
 Key behaviors:
 - **Write debouncing**: `DEBOUNCE_MS` (200 ms since v0.27.0, reduced from 500 ms) `setTimeout` with coalescing; structural mutations bypass debounce
 - **Diff-based saves**: In-memory `lastSavedState` cache — only writes changed data via batch writes
+- **No save before a load** (v0.29.0): `lastSavedState` is null until a load succeeds, and nothing is written while it is — a diff against nothing would write every project as new and every setting over the stored ones. `saveAppData` and `saveAppDataImmediate` are refused silently; a failed first load is reported through `onSaveResult`; the four snapshot writes throw `CloudDataNotLoadedError` (`src/shared/storage/cloud-data-not-loaded.ts`), so the action that asked can say it did not happen. `canWrite()` (local: always true) tells callers in advance. `setAsideLoad(loaded)` restores the baseline from before a load that `AppDataContext` did not apply (its empty-result guard, or a newer load or storage swap); it is called in the same continuation as that decision.
+- **Saves follow the load** (v0.29.0): `AppDataContext` keeps `loadedFromRef`, the storage whose load produced the data on screen, and sends saves, `updateData` and cloud listeners only there. A storage swap therefore writes nothing to the new storage before its load applies.
 - **beforeunload handler**: Flushes pending writes on tab close. Removed on `dispose()`.
 - **Real-time sync**: `subscribeToProject()` returns `onSnapshot` unsubscribe function. Echo prevention via `snapshot.metadata.hasPendingWrites`.
 

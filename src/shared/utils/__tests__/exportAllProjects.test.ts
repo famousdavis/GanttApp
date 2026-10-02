@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('exportAllProjects', () => {
   it('exports all projects as a single JSON download', async () => {
     const mockStorage = {
-      loadAppData: vi.fn().mockResolvedValue({
+      readAppData: vi.fn().mockResolvedValue({
         projects: [
           { id: 'p1', name: 'Project 1' },
           { id: 'p2', name: 'Project 2' },
@@ -46,16 +46,16 @@ describe('exportAllProjects', () => {
 
   it('throws when there are no projects', async () => {
     const mockStorage = {
-      loadAppData: vi.fn().mockResolvedValue({ projects: [], releases: [] }),
+      readAppData: vi.fn().mockResolvedValue({ projects: [], releases: [] }),
       loadSnapshots: vi.fn().mockResolvedValue([]),
     };
 
     await expect(exportAllProjects(mockStorage)).rejects.toThrow('No projects to export');
   });
 
-  it('throws when loadAppData returns null', async () => {
+  it('throws when readAppData returns null', async () => {
     const mockStorage = {
-      loadAppData: vi.fn().mockResolvedValue(null),
+      readAppData: vi.fn().mockResolvedValue(null),
       loadSnapshots: vi.fn().mockResolvedValue([]),
     };
 
@@ -64,7 +64,7 @@ describe('exportAllProjects', () => {
 
   it('includes snapshots when they exist', async () => {
     const mockStorage = {
-      loadAppData: vi.fn().mockResolvedValue({
+      readAppData: vi.fn().mockResolvedValue({
         projects: [{ id: 'p1', name: 'Project 1' }],
         releases: [],
       }),
@@ -76,14 +76,14 @@ describe('exportAllProjects', () => {
     const result = await exportAllProjects(mockStorage);
 
     expect(result.exported).toBe(1);
-    // Verify both loadAppData and loadSnapshots were called
-    expect(mockStorage.loadAppData).toHaveBeenCalledOnce();
+    // Verify both readAppData and loadSnapshots were called
+    expect(mockStorage.readAppData).toHaveBeenCalledOnce();
     expect(mockStorage.loadSnapshots).toHaveBeenCalledOnce();
   });
 
   it('includes export attribution when present', async () => {
     const mockStorage = {
-      loadAppData: vi.fn().mockResolvedValue({
+      readAppData: vi.fn().mockResolvedValue({
         projects: [{ id: 'p1', name: 'Project 1' }],
         releases: [],
         exportAttribution: { name: 'Test User', identifier: 'test@example.com' },
@@ -95,5 +95,19 @@ describe('exportAllProjects', () => {
 
     expect(result.exported).toBe(1);
     expect(mockClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the data for the file, and never loads it: a load changes what later saves are compared with', async () => {
+    const data = { projects: [{ id: 'p1', name: 'Project 1' }], releases: [] };
+    const mockStorage = {
+      readAppData: vi.fn().mockResolvedValue(data),
+      loadAppData: vi.fn().mockResolvedValue(data),
+      loadSnapshots: vi.fn().mockResolvedValue([]),
+    };
+
+    await exportAllProjects(mockStorage);
+
+    expect(mockStorage.loadAppData).not.toHaveBeenCalled();
+    expect(mockStorage.readAppData).toHaveBeenCalledOnce();
   });
 });

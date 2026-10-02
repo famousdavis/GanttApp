@@ -67,6 +67,11 @@ export class LocalGanttStorageService implements GanttStorageService {
     return validateLoadedData(raw);
   }
 
+  // A local load has no side effects to avoid, so a read is a load.
+  async readAppData(): Promise<AppData | null> {
+    return this.loadAppData();
+  }
+
   async saveAppData(data: AppData): Promise<void> {
     await this.driver.save(APP_DATA_KEY, data);
   }

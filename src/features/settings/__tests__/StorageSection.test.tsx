@@ -23,6 +23,7 @@ const mockUser = {
 const mockStorage: GanttStorageService = {
   mode: 'local',
   loadAppData: vi.fn(),
+  readAppData: vi.fn(),
   saveAppData: vi.fn(),
   loadSnapshots: vi.fn(),
   saveSnapshots: vi.fn(),

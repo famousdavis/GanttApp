@@ -7,6 +7,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { createRef, useState } from 'react';
 import { UploadConfirmFlow, type UploadConfirmFlowHandle } from '../UploadConfirmFlow';
 import { LIGHT_THEME } from '../../utils/theme';
+import { LocalGanttStorageService } from '../../storage/local-gantt-storage-service';
 import type { GanttStorageService } from '../../types/storage';
 
 const localCopies = vi.hoisted(() => ({
@@ -206,8 +207,10 @@ describe('UploadConfirmFlow', () => {
       expect(screen.queryByRole('button', { name: 'I have saved the file — remove these copies' })).not.toBeInTheDocument();
 
       await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Download these copies' })); });
-      const [ids, data, , options] = localCopies.exportSelectedProjects.mock.calls[0];
+      const [ids, data, snapshotsFrom, options] = localCopies.exportSelectedProjects.mock.calls[0];
       expect([ids, data, options]).toEqual([['p1', 'p2'], localCopies.data, { includeSnapshots: true }]);
+      // The snapshots come from this browser's storage, not from the cloud storage the prompt was given.
+      expect(snapshotsFrom).toBeInstanceOf(LocalGanttStorageService);
       expect(localCopies.removeLocalProjectCopies).not.toHaveBeenCalled();
 
       await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'I have saved the file — remove these copies' })); });

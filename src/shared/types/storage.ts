@@ -41,6 +41,14 @@ export interface GanttStorageService {
   /** Load the full AppData (projects, releases, settings). Returns null if no data. */
   loadAppData(): Promise<AppData | null>;
 
+  /**
+   * The same data as loadAppData(), without its side effects: a cloud load
+   * becomes what later saves are compared with, and a successful one clears the
+   * failed-load report. Only the load AppDataContext applies should do that, so
+   * the download of every project reads through this instead.
+   */
+  readAppData(): Promise<AppData | null>;
+
   /** Save the full AppData. */
   saveAppData(data: AppData): Promise<void>;
 

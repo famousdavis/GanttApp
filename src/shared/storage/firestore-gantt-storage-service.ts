@@ -137,53 +137,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async loadAppData(): Promise<AppData | null> {
     try {
-      // Step 1: List projects via the shared member-scoped helper (v0.22.1).
-      const memberDocs = await this.listMemberProjects();
-      // v0.27.0 (Pass 6, I1a): bail if user changed during the await.
-      if (auth?.currentUser?.uid !== this.uid) return null;
-      const projects: { id: string; meta: FirestoreProjectMeta }[] =
-        memberDocs.map(d => ({ id: d.id, meta: d.data() }));
-
-      // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
-      projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
-
-      // Step 2: Load releases for each project
-      const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
-      for (const project of projects) {
-        const releasesSnap = await getDocs(
-          collection(this.db, `ganttapp_projects/${project.id}/releases`)
-        );
-        // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
-        if (auth?.currentUser?.uid !== this.uid) return null;
-        releasesMap.set(
-          project.id,
-          releasesSnap.docs.map(d => ({ id: d.id, data: d.data() as FirestoreRelease }))
-        );
-      }
-
-      // Step 3: Load user settings
-      const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
-      // v0.27.0 (Pass 6, I1a): final uid check before returning data.
-      if (auth?.currentUser?.uid !== this.uid) return null;
-      const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
-
-      // Reconstruct flat AppData
-      const appData: AppData = {
-        projects: projects.map(p => firestoreToProject(p.id, p.meta)),
-        releases: projects.flatMap(p => {
-          const entries = releasesMap.get(p.id) ?? [];
-          return firestoreReleasesToFlat(p.id, entries);
-        }),
-        ...((settings ? userSettingsToAppData(settings) : {}) as Partial<AppData>),
-      };
-
-      // Cache for subsequent diff comparisons, keeping the baseline it
-      // replaces in case AppDataContext does not apply this load.
-      this.lastLoad = { returned: appData, previous: this.lastSavedState };
-      this.lastSavedState = structuredClone(appData);
-      // A good load clears this service's own failed-load report, and only
-      // that: a failed save's message stays until a save succeeds.
-      if (this.reportingLoadFailure) this.report(null);
+      const appData = await this.readCloudAppData();
+      if (appData) this.adopt(appData);
       return appData;
     } catch (error) {
       console.error('Failed to load cloud data:', sanitizeFirebaseError(error));
@@ -191,6 +146,20 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       // when they are not. A failed reload after a good load changes nothing:
       // saves continue against that load.
       if (!this.lastSavedState) this.reportLoadFailure();
+      return null;
+    }
+  }
+
+  /**
+   * What loadAppData returns, read without adopting it: the data saves are
+   * compared with, the load that may be set aside and the failed-load report
+   * stay as they are.
+   */
+  async readAppData(): Promise<AppData | null> {
+    try {
+      return await this.readCloudAppData();
+    } catch (error) {
+      console.error('Failed to read cloud data:', sanitizeFirebaseError(error));
       return null;
     }
   }
@@ -541,6 +510,64 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   /**
+   * Take a load's result as the data later saves are compared with, keeping
+   * the baseline it replaces in case AppDataContext does not apply this load.
+   */
+  private adopt(appData: AppData): void {
+    this.lastLoad = { returned: appData, previous: this.lastSavedState };
+    this.lastSavedState = structuredClone(appData);
+    // A good load clears this service's own failed-load report, and only
+    // that: a failed save's message stays until a save succeeds.
+    if (this.reportingLoadFailure) this.report(null);
+  }
+
+  /**
+   * Read the projects, their releases and the settings. Null when the signed-in
+   * user changes during the reads; a failed read throws. Changes nothing.
+   */
+  private async readCloudAppData(): Promise<AppData | null> {
+    // Step 1: List projects via the shared member-scoped helper (v0.22.1).
+    const memberDocs = await this.listMemberProjects();
+    // v0.27.0 (Pass 6, I1a): bail if user changed during the await.
+    if (auth?.currentUser?.uid !== this.uid) return null;
+    const projects: { id: string; meta: FirestoreProjectMeta }[] =
+      memberDocs.map(d => ({ id: d.id, meta: d.data() }));
+
+    // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
+    projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
+
+    // Step 2: Load releases for each project
+    const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
+    for (const project of projects) {
+      const releasesSnap = await getDocs(
+        collection(this.db, `ganttapp_projects/${project.id}/releases`)
+      );
+      // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
+      if (auth?.currentUser?.uid !== this.uid) return null;
+      releasesMap.set(
+        project.id,
+        releasesSnap.docs.map(d => ({ id: d.id, data: d.data() as FirestoreRelease }))
+      );
+    }
+
+    // Step 3: Load user settings
+    const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
+    // v0.27.0 (Pass 6, I1a): final uid check before returning data.
+    if (auth?.currentUser?.uid !== this.uid) return null;
+    const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
+
+    // Reconstruct flat AppData
+    return {
+      projects: projects.map(p => firestoreToProject(p.id, p.meta)),
+      releases: projects.flatMap(p => {
+        const entries = releasesMap.get(p.id) ?? [];
+        return firestoreReleasesToFlat(p.id, entries);
+      }),
+      ...((settings ? userSettingsToAppData(settings) : {}) as Partial<AppData>),
+    };
+  }
+
+  /**
    * List the project documents the current user is a member of.
    *
    * Server-side membership filtering via `where('members.${uid}', 'in', [...])`
@@ -584,8 +611,12 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   private async executeSave(): Promise<void> {
     const data = this.pendingData;
     const baseline = this.lastSavedState;
-    if (!data || !baseline || this.disposed) return;
+    if (!data || this.disposed) return;
     this.pendingData = null;
+    // No baseline, so nothing to compare the save with: the load it was queued
+    // against has been set aside. The save is dropped rather than kept for the
+    // next flush, which would write it against whatever baseline exists by then.
+    if (!baseline) return;
 
     // v0.27.0 (Pass 6, I1a / save-side): abort without re-queuing if the
     // authenticated user has changed since this save was queued. Without

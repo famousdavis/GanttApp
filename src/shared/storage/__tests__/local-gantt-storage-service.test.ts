@@ -75,6 +75,19 @@ describe('LocalGanttStorageService', () => {
     });
   });
 
+  describe('readAppData', () => {
+    it('returns what loadAppData returns, and changes nothing stored', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify(makeAppData()));
+      const stored = localStorage.getItem('ganttAppData');
+
+      const read = await service.readAppData();
+
+      expect(read!.projects[0].name).toBe('Test Project');
+      expect(read).toEqual(await service.loadAppData());
+      expect(localStorage.getItem('ganttAppData')).toBe(stored);
+    });
+  });
+
   describe('saveAppData', () => {
     it('persists data to localStorage', async () => {
       const data = makeAppData();

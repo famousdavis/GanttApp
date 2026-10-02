@@ -576,10 +576,14 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
 describe('FirestoreGanttStorageServiceImpl — no save before a load', () => {
   const LOAD_FAILED = 'Your cloud data did not load, so changes are not being saved. Reload the page to try again.';
   const NOT_LOADED = 'Your cloud data did not load, so changes cannot be saved. Reload the page to try again.';
-  // The two methods these tests call are reached through optional access, so
-  // that against a service without them a test fails at its assertion rather
-  // than with a TypeError.
-  type LoadApi = { setAsideLoad?: (loaded: AppData) => void; canWrite?: () => boolean };
+  // The methods these tests call are reached through optional access, so that
+  // against a service without them a test fails at its assertion rather than
+  // with a TypeError.
+  type LoadApi = {
+    setAsideLoad?: (loaded: AppData) => void;
+    canWrite?: () => boolean;
+    readAppData?: () => Promise<AppData | null>;
+  };
   const loadApi = (s: FirestoreGanttStorageServiceImpl) => s as unknown as LoadApi;
   const settingsWrites = () => fake.state.writes.filter((w) => w.path === 'ganttapp_settings/u1');
   const failNextSettingsRead = () => {
@@ -750,5 +754,67 @@ describe('FirestoreGanttStorageServiceImpl — no save before a load', () => {
     loadApi(service).setAsideLoad?.(loaded);
     expect(loadApi(service).canWrite?.()).toBe(false);
     expect(settingsWrites()).toEqual([]);
+  });
+
+  // The app never queues a save and then sets aside the load it was queued
+  // against, so this guards the save routine itself.
+  it('drops a save left with nothing to compare against, so a later unload writes nothing stale', async () => {
+    seedProject('p1', 'Alpha');
+    const loaded = (await service.loadAppData())!;
+    await service.saveAppData(renamed(loaded, 'p1', 'Stale'));
+    loadApi(service).setAsideLoad?.(loaded);
+    await flushSave(); // the save timer runs while there is nothing to compare against
+    await service.loadAppData(); // a later load succeeds
+
+    window.dispatchEvent(new Event('beforeunload'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fake.state.writes).toEqual([]);
+  });
+
+  // A read for a download returns what a load would, and changes none of what
+  // a load changes: the data saves are compared with, the load that may be set
+  // aside, and the failed-load report. Between them the tests below watch all
+  // three.
+  it('reads the cloud after a failed first load, and leaves saving refused and the failure reported', async () => {
+    seedProject('p1', 'Alpha');
+    failNextSettingsRead();
+    await service.loadAppData();
+
+    const read = await loadApi(service).readAppData?.();
+
+    expect(read?.projects.map((p) => p.id)).toEqual(['p1']);
+    expect(read?.preparedBy).toBe('Cloud Person');
+    expect(loadApi(service).canWrite?.()).toBe(false);
+    expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED]]);
+    await service.saveAppData({ projects: [{ id: 'p1', name: 'Stale' }], releases: [] });
+    await flushSave();
+    expect(fake.state.writes).toEqual([]);
+  });
+
+  it('reads the cloud without changing what the next save is compared with', async () => {
+    seedProject('p1', 'Alpha');
+    const loaded = (await service.loadAppData())!;
+    seedProject('p3', 'Gamma'); // added on another device after the load
+
+    const read = await loadApi(service).readAppData?.();
+    await service.saveAppData(renamed(loaded, 'p1', 'Renamed'));
+    await flushSave();
+
+    expect(read?.projects.map((p) => p.id)).toEqual(['p1', 'p3']);
+    expect(projectWrites('p1').map(action)).toEqual(['update']);
+    expect(projectWrites('p3')).toEqual([]); // not deleted
+  });
+
+  it('reads the cloud without stopping the load before it from being set aside', async () => {
+    const loaded = (await service.loadAppData())!; // a first load, of an empty cloud
+    seedProject('p3', 'Gamma');
+
+    const read = await loadApi(service).readAppData?.();
+    loadApi(service).setAsideLoad?.(loaded);
+
+    expect(read?.projects.map((p) => p.id)).toEqual(['p3']);
+    expect(loadApi(service).canWrite?.()).toBe(false);
+    expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED]]);
   });
 });

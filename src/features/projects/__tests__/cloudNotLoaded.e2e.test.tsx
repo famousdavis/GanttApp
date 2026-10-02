@@ -26,6 +26,11 @@
 //   projects. The upload prompt is confirmed, both are skipped as already in
 //   the cloud, and the load that follows fails. The copies stay on screen,
 //   and the project delete and copy act on what is on screen.
+//
+// Downloading every project as a file reads the cloud without changing what
+// the app compares its saves with. In the state above the message and the
+// refusals stay; after a download in a session whose load succeeded, the next
+// save does not delete a project added on another device since the load.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor, within, cleanup, configure } from '@testing-library/react';
@@ -200,6 +205,7 @@ const SNAPSHOT_DELETE_REFUSED = `Snapshot not deleted. ${REASON}`;
 const LOAD_FAILED_SHOWN =
   'Cloud sync error: Your cloud data did not load, so changes are not being saved. Reload the page to try again.';
 const SAVE_FAILED_SHOWN = 'Cloud sync error: Service temporarily unavailable. Please try again later.';
+const SEEING_CLOUD = 'You are now seeing the cloud versions.';
 const FAILURE = Object.assign(new Error('raw transport detail'), { code: 'unavailable' });
 const MODE_KEY = 'ganttapp-storage-mode';
 const S1_PATH = 'ganttapp_projects/p1/snapshots/s1';
@@ -378,6 +384,20 @@ const snapshotDocs = () =>
   Object.fromEntries(Array.from(fake.state.docs.entries()).filter(([path]) => path.includes('/snapshots/')));
 const snapshotWritesSince = (mark: number) =>
   fake.state.writes.slice(mark).filter((w) => w.path.includes('/snapshots/'));
+const cloudProjectIds = () =>
+  Array.from(fake.state.docs.keys()).filter((p) => /^ganttapp_projects\/[^/]+$/.test(p)).map((p) => p.split('/')[1]).sort();
+
+/** Keeps each downloaded file instead of handing it to the browser. */
+function captureDownloads(): Blob[] {
+  const files: Blob[] = [];
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((file: Blob | MediaSource) => {
+    files.push(file as Blob);
+    return `blob:test/${files.length}`;
+  });
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  return files;
+}
 const bannerText = () => screen.getByTestId('import-banner').textContent;
 const claimEvent = () => act(() => {
   window.dispatchEvent(new CustomEvent('spert:models-changed', { detail: { claimed: [] } }));
@@ -447,10 +467,12 @@ describe('a visit whose first cloud load failed, end to end', () => {
   });
 
   it('refuses to delete a project: its cloud snapshots stay, it stays on screen, and the message says so', async () => {
-    // Fails when the cloud service's refusal to write before a load has
-    // succeeded is removed (the service): the delete then removes the
-    // project's snapshots from the cloud. The project staying on screen
-    // needs the check that runs before the delete changes anything.
+    // Fails when the check that runs before the delete changes anything is
+    // removed: the project then vanishes from the screen, although the cloud
+    // service still refuses to delete its snapshots. With that check and the
+    // service's refusal both removed, the delete removes the snapshots from
+    // the cloud. The service's refusal removed alone changes nothing here:
+    // the check refuses first.
     await confirmUploadWithFailedCloudLoad();
     const before = snapshotDocs();
     expect(Object.keys(before)).toEqual([S1_PATH, 'ganttapp_projects/p1/snapshots/s2']);
@@ -466,9 +488,11 @@ describe('a visit whose first cloud load failed, end to end', () => {
   });
 
   it('refuses to copy a project that has snapshots: no snapshot is written and no copy appears', async () => {
-    // Fails when the service's refusal is removed (the service): the copy
-    // then writes snapshots to the cloud. No copy appearing needs the check
-    // that runs before the copy changes anything.
+    // Fails when the check that runs before the copy changes anything is
+    // removed: a copy then appears, although the service still refuses its
+    // snapshots. With that check and the service's refusal both removed, the
+    // copy writes snapshots to the cloud. The service's refusal removed alone
+    // changes nothing here: the check refuses first.
     await confirmUploadWithFailedCloudLoad();
     expect(onScreen()).toEqual(['Alpha', 'Beta']);
     const before = snapshotDocs();
@@ -527,9 +551,12 @@ describe('a visit whose first cloud load failed, end to end', () => {
   });
 
   it('refuses a project import: an error, the cloud snapshots unchanged, nothing new on screen', async () => {
-    // Fails when the service's refusal is removed (the service): the import
-    // then replaces the cloud snapshots and reports success. Nothing new on
-    // screen needs the check that runs before the import changes anything.
+    // Fails when the check that runs before the import changes anything is
+    // removed: the imported project then appears, although the service still
+    // refuses the snapshot write and the message says nothing was imported.
+    // With that check and the service's refusal both removed, the import
+    // reports success. The service's refusal removed alone changes nothing
+    // here: the check refuses first.
     await openWithFailedCloudLoad();
     const before = snapshotDocs();
     const screenChanges = watchScreen();
@@ -547,7 +574,7 @@ describe('a visit whose first cloud load failed, end to end', () => {
   });
 
   it('refuses a replace-all import: an error, the cloud snapshots unchanged, the screen unchanged', async () => {
-    // Fails when the service's refusal is removed (the service), as above.
+    // Fails under the same removals as the project import above, in the same way.
     await openWithFailedCloudLoad();
     const before = snapshotDocs();
     const screenChanges = watchScreen();
@@ -611,5 +638,101 @@ describe('a visit whose first cloud load failed, end to end', () => {
     // The reload saved nothing, so no successful save can have cleared the message.
     expect(fake.state.writes.slice(mark)).toEqual([]);
     expect(screen.getByText(SAVE_FAILED_SHOWN)).toBeInTheDocument();
+  });
+});
+
+describe('downloading every project as a file, end to end', () => {
+  let alertSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fake.reset();
+    seedCloud();
+    localStorage.clear();
+    // The terms-of-service gate, satisfied from the local cache as above.
+    localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
+    loads.length = 0;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    trackServices();
+  });
+
+  afterEach(() => {
+    cleanup();
+    disposeServices();
+    vi.restoreAllMocks();
+  });
+
+  it('after a failed first load, leaves the message and the refusals in place, and a delete still changes nothing', async () => {
+    // The download reads the cloud for its file and nothing more. Fails when
+    // the download reads by loading, or when its read takes what it read as
+    // the data saves are compared with: the message then goes, the prompt
+    // says the cloud versions are on screen when this browser's copies are,
+    // and the delete is no longer refused, so it removes the project's
+    // snapshots from the cloud.
+    await confirmUploadWithFailedCloudLoad();
+    expect(await screen.findByText(LOAD_FAILED_SHOWN)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download these copies' })).toBeInTheDocument();
+    const service = loads.find((l) => !l.ok)!.service;
+    const before = snapshotDocs();
+    const files = captureDownloads();
+
+    // The cloud can be read again, so the download's read succeeds: a file
+    // is made only from a read that found projects.
+    fake.config.denySettingsRead = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Download All Projects as JSON' }));
+    await waitFor(() => expect(files).toHaveLength(1));
+    await wait(100);
+    const afterDownload = {
+      message: screen.queryByText(LOAD_FAILED_SHOWN) !== null,
+      canWrite: service.canWrite(),
+      prompt: screen.queryByRole('button', { name: 'Download these copies' }) !== null,
+      seeingCloud: screen.queryByText(SEEING_CLOUD) !== null,
+    };
+
+    const screenChanges = watchScreen();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project p1' }));
+    await wait(300);
+
+    // One assertion, so that a failure shows every part of what happened.
+    expect({
+      ...afterDownload,
+      snapshots: Object.keys(snapshotDocs()),
+      screenChanges: screenChanges(),
+      alerts: alertSpy.mock.calls,
+    }).toEqual({
+      message: true, canWrite: false, prompt: true, seeingCloud: false,
+      snapshots: Object.keys(before), screenChanges: [], alerts: [[DELETE_REFUSED]],
+    });
+  });
+
+  it('in a session whose load succeeded, the next save deletes no project added on another device', async () => {
+    // The screen does not show a project added elsewhere after the load, so
+    // a save compared with a read that holds it deletes it. Fails when the
+    // download reads by loading, or when its read takes what it read as the
+    // data saves are compared with. The first live update comes from the
+    // cache, as in a browser.
+    fake.config.snapshots = 'cache-first';
+    localStorage.setItem(MODE_KEY, 'cloud');
+    renderApp();
+    await waitFor(() => expect(onScreen()).toEqual(['Alpha', 'Beta']));
+    await wait(400);
+    expect(cloudProjectIds()).toEqual(['p1', 'p2']);
+
+    fake.state.docs.set('ganttapp_projects/p3', projectDoc('Gamma', 2));
+    fake.state.docs.set('ganttapp_projects/p3/releases/r9', releaseDoc('Elsewhere', 0));
+    const files = captureDownloads();
+    fireEvent.click(screen.getByRole('button', { name: 'Download All Projects as JSON' }));
+    await waitFor(() => expect(files).toHaveLength(1));
+
+    commitField('Name', 'Ann');
+    await wait(400);
+
+    const settings = fake.state.docs.get('ganttapp_settings/u1') as { exportAttribution?: { name: string } };
+    expect({
+      editSaved: settings.exportAttribution?.name,
+      projects: cloudProjectIds(),
+      itsRelease: fake.state.docs.has('ganttapp_projects/p3/releases/r9'),
+    }).toEqual({ editSaved: 'Ann', projects: ['p1', 'p2', 'p3'], itsRelease: true });
   });
 });

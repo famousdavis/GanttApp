@@ -27,10 +27,11 @@ vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 
 
 import { useProjects } from '../useProjects';
 import { useImportState } from '../hooks/useImportState';
+import { CloudDataNotLoadedError } from '../../../shared/storage/cloud-data-not-loaded';
 
 const REASON = 'Your cloud data did not load, so changes cannot be saved. Reload the page to try again.';
-// The refusal the cloud service throws: a plain error, no code, its own name.
-const refusal = () => Object.assign(new Error(REASON), { name: 'CloudDataNotLoadedError' });
+// The refusal the cloud service throws.
+const refusal = () => new CloudDataNotLoadedError();
 const snapshot = (id: string, projectId: string): Snapshot =>
   ({ id, projectId, name: id, timestamp: '2026-01-01T00:00:00.000Z', releases: [] } as unknown as Snapshot);
 

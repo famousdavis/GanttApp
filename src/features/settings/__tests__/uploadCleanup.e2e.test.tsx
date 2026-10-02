@@ -19,7 +19,12 @@
 // services, and renders it again over the same browser storage and cloud.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, fireEvent, waitFor, within, cleanup } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor, within, cleanup, configure } from '@testing-library/react';
+
+// A cloud load in jsdom can outlast Testing Library's 1 s default wait on a busy
+// machine (CI, or the whole suite at once); one of these tests timed out there.
+configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 20000 });
 
 const fake = vi.hoisted(() => {
   type Data = Record<string, unknown>;

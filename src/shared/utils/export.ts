@@ -284,13 +284,15 @@ export function parseImportedData(fileContent: string): ImportResult | null {
 
 /**
  * Export all projects as a single combined JSON file.
- * Loads all data from the current storage service and produces one download.
+ * Reads all data from the current storage service and produces one download.
+ * It reads, and never loads: a load changes what later saves are compared with,
+ * and only the load AppDataContext applies may do that.
  * File is compatible with the existing import flow (same shape as AppData + snapshots).
  */
 export async function exportAllProjects(
-  storage: { loadAppData: () => Promise<AppData | null>; loadSnapshots: () => Promise<Snapshot[]> }
+  storage: { readAppData: () => Promise<AppData | null>; loadSnapshots: () => Promise<Snapshot[]> }
 ): Promise<{ exported: number }> {
-  const appData = await storage.loadAppData();
+  const appData = await storage.readAppData();
   if (!appData || appData.projects.length === 0) {
     throw new Error('No projects to export.');
   }

@@ -11,12 +11,16 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import type { AppData } from '../shared/types/app';
 import type { GanttStorageService, StorageMode } from '../shared/types/storage';
-import { LocalGanttStorageService, clearLocalProjectData } from '../shared/storage/local-gantt-storage-service';
+import {
+  LocalGanttStorageService,
+  clearLocalProjectData,
+  removeLocalProjectCopies,
+} from '../shared/storage/local-gantt-storage-service';
 import { FirestoreGanttStorageServiceImpl } from '../shared/storage/firestore-gantt-storage-service';
 import type { CloudGanttStorageService } from '../shared/storage/firestore-gantt-storage-service';
 import { auth, db, isFirebaseAvailable } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { switchToCloudMode } from './storage-mode-switch';
+import { switchToCloudMode, type SwitchToCloudResult } from './storage-mode-switch';
 import { sanitizeFirebaseError } from '../shared/utils/validation';
 import { registerSignOutCleanup } from './signOutCleanupRegistry';
 import { runAppDataReset } from './appDataResetRegistry';
@@ -26,10 +30,8 @@ const STORAGE_MODE_KEY = 'ganttapp-storage-mode';
 // one-time migration cleanup inside performSignOutWithCleanup step 7.
 const HAS_UPLOADED_KEY_V16_5_LEGACY = 'ganttapp-has-uploaded-to-cloud';
 
-export interface UploadResult {
-  uploaded: number;
-  skipped: number;
-}
+/** What a switch to the cloud did; the uploaded projects' local copies are already removed. */
+export type UploadResult = Omit<SwitchToCloudResult, 'service'>;
 
 interface StorageContextType {
   storage: GanttStorageService;
@@ -152,6 +154,25 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, isAuthenticated, user, handleSaveResult]);
 
+  // Finish a switch to the cloud once it has resolved, and so committed
+  // everything it wrote: remove the uploaded projects' copies from this
+  // browser (by their local ids; the skipped ones wait for the user's choice),
+  // then swap. A failed removal only leaves copies in place, so it does not
+  // stop the swap.
+  const finishCloudSwitch = useCallback(async (result: SwitchToCloudResult): Promise<UploadResult> => {
+    const { service, ...uploadResultValue } = result;
+    try {
+      await removeLocalProjectCopies(result.uploadedProjects.map(p => p.id));
+    } catch (error) {
+      console.error('Could not remove uploaded projects from this browser:', sanitizeFirebaseError(error));
+    }
+    localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
+    setSaveError(null);
+    setUploadResult(uploadResultValue);
+    setStorage(service);
+    return uploadResultValue;
+  }, []);
+
   // Handle user confirming the upload prompt
   const confirmUploadPrompt = useCallback(async () => {
     if (!db || !user) return;
@@ -160,17 +181,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     setSwitchError(null);
 
     try {
-      const result = await switchToCloudMode(db, user, handleSaveResult);
-      localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
-      setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
-      setStorage(result.service);
+      await finishCloudSwitch(await switchToCloudMode(db, user, handleSaveResult));
     } catch (error) {
       setSwitchError(sanitizeFirebaseError(error));
       console.error('Upload prompt confirm error:', sanitizeFirebaseError(error));
     } finally {
       setIsSwitching(false);
     }
-  }, [user, handleSaveResult]);
+  }, [user, handleSaveResult, finishCloudSwitch]);
 
   // Handle user cancelling the upload prompt — stay in local mode (v12.3)
   const cancelUploadPrompt = useCallback(() => {
@@ -271,11 +289,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           throw new Error('You must sign in before switching to cloud storage.');
         }
 
-        const result = await switchToCloudMode(db, user, handleSaveResult);
-        localStorage.setItem(STORAGE_MODE_KEY, 'cloud');
-        setUploadResult({ uploaded: result.uploaded, skipped: result.skipped });
-        setStorage(result.service);
-        return { uploaded: result.uploaded, skipped: result.skipped };
+        return await finishCloudSwitch(await switchToCloudMode(db, user, handleSaveResult));
 
       } else {
         // v16.6 (UX-2): cloud → local with in-memory projects → prompt.
@@ -294,11 +308,16 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           const cloudService = storage as CloudGanttStorageService;
           cloudService.cancelPendingSaves();
           cloudService.dispose();
+          // Clear in-memory data, as sign-out, Keep and Discard do. Otherwise
+          // the cloud session's settings, export attribution included, are
+          // saved into this browser's storage.
+          runAppDataReset();
         }
 
         // Create new local service (loads whatever is already in localStorage)
         const localService = new LocalGanttStorageService();
         localStorage.setItem(STORAGE_MODE_KEY, 'local');
+        setSaveError(null);
         setStorage(localService);
       }
     } catch (error) {
@@ -307,7 +326,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSwitching(false);
     }
-  }, [storage, user, handleSaveResult]);
+  }, [storage, user, handleSaveResult, finishCloudSwitch]);
 
   // v16.6 (UX-2): Keep a local copy of in-memory cloud projects, then swap.
   // currentAppData is passed by the caller (SettingsTab/StorageSection via
@@ -348,7 +367,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 
     // Step 5: swap to the already-populated local service. The [storage]
     // load effect will read the just-written localStorage data back into
-    // AppDataContext state.
+    // AppDataContext state. A cloud sync error belongs to the cloud session.
+    setSaveError(null);
     setStorage(localService);
 
     // Step 6: persist mode + clear transition state.
@@ -369,6 +389,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
 
     runAppDataReset();
+    setSaveError(null);
     setStorage(new LocalGanttStorageService());
     localStorage.setItem(STORAGE_MODE_KEY, 'local');
     setNeedsCloudToLocalPrompt(null);

@@ -347,3 +347,128 @@ describe('StorageContext — cloud connection and switching', () => {
     });
   });
 });
+
+describe('StorageContext — leaving and joining the cloud cleanly', () => {
+  const report = (entry: { onSaveResult: unknown }, message: string | null) =>
+    act(() => (entry.onSaveResult as (e: string | null) => void)(message));
+  const switchResult = (uploaded: string[], skipped: string[]) => ({
+    service: cloudService(),
+    uploaded: uploaded.length,
+    skipped: skipped.length,
+    uploadedProjects: uploaded.map((id) => ({ id, name: id.toUpperCase() })),
+    skippedProjects: skipped.map((id) => ({ id, localName: id.toUpperCase(), cloudName: id.toUpperCase() })),
+  });
+  const seedMixedLocal = () => {
+    localStorage.setItem('ganttAppData', JSON.stringify({
+      projects: [{ id: 'p0', name: 'P0' }, { id: 'p1', name: 'P1' }],
+      releases: [
+        { id: 'r0', projectId: 'p0', name: 'R0', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' },
+        { id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' },
+      ],
+      preparedBy: 'Local Person',
+    }));
+    localStorage.setItem('ganttAppSnapshots', JSON.stringify([
+      { id: 's0', projectId: 'p0', name: 'S0', timestamp: '2026-01-01T00:00:00.000Z', releases: [] },
+      { id: 's1', projectId: 'p1', name: 'S1', timestamp: '2026-01-01T00:00:00.000Z', releases: [] },
+    ]));
+  };
+  const stored = () => ({
+    data: JSON.parse(localStorage.getItem('ganttAppData') ?? 'null'),
+    snapshots: JSON.parse(localStorage.getItem('ganttAppSnapshots') ?? 'null'),
+  });
+  const deferredResult = () => {
+    let resolve!: (value: unknown) => void;
+    const promise = new Promise((res) => { resolve = res; });
+    return { promise, resolve };
+  };
+  const startSwitch: Record<string, (r: ReturnType<typeof useStorage>) => Promise<unknown>> = {
+    'the Cloud radio': (r) => r.switchMode('cloud'),
+    'the upload prompt': (r) => r.confirmUploadPrompt(),
+  };
+  async function renderBeforeSwitch(door: string) {
+    if (door === 'the upload prompt') localStorage.setItem(MODE_KEY, 'cloud');
+    auth.set(signedIn);
+    const hook = renderStorage();
+    if (door === 'the upload prompt') await waitFor(() => expect(hook.result.current.needsUploadPrompt).not.toBeNull());
+    return hook;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    cloud.constructed.length = 0;
+    cloud.switchToCloudMode.mockReset();
+    auth.set({ user: null, isAuthenticated: false, loading: false });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['switching to Local with no projects in memory', (r: ReturnType<typeof useStorage>) => r.switchMode('local', 0)],
+    ['Keep Local Copy', (r: ReturnType<typeof useStorage>) => r.confirmKeepLocalCopy({ projects: [], releases: [] })],
+    ['Discard', (r: ReturnType<typeof useStorage>) => r.confirmDiscardCloudData()],
+  ])('clears a cloud sync error when leaving the cloud by %s', async (_path, leave) => {
+    const { result, restored } = await renderRestoredCloud();
+    await report(restored, 'Cloud trouble');
+    expect(result.current.saveError).toBe('Cloud trouble');
+
+    await act(() => leave(result.current));
+
+    expect(result.current.saveError).toBeNull();
+  });
+
+  it('clears a late report from a disposed cloud service when switching to a new one', async () => {
+    const { result, restored } = await renderRestoredCloud();
+    await act(() => result.current.switchMode('local', 0));
+    await report(restored, 'Late report'); // e.g. a save that was in flight when it was disposed
+    expect(result.current.saveError).toBe('Late report');
+    cloud.switchToCloudMode.mockResolvedValue(switchResult([], []));
+
+    await act(() => result.current.switchMode('cloud'));
+
+    expect(result.current.saveError).toBeNull();
+  });
+
+  it('clears in-memory data before going local when no projects are in memory', async () => {
+    const { result } = await renderRestoredCloud();
+    const reset = vi.fn();
+    const deregister = registerAppDataReset(reset);
+
+    await act(() => result.current.switchMode('local', 0));
+
+    expect(reset).toHaveBeenCalledTimes(1);
+    deregister();
+  });
+
+  it.each(Object.keys(startSwitch))('after a switch by %s, removes the uploaded projects’ local copies only once it resolves', async (door) => {
+    seedMixedLocal();
+    const { result } = await renderBeforeSwitch(door);
+    const pending = deferredResult();
+    cloud.switchToCloudMode.mockReturnValue(pending.promise);
+
+    act(() => { void startSwitch[door](result.current); });
+    await waitFor(() => expect(cloud.switchToCloudMode).toHaveBeenCalled());
+    expect(stored().data.projects.map((p: { id: string }) => p.id)).toEqual(['p0', 'p1']); // not before
+
+    await act(async () => { pending.resolve(switchResult(['p0'], ['p1'])); });
+
+    await waitFor(() => expect(stored().data.projects.map((p: { id: string }) => p.id)).toEqual(['p1']));
+    expect(stored().data.releases.map((r: { id: string }) => r.id)).toEqual(['r1']);
+    expect(stored().snapshots.map((s: { id: string }) => s.id)).toEqual(['s1']);
+    expect(stored().data.preparedBy).toBe('Local Person'); // the kept copy keeps its settings
+  });
+
+  it('clears local project data entirely when every local project was uploaded', async () => {
+    seedMixedLocal();
+    auth.set(signedIn);
+    const { result } = renderStorage();
+    cloud.switchToCloudMode.mockResolvedValue(switchResult(['p0', 'p1'], []));
+
+    await act(() => result.current.switchMode('cloud'));
+
+    expect(localStorage.getItem('ganttAppData')).toBeNull();
+    expect(localStorage.getItem('ganttAppSnapshots')).toBeNull();
+  });
+});

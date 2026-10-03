@@ -442,3 +442,16 @@ describe('firestore-save-executor', () => {
     });
   });
 });
+
+describe('executeFirestoreSave — the baseline is required', () => {
+  // The guard here is the type check (npm run typecheck): without what the
+  // cloud last held, a save would write every project as new and every setting
+  // over the stored ones, so a null baseline must not compile. The closure is
+  // never called.
+  it('rejects a null baseline at compile time', () => {
+    const data: AppData = { projects: [], releases: [] };
+    // @ts-expect-error — a save needs a baseline: what the cloud held at the last load or save.
+    const saveAgainstNothing = () => executeFirestoreSave({} as Firestore, 'u1', data, null);
+    expect(typeof saveAgainstNothing).toBe('function');
+  });
+});

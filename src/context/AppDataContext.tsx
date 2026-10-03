@@ -9,6 +9,7 @@ import { AppData, Project, Release, ChartColors, ChartDisplaySettings, ExportAtt
 import { DEFAULT_CHART_COLORS, DEFAULT_DISPLAY_SETTINGS, sanitizeWorkDays, DEFAULT_WORK_DAYS } from '../shared/utils';
 import { useStorage } from './StorageContext';
 import type { CloudGanttStorageService } from '../shared/storage';
+import type { GanttStorageService } from '../shared/types/storage';
 import { registerAppDataReset } from './appDataResetRegistry';
 import { INVITATIONS_ENABLED } from '../lib/feature-flags';
 
@@ -68,8 +69,8 @@ interface AppDataContextType {
   setGlobalWorkDays: (days: number[] | undefined) => void;
 
   // v16.6 — reset all in-memory state to initial values. Used by the
-  // centralized sign-out helper. Does NOT write to localStorage; the save
-  // effect is suppressed during the reset tick via `isResettingRef`.
+  // centralized sign-out helper. Does not write anything itself; the save
+  // effect is suppressed during the reset via `isResettingRef` (see there).
   clearAllData: () => void;
 }
 
@@ -86,9 +87,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // v16.6 — suppress save effect while clearAllData() is clearing state.
   // Set true at the start of clearAllData; cleared at the end of the load
-  // effect that runs on the subsequent storage swap. This ties the window
-  // to "between clearAllData() and the next load-effect settlement" so the
-  // cleared defaults don't get written back to localStorage on sign-out.
+  // effect that runs on the subsequent storage swap, so the cleared defaults
+  // are not saved during that window. When the load settles, the save effect
+  // re-runs only if it sees `loading` change: in the browser React renders the
+  // load's true/false as one change, and nothing is written; in jsdom it sees
+  // both, and the cleared defaults (no projects, default settings) are saved
+  // to the new storage once.
   const isResettingRef = useRef(false);
 
   // Track current data for the data-loss guard (closures in async effects see stale state)
@@ -113,6 +117,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // reload would write the just-loaded cloud data back to Firestore and
   // could clobber concurrent collaborator edits (LESSONS-LEARNED §17).
   const loadedDataRef = useRef<AppData | null>(null);
+
+  // The storage the in-memory data came from. Saves and cloud listeners go
+  // only to that storage. A storage swap re-runs the save and listener effects
+  // before the new storage has loaded anything, while the data on screen still
+  // belongs to the old one; saving it then overwrote the new storage with it.
+  // Set when a load's data is applied; a local load always counts (nothing
+  // stored is an empty store), a failed or skipped cloud load does not. It
+  // starts as the first storage, always local: nothing can be edited before
+  // that first load settles, because the page shows "Loading..." until then.
+  const loadedFromRef = useRef<GanttStorageService>(storage);
 
   // Chart settings
   const [chartColors, setChartColors] = useState<ChartColors>(DEFAULT_CHART_COLORS);
@@ -171,7 +185,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       try {
         const loadedData = await storage.loadAppData();
-        if (cancelled) return;
+        if (cancelled) {
+          // A newer load or a storage swap began first, so this result is not
+          // applied: the storage must not keep it as its baseline.
+          if (loadedData) storage.setAsideLoad?.(loadedData);
+          return;
+        }
 
         if (loadedData) {
           // Data-loss guard: don't wipe non-empty local state with empty cloud results.
@@ -179,6 +198,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           // so dataRef.current is empty here. The guard only fires on transient
           // cloud errors (v12.3 intent), never blocks a new user's load.
           if (loadedData.projects.length === 0 && dataRef.current.projects.length > 0) {
+            // Not applied, so set aside now, in this continuation: a save timer
+            // that runs first would diff against the empty result the storage
+            // has already taken as its baseline.
+            storage.setAsideLoad?.(loadedData);
             console.warn(
               `Cloud returned 0 projects but local has ${dataRef.current.projects.length} — skipping replacement to protect local data`
             );
@@ -186,6 +209,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             // v18.0.0 — record the loaded reference so the save effect can
             // recognize "this data change is a load, not an edit" and skip.
             loadedDataRef.current = loadedData;
+            loadedFromRef.current = storage;
             setData(loadedData);
 
             // Load chart colors or use defaults
@@ -265,6 +289,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('Error loading data:', error instanceof Error ? error.message : 'Unknown error');
       } finally {
         if (!cancelled) {
+          if (storage.mode === 'local') loadedFromRef.current = storage;
           setLoading(false);
           // Allow save effect to run on subsequent changes (not the initial hydration)
           isInitialLoadRef.current = false;
@@ -326,6 +351,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Save legend labels, display settings, and prepared by whenever they change
   useEffect(() => {
+    // Nothing goes to a storage before a load from it has been applied.
+    if (storage !== loadedFromRef.current) return;
     // v18.0.0 — if data === loadedDataRef.current, the most recent state
     // change was a load (initial hydration, storage swap, or claim-event
     // reload). Skip the save and clear the marker so subsequent user
@@ -403,7 +430,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [storage]);
 
   useEffect(() => {
-    if (storage.mode !== 'cloud' || loading) return;
+    if (storage.mode !== 'cloud' || loading || storage !== loadedFromRef.current) return;
 
     const cloudStorage = storage as CloudGanttStorageService;
     const ids: string[] = JSON.parse(projectIds);
@@ -452,15 +479,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => unsubscribers.forEach(u => u());
   }, [storage, projectIds, loading]);
 
-  // Update data and save to storage
+  // Update data and save to storage. The screen changes either way; the save
+  // goes only to the storage the data was loaded from.
   const updateData = (newData: AppData) => {
     setData(newData);
-    storage.saveAppData(newData);
+    if (storage === loadedFromRef.current) storage.saveAppData(newData);
   };
 
   // v16.6 — reset every exposed field to its initial value. The save effect
   // is suppressed for the duration of this call + the next load effect via
-  // isResettingRef, so the cleared defaults are NOT written to localStorage.
+  // isResettingRef (see there for when the cleared defaults are saved once).
   // The centralized sign-out helper in StorageContext invokes this via the
   // appDataResetRegistry (provider-order bridge).
   const clearAllData = useCallback(() => {

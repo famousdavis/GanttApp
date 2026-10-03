@@ -28,12 +28,21 @@ import type {
 } from '../../../shared/utils/export';
 import type { AppData } from '../../../shared/types/app';
 import type { Snapshot } from '../../../shared/types/snapshots';
+import { cloudRefusal, isCloudDataNotLoadedError } from '../../../shared/storage/cloud-data-not-loaded';
 
-// Minimal storage shape — the hook only needs mode + loadSnapshots, not the
-// full GanttStorageService. Easier to mock in tests.
+// Minimal storage shape — the hook only needs mode, loadSnapshots and
+// canWrite, not the full GanttStorageService. Easier to mock in tests.
 interface ImportStorage {
   mode: 'local' | 'cloud';
   loadSnapshots: () => Promise<Snapshot[]>;
+  canWrite: () => boolean;
+}
+
+const NOTHING_IMPORTED = 'Nothing was imported.';
+
+/** A refused write means nothing was imported; any other failure keeps its own message. */
+function importErrorText(err: unknown): string {
+  return isCloudDataNotLoadedError(err) ? cloudRefusal(NOTHING_IMPORTED) : sanitizeFirebaseError(err);
 }
 
 export type ImportMode = 'merge' | 'replace-all';
@@ -184,6 +193,12 @@ export function useImportState({
         const { mergedData, mergedSnapshots, result } = applyImportDecisions(
           data, imported, existingSnapshots, decisions, freshConflicts
         );
+        // Refused before anything changes on screen when nothing can be saved
+        // (a cloud session whose data never loaded).
+        if (!storage.canWrite()) {
+          showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
+          return;
+        }
         // NOTE: partial-apply window — updateData may persist before
         // onReplaceSnapshots rejects. Acceptable; matches pre-v0.24.0 behavior.
         updateData(mergedData);
@@ -199,7 +214,7 @@ export function useImportState({
         const text = parts.length > 0 ? parts.join(', ') + '.' : 'No projects were imported.';
         showBanner({ kind: 'success', text });
       } catch (err) {
-        showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
+        showBanner({ kind: 'error', text: importErrorText(err) });
       } finally {
         // Guarantee reset even after unexpected throw (pitfall #27).
         // showBanner on non-throw paths also resets; this is the safety net.
@@ -219,6 +234,10 @@ export function useImportState({
       // updateData() — aria-busy may not be observed by assistive tech on
       // this path (pitfall #86). Deferred; see docs/SPEC_DEVIATIONS.md.
       try {
+        if (!storage.canWrite()) {
+          showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
+          return;
+        }
         updateData(imported.appData);
         await onReplaceSnapshots(imported.snapshots ?? []);
         if (imported.appData.projects.length > 0) {
@@ -231,13 +250,13 @@ export function useImportState({
             : 'All data replaced.';
         showBanner({ kind: 'success', text });
       } catch (err) {
-        showBanner({ kind: 'error', text: sanitizeFirebaseError(err) });
+        showBanner({ kind: 'error', text: importErrorText(err) });
       } finally {
         applyingRef.current = false;
         setApplying(false);
       }
     },
-    [updateData, onReplaceSnapshots, setSelectedProjectId, showBanner]
+    [storage, updateData, onReplaceSnapshots, setSelectedProjectId, showBanner]
   );
 
   const handleImport = useCallback(

@@ -389,6 +389,10 @@ describe('FirestoreGanttStorageService', () => {
 
   describe('addSnapshot', () => {
     it('returns null when total limit reached', async () => {
+      // Snapshot writes need a successful load first (an empty cloud here).
+      mockGetDocs.mockResolvedValue({ docs: [] });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.loadAppData();
       // Mock loadSnapshots to return 100 snapshots
       mockGetDocs.mockResolvedValueOnce({
         docs: Array.from({ length: 10 }, (_, i) => ({

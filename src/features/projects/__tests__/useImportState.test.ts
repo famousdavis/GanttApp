@@ -40,6 +40,7 @@ function setup(opts: SetupOptions = {}) {
   const storage = {
     mode: opts.mode ?? 'local',
     loadSnapshots: opts.loadSnapshots ?? (() => Promise.resolve<Snapshot[]>([])),
+    canWrite: () => true,
   };
 
   const { result, rerender } = renderHook(

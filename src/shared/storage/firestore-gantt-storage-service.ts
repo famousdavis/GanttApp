@@ -48,6 +48,7 @@ import {
 } from './firestore-sharing';
 import { getRevokeInvite, getResendInvite, auth } from '../../lib/firebase';
 import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
+import { CLOUD_LOAD_FAILED_MESSAGE, CloudDataNotLoadedError } from './cloud-data-not-loaded';
 
 const DEBOUNCE_MS = 200; // v0.27.0 (Pass 3, D1): reduced from 500ms
 
@@ -73,13 +74,23 @@ export interface CloudGanttStorageService extends GanttStorageService {
    */
   cancelPendingSaves(): void;
   dispose(): void;
+  setAsideLoad(loaded: AppData): void;
 }
 
 export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageService {
   readonly mode: StorageMode = 'cloud';
   private db: Firestore;
   private uid: string;
+  // What the cloud held at the last load or save; each save is a diff
+  // against it. Null until a load succeeds, and nothing is written while it
+  // is: a diff against nothing writes every project as new (a full set() with
+  // only this user as a member) and every setting over the stored ones.
   private lastSavedState: AppData | null = null;
+  // The latest load's result as returned, and the baseline it replaced, so
+  // that a load AppDataContext does not apply can be set aside.
+  private lastLoad: { returned: AppData; previous: AppData | null } | null = null;
+  // True while the message last reported is this service's failed-load one.
+  private reportingLoadFailure = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingData: AppData | null = null;
   private unsubscribers: (() => void)[] = [];
@@ -126,57 +137,54 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async loadAppData(): Promise<AppData | null> {
     try {
-      // Step 1: List projects via the shared member-scoped helper (v0.22.1).
-      const memberDocs = await this.listMemberProjects();
-      // v0.27.0 (Pass 6, I1a): bail if user changed during the await.
-      if (auth?.currentUser?.uid !== this.uid) return null;
-      const projects: { id: string; meta: FirestoreProjectMeta }[] =
-        memberDocs.map(d => ({ id: d.id, meta: d.data() }));
-
-      // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
-      projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
-
-      // Step 2: Load releases for each project
-      const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
-      for (const project of projects) {
-        const releasesSnap = await getDocs(
-          collection(this.db, `ganttapp_projects/${project.id}/releases`)
-        );
-        // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
-        if (auth?.currentUser?.uid !== this.uid) return null;
-        releasesMap.set(
-          project.id,
-          releasesSnap.docs.map(d => ({ id: d.id, data: d.data() as FirestoreRelease }))
-        );
-      }
-
-      // Step 3: Load user settings
-      const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
-      // v0.27.0 (Pass 6, I1a): final uid check before returning data.
-      if (auth?.currentUser?.uid !== this.uid) return null;
-      const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
-
-      // Reconstruct flat AppData
-      const appData: AppData = {
-        projects: projects.map(p => firestoreToProject(p.id, p.meta)),
-        releases: projects.flatMap(p => {
-          const entries = releasesMap.get(p.id) ?? [];
-          return firestoreReleasesToFlat(p.id, entries);
-        }),
-        ...((settings ? userSettingsToAppData(settings) : {}) as Partial<AppData>),
-      };
-
-      // Cache for subsequent diff comparisons
-      this.lastSavedState = structuredClone(appData);
+      const appData = await this.readCloudAppData();
+      if (appData) this.adopt(appData);
       return appData;
     } catch (error) {
       console.error('Failed to load cloud data:', sanitizeFirebaseError(error));
+      // Saving is refused until a load succeeds; say so, or edits look saved
+      // when they are not. A failed reload after a good load changes nothing:
+      // saves continue against that load.
+      if (!this.lastSavedState) this.reportLoadFailure();
       return null;
     }
   }
 
+  /**
+   * What loadAppData returns, read without adopting it: the data saves are
+   * compared with, the load that may be set aside and the failed-load report
+   * stay as they are.
+   */
+  async readAppData(): Promise<AppData | null> {
+    try {
+      return await this.readCloudAppData();
+    } catch (error) {
+      console.error('Failed to read cloud data:', sanitizeFirebaseError(error));
+      return null;
+    }
+  }
+
+  /**
+   * AppDataContext did not apply this load (see GanttStorageService), so put
+   * back the baseline from before it. Only the latest load can be set aside:
+   * once a newer load or a save has replaced it, it is no longer the baseline.
+   * With nothing to put back (a first load), saving stays refused, and that is
+   * reported as a failed load.
+   */
+  setAsideLoad(loaded: AppData): void {
+    if (!this.lastLoad || this.lastLoad.returned !== loaded) return;
+    this.lastSavedState = this.lastLoad.previous;
+    this.lastLoad = null;
+    if (!this.lastSavedState) this.reportLoadFailure();
+  }
+
+  canWrite(): boolean {
+    return !this.disposed && this.lastSavedState !== null;
+  }
+
   async saveAppData(data: AppData): Promise<void> {
-    if (this.disposed) return;
+    // Refused, silently, until a load has succeeded (see lastSavedState).
+    if (!this.canWrite()) return;
     this.pendingData = data;
 
     if (this.debounceTimer) {
@@ -189,7 +197,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   /** Immediate save — bypasses debounce for structural mutations. */
   async saveAppDataImmediate(data: AppData): Promise<void> {
-    if (this.disposed) return;
+    if (!this.canWrite()) return;
     this.pendingData = data;
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -226,6 +234,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async saveSnapshots(snapshots: Snapshot[]): Promise<void> {
+    this.refuseUntilLoaded();
     const byProject = new Map<string, Snapshot[]>();
     for (const snap of snapshots) {
       const group = byProject.get(snap.projectId) ?? [];
@@ -256,6 +265,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async addSnapshot(snapshot: Snapshot): Promise<Snapshot[] | null> {
+    this.refuseUntilLoaded();
     const all = await this.loadSnapshots();
     if (all.length >= MAX_SNAPSHOTS_TOTAL) return null;
 
@@ -270,6 +280,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async deleteSnapshot(snapshotId: string): Promise<Snapshot[]> {
+    this.refuseUntilLoaded();
     const all = await this.loadSnapshots();
     const toDelete = all.find(s => s.id === snapshotId);
     if (toDelete) {
@@ -281,6 +292,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   async deleteSnapshotsForProject(projectId: string): Promise<Snapshot[]> {
+    this.refuseUntilLoaded();
     const all = await this.loadSnapshots();
     const toDelete = all.filter(s => s.projectId === projectId);
     const batch = writeBatch(this.db);
@@ -323,7 +335,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         const message = sanitizeFirebaseError(error);
         console.error('Project subscription error:', message);
         // Surface the error through the same channel as auto-save failures.
-        this.onSaveResult?.(message);
+        this.report(message);
         // v0.22.2 (S9): on permission-denied, the listener has been
         // permanently rejected (e.g., the owner just removed this user
         // from the project). Tear down the subscription and remove our
@@ -362,6 +374,9 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           // through onSaveResult, which StorageSection renders as a cloud-sync
           // error under Settings -> Storage. Subsequent saves use the pruned
           // state and succeed. The infinite loop is what's fixed.
+          // A revoke moves the baseline on, so the load before it can no
+          // longer be set aside.
+          this.lastLoad = null;
           if (this.lastSavedState) {
             this.lastSavedState = {
               ...this.lastSavedState,
@@ -474,10 +489,83 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     }
 
     this.lastSavedState = null;
+    this.lastLoad = null;
     this.pendingData = null;
   }
 
   // --- Private ---
+
+  private report(message: string | null): void {
+    this.reportingLoadFailure = message === CLOUD_LOAD_FAILED_MESSAGE;
+    this.onSaveResult?.(message);
+  }
+
+  private reportLoadFailure(): void {
+    if (!this.disposed) this.report(CLOUD_LOAD_FAILED_MESSAGE);
+  }
+
+  /** Snapshot writes throw, so the action that asked can say it did not happen. */
+  private refuseUntilLoaded(): void {
+    if (!this.canWrite()) throw new CloudDataNotLoadedError();
+  }
+
+  /**
+   * Take a load's result as the data later saves are compared with, keeping
+   * the baseline it replaces in case AppDataContext does not apply this load.
+   */
+  private adopt(appData: AppData): void {
+    this.lastLoad = { returned: appData, previous: this.lastSavedState };
+    this.lastSavedState = structuredClone(appData);
+    // A good load clears this service's own failed-load report, and only
+    // that: a failed save's message stays until a save succeeds.
+    if (this.reportingLoadFailure) this.report(null);
+  }
+
+  /**
+   * Read the projects, their releases and the settings. Null when the signed-in
+   * user changes during the reads; a failed read throws. Changes nothing.
+   */
+  private async readCloudAppData(): Promise<AppData | null> {
+    // Step 1: List projects via the shared member-scoped helper (v0.22.1).
+    const memberDocs = await this.listMemberProjects();
+    // v0.27.0 (Pass 6, I1a): bail if user changed during the await.
+    if (auth?.currentUser?.uid !== this.uid) return null;
+    const projects: { id: string; meta: FirestoreProjectMeta }[] =
+      memberDocs.map(d => ({ id: d.id, meta: d.data() }));
+
+    // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
+    projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
+
+    // Step 2: Load releases for each project
+    const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
+    for (const project of projects) {
+      const releasesSnap = await getDocs(
+        collection(this.db, `ganttapp_projects/${project.id}/releases`)
+      );
+      // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
+      if (auth?.currentUser?.uid !== this.uid) return null;
+      releasesMap.set(
+        project.id,
+        releasesSnap.docs.map(d => ({ id: d.id, data: d.data() as FirestoreRelease }))
+      );
+    }
+
+    // Step 3: Load user settings
+    const settingsDoc = await getDoc(doc(this.db, `ganttapp_settings/${this.uid}`));
+    // v0.27.0 (Pass 6, I1a): final uid check before returning data.
+    if (auth?.currentUser?.uid !== this.uid) return null;
+    const settings = settingsDoc.exists() ? (settingsDoc.data() as FirestoreUserSettings) : null;
+
+    // Reconstruct flat AppData
+    return {
+      projects: projects.map(p => firestoreToProject(p.id, p.meta)),
+      releases: projects.flatMap(p => {
+        const entries = releasesMap.get(p.id) ?? [];
+        return firestoreReleasesToFlat(p.id, entries);
+      }),
+      ...((settings ? userSettingsToAppData(settings) : {}) as Partial<AppData>),
+    };
+  }
 
   /**
    * List the project documents the current user is a member of.
@@ -522,8 +610,13 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   private async executeSave(): Promise<void> {
     const data = this.pendingData;
+    const baseline = this.lastSavedState;
     if (!data || this.disposed) return;
     this.pendingData = null;
+    // No baseline, so nothing to compare the save with: the load it was queued
+    // against has been set aside. The save is dropped rather than kept for the
+    // next flush, which would write it against whatever baseline exists by then.
+    if (!baseline) return;
 
     // v0.27.0 (Pass 6, I1a / save-side): abort without re-queuing if the
     // authenticated user has changed since this save was queued. Without
@@ -535,10 +628,11 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
     try {
       this.lastSavedState = await executeFirestoreSave(
-        this.db, this.uid, data, this.lastSavedState
+        this.db, this.uid, data, baseline
       );
+      this.lastLoad = null; // the baseline is now this save's
       // Clear any prior surfaced error after a successful recovery save.
-      this.onSaveResult?.(null);
+      this.report(null);
     } catch (error) {
       const message = sanitizeFirebaseError(error);
       console.error('Failed to save cloud data:', message);
@@ -552,7 +646,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       ) {
         this.pendingData = data;
       }
-      this.onSaveResult?.(message);
+      this.report(message);
     }
   }
 }

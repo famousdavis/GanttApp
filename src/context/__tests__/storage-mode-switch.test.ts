@@ -250,3 +250,50 @@ describe('switchToCloudMode', () => {
     await expect(switchToCloudMode(mockFirestore, mockUser)).rejects.toThrow('Failed to check project "BadName":');
   });
 });
+
+describe('switchToCloudMode — which projects it uploaded and which it skipped', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    batches.length = 0;
+    cloud.constructed.length = 0;
+    local.data = {
+      projects: [
+        { id: 'proj-1', name: 'Project One' },
+        { id: 'proj-2', name: 'Project Two' },
+        { id: 'proj-3', name: 'Same Name' },
+        { id: 'proj-4', name: 'Taken Id' },
+      ],
+      releases: [],
+    };
+    local.snapshots = [];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('names each uploaded project by its local id, and each skipped one by its local and cloud names', async () => {
+    const cloudDocs: Record<string, unknown> = {
+      'ganttapp_projects/proj-1': { name: 'Renamed In Cloud', members: { 'user-123': 'owner' } },
+      'ganttapp_projects/proj-3': { name: 'Same Name', members: { 'user-123': 'editor' } },
+      'ganttapp_projects/proj-4': { name: 'Someone Else', members: { 'user-999': 'owner' } },
+    };
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (!(ref.path in cloudDocs)) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+      return { exists: () => true, data: () => cloudDocs[ref.path] };
+    });
+    vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(NEW_ID_1).mockReturnValueOnce(NEW_ID_2);
+
+    const result = await switchToCloudMode(mockFirestore, mockUser) as unknown as Record<string, unknown>;
+
+    expect(result.uploadedProjects).toEqual([
+      { id: 'proj-2', name: 'Project Two' },
+      { id: 'proj-4', name: 'Taken Id' },
+    ]);
+    expect(result.skippedProjects).toEqual([
+      { id: 'proj-1', localName: 'Project One', cloudName: 'Renamed In Cloud' },
+      { id: 'proj-3', localName: 'Same Name', cloudName: 'Same Name' },
+    ]);
+    expect(projectDocsWritten()).toEqual([`ganttapp_projects/${NEW_ID_1}`, `ganttapp_projects/${NEW_ID_2}`]);
+  });
+});

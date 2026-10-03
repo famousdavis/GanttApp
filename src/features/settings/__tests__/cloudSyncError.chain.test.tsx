@@ -16,15 +16,11 @@
 // sends. A door that passed on only the errors would leave the message on
 // screen after the cloud had recovered.
 //
-// ⚠️ KNOWN DEFECT these tests pass through: when the storage switches to the
-// cloud service, the app-data save effect re-runs and queues the pre-switch
-// in-memory state on the new service, which writes it about 200 ms later.
-// With no cloud projects that write is the settings document only; in the
-// upload test it rewrites the project the upload has just created, with the
-// same members, so nothing here observes it. The fixed wait below lets that
-// write finish before the failure is armed, so the failure lands on the
-// user's own edit. It is a fixed wait, not a wait for that write, so the
-// tests stay valid once the defect is fixed and the write no longer happens.
+// The fixed wait below lets the cloud load settle, and any save it starts
+// finish, before the failure is armed, so the failure lands on the user's own
+// edit. Before the save-before-load fix, a storage switch also queued the
+// pre-switch in-memory state on the new service and wrote it about 200 ms
+// later; the wait covered that write too, and nothing here depends on it.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
@@ -125,7 +121,7 @@ import { TOS_VERSION } from '../../../lib/version';
 const FAILURE = Object.assign(new Error('raw transport detail'), { code: 'unavailable' });
 const SHOWN = 'Cloud sync error: Service temporarily unavailable. Please try again later.';
 
-/** Real time, so the debounced save and the swap-time save (see the header) both land. */
+/** Real time, so the cloud load and any debounced save (see the header) both land. */
 const settle = () => act(() => new Promise<void>((resolve) => { setTimeout(resolve, 350); }));
 
 function commitField(label: string, value: string) {

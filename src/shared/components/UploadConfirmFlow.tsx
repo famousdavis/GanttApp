@@ -2,21 +2,26 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// UploadConfirmFlow — radio-click upload confirm + post-upload cleanup confirm.
+// UploadConfirmFlow — radio-click upload confirm, then what the switch did.
 // Extracted from StorageSection in v17.0 so the new CloudStorageModal can
-// reuse identical upload/cleanup behavior without duplicating state.
+// reuse identical upload behavior without duplicating state.
 //
-// State derivation: the post-upload cleanup confirm visibility and the upload
-// status message are derived directly from the parent-owned `uploadResult`
-// prop — no setState-in-effect. When the user dismisses the cleanup confirm
-// (either by clearing or by keeping), `onClearUploadResult()` is called and
-// the parent clears the prop, which hides the confirm naturally.
+// After a switch, the uploaded projects' copies in this browser are already
+// removed (StorageContext). Projects that were skipped, because they were
+// already in the cloud, keep their copies here, which may differ from the
+// cloud versions: the prompt offers to download them as a file and then
+// remove them, or to keep them.
+//
+// State derivation: what is shown is derived from the parent-owned
+// `uploadResult` prop — no setState-in-effect. The user's choice calls
+// `onClearUploadResult()`, and the parent clears the prop.
 
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useImperativeHandle, useState, type CSSProperties } from 'react';
 import type { StorageMode, GanttStorageService } from '../types/storage';
 import type { UploadResult } from '../../context/StorageContext';
 import type { ThemeColors } from '../utils/theme';
-import { clearLocalProjectData } from '../storage/local-gantt-storage-service';
+import { LocalGanttStorageService, removeLocalProjectCopies } from '../storage/local-gantt-storage-service';
+import { exportSelectedProjects } from '../utils/export';
 import { ConfirmDialog } from './ConfirmDialog';
 
 export interface UploadConfirmFlowProps {
@@ -38,20 +43,45 @@ export interface UploadConfirmFlowHandle {
   requestCloudSwitch: () => void;
 }
 
-function buildUploadMessage(result: UploadResult): string {
-  return `${result.uploaded} project(s) uploaded to the cloud` +
-    (result.skipped > 0 ? ` (${result.skipped} already existed, skipped)` : '') +
-    '.';
+const SKIPPED_INTRO =
+  'These projects were already in your cloud, so they were not uploaded. This browser still has its own copy of each, which may differ from the cloud version:';
+const SEEING_CLOUD = 'You are now seeing the cloud versions.';
+const DOWNLOAD_NOTE =
+  "Saves this browser's copies, with their snapshots, as a file. You can import it later (Projects \u2192 Import), and GanttApp will ask whether to skip, copy or replace each project.";
+const KEEP_WARNING =
+  'If you keep them: the next time you open GanttApp in this browser, it opens in local mode and shows these copies, not your cloud data, and changes are saved only in this browser. To return to your cloud data, open Settings and choose Upload to Cloud: that skips these projects again and replaces your cloud settings with this browser\'s. Cancel there keeps GanttApp in local mode. Signing out now removes the copies from this browser; signing out on a later visit leaves them here for anyone who uses it.';
+const REMOVED = "This browser's copies were removed.";
+const KEPT = "Kept this browser's copies. GanttApp will ask about them again next time.";
+
+function uploadedSentence(count: number): string {
+  return count === 1
+    ? '1 project uploaded to the cloud. Its copy in this browser was removed.'
+    : `${count} projects uploaded to the cloud. Their copies in this browser were removed.`;
+}
+
+function skippedLabel(p: { localName: string; cloudName: string }): string {
+  return p.localName === p.cloudName ? p.localName : `${p.localName} (named ${p.cloudName} in the cloud)`;
+}
+
+/** Download the skipped projects' copies in THIS browser — never the cloud data on screen. */
+async function downloadLocalCopies(projectIds: string[]): Promise<void> {
+  const local = new LocalGanttStorageService();
+  const localData = await local.loadAppData();
+  if (!localData) return;
+  await exportSelectedProjects(projectIds, localData, local, { includeSnapshots: true });
 }
 
 export const UploadConfirmFlow = forwardRef<UploadConfirmFlowHandle, UploadConfirmFlowProps>(
   function UploadConfirmFlow(
-    { colors, isSwitching, localProjectCount, uploadResult, onModeChange, onClearUploadResult },
+    { colors, isSwitching, localProjectCount, uploadResult, storage, onModeChange, onClearUploadResult },
     ref
   ) {
     const [showUploadConfirm, setShowUploadConfirm] = useState(false);
-    // Post-cleanup status message — set in event handler, not in an effect.
+    // Post-choice status message — set in event handler, not in an effect.
     const [postCleanupMessage, setPostCleanupMessage] = useState<string | null>(null);
+    // The switch result whose copies were downloaded; the remove button
+    // belongs to that result only.
+    const [downloadedFor, setDownloadedFor] = useState<UploadResult | null>(null);
 
     useImperativeHandle(ref, () => ({
       requestCloudSwitch: () => {
@@ -72,32 +102,50 @@ export const UploadConfirmFlow = forwardRef<UploadConfirmFlowHandle, UploadConfi
       setShowUploadConfirm(false);
     };
 
-    // Derived: cleanup confirm is visible whenever uploadResult shows activity.
-    const cleanupVisible = uploadResult !== null &&
-      (uploadResult.uploaded > 0 || uploadResult.skipped > 0);
+    // Derived: the prompt shows while a switch result has skipped projects.
+    const skipped = uploadResult ? uploadResult.skippedProjects : [];
+    const promptVisible = skipped.length > 0;
+    const downloaded = uploadResult !== null && downloadedFor === uploadResult;
+    // "You are now seeing the cloud versions" is true only once the cloud load
+    // has succeeded; until then the screen still shows this browser's data.
+    const cloudLoaded = storage.mode === 'cloud' && storage.canWrite();
 
-    // Derived: status message comes from the active uploadResult, or the
-    // last post-cleanup message if no upload is active.
+    // Derived: with nothing skipped, one status line says what was uploaded;
+    // with nothing uploaded either, there is nothing to say.
     const statusMessage = uploadResult
-      ? buildUploadMessage(uploadResult)
+      ? (!promptVisible && uploadResult.uploaded > 0 ? uploadedSentence(uploadResult.uploaded) : null)
       : postCleanupMessage;
 
-    const confirmCleanup = () => {
-      clearLocalProjectData();
-      const base = uploadResult ? buildUploadMessage(uploadResult) : '';
-      setPostCleanupMessage((base ? base + ' ' : '') + 'Local data cleared.');
+    const downloadCopies = async () => {
+      try {
+        await downloadLocalCopies(skipped.map(p => p.id));
+        setDownloadedFor(uploadResult);
+      } catch (error) {
+        console.error('Could not download local copies:', error instanceof Error ? error.message : 'Unknown error');
+      }
+    };
+
+    const removeCopies = async () => {
+      await removeLocalProjectCopies(skipped.map(p => p.id));
+      setPostCleanupMessage(REMOVED);
       onClearUploadResult();
     };
 
-    const keepLocal = () => {
-      // Capture the upload status into local state so the user still sees the
-      // confirmation message ("3 project(s) uploaded to the cloud.") after
-      // dismissing the cleanup prompt — matches pre-extraction behavior.
-      if (uploadResult) {
-        setPostCleanupMessage(buildUploadMessage(uploadResult));
-      }
+    const keepCopies = () => {
+      setPostCleanupMessage(KEPT);
       onClearUploadResult();
     };
+
+    const noteStyle: CSSProperties = { color: colors.textSecondary, fontSize: '0.85rem', margin: '0.25rem 0 0.75rem' };
+    const buttonStyle = (primary: boolean): CSSProperties => ({
+      padding: '0.5rem 1.25rem',
+      borderRadius: '4px',
+      fontWeight: 600,
+      cursor: 'pointer',
+      background: 'transparent',
+      color: primary ? '#0070f3' : colors.text,
+      border: `1px solid ${primary ? '#0070f3' : colors.border}`,
+    });
 
     return (
       <>
@@ -114,23 +162,39 @@ export const UploadConfirmFlow = forwardRef<UploadConfirmFlowHandle, UploadConfi
           />
         )}
 
-        {cleanupVisible && (
-          <ConfirmDialog
-            // ⚠️ DELIBERATELY NOT `blocking`, even though its primary action is
-            // destructive. This prompt appears SPONTANEOUSLY when an async
-            // upload completes, not because the user asked for it — stealing
-            // focus from someone mid-task is the wrong answer for a surface
-            // that arrives on its own. The right answer is to ANNOUNCE it, via
-            // a live region, which is new scope and an open question with the
-            // owner. Do not "fix" this by adding `blocking`.
-            message="Your projects are now in the cloud. Clear local copies to prevent duplicates on future sign-ins?"
-            colors={colors}
-            borderColor="#e53e3e"
-            buttons={[
-              { label: 'Clear Local Data', onClick: confirmCleanup, variant: 'danger' },
-              { label: 'Keep Local Copies', onClick: keepLocal, variant: 'secondary' },
-            ]}
-          />
+        {promptVisible && uploadResult && (
+          // ⚠️ DELIBERATELY TAKES NO FOCUS, even though one of its actions is
+          // destructive. This prompt appears SPONTANEOUSLY when an async
+          // upload completes, not because the user asked for it — stealing
+          // focus from someone mid-task is the wrong answer for a surface
+          // that arrives on its own. The right answer is to ANNOUNCE it, via
+          // a live region, which is new scope and an open question with the
+          // owner. Do not "fix" this by moving focus here.
+          <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+            <div style={{ padding: '1rem', border: `1px solid ${colors.border}`, borderRadius: '6px', background: colors.surface, color: colors.text }}>
+              {uploadResult.uploaded > 0 && <p style={{ margin: '0 0 0.5rem' }}>{uploadedSentence(uploadResult.uploaded)}</p>}
+              <p style={{ margin: '0 0 0.5rem' }}>{SKIPPED_INTRO}</p>
+              <ul style={{ margin: '0 0 0.5rem', paddingLeft: '1.25rem' }}>
+                {skipped.map(p => <li key={p.id}>{skippedLabel(p)}</li>)}
+              </ul>
+              {cloudLoaded && <p style={{ margin: '0 0 0.75rem' }}>{SEEING_CLOUD}</p>}
+              <button type="button" onClick={() => { void downloadCopies(); }} style={buttonStyle(true)}>
+                Download these copies
+              </button>
+              <p style={noteStyle}>{DOWNLOAD_NOTE}</p>
+              {downloaded && (
+                <button type="button" onClick={() => { void removeCopies(); }} style={{ ...buttonStyle(false), marginBottom: '0.75rem' }}>
+                  I have saved the file &mdash; remove these copies
+                </button>
+              )}
+              <div>
+                <button type="button" onClick={keepCopies} style={buttonStyle(false)}>
+                  Keep these copies
+                </button>
+                <p style={noteStyle}>{KEEP_WARNING}</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {statusMessage && !isSwitching && (

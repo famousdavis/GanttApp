@@ -413,18 +413,18 @@ describe('FirestoreGanttStorageServiceImpl — sync behaviour', () => {
       expect(projectWrites('p1')).toEqual([]);
     });
 
-    it('does not throw when nothing has loaded yet, writes nothing, and still reports the revoke', async () => {
-      // AppDataContext opens no listener before a load applies, but the
-      // service must not depend on that. A save before any load is refused,
-      // so there is nothing to prune; the revoke event still goes out.
+    it('opens no listener before any load, and writes nothing', async () => {
+      // A listener opens only on a project the baseline holds, and before a
+      // load there is none, so no listener can be refused before a load. (A
+      // refused open listener is covered by the two tests above.) A save
+      // before any load is refused.
       service.subscribeToProject('p1', vi.fn());
       await service.saveAppData({ projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }], releases: [] });
-
-      expect(() => listenerOn('p1').error(coded('permission-denied'))).not.toThrow();
-      expect(revoked).toEqual(['p1']);
-
       await flushSave();
+
+      expect(fake.state.listeners).toEqual([]);
       expect(fake.state.writes).toEqual([]);
+      expect(revoked).toEqual([]);
     });
   });
 
@@ -806,6 +806,8 @@ describe('FirestoreGanttStorageServiceImpl — no save before a load', () => {
     expect(projectWrites('p3')).toEqual([]); // not deleted
   });
 
+  // The app sets a load aside in the continuation that received it, so no read
+  // comes between them; this guards the service's own bookkeeping.
   it('reads the cloud without stopping the load before it from being set aside', async () => {
     const loaded = (await service.loadAppData())!; // a first load, of an empty cloud
     seedProject('p3', 'Gamma');
@@ -816,5 +818,378 @@ describe('FirestoreGanttStorageServiceImpl — no save before a load', () => {
     expect(read?.projects.map((p) => p.id)).toEqual(['p3']);
     expect(loadApi(service).canWrite?.()).toBe(false);
     expect(onSaveResult.mock.calls).toEqual([[LOAD_FAILED]]);
+  });
+});
+
+// A project created here, a revoke during a save, and a snapshot written under
+// a new project: the guards that keep each from undoing the others.
+//   B: no listener opens on a project the baseline does not hold; it starts
+//      once the save that writes the project is acknowledged.
+//   S: a snapshot write under a project waits for that project's first save.
+//   D: an acknowledgement, or a failed save's re-queue, does not bring back a
+//      project pruned while the save was in flight.
+describe('FirestoreGanttStorageServiceImpl — new projects, revokes and snapshot writes', () => {
+  let service: FirestoreGanttStorageServiceImpl;
+  let onSaveResult: ReturnType<typeof vi.fn<(error: string | null) => void>>;
+  const revoked: string[] = [];
+  const onRevoked = (e: Event) => revoked.push((e as CustomEvent<{ projectId: string }>).detail.projectId);
+  const withProject = (data: AppData, id: string, name = id): AppData =>
+    ({ ...data, projects: [...data.projects, { id, name, owner: 'u1' }] });
+  const listensOn = (projectId: string) =>
+    fake.state.listeners.filter((l) => l.path === `ganttapp_projects/${projectId}/releases`);
+  const writePaths = () => fake.state.writes.map((w) => `${w.op} ${w.path}`);
+  /** A commit hook that waits until `release()` is called; `fail` makes it reject. */
+  const hold = () => {
+    let release!: () => void;
+    let fail!: (err: unknown) => void;
+    const promise = new Promise<void>((resolve, reject) => { release = resolve; fail = reject; });
+    return { hook: () => promise, release, fail };
+  };
+  const settled = (p: Promise<unknown>) => {
+    const state = { done: false, error: null as unknown };
+    p.then(() => { state.done = true; }, (err: unknown) => { state.done = true; state.error = err; });
+    return state;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const s = fake.state;
+    s.docs.clear();
+    s.writes.length = 0;
+    s.reads.length = 0;
+    s.listeners.length = 0;
+    s.commits = 0;
+    s.commitHook = null;
+    s.readHook = null;
+    s.auth.currentUser = { uid: 'u1' };
+    revoked.length = 0;
+    window.addEventListener('ganttapp:project-revoked', onRevoked);
+    onSaveResult = vi.fn<(error: string | null) => void>();
+    service = new FirestoreGanttStorageServiceImpl({} as Firestore, 'u1', onSaveResult);
+  });
+
+  afterEach(() => {
+    service.dispose();
+    window.removeEventListener('ganttapp:project-revoked', onRevoked);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  describe('B: no listener before the project is confirmed', () => {
+    it('opens a listener at once on a project the baseline holds', async () => {
+      // A control.
+      seedProject('p1', 'Alpha');
+      await service.loadAppData();
+      service.subscribeToProject('p1', vi.fn());
+      expect(listensOn('p1')).toHaveLength(1);
+    });
+
+    it('opens none on a project the baseline does not hold', async () => {
+      // Fails under: B.
+      seedProject('p1', 'Alpha');
+      await service.loadAppData();
+      service.subscribeToProject('p9', vi.fn());
+      expect(listensOn('p9')).toHaveLength(0);
+    });
+
+    it('opens it once the whole save that writes the project is acknowledged, not at phase 1', async () => {
+      // Fails under: B; by reading, also under a B that confirms at phase 1.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p9', vi.fn());
+      let atPhase2 = -1;
+      fake.state.commitHook = async () => {
+        // Phase 1 is committing; arm a hook for phase 2, which runs after phase 1 has applied.
+        fake.state.commitHook = async () => { atPhase2 = listensOn('p9').length; };
+      };
+      await service.saveAppData(withProject(loaded, 'p9'));
+      await flushSave();
+
+      expect(atPhase2).toBe(0);
+      expect(listensOn('p9')).toHaveLength(1);
+    });
+
+    it('its unsubscribe before the start drops it, so nothing opens later', async () => {
+      // Fails under: B.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      const unsubscribe = service.subscribeToProject('p9', vi.fn());
+      unsubscribe();
+      await service.saveAppData(withProject(loaded, 'p9'));
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(0);
+    });
+
+    it('its unsubscribe after the start stops the listener it started', async () => {
+      // Passes at base (the listener opened at once there). Fails under wrong-U:
+      // an unsubscribe that only cancels the deferral.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      const unsubscribe = service.subscribeToProject('p9', vi.fn());
+      await service.saveAppData(withProject(loaded, 'p9'));
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(1);
+
+      unsubscribe();
+      expect(listensOn('p9')[0].unsub).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispose() drops it: nothing opens when the save it was waiting for completes', async () => {
+      // Fails under: B; by reading, also under a B whose dispose() keeps its deferrals.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p9', vi.fn());
+      await service.saveAppData(withProject(loaded, 'p9'));
+      const commit = hold();
+      fake.state.commitHook = commit.hook;
+      await vi.advanceTimersByTimeAsync(200); // the save is in flight, at phase 1
+      service.dispose();
+      commit.release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(listensOn('p9')).toHaveLength(0);
+    });
+
+    it('starts nothing when the signed-in user changed before the acknowledgement', async () => {
+      // Fails under: B.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p9', vi.fn());
+      await service.saveAppData(withProject(loaded, 'p9'));
+      fake.state.commitHook = async () => { fake.state.auth.currentUser = { uid: 'u2' }; };
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(0);
+    });
+
+    it('starts nothing after a failed save, and starts after the next save that succeeds', async () => {
+      // Fails under: B; by reading, also under a B that starts on any settlement.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p9', vi.fn());
+      await service.saveAppData(withProject(loaded, 'p9'));
+      fake.state.commitHook = async () => { throw coded('unavailable'); };
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(0);
+
+      await service.saveAppData(renamed(withProject(loaded, 'p9'), 'p1', 'Alpha 2'));
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(1);
+    });
+
+    it('starts nothing for a save dropped because its load was set aside', async () => {
+      // Fails under: B.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p9', vi.fn());
+      await service.saveAppData(withProject(loaded, 'p9'));
+      service.setAsideLoad(loaded); // the first load: nothing to put back, so saves are refused
+      await flushSave();
+      expect(listensOn('p9')).toHaveLength(0);
+      expect(fake.state.writes).toEqual([]);
+    });
+  });
+
+  describe('S: a snapshot write waits for its project\'s first save', () => {
+    it('saveSnapshots runs the pending first save, then writes the snapshot', async () => {
+      // Fails under: S (the snapshot is written before its project).
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(withProject(loaded, 'p9'));
+      const done = settled(service.saveSnapshots([snapshot('s9', 'p9')]));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(done).toEqual({ done: true, error: null });
+      const paths = writePaths();
+      expect(paths.indexOf('set ganttapp_projects/p9')).toBeGreaterThanOrEqual(0);
+      expect(paths.indexOf('set ganttapp_projects/p9')).toBeLessThan(paths.indexOf('set ganttapp_projects/p9/snapshots/s9'));
+    });
+
+    it('addSnapshot waits the same way', async () => {
+      // Fails under: S.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(withProject(loaded, 'p9'));
+      const done = settled(service.addSnapshot(snapshot('s9', 'p9')));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(done).toEqual({ done: true, error: null });
+      const paths = writePaths();
+      expect(paths.indexOf('set ganttapp_projects/p9')).toBeGreaterThanOrEqual(0);
+      expect(paths.indexOf('set ganttapp_projects/p9')).toBeLessThan(paths.indexOf('set ganttapp_projects/p9/snapshots/s9'));
+    });
+
+    it('does not wait for a project outside the baseline that no save holds (added elsewhere since the load)', async () => {
+      // A control: passes before and after. By reading, it fails under a key of "not in the baseline" alone.
+      seedProject('p1', 'Alpha');
+      await service.loadAppData();
+      seedProject('p8', 'Shared since the load');
+      const done = settled(service.saveSnapshots([snapshot('s8', 'p8')]));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(done).toEqual({ done: true, error: null });
+      expect(writePaths()).toContain('set ganttapp_projects/p8/snapshots/s8');
+    });
+
+    it('runs no flush while any save is in flight, and writes only after both have settled', async () => {
+      // Fails under: S; and under S without its wait for saves in flight.
+      seedProject('p1', 'Alpha');
+      seedProject('p2', 'Beta');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(renamed(loaded, 'p2', 'Beta 2'));
+      const first = hold();
+      fake.state.commitHook = first.hook;
+      await vi.advanceTimersByTimeAsync(200); // save A in flight
+      await service.saveAppData(withProject(renamed(loaded, 'p2', 'Beta 2'), 'p9'));
+      const done = settled(service.saveSnapshots([snapshot('s9', 'p9')]));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(writePaths().filter((p) => p.includes('p9'))).toEqual([]); // neither the flush nor the snapshot yet
+      expect(done.done).toBe(false);
+
+      first.release();
+      await vi.advanceTimersByTimeAsync(0);
+      const paths = writePaths();
+      expect(done).toEqual({ done: true, error: null });
+      expect(paths.filter((p) => p === 'set ganttapp_projects/p9')).toHaveLength(1);
+      expect(paths.indexOf('set ganttapp_projects/p9')).toBeLessThan(paths.indexOf('set ganttapp_projects/p9/snapshots/s9'));
+    });
+
+    it('waits for a debounced save that starts while it waits', async () => {
+      // Fails under: S.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(withProject(loaded, 'p9'));
+      const flushed = hold();
+      fake.state.commitHook = flushed.hook; // the flush's phase 1 is held
+      const done = settled(service.saveSnapshots([snapshot('s9', 'p9')]));
+      await vi.advanceTimersByTimeAsync(0);
+      await service.saveAppData(renamed(withProject(loaded, 'p9'), 'p1', 'Alpha 2'));
+      const later = hold();
+      await vi.advanceTimersByTimeAsync(0);
+      flushed.release();
+      fake.state.commitHook = later.hook; // hold the next commit: the first save's phase 2, or the later save
+      await vi.advanceTimersByTimeAsync(200);
+      expect(done.done).toBe(false);
+
+      later.release();
+      await vi.advanceTimersByTimeAsync(400);
+      expect(done).toEqual({ done: true, error: null });
+      expect(writePaths().at(-1)).toBe('set ganttapp_projects/p9/snapshots/s9');
+    });
+
+    it('flushes at most once, then throws an error callers can tell apart, and writes no snapshot', async () => {
+      // Fails under: S.
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(withProject(loaded, 'p9'));
+      let attempts = 0;
+      fake.state.commitHook = async () => { attempts += 1; throw coded('unavailable'); };
+      const done = settled(service.saveSnapshots([snapshot('s9', 'p9')]));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(done.done).toBe(true);
+      expect((done.error as Error | null)?.name).toBe('ProjectNotSavedError');
+      expect(attempts).toBe(1);
+      expect(writePaths()).toEqual([]);
+    });
+
+    it('throws only once no save is in flight', async () => {
+      // Fails under: S; by reading, also under S without its second wait.
+      seedProject('p1', 'Alpha');
+      seedProject('p2', 'Beta');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(renamed(loaded, 'p2', 'Beta 2'));
+      const other = hold();
+      fake.state.commitHook = other.hook;
+      await vi.advanceTimersByTimeAsync(200); // an unrelated save in flight
+      await service.saveAppData(withProject(renamed(loaded, 'p2', 'Beta 2'), 'p9'));
+      const done = settled(service.saveSnapshots([snapshot('s9', 'p9')]));
+      other.release();
+      fake.state.commitHook = async () => { throw coded('unavailable'); }; // the flush fails
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect((done.error as Error | null)?.name).toBe('ProjectNotSavedError');
+      expect(writePaths().filter((p) => p.includes('/snapshots/'))).toEqual([]);
+    });
+
+    it('does not wait to delete', async () => {
+      // A control: a project the cloud never had has no snapshots there. (It
+      // fails under wrong-E, whose immediate save writes the project.)
+      seedProject('p1', 'Alpha');
+      const loaded = (await service.loadAppData())!;
+      await service.saveAppData(withProject(loaded, 'p9'));
+      const done = settled(service.deleteSnapshotsForProject('p9'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(done).toEqual({ done: true, error: null });
+      expect(writePaths().filter((p) => p.includes('p9'))).toEqual([]);
+    });
+  });
+
+  describe('D: an acknowledgement does not undo a revoke', () => {
+    it('ordering 1: the in-flight save\'s acknowledgement leaves the pruned project out, so the next save does not delete it', async () => {
+      // Fails under: D.
+      seedProject('p1', 'Alpha');
+      seedProject('p2', 'Beta');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p2', vi.fn());
+      await service.saveAppData(renamed(loaded, 'p1', 'Alpha 2'));
+      const commit = hold();
+      fake.state.commitHook = commit.hook;
+      await vi.advanceTimersByTimeAsync(200); // save A in flight
+      listenerOn('p2').error(coded('permission-denied'));
+      commit.release();
+      await vi.advanceTimersByTimeAsync(0); // A acknowledged
+
+      const evicted: AppData = { ...renamed(loaded, 'p1', 'Alpha 3'), projects: renamed(loaded, 'p1', 'Alpha 3').projects.filter((p) => p.id !== 'p2') };
+      await service.saveAppData(evicted);
+      await flushSave();
+      expect(projectWrites('p2')).toEqual([]);
+    });
+
+    it('a failed in-flight save queues its data again without the pruned project', async () => {
+      // Fails under: D's re-queue filter.
+      seedProject('p1', 'Alpha');
+      seedProject('p2', 'Beta');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p2', vi.fn());
+      await service.saveAppData(renamed(loaded, 'p2', 'Beta 2'));
+      const commit = hold();
+      fake.state.commitHook = commit.hook;
+      await vi.advanceTimersByTimeAsync(200);
+      listenerOn('p2').error(coded('permission-denied'));
+      commit.fail(coded('permission-denied'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      window.dispatchEvent(new Event('beforeunload'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(projectWrites('p2')).toEqual([]);
+    });
+
+    it('two saves in flight: neither acknowledgement brings the pruned project back', async () => {
+      // Fails under: D.
+      seedProject('p1', 'Alpha');
+      seedProject('p2', 'Beta');
+      const loaded = (await service.loadAppData())!;
+      service.subscribeToProject('p2', vi.fn());
+      await service.saveAppData(renamed(loaded, 'p1', 'Alpha 2'));
+      const first = hold();
+      fake.state.commitHook = first.hook;
+      await vi.advanceTimersByTimeAsync(200);
+      await service.saveAppData(renamed(loaded, 'p1', 'Alpha 3'));
+      const second = hold();
+      fake.state.commitHook = second.hook;
+      await vi.advanceTimersByTimeAsync(200); // two saves in flight
+      listenerOn('p2').error(coded('permission-denied'));
+      first.release();
+      await vi.advanceTimersByTimeAsync(0);
+      second.release();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const evicted: AppData = { ...renamed(loaded, 'p1', 'Alpha 4'), projects: renamed(loaded, 'p1', 'Alpha 4').projects.filter((p) => p.id !== 'p2') };
+      await service.saveAppData(evicted);
+      await flushSave();
+      expect(projectWrites('p2')).toEqual([]);
+    });
   });
 });

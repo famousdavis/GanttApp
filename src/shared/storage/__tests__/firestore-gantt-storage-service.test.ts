@@ -81,6 +81,25 @@ describe('FirestoreGanttStorageService', () => {
     mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
   });
 
+  /**
+   * A load whose baseline holds these projects. A listener opens only on a
+   * project the baseline holds; on any other it waits for the save that
+   * writes the project (v0.29.1), so tests of the listener itself load first.
+   */
+  async function seedLoad(...ids: string[]) {
+    mockGetDocs.mockReset();
+    mockGetDoc.mockReset();
+    mockGetDocs.mockResolvedValueOnce({
+      docs: ids.map((id) => ({
+        id,
+        data: () => ({ name: id, owner: mockUid, members: { [mockUid]: 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '' }),
+      })),
+    });
+    ids.forEach(() => mockGetDocs.mockResolvedValueOnce({ docs: [] }));
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+    expect(await service.loadAppData()).not.toBeNull();
+  }
+
   it('has mode "cloud"', () => {
     expect(service.mode).toBe('cloud');
   });
@@ -287,7 +306,8 @@ describe('FirestoreGanttStorageService', () => {
   });
 
   describe('subscribeToProject', () => {
-    it('sets up onSnapshot listener and returns unsubscribe', () => {
+    it('sets up onSnapshot listener and returns unsubscribe', async () => {
+      await seedLoad('p1');
       const unsubFn = vi.fn();
       mockOnSnapshot.mockReturnValue(unsubFn);
 
@@ -297,7 +317,8 @@ describe('FirestoreGanttStorageService', () => {
       expect(typeof unsub).toBe('function');
     });
 
-    it('converts Firestore releases and passes QuerySnapshot', () => {
+    it('converts Firestore releases and passes QuerySnapshot', async () => {
+      await seedLoad('p1');
       const mockSnapshot = {
         docs: [{
           id: 'r1',
@@ -418,7 +439,8 @@ describe('FirestoreGanttStorageService', () => {
   });
 
   describe('dispose', () => {
-    it('unsubscribes all listeners', () => {
+    it('unsubscribes all listeners', async () => {
+      await seedLoad('p1', 'p2');
       const unsub1 = vi.fn();
       const unsub2 = vi.fn();
       mockOnSnapshot.mockReturnValueOnce(unsub1).mockReturnValueOnce(unsub2);
@@ -574,7 +596,8 @@ describe('FirestoreGanttStorageService', () => {
   // callbacks and abort saves when auth.currentUser.uid no longer matches
   // the uid this service was constructed for.
   describe('Pass 6 — user-switch race guards (I1a)', () => {
-    it('discards subscribeToProject callback when auth.currentUser is null', () => {
+    it('discards subscribeToProject callback when auth.currentUser is null', async () => {
+      await seedLoad('p1');
       mutableAuth.currentUser = null;
       const callback = vi.fn();
       mockOnSnapshot.mockImplementation(
@@ -588,7 +611,8 @@ describe('FirestoreGanttStorageService', () => {
       expect(callback).not.toHaveBeenCalled();
     });
 
-    it('allows subscribeToProject callback when auth.currentUser.uid matches', () => {
+    it('allows subscribeToProject callback when auth.currentUser.uid matches', async () => {
+      await seedLoad('p1');
       mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
       const callback = vi.fn();
       mockOnSnapshot.mockImplementation(
@@ -604,9 +628,10 @@ describe('FirestoreGanttStorageService', () => {
       expect(callback).toHaveBeenCalledTimes(1);
     });
 
-    it('discards subscribeToProject callback when auth.currentUser.uid changes to a different user (user-transition)', () => {
+    it('discards subscribeToProject callback when auth.currentUser.uid changes to a different user (user-transition)', async () => {
       // Subscribe with user-1; then User-2 signs in BEFORE the success
       // callback fires. The guard must catch the transition.
+      await seedLoad('p1');
       mutableAuth.currentUser = { uid: 'test-uid' } as Partial<import('firebase/auth').User>;
       const callback = vi.fn();
 
@@ -658,5 +683,144 @@ describe('FirestoreGanttStorageService', () => {
       ).pendingData;
       expect(pending).toBeNull();
     });
+  });
+});
+
+// H (R46): a listener's snapshot is not delivered while this browser holds
+// release changes for that project that it has not sent: in the pending save,
+// or in a save in flight until it settles. A change counts only if it differs
+// both from the baseline and from what the listener last delivered, so the
+// app's own echo of a delivered change, and an acknowledged edit, are not unsent.
+describe('FirestoreGanttStorageService — unsent release changes (H)', () => {
+  let service: FirestoreGanttStorageServiceImpl;
+  let deliver: (snapshot: unknown) => void;
+  let callback: ReturnType<typeof vi.fn<(...args: any[]) => void>>;
+  const uid = 'test-uid';
+  const releaseDoc = (id: string, name: string, order: number) => ({
+    id,
+    data: () => ({ name, startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order }),
+  });
+  const snap = (docs: ReturnType<typeof releaseDoc>[], hasPendingWrites = false) => ({ docs, metadata: { hasPendingWrites } });
+  type Data = NonNullable<Awaited<ReturnType<FirestoreGanttStorageServiceImpl['loadAppData']>>>;
+  const renamedRelease = (data: Data, id: string, name: string): Data =>
+    ({ ...data, releases: data.releases.map((r) => (r.id === id ? { ...r, name } : r)) });
+  /** p1 with releases r1 "R1" and r2 "R2", loaded; a listener on p1 whose snapshots `deliver` raises. */
+  async function loadAndSubscribe(r1 = 'R1'): Promise<Data> {
+    mockGetDocs.mockResolvedValueOnce({
+      docs: [{ id: 'p1', data: () => ({ name: 'P1', owner: uid, members: { [uid]: 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '' }) }],
+    });
+    mockGetDocs.mockResolvedValueOnce({ docs: [releaseDoc('r1', r1, 0), releaseDoc('r2', 'R2', 1)] });
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+    const loaded = (await service.loadAppData())!;
+    mockOnSnapshot.mockImplementation((_q: unknown, next: (s: unknown) => void) => { deliver = next; return vi.fn(); });
+    callback = vi.fn<(...args: any[]) => void>();
+    service.subscribeToProject('p1', callback);
+    return loaded;
+  }
+  const deliveredNames = () => callback.mock.calls.map((c) => (c[0] as { name: string }[]).map((r) => r.name).join(','));
+  /** The next batch commit waits until `release()` is called. */
+  const holdCommit = () => {
+    let release!: () => void;
+    batchMock.commit.mockImplementationOnce(() => new Promise<void>((resolve) => { release = resolve; }));
+    return () => release();
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Values queued with mockResolvedValueOnce by earlier tests survive
+    // clearAllMocks; the load below must read only its own.
+    mockGetDocs.mockReset();
+    mockGetDoc.mockReset();
+    mockOnSnapshot.mockReset();
+    vi.useFakeTimers();
+    batchMock.set.mockClear();
+    batchMock.delete.mockClear();
+    batchMock.commit.mockReset().mockResolvedValue(undefined);
+    mockDoc.mockImplementation((...args: unknown[]) => `doc:${(args as string[]).slice(1).join('/')}`);
+    mockCollection.mockImplementation((...args: unknown[]) => `col:${(args as string[]).slice(1).join('/')}`);
+    mockQuery.mockImplementation((ref: unknown) => ref);
+    mutableAuth.currentUser = { uid } as Partial<import('firebase/auth').User>;
+    service = new FirestoreGanttStorageServiceImpl({} as any, uid);
+  });
+
+  afterEach(() => {
+    service.dispose();
+    vi.useRealTimers();
+  });
+
+  it('delivers a snapshot when this browser holds no unsent release change', async () => {
+    // A control.
+    await loadAndSubscribe();
+    deliver(snap([releaseDoc('r1', 'R1', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    expect(deliveredNames()).toEqual(['R1,R2 remote']);
+  });
+
+  it('does not deliver while the pending save holds a release change', async () => {
+    // Fails under: H.
+    const loaded = await loadAndSubscribe();
+    await service.saveAppData(renamedRelease(loaded, 'r1', 'R1 mine'));
+    deliver(snap([releaseDoc('r1', 'R1', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('does not deliver while a save in flight holds one', async () => {
+    // Fails under: H's in-flight part.
+    const loaded = await loadAndSubscribe();
+    await service.saveAppData(renamedRelease(loaded, 'r1', 'R1 mine'));
+    holdCommit();
+    await vi.advanceTimersByTimeAsync(200); // captured, its batch not yet acknowledged
+    deliver(snap([releaseDoc('r1', 'R1', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('delivers again once every save holding changes has settled', async () => {
+    // Fails under: H's in-flight part (the first delivery); by reading, also under an H that never lets go.
+    const loaded = await loadAndSubscribe();
+    await service.saveAppData(renamedRelease(loaded, 'r1', 'R1 mine'));
+    const release = holdCommit();
+    await vi.advanceTimersByTimeAsync(200);
+    deliver(snap([releaseDoc('r1', 'R1', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    deliver(snap([releaseDoc('r1', 'R1 mine', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    expect(deliveredNames()).toEqual(['R1 mine,R2 remote']);
+  });
+
+  it('the echo of a delivered snapshot is not unsent: a second remote change is delivered (HE)', async () => {
+    // Passes at base. Fails under wrong-H (the pending save compared with the baseline alone).
+    const loaded = await loadAndSubscribe();
+    deliver(snap([releaseDoc('r1', 'R1 v2', 0), releaseDoc('r2', 'R2', 1)]));
+    await service.saveAppData(renamedRelease(loaded, 'r1', 'R1 v2')); // what AppDataContext's save effect sends
+    deliver(snap([releaseDoc('r1', 'R1 v3', 0), releaseDoc('r2', 'R2', 1)]));
+    expect(deliveredNames()).toEqual(['R1 v2,R2', 'R1 v3,R2']);
+  });
+
+  it('an acknowledged edit is not unsent: a remote change is delivered while another save is pending (HS)', async () => {
+    // Passes at base. Fails under a comparison with "last delivered" alone.
+    const loaded = await loadAndSubscribe();
+    deliver(snap([releaseDoc('r1', 'R1', 0), releaseDoc('r2', 'R2', 1)]));
+    const edited = renamedRelease(loaded, 'r1', 'R1 mine');
+    await service.saveAppData(edited);
+    await vi.advanceTimersByTimeAsync(200); // saved and acknowledged
+    await service.saveAppData({ ...edited, showTodayLine: false }); // another change pending
+    deliver(snap([releaseDoc('r1', 'R1 mine', 0), releaseDoc('r2', 'R2 remote', 1)]));
+    expect(deliveredNames()).toEqual(['R1,R2', 'R1 mine,R2 remote']);
+  });
+
+  it('a load set aside puts back what the listener last delivered, so an echo stays not unsent (HE across it)', async () => {
+    // Passes at base. Fails under an H whose records a set-aside load clears for
+    // good (setAsideLoad not putting them back), and under H's comparison removed.
+    const loaded = await loadAndSubscribe();
+    deliver(snap([releaseDoc('r1', 'R1 v2', 0), releaseDoc('r2', 'R2', 1)]));
+    await service.saveAppData(renamedRelease(loaded, 'r1', 'R1 v2'));
+    mockGetDocs.mockResolvedValueOnce({
+      docs: [{ id: 'p1', data: () => ({ name: 'P1', owner: uid, members: { [uid]: 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '' }) }],
+    });
+    mockGetDocs.mockResolvedValueOnce({ docs: [releaseDoc('r1', 'R1 v2', 0), releaseDoc('r2', 'R2', 1)] });
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+    const reload = (await service.loadAppData())!;
+    service.setAsideLoad(reload);
+    deliver(snap([releaseDoc('r1', 'R1 v3', 0), releaseDoc('r2', 'R2', 1)]));
+    expect(deliveredNames()).toEqual(['R1 v2,R2', 'R1 v3,R2']);
   });
 });

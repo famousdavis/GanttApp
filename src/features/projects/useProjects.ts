@@ -14,9 +14,25 @@ import { generateId } from '../../shared/utils';
 import { sanitizeString, sanitizeFirebaseError, MAX_NAME_LENGTH } from '../../shared/utils/validation';
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../shared/storage/cloud-data-not-loaded';
+import { isPermissionDenied, isProjectNotSavedError } from '../../shared/storage/cloud-not-saved';
 
 const NOT_DELETED = 'This project was not deleted.';
 const NOT_COPIED = 'This project was not copied.';
+const SNAPSHOTS_NOT_COPIED = 'Project cloned, but its snapshots could not be copied.';
+
+/** The alert when a copy's snapshot step fails, in words that are true for each cause. */
+function snapshotsNotCopiedText(error: unknown): string {
+  if (isCloudDataNotLoadedError(error)) return cloudRefusal(NOT_COPIED);
+  // The copy's own first save failed, so its snapshots were never sent.
+  if (isProjectNotSavedError(error)) {
+    return 'Project cloned, but its snapshots were not copied, because the copy was not saved to the cloud.';
+  }
+  // The rules refused the batch: it rewrites the snapshots of every project
+  // the user is a member of, including one they may only view. The user's
+  // access is fine, so the permission message would mislead.
+  if (isPermissionDenied(error)) return SNAPSHOTS_NOT_COPIED;
+  return `${SNAPSHOTS_NOT_COPIED} ${sanitizeFirebaseError(error)}`;
+}
 
 /**
  * Build a clone candidate name, truncating the source ONLY when the chosen
@@ -248,9 +264,7 @@ export function useProjects() {
       await storage.saveSnapshots([...allSnapshots, ...clonedSnapshots]);
     } catch (error) {
       console.error('Failed to copy snapshots to cloned project:', error);
-      alert(isCloudDataNotLoadedError(error)
-        ? cloudRefusal(NOT_COPIED)
-        : `Project cloned, but its snapshots could not be copied. ${sanitizeFirebaseError(error)}`);
+      alert(snapshotsNotCopiedText(error));
     }
   };
 

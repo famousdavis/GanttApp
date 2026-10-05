@@ -55,10 +55,18 @@ export interface GanttStorageService {
   /** Load all snapshots. */
   loadSnapshots(): Promise<Snapshot[]>;
 
-  /** Replace all snapshots. */
+  /**
+   * Replace all snapshots. Cloud: throws CloudDataNotLoadedError until a load
+   * has succeeded. A project it writes under that is awaiting its first save is
+   * saved first; if that save fails, it throws ProjectNotSavedError and writes
+   * nothing.
+   */
   saveSnapshots(snapshots: Snapshot[]): Promise<void>;
 
-  /** Add a snapshot. Returns updated list on success, null if limit exceeded. */
+  /**
+   * Add a snapshot. Returns updated list on success, null if limit exceeded.
+   * Cloud: throws as saveSnapshots does, for the snapshot's project.
+   */
   addSnapshot(snapshot: Snapshot): Promise<Snapshot[] | null>;
 
   /** Delete a snapshot by ID. Returns updated list. */

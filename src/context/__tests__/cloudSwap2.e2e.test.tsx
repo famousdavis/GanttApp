@@ -468,15 +468,15 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
   describe('a cloud load set aside because it found no projects while some are on screen', () => {
     // Another tab cleared this browser's store after this one loaded L1, so the
     // switch uploads nothing and the cloud load (0 projects) is set aside.
-    // Unfixed, the save queued when the load is set aside also re-opens a
-    // listener on L1, whose denial (0 ms here) prunes L1 from that save before
-    // its 200 ms timer: only the settings rewrite reaches the cloud, so the
-    // settings assertion is the one that fails. The next test has the denial
-    // arrive after the timer, where L1 itself is written.
+    // With both guards removed, the save queued when the load is set aside
+    // writes L1 as new, so the writes assertion fails: since v0.29.1 no listener
+    // opens on a project the baseline does not hold, so no denial prunes L1
+    // first. (Before v0.29.1 a listener on L1 was denied at 0 ms here, pruning
+    // L1, and only the settings assertion failed.)
     // The writes: fail only when both the context guard and the service guard
-    // are removed. The message: fails when the service guard is removed; with
-    // the context guard removed it may fail too, because a listener opened on
-    // L1 then reports a permission error that replaces it.
+    // are removed. The message: fails when the service guard is removed, and not
+    // when only the context guard is (measured on v0.29.1: no listener opens on
+    // L1, so no permission error replaces it).
     it('choosing Cloud writes nothing under the local id, leaves the settings, and says the cloud data did not load', async () => {
       seedSettings();
       seedLocal([{ id: 'L1', name: 'Local Plan' }], [localRelease('L1', 'l1r1', 'Local release')]);
@@ -489,8 +489,9 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
       expect(screen.getByText(NOT_LOADED)).toBeInTheDocument();
     });
 
-    // As above, with the server's denial of the listener on L1 arriving 400 ms
-    // after it opens — after the 200 ms save timer.
+    // As above, with the server's denial of any listener on L1 arriving 400 ms
+    // after it opens — after the 200 ms save timer. Since v0.29.1 no listener
+    // opens on L1, so this test measures as the one above.
     // The writes: fail only when both the context guard and the service guard
     // are removed. The message: as above.
     it('the same, when the server denies the listener on the local id only after the save timer', async () => {
@@ -508,12 +509,11 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
 
     // p1 is deleted on another device after a good load; a background reload
     // then finds no projects and is set aside. No edit follows.
-    // Note: this passes unfixed in this harness. The save queued when the
-    // reload is set aside re-opens the listener on p1, whose denial (0 ms here)
-    // prunes p1 from that save before its 200 ms timer. It is kept as a guard
-    // on the outcome; the next test, with the denial after the timer, is the
-    // one that fails when the service guard (its earlier baseline kept) is
-    // removed.
+    // Fails when the service guard (its earlier baseline kept) is removed: the
+    // empty reload then stays the baseline, which does not hold p1, so since
+    // v0.29.1 no listener re-opens on p1 and no denial prunes it, and the save
+    // re-creates it. (Before v0.29.1 that denial, at 0 ms here, pruned p1 before
+    // the 200 ms timer, and this test passed with the guard removed.)
     it('a background reload after another device deleted the only project does not re-create it', async () => {
       seedOneProject();
       fake.config.snapshots = 'cache-first';
@@ -533,7 +533,8 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
     // As above, with the server's denial of the re-opened listener arriving
     // 400 ms after it opens — after the 200 ms save timer. The context guard
     // does not see a reload of a storage it has already loaded from.
-    // Fails when the service guard (its earlier baseline kept) is removed.
+    // Fails when the service guard (its earlier baseline kept) is removed (with
+    // the guard removed, since v0.29.1 no listener re-opens on p1 at all).
     it('the same, when the server denies the re-opened listener only after the save timer', async () => {
       seedOneProject();
       fake.config.snapshots = 'cache-first';

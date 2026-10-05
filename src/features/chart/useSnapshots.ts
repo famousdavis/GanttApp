@@ -11,6 +11,7 @@ import { generateId, getTodayFormatted } from '../../shared/utils/dates';
 import { Release, ChartColors } from '../../shared/types';
 import { useStorage } from '../../context/StorageContext';
 import { sanitizeString, sanitizeFirebaseError } from '../../shared/utils/validation';
+import { isProjectNotSavedError } from '../../shared/storage/cloud-not-saved';
 
 interface SaveSnapshotParams {
   releases: Release[];
@@ -114,7 +115,9 @@ export function useSnapshots(selectedProjectId: string) {
       result = await storage.addSnapshot(snapshot);
     } catch (error) {
       console.error('Failed to save snapshot:', error);
-      alert(`Snapshot not saved. ${sanitizeFirebaseError(error)}`);
+      alert(isProjectNotSavedError(error)
+        ? 'Snapshot not saved, because this project has not been saved to the cloud.'
+        : `Snapshot not saved. ${sanitizeFirebaseError(error)}`);
       return;
     }
 

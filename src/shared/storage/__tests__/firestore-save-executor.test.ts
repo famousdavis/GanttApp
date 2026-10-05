@@ -455,3 +455,107 @@ describe('executeFirestoreSave — the baseline is required', () => {
     expect(typeof saveAgainstNothing).toBe('function');
   });
 });
+
+// V (R45, R48): a save writes nothing under a project the user may only view:
+// no update of its document (content or order) and no release set or delete.
+// A project delete is never skipped. The role is read only for a project the
+// user does not own, and what was skipped is reported for R53's message.
+describe('executeFirestoreSave — the viewer guard (V)', () => {
+  const db = {} as Firestore;
+  const UID = 'me';
+  const meta = (owner: string, role: 'owner' | 'editor' | 'viewer') => ({
+    name: 'Stored', owner, members: { [owner]: 'owner', [UID]: role }, schemaVersion: 1,
+    _originRef: `uid:${owner}`, createdAt: 'c', updatedAt: 'u', _changeLog: [],
+  });
+  const release = (id: string, projectId: string, name = id): Release => ({
+    id, projectId, name, startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+  });
+  const mine: Project = { id: 'p1', name: 'Mine', owner: UID };
+  const viewed: Project = { id: 'pv', name: 'Viewed', owner: 'them' };
+  const edited: Project = { id: 'pe', name: 'Edited', owner: 'them' };
+  const writesUnder = (projectId: string) =>
+    fs.log.filter((e) => e.op !== 'commit' && e.path!.startsWith(`ganttapp_projects/${projectId}`)).map((e) => `${e.op} ${e.path}`);
+
+  beforeEach(() => {
+    fs.reset();
+    fs.getDoc.mockReset();
+    fs.getDoc.mockImplementation(async (ref: { path: string }) => ({
+      exists: () => fs.stored.has(ref.path),
+      data: () => fs.stored.get(ref.path),
+    }));
+    fs.stored.set('ganttapp_projects/p1', meta(UID, 'owner'));
+    fs.stored.set('ganttapp_projects/pv', meta('them', 'viewer'));
+    fs.stored.set('ganttapp_projects/pe', meta('them', 'editor'));
+  });
+
+  it('writes no update of a viewer\'s project document when its content changed', async () => {
+    // Fails under: V's project-document part.
+    await executeFirestoreSave(db, UID, { projects: [{ ...viewed, name: 'Renamed' }], releases: [] }, { projects: [viewed], releases: [] });
+    expect(writesUnder('pv')).toEqual([]);
+  });
+
+  it('writes no order change of a viewer\'s project', async () => {
+    // Fails under: V's project-document part.
+    await executeFirestoreSave(db, UID, { projects: [viewed, mine], releases: [] }, { projects: [mine, viewed], releases: [] });
+    expect(writesUnder('pv')).toEqual([]);
+    expect(writesUnder('p1')).toEqual(['set ganttapp_projects/p1']);
+  });
+
+  it('still writes an editor\'s update', async () => {
+    // A control.
+    await executeFirestoreSave(db, UID, { projects: [{ ...edited, name: 'Renamed' }], releases: [] }, { projects: [edited], releases: [] });
+    expect(writesUnder('pe')).toEqual(['set ganttapp_projects/pe']);
+  });
+
+  it('never skips the delete of a viewer\'s project', async () => {
+    // A control: a project delete the rules refuse still fails, as today.
+    await executeFirestoreSave(db, UID, { projects: [mine], releases: [] }, { projects: [mine, viewed], releases: [] });
+    expect(writesUnder('pv')).toEqual(['delete ganttapp_projects/pv']);
+  });
+
+  it('writes no release set in a viewer\'s project: neither a change nor an addition', async () => {
+    // Fails under: V's release part (sets).
+    await executeFirestoreSave(db, UID,
+      { projects: [viewed], releases: [release('rv', 'pv', 'Changed'), release('rv2', 'pv')] },
+      { projects: [viewed], releases: [release('rv', 'pv')] });
+    expect(writesUnder('pv')).toEqual([]);
+  });
+
+  it('writes no release delete in a viewer\'s project', async () => {
+    // Fails under: V's release part (deletes).
+    await executeFirestoreSave(db, UID, { projects: [viewed], releases: [] }, { projects: [viewed], releases: [release('rv', 'pv')] });
+    expect(writesUnder('pv')).toEqual([]);
+  });
+
+  it('still makes an editor\'s release set and delete', async () => {
+    // A control.
+    await executeFirestoreSave(db, UID,
+      { projects: [edited], releases: [release('re2', 'pe')] },
+      { projects: [edited], releases: [release('re', 'pe')] });
+    expect(writesUnder('pe')).toEqual(['set ganttapp_projects/pe/releases/re2', 'delete ganttapp_projects/pe/releases/re']);
+  });
+
+  it('reads no role for a project the user owns', async () => {
+    // Passes at base (a release-only change read nothing). Fails under a V that reads every project.
+    await executeFirestoreSave(db, UID, { projects: [mine], releases: [release('r1', 'p1', 'Changed')] }, { projects: [mine], releases: [release('r1', 'p1')] });
+    expect(fs.getDoc).not.toHaveBeenCalled();
+    expect(writesUnder('p1')).toEqual(['set ganttapp_projects/p1/releases/r1']);
+  });
+
+  it('reports each viewer\'s project it skipped: whether a content field changed, and which releases', async () => {
+    // Fails under: V (nothing is skipped, so nothing is reported).
+    const skipped: unknown[] = [];
+    await executeFirestoreSave(db, UID,
+      { projects: [{ ...viewed, name: 'Renamed' }], releases: [release('rv', 'pv', 'Changed'), release('rv2', 'pv')] },
+      { projects: [viewed], releases: [release('rv', 'pv'), release('rv3', 'pv')] },
+      skipped as never);
+    expect(skipped).toEqual([{ projectId: 'pv', contentChanged: true, releaseIds: ['rv', 'rv2', 'rv3'] }]);
+  });
+
+  it('reports an order shift alone as no content change', async () => {
+    // Fails under: V.
+    const skipped: unknown[] = [];
+    await executeFirestoreSave(db, UID, { projects: [viewed, mine], releases: [] }, { projects: [mine, viewed], releases: [] }, skipped as never);
+    expect(skipped).toEqual([{ projectId: 'pv', contentChanged: false, releaseIds: [] }]);
+  });
+});

@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.1',
+    date: 'October 5, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; the SPERT&reg; Suite Terms of Service and Privacy Policy have new editions, version 1.3 of each, effective October 5, 2026. If you sign in to use cloud storage, GanttApp asks you to accept them again: the acceptance it had recorded was for the April 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use GanttApp without signing in.</>,
+      <><strong>Note</strong> &mdash; None of the changes alters what GanttApp collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails.</>,
+      <><strong>Note</strong> &mdash; The copies of the Terms and Privacy Policy kept in this project&apos;s repository still held the April 5 editions, three re-issues behind. Both now match the October 5 editions published on spertsuite.com.</>,
+    ],
+  },
+  {
     version: '0.29.0',
     date: 'October 2, 2026',
     items: [

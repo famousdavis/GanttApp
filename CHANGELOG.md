@@ -1,5 +1,15 @@
 # Change Log
 
+## Version 0.29.1 (2026-10-05)
+
+### Changed: new Terms of Service and Privacy Policy, which you will be asked to accept again
+
+The SPERT® Suite **Terms of Service** and **Privacy Policy** have new editions — **version 1.3 of each, effective October 5, 2026** — published at the same spertsuite.com addresses GanttApp already links to.
+
+- **If you sign in to use cloud storage, GanttApp asks you to accept the new Terms and Privacy Policy again.** The acceptance it had recorded was for the April 5, 2026 editions (`TOS_VERSION` `'04-05-2026'`, which had never moved); it is now `'10-05-2026'`, so the record names the edition you actually accept. Nothing changes if you use GanttApp without signing in.
+- **What the documents now say** — none of it a change to what GanttApp collects or does: database backups are kept (daily backups for up to 98 days, point-in-time recovery for up to 7 days), data is stored at rest in the United States, and project sharing and invitation emails are described.
+- **The copies kept in this repository were out of date.** `legal/TOS.pdf` and `legal/PRIVACY.pdf` still held the April 5 editions, three re-issues behind. Both are now byte-identical to the October 5 editions on spertsuite.com.
+
 ## Version 0.29.0 (2026-10-02)
 
 ### Fixed: in cloud mode, the app could save over your cloud data before it had loaded

@@ -20,6 +20,7 @@ import {
   applyImportDecisions,
   sanitizeFirebaseError,
   readFileAsText,
+  generateId,
 } from '../../../shared/utils';
 import type {
   ImportResult,
@@ -79,6 +80,47 @@ export function withImportOwners(imported: AppData, workspace: AppData, ownerUid
       const { owner: _incoming, ...rest } = project;
       return existing.owner === undefined ? rest : { ...rest, owner: existing.owner };
     }),
+  };
+}
+
+/**
+ * In cloud mode an imported project this workspace does not hold gets a new
+ * id, and so does each of its releases and snapshots (their projectId follows;
+ * a snapshot's embedded releases stay as they are), as a merge "copy" already
+ * does. The file's ids can name a project the cloud holds under another owner,
+ * such as the original of a project someone else exported: kept, the import's
+ * first save would update that project, which the rules refuse to a
+ * non-member, and every later save would carry it. A project the workspace
+ * holds keeps its id. Conflicts are found on the file's ids first; the
+ * conflicts and decisions passed in follow the new ids. Local mode passes no
+ * uid: nothing changes.
+ */
+export function withFreshImportIds(
+  imported: ImportResult,
+  workspace: AppData,
+  ownerUid: string | undefined,
+  conflicts: ImportConflict[] = [],
+  decisions: Map<string, ConflictAction> = new Map()
+): { imported: ImportResult; conflicts: ImportConflict[]; decisions: Map<string, ConflictAction> } {
+  if (!ownerUid) return { imported, conflicts, decisions };
+  const held = new Set(workspace.projects.map((p) => p.id));
+  const ids = new Map<string, string>();
+  imported.appData.projects.forEach((p) => { if (!held.has(p.id)) ids.set(p.id, generateId()); });
+  const fresh = (id: string) => ids.get(id) ?? id;
+  const renew = <T extends { id: string; projectId: string }>(item: T): T =>
+    (ids.has(item.projectId) ? { ...item, id: generateId(), projectId: fresh(item.projectId) } : item);
+  return {
+    imported: {
+      ...imported,
+      appData: {
+        ...imported.appData,
+        projects: imported.appData.projects.map((p) => ({ ...p, id: fresh(p.id) })),
+        releases: imported.appData.releases.map(renew),
+      },
+      snapshots: imported.snapshots?.map(renew),
+    },
+    conflicts: conflicts.map((c) => ({ ...c, incomingProject: { ...c.incomingProject, id: fresh(c.incomingProject.id) } })),
+    decisions: new Map(Array.from(decisions.entries()).map(([id, action]) => [fresh(id), action] as const)),
   };
 }
 
@@ -230,8 +272,9 @@ export function useImportState({
           showBanner({ kind: 'error', text: msg });
           return;
         }
+        const incoming = withFreshImportIds(imported, data, ownerUid, freshConflicts, decisions);
         const { mergedData, mergedSnapshots, result } = applyImportDecisions(
-          data, imported, existingSnapshots, decisions, freshConflicts
+          data, incoming.imported, existingSnapshots, incoming.decisions, incoming.conflicts
         );
         // Refused before anything changes on screen when nothing can be saved
         // (a cloud session whose data never loaded).
@@ -278,12 +321,13 @@ export function useImportState({
           showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
           return;
         }
-        updateData(withImportOwners(imported.appData, data, ownerUid));
-        await onReplaceSnapshots(imported.snapshots ?? []);
-        if (imported.appData.projects.length > 0) {
-          setSelectedProjectId(imported.appData.projects[0].id);
+        const { imported: incoming } = withFreshImportIds(imported, data, ownerUid);
+        updateData(withImportOwners(incoming.appData, data, ownerUid));
+        await onReplaceSnapshots(incoming.snapshots ?? []);
+        if (incoming.appData.projects.length > 0) {
+          setSelectedProjectId(incoming.appData.projects[0].id);
         }
-        const n = imported.appData.projects.length;
+        const n = incoming.appData.projects.length;
         const text =
           n > 0
             ? `All data replaced. ${n} project${n !== 1 ? 's' : ''} imported.`

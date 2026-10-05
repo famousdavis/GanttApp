@@ -428,8 +428,11 @@ const IMP1 = { id: 'imp1', name: 'Imported Plan' };
 type Service = FirestoreGanttStorageServiceImpl;
 const proto = FirestoreGanttStorageServiceImpl.prototype;
 const realLoad = proto.loadAppData;
+const realSubscribe = proto.subscribeToProject;
 const services = new Set<Service>();
 const loads: boolean[] = [];
+/** When the app asked the service for each project's listener, whether or not it opened at once. */
+const listenRequests: { projectId: string; t: number }[] = [];
 
 function trackServices() {
   vi.spyOn(proto, 'loadAppData').mockImplementation(function (this: Service) {
@@ -437,6 +440,10 @@ function trackServices() {
     const result = realLoad.call(this);
     void result.then((data) => { loads.push(data !== null); });
     return result;
+  });
+  vi.spyOn(proto, 'subscribeToProject').mockImplementation(function (this: Service, ...args: Parameters<Service['subscribeToProject']>) {
+    listenRequests.push({ projectId: args[0], t: fake.now() });
+    return realSubscribe.apply(this, args);
   });
 }
 
@@ -530,6 +537,15 @@ const cloudReleaseIdsOf = (projectId: string) => Array.from(fake.state.docs.keys
 const cloudSnapshotPaths = () => Array.from(fake.state.docs.keys()).filter((p) => p.includes('/snapshots/')).sort();
 /** This app's writes to one document, in order: 'set' or 'delete'. */
 const appOps = (path: string) => fake.state.writes.filter((w) => w.by === 'app' && w.path === path).map((w) => w.op);
+/** This app's writes to a project's document or anything under it. */
+const appWritesUnder = (projectId: string) => fake.state.writes
+  .filter((w) => w.by === 'app' && (w.path === `ganttapp_projects/${projectId}` || w.path.startsWith(`ganttapp_projects/${projectId}/`)))
+  .map((w) => `${w.op} ${w.path}`);
+/** The commits the rules refused, each as its writes. */
+const refusedCommits = () => fake.state.commits.filter((c) => c.ok === false).map((c) => c.ops.join(', '));
+/** The ids of a project's releases on screen, sorted as cloudReleaseIdsOf sorts. */
+const releaseIdsOf = (projectId: string) =>
+  probe.current!.data.releases.filter((r) => r.projectId === projectId).map((r) => r.id).sort();
 /** Listens opened on a project while its document did not exist (the oracle). */
 const earlyListens = (projectId: string) =>
   fake.state.listens.filter((l) => l.project === `ganttapp_projects/${projectId}` && !l.existed).length;
@@ -617,6 +633,30 @@ function achievedOrder(projectId: string) {
   return { prune: prune.t, inFlight, next };
 }
 
+/** The cloud service's save debounce. */
+const SAVE_DEBOUNCE_MS = 200;
+
+/**
+ * The order an add's refusal timing achieved, from the app's listen requests
+ * and the save log: when a listen opened at the app's first request for the new
+ * project's listener is refused, against the first save after that request (its
+ * capture and its settlement) and the save the eviction would queue one
+ * debounce after the refusal. At base the listen opens at that request and is
+ * refused; with no listener before the project's document exists, none opens
+ * then, and the order is the one such a refusal would have met.
+ */
+function addOrder(projectId: string, denialMs: number) {
+  const request = listenRequests.find((r) => r.projectId === projectId);
+  if (!request) return 'no listen request';
+  const refusalAt = request.t + denialMs;
+  const first = saves.log.find((s) => s.capturedAt >= request.t);
+  if (!first) return 'no save';
+  if (refusalAt < first.capturedAt) return 'before the capture';
+  if (first.settledAt === null) return 'not settled';
+  if (refusalAt > first.settledAt) return 'after the acknowledgement';
+  return first.settledAt < refusalAt + SAVE_DEBOUNCE_MS ? 'ordering 1' : 'ordering 2';
+}
+
 describe('a project created in a cloud session that loaded normally, end to end', () => {
   let alertSpy: ReturnType<typeof vi.spyOn>;
 
@@ -625,6 +665,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
     saves.log.length = 0;
     revokes.length = 0;
     loads.length = 0;
+    listenRequests.length = 0;
     probe.current = null;
     localStorage.clear();
     localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
@@ -649,15 +690,16 @@ describe('a project created in a cloud session that loaded normally, end to end'
   describe('ADD1: an add, warm write stream, at each refusal timing L6 produced', () => {
     it.each([
       // Base: the listen is refused before the save's capture, so the project is never written.
-      { label: 'refusal before the capture', snapshots: 'cache-first' as const, denial: 0, commit: 0 },
+      { label: 'refusal before the capture', snapshots: 'cache-first' as const, denial: 0, commit: 0, order: 'before the capture' },
       // The same with no first snapshot at all (masked).
-      { label: 'refusal before the capture, no first snapshot', snapshots: 'never' as const, denial: 0, commit: 0 },
+      { label: 'refusal before the capture, no first snapshot', snapshots: 'never' as const, denial: 0, commit: 0, order: 'before the capture' },
       // Base: refused after the capture, acknowledged before the eviction's save captures (ordering 1): written, then deleted.
-      { label: 'refusal in flight, ordering 1', snapshots: 'cache-first' as const, denial: 300, commit: 100 },
+      { label: 'refusal in flight, ordering 1', snapshots: 'cache-first' as const, denial: 300, commit: 100, order: 'ordering 1' },
       // Base: the eviction's save captures before the acknowledgement (ordering 2): written and left in the cloud.
-      { label: 'refusal in flight, ordering 2', snapshots: 'cache-first' as const, denial: 240, commit: 200 },
-    ])('$label: the project is written once, stays on screen, and no listener opens before its document exists', async ({ snapshots, denial, commit }) => {
-      // Fails under: B (each outcome above). Not under S, D, V or H.
+      { label: 'refusal in flight, ordering 2', snapshots: 'cache-first' as const, denial: 240, commit: 200, order: 'ordering 2' },
+    ])('$label: the project is written once, stays on screen, and no listener opens before its document exists', async ({ snapshots, denial, commit, order }) => {
+      // Fails under: B (each outcome above). Not under S, D, V or H. A run
+      // whose timing misses its order fails at the order, before the outcome.
       seed();
       fake.config.snapshots = snapshots;
       await openCloud();
@@ -667,6 +709,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
       const id = idOf('Gamma')!;
       await wait(1100);
 
+      expect(addOrder(id, denial)).toBe(order);
       expect(appOps(`ganttapp_projects/${id}`)).toEqual(['set']);
       expect(onScreen()).toEqual(['Alpha', 'Beta', 'Gamma']);
       expect(earlyListens(id)).toBe(0);
@@ -768,10 +811,13 @@ describe('a project created in a cloud session that loaded normally, end to end'
     await waitFor(() => expect(bannerText()).toContain('1 project added.'));
     await wait(700);
 
-    expect(appOps('ganttapp_projects/imp1')).toEqual(['set']);
-    expect(cloudReleaseIdsOf('imp1')).toEqual(['imp1-r']);
+    // In cloud mode the import has a new id, not the file's.
+    const id = idOf('Imported Plan')!;
+    expect(appOps(`ganttapp_projects/${id}`)).toEqual(['set']);
+    expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+    expect(releaseIdsOf(id)).toHaveLength(1);
     expect(onScreen()).toEqual(['Alpha', 'Beta', 'Imported Plan']);
-    expect(earlyListens('imp1')).toBe(0);
+    expect(earlyListens(id)).toBe(0);
     expect(errors()).toBe(false);
   });
 
@@ -787,8 +833,10 @@ describe('a project created in a cloud session that loaded normally, end to end'
     await importAndConfirm(projectExport(IMP1, true));
     await wait(1000);
 
-    expect(appOps('ganttapp_projects/imp1')).toEqual(['set']);
-    expect(cloudDoc('ganttapp_projects/imp1/snapshots/imp1-s')).toBeDefined();
+    // In cloud mode the import and its snapshot have new ids, not the file's.
+    const id = idOf('Imported Plan')!;
+    expect(appOps(`ganttapp_projects/${id}`)).toEqual(['set']);
+    expect(cloudSnapshotPaths().filter((p) => p.startsWith(`ganttapp_projects/${id}/`))).toHaveLength(1);
     expect(bannerText()).toContain('1 project added.');
     expect(onScreen()).toEqual(['Alpha', 'Beta', 'Imported Plan']);
     expect(errors()).toBe(false);
@@ -806,11 +854,14 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await replaceAllWith(allProjectsFile([IMP1], withSnapshot));
       await wait(1000);
 
-      expect(cloudProjectIds()).toEqual(['imp1']);
-      expect(cloudReleaseIdsOf('imp1')).toEqual(['imp1-r']);
+      // In cloud mode the import has a new id, not the file's.
+      const id = idOf('Imported Plan')!;
+      expect(cloudProjectIds()).toEqual([id]);
+      expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+      expect(releaseIdsOf(id)).toHaveLength(1);
       expect(onScreen()).toEqual(['Imported Plan']);
       expect(bannerText()).toContain('All data replaced. 1 project imported.');
-      if (withSnapshot) expect(cloudDoc('ganttapp_projects/imp1/snapshots/imp1-s')).toBeDefined();
+      if (withSnapshot) expect(cloudSnapshotPaths().filter((p) => p.startsWith(`ganttapp_projects/${id}/`))).toHaveLength(1);
       expect(errors()).toBe(false);
     });
   });
@@ -820,7 +871,8 @@ describe('a project created in a cloud session that loaded normally, end to end'
       { label: 'no snapshot in the file', withSnapshot: false },
       { label: 'a snapshot in the file', withSnapshot: true },
     ])('$label: the replacement is written in the replaced project\'s place', async ({ withSnapshot }) => {
-      // Fails under: B; with a snapshot in the file, S too (with the rules on).
+      // Fails under: B; with a snapshot in the file, S too (with the rules on);
+      // the import's new ids removed (the replacement keeps the file's id).
       seed();
       await openCloud();
       fake.config.commitDelayMs = 50; // as MI2: so that the listener opens while the first save is in flight
@@ -830,12 +882,172 @@ describe('a project created in a cloud session that loaded normally, end to end'
       fireEvent.click(screen.getByRole('button', { name: 'Confirm Import' }));
       await wait(1000);
 
-      expect(cloudProjectIds()).toEqual(['imp9', 'p2']);
-      expect(cloudReleaseIdsOf('imp9')).toEqual(['imp9-r']);
+      // In cloud mode the replacement has a new id: neither the replaced project's nor the file's.
+      const id = idOf('Alpha')!;
+      expect(cloudProjectIds()).toEqual([id, 'p2'].sort());
+      expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+      expect(releaseIdsOf(id)).toHaveLength(1);
       expect(onScreen()).toEqual(['Alpha', 'Beta']);
-      expect(idOf('Alpha')).toBe('imp9');
+      expect(['p1', 'imp9']).not.toContain(id);
       expect(bannerText()).toContain('1 replaced.');
-      if (withSnapshot) expect(cloudDoc('ganttapp_projects/imp9/snapshots/imp9-s')).toBeDefined();
+      if (withSnapshot) expect(cloudSnapshotPaths().filter((p) => p.startsWith(`ganttapp_projects/${id}/`))).toHaveLength(1);
+      expect(errors()).toBe(false);
+    });
+  });
+
+  // ---- An import whose project the cloud already holds, under another owner
+
+  describe('an import of a project the cloud holds under another owner, this user not a member', () => {
+    // x9 "Their Plan" is u3's, and this user is no member of it, so the
+    // workspace does not show it. A file of it is what u3's own export carries.
+    // In cloud mode the import is saved as a new project of this user's, under
+    // a new id; kept as x9, its first save would update u3's document, which the
+    // rules refuse to a non-member, and every later save would carry it.
+    const THEIRS = { id: 'x9', name: 'Their Plan' };
+    function seedTheirs() {
+      fake.state.docs.set('ganttapp_projects/x9', projectDoc('Their Plan', 0, 'u3', { u3: 'owner' }));
+      fake.state.docs.set('ganttapp_projects/x9/releases/xr1', releaseDoc('Their Release', 0));
+    }
+    const ownership = (projectId: string) => {
+      const doc = cloudDoc(`ganttapp_projects/${projectId}`);
+      return { owner: doc?.owner, members: doc?.members };
+    };
+
+    it('a merge import keeps it on screen and saves it as a new project of this user\'s, with its release and snapshot; later saves succeed', async () => {
+      // Fails with the import's new ids removed (the file's ids kept).
+      seed();
+      seedTheirs();
+      await openCloud();
+      const errors = watchText(SYNC_ERROR);
+      await importAndConfirm(projectExport(THEIRS, true));
+      await waitFor(() => expect(bannerText()).not.toBe(''));
+      await wait(700);
+      act$(() => probe.current!.renameRelease('r1', 'Design later'));
+      await wait(600);
+
+      expect(onScreen()).toEqual(['Alpha', 'Beta', 'Their Plan']);
+      const id = idOf('Their Plan')!;
+      expect(id).not.toBe('x9');
+      expect(refusedCommits()).toEqual([]);
+      expect(ownership(id)).toEqual({ owner: 'u1', members: { u1: 'owner' } });
+      expect(releaseIdsOf(id)).toHaveLength(1);
+      expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+      expect(cloudSnapshotPaths().filter((p) => p.startsWith(`ganttapp_projects/${id}/`))).toHaveLength(1);
+      expect(appWritesUnder('x9')).toEqual([]);
+      expect(ownership('x9')).toEqual({ owner: 'u3', members: { u3: 'owner' } });
+      expect(cloudReleaseName('p1', 'r1')).toBe('Design later');
+      expect(bannerText()).toContain('1 project added.');
+      expect(errors()).toBe(false);
+    });
+
+    it('a merge "Replace" on a name conflict saves the replacement as a new project of this user\'s; later saves succeed', async () => {
+      // Fails with the import's new ids removed (the file's ids kept).
+      seed();
+      seedTheirs();
+      await openCloud();
+      const errors = watchText(SYNC_ERROR);
+      importFile(projectExport({ id: 'x9', name: 'Alpha' }, false));
+      fireEvent.click(await screen.findByLabelText('Replace existing with imported'));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Import' }));
+      await waitFor(() => expect(bannerText()).not.toBe(''));
+      await wait(700);
+      act$(() => probe.current!.renameRelease('r3', 'Launch later'));
+      await wait(600);
+
+      expect(onScreen()).toEqual(['Alpha', 'Beta']);
+      const id = idOf('Alpha')!;
+      expect(['p1', 'x9']).not.toContain(id);
+      expect(refusedCommits()).toEqual([]);
+      expect(cloudProjectIds()).toEqual([id, 'p2', 'x9'].sort());
+      expect(ownership(id)).toEqual({ owner: 'u1', members: { u1: 'owner' } });
+      expect(releaseIdsOf(id)).toHaveLength(1);
+      expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+      expect(appWritesUnder('x9')).toEqual([]);
+      expect(cloudReleaseName('p2', 'r3')).toBe('Launch later');
+      expect(bannerText()).toContain('1 replaced.');
+      expect(errors()).toBe(false);
+    });
+
+    it('a Replace All saves it as a new project of this user\'s, and keeps the id of a project the workspace holds; later saves succeed', async () => {
+      // Fails with the import's new ids removed (the file's ids kept).
+      seed();
+      seedTheirs();
+      await openCloud();
+      const errors = watchText(SYNC_ERROR);
+      await replaceAllWith(allProjectsFile([THEIRS, { id: 'p2', name: 'Beta' }], false));
+      await waitFor(() => expect(bannerText()).not.toBe(''));
+      await wait(700);
+      act$(() => probe.current!.renameRelease('p2-r', 'Launch later'));
+      await wait(600);
+
+      expect(onScreen()).toEqual(['Their Plan', 'Beta']);
+      const id = idOf('Their Plan')!;
+      expect(id).not.toBe('x9');
+      expect(idOf('Beta')).toBe('p2');
+      expect(refusedCommits()).toEqual([]);
+      expect(cloudProjectIds()).toEqual([id, 'p2', 'x9'].sort());
+      expect(ownership(id)).toEqual({ owner: 'u1', members: { u1: 'owner' } });
+      expect(releaseIdsOf(id)).toHaveLength(1);
+      expect(cloudReleaseIdsOf(id)).toEqual(releaseIdsOf(id));
+      expect(appWritesUnder('x9')).toEqual([]);
+      expect(cloudReleaseName('p2', 'p2-r')).toBe('Launch later');
+      expect(bannerText()).toContain('All data replaced. 2 projects imported.');
+      expect(errors()).toBe(false);
+    });
+  });
+
+  describe('which imported projects get new ids in cloud mode', () => {
+    it('the same file imported twice, the first import renamed in between: two projects, and no two releases or snapshots share an id', async () => {
+      // Fails with the import's new ids removed: the second import is then the
+      // same project, so the preview asks, and its default skips it. With new
+      // project ids alone, the two projects share their releases' ids.
+      seed();
+      await openCloud();
+      const errors = watchText(SYNC_ERROR);
+      await importAndConfirm(projectExport(IMP1, true));
+      await waitFor(() => expect(bannerText()).toContain('1 project added.'));
+      await wait(500);
+      act$(() => probe.current!.renameProject(idOf('Imported Plan')!, 'First Import'));
+      await wait(500);
+      await importAndConfirm(projectExport(IMP1, true));
+      await waitFor(() => expect(bannerText()).not.toBe(''));
+      await wait(700);
+
+      const releaseIds = probe.current!.data.releases.map((r) => r.id);
+      expect({
+        added: bannerText().includes('1 project added.'),
+        projects: onScreen(),
+        sharedReleaseIds: releaseIds.filter((id, i) => releaseIds.indexOf(id) !== i),
+      }).toEqual({ added: true, projects: ['Alpha', 'Beta', 'First Import', 'Imported Plan'], sharedReleaseIds: [] });
+      const first = idOf('First Import')!;
+      const second = idOf('Imported Plan')!;
+      const snapshotIdsUnder = (projectId: string) =>
+        cloudSnapshotPaths().filter((p) => p.startsWith(`ganttapp_projects/${projectId}/`)).map((p) => p.split('/').pop());
+      expect([cloudReleaseIdsOf(first), cloudReleaseIdsOf(second)]).toEqual([releaseIdsOf(first), releaseIdsOf(second)]);
+      expect([snapshotIdsUnder(first).length, snapshotIdsUnder(second).length]).toEqual([1, 1]);
+      expect(snapshotIdsUnder(first)).not.toEqual(snapshotIdsUnder(second));
+      expect(refusedCommits()).toEqual([]);
+      expect(errors()).toBe(false);
+    });
+
+    it('a project the workspace already holds keeps its id: the import asks, and "Replace" writes it in place', async () => {
+      // A control: passes before and after. Fails if every imported project gets a new id.
+      seed();
+      await openCloud();
+      const errors = watchText(SYNC_ERROR);
+      importFile(projectExport({ id: 'p1', name: 'Alpha' }, false));
+      expect(await screen.findByText('Already exists — same project')).toBeTruthy();
+      fireEvent.click(screen.getByLabelText('Replace existing with imported'));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Import' }));
+      await waitFor(() => expect(bannerText()).toContain('1 replaced.'));
+      await wait(700);
+
+      expect(idOf('Alpha')).toBe('p1');
+      expect(releaseIdsOf('p1')).toEqual(['p1-r']);
+      expect(cloudProjectIds()).toEqual(['p1', 'p2']);
+      expect(cloudReleaseIdsOf('p1')).toEqual(['p1-r']);
+      expect(cloudDoc('ganttapp_projects/p1')?.owner).toBe('u1');
+      expect(refusedCommits()).toEqual([]);
       expect(errors()).toBe(false);
     });
   });
@@ -1491,7 +1703,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await wait(1000);
 
       expect(bannerText()).toContain(IMPORT_SNAPSHOTS_REFUSED);
-      expect(appOps('ganttapp_projects/imp1')).toEqual(['set']);
+      expect(appOps(`ganttapp_projects/${idOf('Imported Plan')}`)).toEqual(['set']);
     });
 
     it('(d) a Replace All by such a viewer, keeping the viewer\'s project: the same banner', async () => {
@@ -1553,6 +1765,18 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await wait(500);
       expect(onScreen()).toEqual(['Alpha', 'Beta', 'Imported Plan']);
       expect(stored().projects.map((p) => p.name)).toEqual(['Alpha', 'Beta', 'Imported Plan']);
+    });
+
+    it('an import keeps the file\'s ids', async () => {
+      // A control: passes before and after. Fails if local mode gives an import new ids.
+      await openLocal();
+      importFile(projectExport(IMP1, true));
+      await wait(500);
+      expect(idOf('Imported Plan')).toBe('imp1');
+      expect(releaseIdsOf('imp1')).toEqual(['imp1-r']);
+      expect(stored().projects.map((p) => p.id)).toEqual(['p1', 'p2', 'imp1']);
+      const storedSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots') ?? '[]') as { id: string; projectId: string }[];
+      expect(storedSnapshots.map((s) => [s.id, s.projectId])).toEqual([['imp1-s', 'imp1']]);
     });
   });
 });

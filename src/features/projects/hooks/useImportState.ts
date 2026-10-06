@@ -294,6 +294,11 @@ export function useImportState({
         const { mergedData, mergedSnapshots, result } = applyImportDecisions(
           data, incoming.imported, existingSnapshots, incoming.decisions, incoming.conflicts
         );
+        // Again: a sign-out or a switch to Local can dispose the service during the load; apply nothing then.
+        if (!storage.canWrite()) {
+          showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
+          return;
+        }
         // NOTE: partial-apply window — updateData may persist before
         // onReplaceSnapshots rejects. Acceptable; matches pre-v0.24.0 behavior.
         updateData(withImportOwners(mergedData, data, ownerUid));

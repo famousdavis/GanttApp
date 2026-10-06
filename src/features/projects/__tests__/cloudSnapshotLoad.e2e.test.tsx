@@ -642,6 +642,33 @@ describe('a cloud merge import in a session whose data never loaded', () => {
   });
 });
 
+describe('a cloud merge import during which the user signs out', () => {
+  it('is refused with the message for a session that cannot save: nothing is applied, or written to the cloud or to this browser', async () => {
+    seed();
+    await openCloud();
+    fake.config.readDelayMs = 100;
+    const start = markNow();
+    await importAndConfirm(projectExport(IMP1, true));
+    // While the snapshot load reads, sign out: that disposes the cloud service and swaps in a local one.
+    // The signed-in user does not change in this fake, as in the moment before the SDK clears it.
+    await waitFor(() => expect(readsSince(start.reads)).toContain('ganttapp_projects server 3'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Out' }));
+    const atSignOut = fake.state.reads.length;
+    await waitFor(() => expect(importBanner()).not.toBeNull());
+    await wait(500);
+
+    // Positive control: the load went on reading after the sign-out, and read every project.
+    expect(readsSince(atSignOut).length).toBeGreaterThan(0);
+    expect(readsSince(start.reads)).toContain('ganttapp_projects/p3/snapshots server 1');
+    expect(importBanner()).toEqual({ role: 'alert', text: NEVER_LOADED });
+    expect(onScreen()).not.toContain('Imported Plan');
+    expect(commitsSince(start.commits)).toEqual([]);
+    expect(projectTree()).toEqual(start.tree);
+    expect(JSON.parse(localStorage.getItem('ganttAppData') ?? '{"projects":[]}').projects).toEqual([]);
+    expect(localStorage.getItem('ganttAppSnapshots')).toBeNull();
+  });
+});
+
 // ---- The copy
 
 describe('a cloud copy of a project with snapshots, whose snapshot load does not get every snapshot from the server', () => {

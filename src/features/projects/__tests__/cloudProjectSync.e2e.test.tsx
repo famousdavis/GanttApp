@@ -460,6 +460,8 @@ type ProbeApi = {
   saveSnapshotOfNewest: () => Promise<void>;
 };
 const probe: { current: ProbeApi | null } = { current: null };
+/** The project App has selected, after every commit. */
+const selection: { current: string | null } = { current: null };
 
 function Probe() {
   const { data, updateData } = useAppData();
@@ -498,6 +500,8 @@ function Probe() {
 function App() {
   const [selected, setSelected] = useState('p1');
   const snapshots = useSnapshots(selected);
+  // After every commit, as Probe's data; act() flushes it.
+  useLayoutEffect(() => { selection.current = selected; });
   return (
     <>
       <SettingsTab />
@@ -667,6 +671,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
     loads.length = 0;
     listenRequests.length = 0;
     probe.current = null;
+    selection.current = null;
     localStorage.clear();
     localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -696,7 +701,10 @@ describe('a project created in a cloud session that loaded normally, end to end'
       // Base: refused after the capture, acknowledged before the eviction's save captures (ordering 1): written, then deleted.
       { label: 'refusal in flight, ordering 1', snapshots: 'cache-first' as const, denial: 300, commit: 100, order: 'ordering 1' },
       // Base: the eviction's save captures before the acknowledgement (ordering 2): written and left in the cloud.
-      { label: 'refusal in flight, ordering 2', snapshots: 'cache-first' as const, denial: 240, commit: 200, order: 'ordering 2' },
+      // The refusal comes at 310 ms to leave room on both sides of that order: the first save captures about 210 ms
+      // after the listen request (ordering 2 needs at most 310) and settles about 610 ms after it (it needs at least
+      // 510, the refusal plus the debounce).
+      { label: 'refusal in flight, ordering 2', snapshots: 'cache-first' as const, denial: 310, commit: 200, order: 'ordering 2' },
     ])('$label: the project is written once, stays on screen, and no listener opens before its document exists', async ({ snapshots, denial, commit, order }) => {
       // Fails under: B (each outcome above). Not under S, D, V or H. A run
       // whose timing misses its order fails at the order, before the outcome.
@@ -969,7 +977,8 @@ describe('a project created in a cloud session that loaded normally, end to end'
     });
 
     it('a Replace All saves it as a new project of this user\'s, and keeps the id of a project the workspace holds; later saves succeed', async () => {
-      // Fails with the import's new ids removed (the file's ids kept).
+      // Fails with the import's new ids removed (the file's ids kept), and when
+      // the import selects its first project by the file's id, not the new one.
       seed();
       seedTheirs();
       await openCloud();
@@ -983,6 +992,8 @@ describe('a project created in a cloud session that loaded normally, end to end'
       expect(onScreen()).toEqual(['Their Plan', 'Beta']);
       const id = idOf('Their Plan')!;
       expect(id).not.toBe('x9');
+      // The import selects its first project, under that project's new id.
+      expect(selection.current).toBe(id);
       expect(idOf('Beta')).toBe('p2');
       expect(refusedCommits()).toEqual([]);
       expect(cloudProjectIds()).toEqual([id, 'p2', 'x9'].sort());

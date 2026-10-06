@@ -1,6 +1,6 @@
 # Change Log
 
-## Version 0.29.1 (2026-10-05)
+## Version 0.29.2 (2026-10-05)
 
 ### Fixed: in cloud mode, a project you added, copied or imported could vanish, and was often never saved
 
@@ -30,6 +30,16 @@ What changes:
 - A release change is no longer undone by adding, copying, importing or deleting a project right after it, or by a collaborator's change that arrives during your save. The cost: while a release change of yours in a project is waiting to be saved or being saved, a collaborator's change to that project's other releases appears only with the project's next update, and a collaborator's change to the same release, or its deletion, is overwritten by your save.
 
 What it cannot do: bring back projects, releases or snapshots that earlier versions lost or deleted. A Replace All in a workspace that holds a project someone else shared with you still tries to delete that project; the cloud refuses it, and every later save fails until the page is reloaded. If you are a viewer of any project that has snapshots, copying a project that has snapshots, and importing, still cannot save snapshots; the message no longer blames your account access, and says "Project cloned, but its snapshots could not be copied." or "Projects imported, but snapshots could not be saved." If a new project's own first save fails, for example offline, the project stays on screen without being saved until a later change is saved, and an import whose file held no snapshots still reports success. A merge import whose file carries a snapshot can now delete every snapshot of your cloud projects if the import's read of those snapshots fails; the next release fixes this.
+
+## Version 0.29.1 (2026-10-05)
+
+### Changed: new Terms of Service and Privacy Policy, which you will be asked to accept again
+
+The SPERT® Suite **Terms of Service** and **Privacy Policy** have new editions — **version 1.3 of each, effective October 5, 2026** — published at the same spertsuite.com addresses GanttApp already links to.
+
+- **If you sign in to use cloud storage, GanttApp asks you to accept the new Terms and Privacy Policy again.** The acceptance it had recorded was for the April 5, 2026 editions (`TOS_VERSION` `'04-05-2026'`, which had never moved); it is now `'10-05-2026'`, so the record names the edition you actually accept. Nothing changes if you use GanttApp without signing in.
+- **What the documents now say** — none of it a change to what GanttApp collects or does: database backups are kept (daily backups for up to 98 days, point-in-time recovery for up to 7 days), data is stored at rest in the United States, and project sharing and invitation emails are described.
+- **The copies kept in this repository were out of date.** `legal/TOS.pdf` and `legal/PRIVACY.pdf` still held the April 5 editions, three re-issues behind. Both are now byte-identical to the October 5 editions on spertsuite.com.
 
 ## Version 0.29.0 (2026-10-02)
 

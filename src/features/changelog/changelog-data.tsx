@@ -15,7 +15,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
-    version: '0.29.1',
+    version: '0.29.2',
     date: 'October 5, 2026',
     items: [
       <><strong>Fixed</strong> &mdash; in cloud mode, a project you added, copied or imported could vanish, and was often never saved. Since version 0.27.0, in cloud mode, a project you added, copied or imported could disappear from the screen a moment after it appeared. The app asked the cloud for the project&apos;s live updates before the cloud held the project; the cloud refused, and the app treated that refusal as a lost permission and removed the project. Depending on timing, the project was never saved, or was saved and then deleted by the next save, or stayed in the cloud and came back after a reload.</>,
@@ -29,6 +29,15 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       <><strong>Changed</strong> &mdash; For a project shared with you as a viewer, the owner&apos;s changes to it, and moves of the projects around it, no longer make your saves fail. Your own change to it is still not saved, and Settings &rarr; Storage says &ldquo;Cloud sync error: You can only view this project, so your change was not saved.&rdquo; A change to its releases stays on screen until they next arrive from the cloud, such as when someone else changes one of them or you add, copy, import or delete a project; a change to its name, finish date or work week stays until your projects are next loaded, as when you reload. Before, a change to its name, finish date or work week made every later save fail, and a change to one of its releases was undone after a moment.</>,
       <><strong>Changed</strong> &mdash; A release change is no longer undone by adding, copying, importing or deleting a project right after it, or by a collaborator&apos;s change that arrives during your save. The cost: while a release change of yours in a project is waiting to be saved or being saved, a collaborator&apos;s change to that project&apos;s other releases appears only with the project&apos;s next update, and a collaborator&apos;s change to the same release, or its deletion, is overwritten by your save.</>,
       <><strong>Note</strong> &mdash; What it cannot do: bring back projects, releases or snapshots that earlier versions lost or deleted. A Replace All in a workspace that holds a project someone else shared with you still tries to delete that project; the cloud refuses it, and every later save fails until the page is reloaded. If you are a viewer of any project that has snapshots, copying a project that has snapshots, and importing, still cannot save snapshots; the message no longer blames your account access, and says &ldquo;Project cloned, but its snapshots could not be copied.&rdquo; or &ldquo;Projects imported, but snapshots could not be saved.&rdquo; If a new project&apos;s own first save fails, for example offline, the project stays on screen without being saved until a later change is saved, and an import whose file held no snapshots still reports success. A merge import whose file carries a snapshot can now delete every snapshot of your cloud projects if the import&apos;s read of those snapshots fails; the next release fixes this.</>,
+    ],
+  },
+  {
+    version: '0.29.1',
+    date: 'October 5, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; the SPERT&reg; Suite Terms of Service and Privacy Policy have new editions, version 1.3 of each, effective October 5, 2026. If you sign in to use cloud storage, GanttApp asks you to accept them again: the acceptance it had recorded was for the April 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use GanttApp without signing in.</>,
+      <><strong>Note</strong> &mdash; None of the changes alters what GanttApp collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails.</>,
+      <><strong>Note</strong> &mdash; The copies of the Terms and Privacy Policy kept in this project&apos;s repository still held the April 5 editions, three re-issues behind. Both now match the October 5 editions published on spertsuite.com.</>,
     ],
   },
   {

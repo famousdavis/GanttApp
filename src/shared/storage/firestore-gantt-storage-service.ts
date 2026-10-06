@@ -40,7 +40,8 @@ import {
   firestoreSnapshotToFlat,
 } from '../utils/firestore-converters';
 import { sanitizeFirebaseError } from '../utils/validation';
-import { executeFirestoreSave } from './firestore-save-executor';
+import { executeFirestoreSave, type ViewerSkip } from './firestore-save-executor';
+import { unsentReleaseIds } from './unsent-release-changes';
 import {
   removeCollaborator as removeCollaboratorFn,
   getProjectMembers as getProjectMembersFn,
@@ -49,8 +50,37 @@ import {
 import { getRevokeInvite, getResendInvite, auth } from '../../lib/firebase';
 import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 import { CLOUD_LOAD_FAILED_MESSAGE, CloudDataNotLoadedError } from './cloud-data-not-loaded';
+import { ProjectNotSavedError, VIEWER_CHANGE_NOT_SAVED_MESSAGE } from './cloud-not-saved';
 
 const DEBOUNCE_MS = 200; // v0.27.0 (Pass 3, D1): reduced from 500ms
+
+type ReleaseCallback = (releases: Release[], snapshot: QuerySnapshot) => void;
+
+/** A save between its capture and its settlement. */
+interface InFlightSave {
+  data: AppData;
+  /** The projects the listener's error path pruned while this save was in flight (D). */
+  pruned: Set<string>;
+  settled: Promise<void>;
+}
+
+/** A listener asked for on a project the baseline does not hold yet (B). */
+interface DeferredListener {
+  projectId: string;
+  callback: ReleaseCallback;
+  /** Stops the listener once it has started. */
+  stop: (() => void) | null;
+}
+
+/** `data` without these projects and their releases. */
+function withoutProjects(data: AppData, projectIds: Set<string>): AppData {
+  if (projectIds.size === 0) return data;
+  return {
+    ...data,
+    projects: data.projects.filter(p => !projectIds.has(p.id)),
+    releases: data.releases.filter(r => !projectIds.has(r.projectId)),
+  };
+}
 
 export interface CloudGanttStorageService extends GanttStorageService {
   subscribeToProject(
@@ -86,9 +116,14 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   // is: a diff against nothing writes every project as new (a full set() with
   // only this user as a member) and every setting over the stored ones.
   private lastSavedState: AppData | null = null;
-  // The latest load's result as returned, and the baseline it replaced, so
-  // that a load AppDataContext does not apply can be set aside.
-  private lastLoad: { returned: AppData; previous: AppData | null } | null = null;
+  // The latest load's result as returned, and the baseline (and the
+  // listeners' last deliveries) it replaced, so that a load AppDataContext
+  // does not apply can be set aside.
+  private lastLoad: {
+    returned: AppData;
+    previous: AppData | null;
+    previousDelivered: Map<string, Release[]>;
+  } | null = null;
   // True while the message last reported is this service's failed-load one.
   private reportingLoadFailure = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -98,6 +133,15 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   private pageHideHandler: (() => void) | null = null; // v0.27.0 (Pass 3, D2)
   private disposed = false;
   private onSaveResult?: (error: string | null) => void;
+  // Every save between its capture and its settlement. Two can be in flight
+  // at once: executeSave does not serialise. The snapshot wait (S), the
+  // revoke filter (D) and the unsent-changes guard (H) all read it.
+  private inFlight = new Set<InFlightSave>();
+  // B: listeners asked for on projects the baseline does not hold yet.
+  private deferred = new Set<DeferredListener>();
+  // H: per project, the releases of the last snapshot its listener delivered
+  // with no pending writes.
+  private lastDelivered = new Map<string, Release[]>();
 
   constructor(
     db: Firestore,
@@ -174,6 +218,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   setAsideLoad(loaded: AppData): void {
     if (!this.lastLoad || this.lastLoad.returned !== loaded) return;
     this.lastSavedState = this.lastLoad.previous;
+    this.lastDelivered = this.lastLoad.previousDelivered;
     this.lastLoad = null;
     if (!this.lastSavedState) this.reportLoadFailure();
   }
@@ -186,6 +231,10 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     // Refused, silently, until a load has succeeded (see lastSavedState).
     if (!this.canWrite()) return;
     this.pendingData = data;
+    // A project gone from the screen has no listener to compare with.
+    this.lastDelivered.forEach((_releases, projectId) => {
+      if (!data.projects.some(p => p.id === projectId)) this.lastDelivered.delete(projectId);
+    });
 
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -241,6 +290,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       group.push(snap);
       byProject.set(snap.projectId, group);
     }
+    // The projects it writes under, not the member projects it clears.
+    await this.waitForFirstSaves(snapshots.map(s => s.projectId));
 
     const batch = writeBatch(this.db);
 
@@ -266,6 +317,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   async addSnapshot(snapshot: Snapshot): Promise<Snapshot[] | null> {
     this.refuseUntilLoaded();
+    await this.waitForFirstSaves([snapshot.projectId]);
     const all = await this.loadSnapshots();
     if (all.length >= MAX_SNAPSHOTS_TOTAL) return null;
 
@@ -305,10 +357,26 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
   // --- Cloud-specific methods (delegated) ---
 
-  subscribeToProject(
-    projectId: string,
-    callback: (releases: Release[], snapshot: QuerySnapshot) => void
-  ): () => void {
+  /**
+   * B: a listener opens only on a project the baseline holds. A listen on a
+   * project the cloud does not hold yet (added, copied or imported here) is
+   * refused, because the rules read its document, and the refusal evicts it.
+   * So it waits for the save that writes the project: it starts once that
+   * whole save is acknowledged (not at phase 1, which could show the project
+   * before its releases). A save that is dropped or fails starts nothing. The
+   * unsubscribe returned cancels the wait, and stops the listener if it started.
+   */
+  subscribeToProject(projectId: string, callback: ReleaseCallback): () => void {
+    if (this.holdsInBaseline(projectId)) return this.openListener(projectId, callback);
+    const deferral: DeferredListener = { projectId, callback, stop: null };
+    this.deferred.add(deferral);
+    return () => {
+      this.deferred.delete(deferral);
+      deferral.stop?.();
+    };
+  }
+
+  private openListener(projectId: string, callback: ReleaseCallback): () => void {
     const releasesRef = collection(this.db, `ganttapp_projects/${projectId}/releases`);
     const q = query(releasesRef);
 
@@ -329,6 +397,15 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           data: d.data() as FirestoreRelease,
         }));
         const releases = firestoreReleasesToFlat(projectId, entries);
+        // H (R46): while this browser holds release changes for the project
+        // that it has not sent (in the pending save, or in a save in flight
+        // until it settles), delivering would replace them on screen, and the
+        // save that follows would undo them in the cloud. The snapshot is
+        // dropped: a change it carries to the project's other releases shows
+        // at the next snapshot, and this user's save overwrites a change to
+        // the same release.
+        if (this.holdsUnsentReleaseChanges(projectId)) return;
+        if (!querySnapshot.metadata?.hasPendingWrites) this.lastDelivered.set(projectId, releases);
         callback(releases, querySnapshot);
       },
       (error) => {
@@ -363,17 +440,20 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
           // v0.27.0 (Pass 5, I2): prune driver state BEFORE dispatching the
           // eviction event. Without this, the next executeFirestoreSave diff
-          // would treat the revoked project as "removed" and add batch writes
-          // to its subcollections → permission-denied → re-queue → infinite
-          // save-fail loop until sign-out.
+          // would treat the revoked project as "removed" and delete it, which
+          // the rules refuse (a non-owner's delete, or a delete of a missing
+          // document) → re-queue → every later save fails until sign-out.
           //
-          // Known limitation: if executeSave is already in flight, it captured
-          // the old pendingData at function entry. That batch may write to
-          // the revoked project's subcollections and fail once with
-          // permission-denied. executeSave's own catch logs that and reports it
-          // through onSaveResult, which StorageSection renders as a cloud-sync
-          // error under Settings -> Storage. Subsequent saves use the pruned
-          // state and succeed. The infinite loop is what's fixed.
+          // D: a save already in flight captured its data before this prune.
+          // Its batch may still fail on the revoked project: its catch reports
+          // that through onSaveResult (Settings -> Storage), and queues its data
+          // again without the pruned project. If it succeeds, its acknowledgement
+          // installs its result without the pruned project too, whichever of it
+          // and the next save's capture comes first. Without that, the
+          // acknowledgement would put the project back in the baseline and the
+          // next save would delete it, refused, every later save failing.
+          this.inFlight.forEach(save => save.pruned.add(projectId));
+          this.lastDelivered.delete(projectId);
           // A revoke moves the baseline on, so the load before it can no
           // longer be set aside.
           this.lastLoad = null;
@@ -465,6 +545,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     // path where E1 + user-initiated sign-out both fire performSignOutWithCleanup.
     if (this.disposed) return;
     this.disposed = true;
+    this.deferred.clear();
+    this.lastDelivered.clear();
 
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -514,8 +596,10 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
    * the baseline it replaces in case AppDataContext does not apply this load.
    */
   private adopt(appData: AppData): void {
-    this.lastLoad = { returned: appData, previous: this.lastSavedState };
+    this.lastLoad = { returned: appData, previous: this.lastSavedState, previousDelivered: this.lastDelivered };
     this.lastSavedState = structuredClone(appData);
+    // What the listeners last delivered described the baseline this load replaces.
+    this.lastDelivered = new Map();
     // A good load clears this service's own failed-load report, and only
     // that: a failed save's message stays until a save succeeds.
     if (this.reportingLoadFailure) this.report(null);
@@ -626,13 +710,25 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     // as I2 (eviction infinite loop).
     if (auth?.currentUser?.uid !== this.uid) return;
 
+    // Registered in the turn that captured the data, so the guards that read
+    // in-flight saves never miss one.
+    let settle!: () => void;
+    const save: InFlightSave = {
+      data,
+      pruned: new Set(),
+      settled: new Promise<void>((resolve) => { settle = resolve; }),
+    };
+    this.inFlight.add(save);
     try {
-      this.lastSavedState = await executeFirestoreSave(
-        this.db, this.uid, data, baseline
-      );
+      const skipped: ViewerSkip[] = [];
+      const saved = await executeFirestoreSave(this.db, this.uid, data, baseline, skipped);
+      // D: what the cloud holds after this save, less what was pruned meanwhile.
+      this.lastSavedState = withoutProjects(saved, save.pruned);
       this.lastLoad = null; // the baseline is now this save's
-      // Clear any prior surfaced error after a successful recovery save.
-      this.report(null);
+      this.startDeferred();
+      // Clears any prior surfaced error after a successful recovery save,
+      // unless the save skipped a viewer's own change (R53).
+      this.report(this.viewerChangeSkipped(skipped, data, baseline) ? VIEWER_CHANGE_NOT_SAVED_MESSAGE : null);
     } catch (error) {
       const message = sanitizeFirebaseError(error);
       console.error('Failed to save cloud data:', message);
@@ -644,9 +740,89 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         && !this.pendingData
         && auth?.currentUser?.uid === this.uid
       ) {
-        this.pendingData = data;
+        // D: without the projects pruned while it was in flight.
+        this.pendingData = withoutProjects(data, save.pruned);
       }
       this.report(message);
+    } finally {
+      this.inFlight.delete(save);
+      settle();
     }
+  }
+
+  private holdsInBaseline(projectId: string): boolean {
+    return !!this.lastSavedState?.projects.some(p => p.id === projectId);
+  }
+
+  /** B: open each deferred listener whose project the baseline now holds. */
+  private startDeferred(): void {
+    if (this.disposed || auth?.currentUser?.uid !== this.uid) return;
+    this.deferred.forEach((deferral) => {
+      if (!this.holdsInBaseline(deferral.projectId)) return;
+      this.deferred.delete(deferral);
+      deferral.stop = this.openListener(deferral.projectId, deferral.callback);
+    });
+  }
+
+  /** H: whether the pending save, or a save in flight, holds release changes of this project not yet sent. */
+  private holdsUnsentReleaseChanges(projectId: string): boolean {
+    const baseline = this.lastSavedState;
+    if (!baseline) return false;
+    const delivered = this.lastDelivered.get(projectId);
+    const unsent = (data: AppData | null) =>
+      !!data && unsentReleaseIds(projectId, data, baseline, delivered).length > 0;
+    return unsent(this.pendingData) || Array.from(this.inFlight).some(save => unsent(save.data));
+  }
+
+  /**
+   * R53: whether a save skipped this user's own change to a project they may
+   * only view: a content field, or a release that differs both from the
+   * baseline and from what the listener last delivered. A delivered change of
+   * the owner's, sent back by the app, and an order shift are not.
+   */
+  private viewerChangeSkipped(skipped: ViewerSkip[], data: AppData, baseline: AppData): boolean {
+    return skipped.some(skip => skip.contentChanged
+      || unsentReleaseIds(skip.projectId, data, baseline, this.lastDelivered.get(skip.projectId))
+        .some(id => skip.releaseIds.includes(id)));
+  }
+
+  private awaitingFirstSave(projectId: string): boolean {
+    if (this.holdsInBaseline(projectId)) return false;
+    return this.pendingHolds(projectId)
+      || Array.from(this.inFlight).some(save => save.data.projects.some(p => p.id === projectId));
+  }
+
+  private pendingHolds(projectId: string): boolean {
+    return !!this.pendingData?.projects.some(p => p.id === projectId);
+  }
+
+  /** Until no save is in flight; each round takes in the saves started meanwhile. */
+  private async savesSettled(): Promise<void> {
+    while (this.inFlight.size > 0) {
+      await Promise.all(Array.from(this.inFlight, save => save.settled));
+    }
+  }
+
+  /**
+   * S: a snapshot write under a project waits for that project's first save,
+   * since the rules refuse a snapshot under a project the cloud does not hold.
+   * Only a target awaiting its first save waits: one not in the baseline AND
+   * in the pending save or a save in flight. (A project added on another
+   * device, or shared since the load, is in the cloud but not the baseline.)
+   * First it waits until no save is in flight: a save run beside another
+   * diffs against the same baseline and repeats its writes. Then it runs the
+   * pending save at once if that holds a target, at most once per call, and
+   * waits again. It throws if a target is still not in the baseline: its save
+   * failed, or it left the pending save before any save took it.
+   */
+  private async waitForFirstSaves(projectIds: string[]): Promise<void> {
+    const waiting = Array.from(new Set(projectIds)).filter(id => this.awaitingFirstSave(id));
+    if (waiting.length === 0) return;
+    await this.savesSettled();
+    if (waiting.some(id => this.awaitingFirstSave(id) && this.pendingHolds(id))) {
+      await this.flushPendingWrites();
+    }
+    await this.savesSettled();
+    if (waiting.some(id => !this.holdsInBaseline(id))) throw new ProjectNotSavedError();
   }
 }

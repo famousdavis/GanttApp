@@ -137,6 +137,7 @@ export function ProjectsTab({
     selectedProjectId,
     setSelectedProjectId,
     appDataLoading,
+    ownerUid: isCloudMode ? user?.uid : undefined,
   });
 
   const [finishDateError, setFinishDateError] = useState('');
@@ -651,11 +652,15 @@ export function ProjectsTab({
                     ariaLabel="Clone project"
                     title="Clone project"
                   />
-                  <TrashIconButton
-                    onClick={() => setDeleteConfirmProjectId(project.id)}
-                    ariaLabel="Delete project"
-                    title="Delete project"
-                  />
+                  {/* R50: in cloud mode only the owner may delete a project, so only
+                      the owner sees Delete, as only the owner sees Share. */}
+                  {(!isCloudMode || (user && project.owner === user.uid)) && (
+                    <TrashIconButton
+                      onClick={() => setDeleteConfirmProjectId(project.id)}
+                      ariaLabel="Delete project"
+                      title="Delete project"
+                    />
+                  )}
               </div>
             </div>
             );

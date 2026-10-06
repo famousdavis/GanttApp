@@ -20,6 +20,7 @@ import {
   applyImportDecisions,
   sanitizeFirebaseError,
   readFileAsText,
+  generateId,
 } from '../../../shared/utils';
 import type {
   ImportResult,
@@ -29,6 +30,7 @@ import type {
 import type { AppData } from '../../../shared/types/app';
 import type { Snapshot } from '../../../shared/types/snapshots';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../../shared/storage/cloud-data-not-loaded';
+import { isPermissionDenied, isProjectNotSavedError } from '../../../shared/storage/cloud-not-saved';
 
 // Minimal storage shape — the hook only needs mode, loadSnapshots and
 // canWrite, not the full GanttStorageService. Easier to mock in tests.
@@ -39,10 +41,87 @@ interface ImportStorage {
 }
 
 const NOTHING_IMPORTED = 'Nothing was imported.';
+const MERGE_NOT_SAVED =
+  "The projects were imported here, but they were not saved to the cloud, so the file's snapshots were not imported.";
+const REPLACE_ALL_NOT_SAVED =
+  "Your data was replaced here, but the imported projects were not saved to the cloud, so the file's snapshots were not imported.";
 
-/** A refused write means nothing was imported; any other failure keeps its own message. */
-function importErrorText(err: unknown): string {
-  return isCloudDataNotLoadedError(err) ? cloudRefusal(NOTHING_IMPORTED) : sanitizeFirebaseError(err);
+/**
+ * A refused write means nothing was imported; an imported project's own failed
+ * first save means its snapshots were not written (`notSaved`); any other
+ * failure keeps its own message, except a refusal by the rules. That reaches
+ * here only from the snapshot step, after the import is on screen (the cloud's
+ * loadSnapshots before it returns [] on any error), and the user's access is
+ * fine: the batch rewrites the snapshots of a project they may only view.
+ */
+function importErrorText(err: unknown, notSaved: string): string {
+  if (isCloudDataNotLoadedError(err)) return cloudRefusal(NOTHING_IMPORTED);
+  if (isProjectNotSavedError(err)) return notSaved;
+  if (isPermissionDenied(err)) return 'Projects imported, but snapshots could not be saved.';
+  return sanitizeFirebaseError(err);
+}
+
+/**
+ * In cloud mode an imported project gets an owner, as an added or copied one
+ * does (v0.20.1). Export strips owners, so a file carries none. A project this
+ * workspace already holds keeps that project's owner (none if it has none);
+ * any other gets the signed-in user, whom its first save writes as its owner,
+ * so the screen matches the cloud. Without an owner the Share and Delete
+ * buttons stay hidden until a reload. Local mode passes no uid: no owner.
+ */
+export function withImportOwners(imported: AppData, workspace: AppData, ownerUid: string | undefined): AppData {
+  if (!ownerUid) return imported;
+  const held = new Map(workspace.projects.map((p) => [p.id, p] as const));
+  return {
+    ...imported,
+    projects: imported.projects.map((project) => {
+      const existing = held.get(project.id);
+      if (!existing) return { ...project, owner: ownerUid };
+      const { owner: _incoming, ...rest } = project;
+      return existing.owner === undefined ? rest : { ...rest, owner: existing.owner };
+    }),
+  };
+}
+
+/**
+ * In cloud mode an imported project this workspace does not hold gets a new
+ * id, and so does each of its releases and snapshots (their projectId follows;
+ * a snapshot's embedded releases stay as they are), as a merge "copy" already
+ * does. The file's ids can name a project the cloud holds under another owner,
+ * such as the original of a project someone else exported: kept, the import's
+ * first save would update that project, which the rules refuse to a
+ * non-member, and every later save would carry it. A project the workspace
+ * holds keeps its id. Conflicts are found on the file's ids first; the
+ * conflicts and decisions passed in follow the new ids. Local mode passes no
+ * uid: nothing changes.
+ */
+export function withFreshImportIds(
+  imported: ImportResult,
+  workspace: AppData,
+  ownerUid: string | undefined,
+  conflicts: ImportConflict[] = [],
+  decisions: Map<string, ConflictAction> = new Map()
+): { imported: ImportResult; conflicts: ImportConflict[]; decisions: Map<string, ConflictAction> } {
+  if (!ownerUid) return { imported, conflicts, decisions };
+  const held = new Set(workspace.projects.map((p) => p.id));
+  const ids = new Map<string, string>();
+  imported.appData.projects.forEach((p) => { if (!held.has(p.id)) ids.set(p.id, generateId()); });
+  const fresh = (id: string) => ids.get(id) ?? id;
+  const renew = <T extends { id: string; projectId: string }>(item: T): T =>
+    (ids.has(item.projectId) ? { ...item, id: generateId(), projectId: fresh(item.projectId) } : item);
+  return {
+    imported: {
+      ...imported,
+      appData: {
+        ...imported.appData,
+        projects: imported.appData.projects.map((p) => ({ ...p, id: fresh(p.id) })),
+        releases: imported.appData.releases.map(renew),
+      },
+      snapshots: imported.snapshots?.map(renew),
+    },
+    conflicts: conflicts.map((c) => ({ ...c, incomingProject: { ...c.incomingProject, id: fresh(c.incomingProject.id) } })),
+    decisions: new Map(Array.from(decisions.entries()).map(([id, action]) => [fresh(id), action] as const)),
+  };
 }
 
 export type ImportMode = 'merge' | 'replace-all';
@@ -64,6 +143,8 @@ interface UseImportStateOptions {
   selectedProjectId: string;
   setSelectedProjectId: (id: string) => void;
   appDataLoading: boolean;
+  /** The signed-in user's uid in cloud mode, for the imported projects' owners; undefined in local mode. */
+  ownerUid?: string;
 }
 
 export interface UseImportStateReturn {
@@ -118,6 +199,7 @@ export function useImportState({
   selectedProjectId,
   setSelectedProjectId,
   appDataLoading,
+  ownerUid,
 }: UseImportStateOptions): UseImportStateReturn {
   const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
   const [importBanner, setImportBanner] = useState<ImportBannerState | null>(null);
@@ -190,8 +272,9 @@ export function useImportState({
           showBanner({ kind: 'error', text: msg });
           return;
         }
+        const incoming = withFreshImportIds(imported, data, ownerUid, freshConflicts, decisions);
         const { mergedData, mergedSnapshots, result } = applyImportDecisions(
-          data, imported, existingSnapshots, decisions, freshConflicts
+          data, incoming.imported, existingSnapshots, incoming.decisions, incoming.conflicts
         );
         // Refused before anything changes on screen when nothing can be saved
         // (a cloud session whose data never loaded).
@@ -201,7 +284,7 @@ export function useImportState({
         }
         // NOTE: partial-apply window — updateData may persist before
         // onReplaceSnapshots rejects. Acceptable; matches pre-v0.24.0 behavior.
-        updateData(mergedData);
+        updateData(withImportOwners(mergedData, data, ownerUid));
         await onReplaceSnapshots(mergedSnapshots);
         // replacedIdMap contains only name-conflict remappings (existing.id ≠ incoming.id).
         const newId = result.replacedIdMap.get(selectedProjectId);
@@ -214,7 +297,7 @@ export function useImportState({
         const text = parts.length > 0 ? parts.join(', ') + '.' : 'No projects were imported.';
         showBanner({ kind: 'success', text });
       } catch (err) {
-        showBanner({ kind: 'error', text: importErrorText(err) });
+        showBanner({ kind: 'error', text: importErrorText(err, MERGE_NOT_SAVED) });
       } finally {
         // Guarantee reset even after unexpected throw (pitfall #27).
         // showBanner on non-throw paths also resets; this is the safety net.
@@ -222,7 +305,7 @@ export function useImportState({
         setApplying(false);
       }
     },
-    [data, storage, selectedProjectId, setSelectedProjectId, updateData, onReplaceSnapshots, showBanner]
+    [data, storage, selectedProjectId, setSelectedProjectId, updateData, onReplaceSnapshots, showBanner, ownerUid]
   );
 
   const applyReplaceAll = useCallback(
@@ -238,25 +321,26 @@ export function useImportState({
           showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
           return;
         }
-        updateData(imported.appData);
-        await onReplaceSnapshots(imported.snapshots ?? []);
-        if (imported.appData.projects.length > 0) {
-          setSelectedProjectId(imported.appData.projects[0].id);
+        const { imported: incoming } = withFreshImportIds(imported, data, ownerUid);
+        updateData(withImportOwners(incoming.appData, data, ownerUid));
+        await onReplaceSnapshots(incoming.snapshots ?? []);
+        if (incoming.appData.projects.length > 0) {
+          setSelectedProjectId(incoming.appData.projects[0].id);
         }
-        const n = imported.appData.projects.length;
+        const n = incoming.appData.projects.length;
         const text =
           n > 0
             ? `All data replaced. ${n} project${n !== 1 ? 's' : ''} imported.`
             : 'All data replaced.';
         showBanner({ kind: 'success', text });
       } catch (err) {
-        showBanner({ kind: 'error', text: importErrorText(err) });
+        showBanner({ kind: 'error', text: importErrorText(err, REPLACE_ALL_NOT_SAVED) });
       } finally {
         applyingRef.current = false;
         setApplying(false);
       }
     },
-    [storage, updateData, onReplaceSnapshots, setSelectedProjectId, showBanner]
+    [data, storage, updateData, onReplaceSnapshots, setSelectedProjectId, showBanner, ownerUid]
   );
 
   const handleImport = useCallback(

@@ -172,10 +172,11 @@ describe('useProjects — snapshot write failures are surfaced (v0.28.10)', () =
       await act(async () => { await result.current.cloneProject('p1'); });
 
       expect(alertSpy).toHaveBeenCalledTimes(1);
-      expect(alertSpy.mock.calls[0][0]).toBe(
-        'Project cloned, but its snapshots could not be copied. ' +
-        'Permission denied. Please check your account access.'
-      );
+      // v0.29.1: a refusal by the rules no longer adds "Permission denied.
+      // Please check your account access.": the user's access is fine, and the
+      // batch was refused because it rewrites the snapshots of a project they
+      // may only view.
+      expect(alertSpy.mock.calls[0][0]).toBe('Project cloned, but its snapshots could not be copied.');
     });
 
     it('reports the partial outcome truthfully — the clone itself stands', async () => {

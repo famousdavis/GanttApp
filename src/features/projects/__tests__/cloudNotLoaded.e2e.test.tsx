@@ -364,8 +364,11 @@ const onScreen = () => within(projectList()).queryAllByRole('listitem').map((ite
 /**
  * Watches the projects on screen from now on. The returned function stops
  * watching and gives every state seen that differed from the starting one,
- * however briefly: a project that appears is soon dropped again when the
- * cloud refuses a listener on a project it does not hold.
+ * however briefly, so a change undone before the assertion still shows.
+ * (Before v0.29.1 a project that appeared was soon dropped again when the
+ * cloud refused a listener on a project it did not hold. Now no listener opens
+ * on a project the baseline does not hold, and after a failed first load there
+ * is no baseline.)
  */
 function watchScreen() {
   const start = JSON.stringify(onScreen());

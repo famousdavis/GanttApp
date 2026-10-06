@@ -56,10 +56,13 @@ describe('exportAllProjects', () => {
   it('throws when readAppData returns null', async () => {
     const mockStorage = {
       readAppData: vi.fn().mockResolvedValue(null),
+      loadAppData: vi.fn(),
       loadSnapshots: vi.fn().mockResolvedValue([]),
     };
 
     await expect(exportAllProjects(mockStorage)).rejects.toThrow('No projects to export');
+    // A download reads the cloud without adopting it, so it never falls back to a load.
+    expect(mockStorage.loadAppData).not.toHaveBeenCalled();
   });
 
   it('includes snapshots when they exist', async () => {

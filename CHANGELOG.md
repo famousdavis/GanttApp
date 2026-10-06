@@ -13,12 +13,12 @@ The versions come from reading the code's history; the loss was reproduced in te
 
 What changes:
 
-- If an import cannot read every saved snapshot from the cloud, it stops before anything changes. Nothing is imported, nothing is deleted, and the message says "Nothing was imported, because your saved snapshots could not be loaded from the cloud. Please try again."
+- If a merge import cannot read every saved snapshot from the cloud, it stops before anything changes. Nothing is imported, nothing is deleted, and the message says "Nothing was imported, because your saved snapshots could not be loaded from the cloud. Please try again."
 - If a copy cannot read every saved snapshot from the cloud, the copy and its releases are kept, its snapshots are not copied, and the message says "Project cloned, but its snapshots were not copied, because your saved snapshots could not be loaded from the cloud."
-- While the connection is down, every import stops and every copy shows that message, even when nothing would have been lost, including a copy of a project that has no snapshots.
+- While the connection is down, every merge import in cloud mode stops, and every copy that goes ahead shows that message, even when nothing would have been lost, including a copy of a project that has no snapshots.
 - In a cloud session whose data did not load, an import still says to reload the page, and now says it before reading anything.
 
-What it cannot do: bring back snapshots that were deleted. A file exported before they went missing still holds them.
+What it cannot do: bring back snapshots that were deleted. A file from Export All, or from "Download All Projects as JSON" in Settings, made before they went missing may still hold them; an export whose own read of the snapshots failed left them out, which is a separate, known issue. A per-project export never includes snapshots, and an Export Projects file includes them only if "Include snapshots" was ticked.
 
 ## Version 0.29.2 (2026-10-05)
 

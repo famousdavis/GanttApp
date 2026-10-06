@@ -455,11 +455,12 @@ Known limitation: a save in flight that writes to the revoked project fails once
 
 ### Save-Side and Real-Time UID Guards (v0.27.0, I1a)
 
-The driver imports `auth` from `src/lib/firebase` and checks `auth?.currentUser?.uid !== this.uid` at five points:
+The driver imports `auth` from `src/lib/firebase` and checks `auth?.currentUser?.uid !== this.uid` at six points:
 - `subscribeToProject` success callback (discard stale data after user switch)
 - After each async boundary in `loadAppData` (returns `null`)
 - After each async boundary in `loadSnapshots` (returns `[]`)
 - After each async boundary in `loadSnapshotsStrict` (rejects with `SnapshotsNotLoadedError`)
+- At the top of `startDeferred` (a deferred listener does not open for another user)
 - At the top of `executeSave` and in the catch-block re-queue branch (prevents an infinite save-fail loop when a pending save would otherwise fire under the new user's auth token)
 
 ### `useBufferedField` Hook (v0.27.0, A3)

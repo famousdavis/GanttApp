@@ -272,7 +272,8 @@ export function useImportState({
           return;
         }
         // Strict: onReplaceSnapshots below replaces every snapshot with this
-        // list, so a list missing anything would delete it. Rejects otherwise.
+        // list, so a list missing anything would delete it. The cloud's strict
+        // load rejects otherwise.
         const existingSnapshots = await storage.loadSnapshotsStrict();
         // This check cannot see a change made during the await above: `data` is
         // the value of the render this callback was created in, and

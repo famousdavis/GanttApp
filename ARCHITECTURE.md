@@ -326,7 +326,7 @@ interface AppData {
 ┌──────────────────────────────────────────────────────────────┐
 │  GanttStorageService (app logic)                              │
 │  loadAppData, readAppData, saveAppData,                      │
-│  loadSnapshots, saveSnapshots,                               │
+│  loadSnapshots, loadSnapshotsStrict, saveSnapshots,          │
 │  addSnapshot, deleteSnapshot, deleteSnapshotsForProject      │
 │  cancelPendingSaves, canWrite, setAsideLoad (cloud only)     │
 ├──────────────────────────────────────────────────────────────┤
@@ -361,6 +361,7 @@ Key behaviors:
 - **Write debouncing**: `DEBOUNCE_MS` (200 ms since v0.27.0, reduced from 500 ms) `setTimeout` with coalescing. Every save goes through it: `saveAppDataImmediate` has no production caller. The exceptions run the pending save at once: the `beforeunload` and `pagehide` handlers, and the snapshot wait below when the pending save holds a project's first save.
 - **Diff-based saves**: In-memory `lastSavedState` cache — only writes changed data via batch writes
 - **No save before a load** (v0.29.0): `lastSavedState` is null until a load succeeds, and nothing is written while it is — a diff against nothing would write every project as new and every setting over the stored ones. `saveAppData` and `saveAppDataImmediate` are refused silently; a failed first load is reported through `onSaveResult`; the four snapshot writes throw `CloudDataNotLoadedError` (`src/shared/storage/cloud-data-not-loaded.ts`), so the action that asked can say it did not happen (and `saveSnapshots` and `addSnapshot` can also throw `ProjectNotSavedError`, below). `canWrite()` (local: always true) tells callers in advance. `setAsideLoad(loaded)` restores the baseline from before a load that `AppDataContext` did not apply (its empty-result guard, or a newer load or storage swap); it is called in the same continuation as that decision. `readAppData()` returns the same data as `loadAppData()` without adopting it: the download of every project reads through it, and leaves the baseline, the load that may be set aside and the failed-load report as they were.
+- **No replace after an incomplete load** (v0.29.3): a merge import and a copy load every snapshot and then replace them all with `saveSnapshots`, which deletes every snapshot it is not given, so they load through `loadSnapshotsStrict()`. It rejects with `SnapshotsNotLoadedError` (`src/shared/storage/snapshots-not-loaded.ts`), and never returns part of the list, when a read fails (a document the converter cannot read included), when the member list or a project's snapshots are answered from the cache (offline, the SDK answers `getDocs` from it with no error), or when the signed-in user changes during the reads. The import checks `canWrite()` first, then stops before anything changes; the copy keeps the project and its releases and copies no snapshots. `loadSnapshots()` is unchanged for every other caller: an empty list for a failed read or a user change, and the cached list offline. Local: `loadSnapshotsStrict()` is `loadSnapshots()`.
 - **Saves follow the load** (v0.29.0): `AppDataContext` keeps `loadedFromRef`, the storage whose load produced the data on screen, and sends saves, `updateData` and cloud listeners only there. A storage swap therefore writes nothing to the new storage before its load applies.
 - **beforeunload handler**: Flushes pending writes on tab close. Removed on `dispose()`.
 - **Real-time sync**: `subscribeToProject()` returns an unsubscribe: it stops the project's `onSnapshot` listener, or cancels a deferred one and stops it if it has started. Echo prevention via `snapshot.metadata.hasPendingWrites` in `AppDataContext`.
@@ -454,10 +455,12 @@ Known limitation: a save in flight that writes to the revoked project fails once
 
 ### Save-Side and Real-Time UID Guards (v0.27.0, I1a)
 
-The driver imports `auth` from `src/lib/firebase` and checks `auth?.currentUser?.uid !== this.uid` at four points:
+The driver imports `auth` from `src/lib/firebase` and checks `auth?.currentUser?.uid !== this.uid` at six points:
 - `subscribeToProject` success callback (discard stale data after user switch)
 - After each async boundary in `loadAppData` (returns `null`)
 - After each async boundary in `loadSnapshots` (returns `[]`)
+- After each async boundary in `loadSnapshotsStrict` (rejects with `SnapshotsNotLoadedError`)
+- At the top of `startDeferred` (a deferred listener does not open for another user)
 - At the top of `executeSave` and in the catch-block re-queue branch (prevents an infinite save-fail loop when a pending save would otherwise fire under the new user's auth token)
 
 ### `useBufferedField` Hook (v0.27.0, A3)

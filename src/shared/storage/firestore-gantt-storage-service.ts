@@ -51,6 +51,7 @@ import { getRevokeInvite, getResendInvite, auth } from '../../lib/firebase';
 import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 import { CLOUD_LOAD_FAILED_MESSAGE, CloudDataNotLoadedError } from './cloud-data-not-loaded';
 import { ProjectNotSavedError, VIEWER_CHANGE_NOT_SAVED_MESSAGE } from './cloud-not-saved';
+import { SnapshotsNotLoadedError } from './snapshots-not-loaded';
 
 const DEBOUNCE_MS = 200; // v0.27.0 (Pass 3, D1): reduced from 500ms
 
@@ -279,6 +280,41 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     } catch (error) {
       console.error('Failed to load cloud snapshots:', sanitizeFirebaseError(error));
       return [];
+    }
+  }
+
+  /**
+   * Every snapshot of every project this user is a member of, each read from
+   * the server, for an action that then replaces them all: saveSnapshots
+   * deletes every snapshot it is not given. Rejects with
+   * SnapshotsNotLoadedError, and never returns part of the list, when a read
+   * fails (a document the converter cannot read included), when the member
+   * list or a project's snapshots are answered from the cache (offline, the
+   * SDK answers getDocs from it with no error), or when the signed-in user
+   * changes during the reads. loadSnapshots returns [] for the first and last
+   * of these, and the cached list for the second.
+   */
+  async loadSnapshotsStrict(): Promise<Snapshot[]> {
+    try {
+      const allSnapshots: Snapshot[] = [];
+      const memberDocs = await this.listMemberProjects(true);
+      if (auth?.currentUser?.uid !== this.uid) throw new SnapshotsNotLoadedError();
+      for (const projectDoc of memberDocs) {
+        const snapshotsSnap = await getDocs(
+          collection(this.db, `ganttapp_projects/${projectDoc.id}/snapshots`)
+        );
+        if (snapshotsSnap.metadata?.fromCache) throw new SnapshotsNotLoadedError();
+        if (auth?.currentUser?.uid !== this.uid) throw new SnapshotsNotLoadedError();
+        for (const snapDoc of snapshotsSnap.docs) {
+          allSnapshots.push(
+            firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot)
+          );
+        }
+      }
+      return allSnapshots;
+    } catch (error) {
+      console.error('Failed to load cloud snapshots:', sanitizeFirebaseError(error));
+      throw new SnapshotsNotLoadedError();
     }
   }
 
@@ -665,8 +701,11 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
    *
    * Extracted in v0.22.1 to dedupe the preamble previously inlined in
    * loadAppData, loadSnapshots, and saveSnapshots.
+   *
+   * `fromServer` (loadSnapshotsStrict): throw SnapshotsNotLoadedError when the
+   * list is answered from the cache, as it is offline, with no error.
    */
-  private async listMemberProjects(): Promise<QueryDocumentSnapshot<FirestoreProjectMeta>[]> {
+  private async listMemberProjects(fromServer = false): Promise<QueryDocumentSnapshot<FirestoreProjectMeta>[]> {
     // ⚠️ This filter's SHAPE is a security boundary, not a convenience.
     // firestore.rules constrains `list` on this collection to
     // members[request.auth.uid] in ['owner', 'editor', 'viewer'], and Firestore
@@ -686,6 +725,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer'])
       )
     );
+    if (fromServer && snap.metadata?.fromCache) throw new SnapshotsNotLoadedError();
     return snap.docs.filter((d) => {
       const data = d.data() as FirestoreProjectMeta;
       return !!(data.members && data.members[this.uid]);

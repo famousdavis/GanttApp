@@ -15,6 +15,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.3',
+    date: 'October 6, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; in cloud mode, a merge import could delete the saved snapshots of every project you could edit. In cloud mode, importing projects into your workspace could delete the saved snapshots of every cloud project the importing person could edit, including projects shared with them, so a collaborator&apos;s import could remove snapshots you saved. It happened when GanttApp could not read the snapshots at that moment: a read that failed, for example because the person lost access to a shared project during the import, or a dropped connection, when GanttApp read its own out-of-date copy of the snapshots without noticing. The import then replaced every snapshot with the incomplete list it had read, and reported success.</>,
+      <><strong>Note</strong> &mdash; This has been possible since version 19.0.0 for a merge import, unless its file set a snapshot under a project new to the cloud. That covers a file with no snapshots, and one whose snapshots belonged only to projects it skipped or (since version 0.24.0, which added Replace) replaced in place. Version 0.29.2 opened it to every merge import. Since version 0.29.2, copying a project with snapshots during a dropped connection could also delete a collaborator&apos;s newer snapshot. The versions come from reading the code&apos;s history; the loss was reproduced in tests on versions 0.29.0 and 0.29.2.</>,
+      <><strong>Changed</strong> &mdash; If a merge import cannot read every saved snapshot from the cloud, it stops before anything changes. Nothing is imported, nothing is deleted, and the message says &ldquo;Nothing was imported, because your saved snapshots could not be loaded from the cloud. Please try again.&rdquo;</>,
+      <><strong>Changed</strong> &mdash; If a copy cannot read every saved snapshot from the cloud, the copy and its releases are kept, its snapshots are not copied, and the message says &ldquo;Project cloned, but its snapshots were not copied, because your saved snapshots could not be loaded from the cloud.&rdquo; While the connection is down, every merge import in cloud mode stops, and every copy that goes ahead shows that message, even when nothing would have been lost, including a copy of a project that has no snapshots. In a cloud session whose data did not load, an import still says to reload the page, and now says it before reading anything.</>,
+      <><strong>Note</strong> &mdash; What it cannot do: bring back snapshots that were deleted. A file from Export All, or from &ldquo;Download All Projects as JSON&rdquo; in Settings, made before they went missing may still hold them; an export whose own read of the snapshots failed left them out, which is a separate, known issue. A per-project export never includes snapshots, and an Export Projects file includes them only if &ldquo;Include snapshots&rdquo; was ticked.</>,
+    ],
+  },
+  {
     version: '0.29.2',
     date: 'October 5, 2026',
     items: [

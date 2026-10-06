@@ -40,6 +40,7 @@ function cloudStorage(canWrite: boolean, overrides: Record<string, unknown> = {}
     mode: 'cloud' as const,
     canWrite: () => canWrite,
     loadSnapshots: vi.fn(async () => [snapshot('s1', 'p1')]),
+    loadSnapshotsStrict: vi.fn(async () => [snapshot('s1', 'p1')]),
     saveSnapshots: vi.fn(async (_s: Snapshot[]) => {}),
     deleteSnapshotsForProject: vi.fn(async (_id: string) => [] as Snapshot[]),
     ...overrides,

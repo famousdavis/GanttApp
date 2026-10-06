@@ -24,7 +24,7 @@ function makeAppData(overrides: Partial<AppData> = {}): AppData {
 interface SetupOptions {
   data?: AppData;
   mode?: 'local' | 'cloud';
-  loadSnapshots?: () => Promise<Snapshot[]>;
+  loadSnapshotsStrict?: () => Promise<Snapshot[]>;
   updateData?: (d: AppData) => void;
   onReplaceSnapshots?: (s: Snapshot[]) => Promise<void>;
   appDataLoading?: boolean;
@@ -39,7 +39,7 @@ function setup(opts: SetupOptions = {}) {
   const setSelectedProjectId = vi.fn();
   const storage = {
     mode: opts.mode ?? 'local',
-    loadSnapshots: opts.loadSnapshots ?? (() => Promise.resolve<Snapshot[]>([])),
+    loadSnapshotsStrict: opts.loadSnapshotsStrict ?? (() => Promise.resolve<Snapshot[]>([])),
     canWrite: () => true,
   };
 

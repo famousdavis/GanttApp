@@ -128,6 +128,19 @@ describe('LocalGanttStorageService', () => {
     });
   });
 
+  describe('loadSnapshotsStrict', () => {
+    it('returns what loadSnapshots returns: the valid snapshots, or none for data it cannot read', async () => {
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify([makeSnapshot(), { invalid: true }, makeSnapshot({ id: 'snap2' })]));
+      const lenient = await service.loadSnapshots();
+      expect(lenient.map((s) => s.id)).toEqual(['snap1', 'snap2']);
+      expect(await service.loadSnapshotsStrict()).toEqual(lenient);
+
+      localStorage.setItem('ganttAppSnapshots', '{bad');
+      expect(await service.loadSnapshots()).toEqual([]);
+      expect(await service.loadSnapshotsStrict()).toEqual([]);
+    });
+  });
+
   describe('saveSnapshots', () => {
     it('persists snapshots to localStorage', async () => {
       const snapshots = [makeSnapshot()];

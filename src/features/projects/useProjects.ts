@@ -15,6 +15,7 @@ import { sanitizeString, sanitizeFirebaseError, MAX_NAME_LENGTH } from '../../sh
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../shared/storage/cloud-data-not-loaded';
 import { isPermissionDenied, isProjectNotSavedError } from '../../shared/storage/cloud-not-saved';
+import { isSnapshotsNotLoadedError } from '../../shared/storage/snapshots-not-loaded';
 
 const NOT_DELETED = 'This project was not deleted.';
 const NOT_COPIED = 'This project was not copied.';
@@ -22,6 +23,10 @@ const SNAPSHOTS_NOT_COPIED = 'Project cloned, but its snapshots could not be cop
 
 /** The alert when a copy's snapshot step fails, in words that are true for each cause. */
 function snapshotsNotCopiedText(error: unknown): string {
+  // The load before the copy could not read every snapshot from the server.
+  if (isSnapshotsNotLoadedError(error)) {
+    return 'Project cloned, but its snapshots were not copied, because your saved snapshots could not be loaded from the cloud.';
+  }
   if (isCloudDataNotLoadedError(error)) return cloudRefusal(NOT_COPIED);
   // The copy's own first save failed, so its snapshots were never sent.
   if (isProjectNotSavedError(error)) {
@@ -240,7 +245,16 @@ export function useProjects() {
     });
 
     // Snapshot block: load existing, build cloned, write all in one batch.
-    const allSnapshots: Snapshot[] = await storage.loadSnapshots();
+    // Strict: the write replaces every snapshot with this list, so a list
+    // missing anything would delete it. The copy and its releases stay.
+    let allSnapshots: Snapshot[];
+    try {
+      allSnapshots = await storage.loadSnapshotsStrict();
+    } catch (error) {
+      console.error('Failed to load snapshots to copy:', sanitizeFirebaseError(error));
+      alert(snapshotsNotCopiedText(error));
+      return;
+    }
     const sourceSnapshots = allSnapshots.filter(s => s.projectId === projectId);
     if (sourceSnapshots.length === 0) return;
 

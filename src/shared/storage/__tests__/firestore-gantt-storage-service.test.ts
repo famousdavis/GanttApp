@@ -408,6 +408,113 @@ describe('FirestoreGanttStorageService', () => {
   // ganttapp_profiles + spertsuite_profiles. AuthContext.test.tsx is the
   // canonical site for profile-write coverage.
 
+  describe('loadSnapshotsStrict', () => {
+    const fromServer = { fromCache: false, hasPendingWrites: false };
+    const fromCache = { fromCache: true, hasPendingWrites: false };
+    const memberList = (ids: string[], metadata = fromServer) => ({
+      docs: ids.map((id) => ({ id, data: () => ({ name: id, owner: mockUid, members: { [mockUid]: 'owner' } }) })),
+      metadata,
+    });
+    const snapshotsOf = (ids: string[], metadata = fromServer) => ({
+      docs: ids.map((id) => ({ id, data: () => ({ name: id, timestamp: '2026-01-01T00:00:00.000Z', releases: [] }) })),
+      metadata,
+    });
+    const unavailable = () => Object.assign(new Error('raw transport detail'), { code: 'unavailable' });
+    const failedLoads = (spy: ReturnType<typeof vi.spyOn>) =>
+      (spy.mock.calls as unknown[][]).filter((call) => call[0] === 'Failed to load cloud snapshots:');
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+
+    // Each test queues its own answers; mockReset drops any it left unread, so none reach a later test.
+    beforeEach(() => {
+      mockGetDocs.mockReset();
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      mockGetDocs.mockReset();
+      errorSpy.mockRestore();
+    });
+
+    it('resolves with every snapshot of every member project when every read comes from the server', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2']))
+        .mockResolvedValueOnce(snapshotsOf(['s1', 's2']))
+        .mockResolvedValueOnce(snapshotsOf(['s3']));
+
+      const all = await service.loadSnapshotsStrict();
+
+      expect(all.map((s) => `${s.projectId}/${s.id}`)).toEqual(['p1/s1', 'p1/s2', 'p2/s3']);
+      expect(failedLoads(errorSpy)).toEqual([]);
+    });
+
+    it('rejects, with nothing of the reads that worked, when a later project\'s read fails; it logs once', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2', 'p3']))
+        .mockResolvedValueOnce(snapshotsOf(['s1']))
+        .mockRejectedValueOnce(unavailable())
+        .mockResolvedValueOnce(snapshotsOf(['s3']));
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+      expect(mockGetDocs).toHaveBeenCalledTimes(3);
+      expect(failedLoads(errorSpy)).toHaveLength(1);
+    });
+
+    it('rejects when the member list is answered from the cache, though every project\'s read comes from the server', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2'], fromCache))
+        .mockResolvedValueOnce(snapshotsOf(['s1']))
+        .mockResolvedValueOnce(snapshotsOf(['s3']));
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+    });
+
+    it('rejects when one project\'s snapshots are answered from the cache, though the member list comes from the server', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2']))
+        .mockResolvedValueOnce(snapshotsOf(['s1']))
+        .mockResolvedValueOnce(snapshotsOf(['s3'], fromCache));
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+    });
+
+    it('rejects, reading no project, when the signed-in user changes while the member list is read', async () => {
+      mockGetDocs
+        .mockImplementationOnce(async () => {
+          mutableAuth.currentUser = { uid: 'someone-else' } as Partial<import('firebase/auth').User>;
+          return memberList(['p1', 'p2']);
+        })
+        .mockResolvedValue(snapshotsOf(['s1']));
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+      // Positive control first: the member list was read; then no project was.
+      expect(mockGetDocs.mock.calls[0]).toBeDefined();
+      expect(mockGetDocs).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects when the signed-in user changes while the last project\'s snapshots are read', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2']))
+        .mockResolvedValueOnce(snapshotsOf(['s1']))
+        .mockImplementationOnce(async () => {
+          mutableAuth.currentUser = null;
+          return snapshotsOf(['s3']);
+        });
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+      expect(mockGetDocs).toHaveBeenCalledTimes(3);
+    });
+
+    it('rejects when a snapshot document cannot be read', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(memberList(['p1', 'p2']))
+        .mockResolvedValueOnce(snapshotsOf(['s1']))
+        .mockResolvedValueOnce({ docs: [{ id: 'bad', data: () => ({ name: 'No releases', timestamp: '2026-01-01T00:00:00.000Z' }) }], metadata: fromServer });
+
+      await expect(service.loadSnapshotsStrict()).rejects.toMatchObject({ name: 'SnapshotsNotLoadedError' });
+      expect(mockGetDocs).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('addSnapshot', () => {
     it('returns null when total limit reached', async () => {
       // Snapshot writes need a successful load first (an empty cloud here).

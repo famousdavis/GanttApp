@@ -90,6 +90,12 @@ export class LocalGanttStorageService implements GanttStorageService {
     return validated;
   }
 
+  // A local read is the whole store: unreadable data reads as none, and is
+  // already lost to the app.
+  async loadSnapshotsStrict(): Promise<Snapshot[]> {
+    return this.loadSnapshots();
+  }
+
   async saveSnapshots(snapshots: Snapshot[]): Promise<void> {
     await this.driver.save(SNAPSHOTS_KEY, snapshots);
   }

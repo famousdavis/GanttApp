@@ -31,30 +31,36 @@ import type { AppData } from '../../../shared/types/app';
 import type { Snapshot } from '../../../shared/types/snapshots';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../../shared/storage/cloud-data-not-loaded';
 import { isPermissionDenied, isProjectNotSavedError } from '../../../shared/storage/cloud-not-saved';
+import { isSnapshotsNotLoadedError } from '../../../shared/storage/snapshots-not-loaded';
 
-// Minimal storage shape — the hook only needs mode, loadSnapshots and
+// Minimal storage shape — the hook only needs mode, loadSnapshotsStrict and
 // canWrite, not the full GanttStorageService. Easier to mock in tests.
 interface ImportStorage {
   mode: 'local' | 'cloud';
-  loadSnapshots: () => Promise<Snapshot[]>;
+  loadSnapshotsStrict: () => Promise<Snapshot[]>;
   canWrite: () => boolean;
 }
 
 const NOTHING_IMPORTED = 'Nothing was imported.';
+const SNAPSHOTS_NOT_LOADED =
+  'Nothing was imported, because your saved snapshots could not be loaded from the cloud. Please try again.';
 const MERGE_NOT_SAVED =
   "The projects were imported here, but they were not saved to the cloud, so the file's snapshots were not imported.";
 const REPLACE_ALL_NOT_SAVED =
   "Your data was replaced here, but the imported projects were not saved to the cloud, so the file's snapshots were not imported.";
 
 /**
- * A refused write means nothing was imported; an imported project's own failed
- * first save means its snapshots were not written (`notSaved`); any other
- * failure keeps its own message, except a refusal by the rules. That reaches
- * here only from the snapshot step, after the import is on screen (the cloud's
- * loadSnapshots before it returns [] on any error), and the user's access is
- * fine: the batch rewrites the snapshots of a project they may only view.
+ * A merge whose snapshot load could not read every snapshot from the server
+ * stopped before anything changed; a refused write means nothing was imported;
+ * an imported project's own failed first save means its snapshots were not
+ * written (`notSaved`); any other failure keeps its own message, except a
+ * refusal by the rules. That reaches here only from the snapshot write, after
+ * the import is on screen (the merge's load turns a refused read into
+ * SnapshotsNotLoadedError), and the user's access is fine: the batch rewrites
+ * the snapshots of a project they may only view.
  */
 function importErrorText(err: unknown, notSaved: string): string {
+  if (isSnapshotsNotLoadedError(err)) return SNAPSHOTS_NOT_LOADED;
   if (isCloudDataNotLoadedError(err)) return cloudRefusal(NOTHING_IMPORTED);
   if (isProjectNotSavedError(err)) return notSaved;
   if (isPermissionDenied(err)) return 'Projects imported, but snapshots could not be saved.';
@@ -258,10 +264,22 @@ export function useImportState({
       applyingRef.current = true;
       setApplying(true); // write site 2 of 3
       try {
-        const existingSnapshots = await storage.loadSnapshots();
-        // Authoritative stale-data guard — the await above is where a real-time
-        // onSnapshot can fire and mutate `data`. Pre-click guard in
-        // handleConfirmMerge is a fast early-exit for the non-cloud case.
+        // Refused before anything changes on screen when nothing can be saved
+        // (a cloud session whose data never loaded), and before the snapshot
+        // load, so the message is the one that says to reload.
+        if (!storage.canWrite()) {
+          showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
+          return;
+        }
+        // Strict: onReplaceSnapshots below replaces every snapshot with this
+        // list, so a list missing anything would delete it. Rejects otherwise.
+        const existingSnapshots = await storage.loadSnapshotsStrict();
+        // This check cannot see a change made during the await above: `data` is
+        // the value of the render this callback was created in, and
+        // handleConfirmMerge compared that same `data` with the same conflicts
+        // just before calling here, so the two always agree on that path. Fast
+        // Path 1 passes no conflicts, found from the same `data`. It repeats
+        // handleConfirmMerge's check; a change while loading goes unseen (SD-1).
         const freshConflicts = detectImportConflicts(imported, data);
         if (!conflictsEqual(freshConflicts, originalConflicts)) {
           // Fast Path 1 has no preview window — use a genericized message.
@@ -276,12 +294,6 @@ export function useImportState({
         const { mergedData, mergedSnapshots, result } = applyImportDecisions(
           data, incoming.imported, existingSnapshots, incoming.decisions, incoming.conflicts
         );
-        // Refused before anything changes on screen when nothing can be saved
-        // (a cloud session whose data never loaded).
-        if (!storage.canWrite()) {
-          showBanner({ kind: 'error', text: cloudRefusal(NOTHING_IMPORTED) });
-          return;
-        }
         // NOTE: partial-apply window — updateData may persist before
         // onReplaceSnapshots rejects. Acceptable; matches pre-v0.24.0 behavior.
         updateData(withImportOwners(mergedData, data, ownerUid));
@@ -435,9 +447,8 @@ export function useImportState({
     // is the definitive same-tick protection.
     if (applying) return;
     if (!importPreview) return;
-    // Pre-async early-exit guard: catches the common non-cloud case cheaply.
-    // Authoritative check runs again inside applyMergeDecisions after
-    // loadSnapshots.
+    // Pre-async early-exit guard. applyMergeDecisions repeats it after its
+    // snapshot load, on the same `data`, so it sees no change made meanwhile (SD-1).
     const freshConflicts = detectImportConflicts(importPreview.imported, data);
     if (!conflictsEqual(freshConflicts, importPreview.conflicts)) {
       showBanner({

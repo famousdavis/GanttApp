@@ -1161,10 +1161,10 @@ describe('a project created in a cloud session that loaded normally, end to end'
       fake.config.f14 = form;
       seed({ editor: true });
       await openCloud();
-      fake.config.commitDelayMs = 300;
+      fake.config.commitDelayMs = 400;
       revokeDuringNextCommit('p3', 'remove', 50);
       act$(() => probe.current!.renameRelease('r1', 'Design v2'));
-      await wait(1000);
+      await wait(1100);
 
       const order = achievedOrder('p3');
       expect(order?.inFlight?.ok).toBe(true);
@@ -1172,7 +1172,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
       expect(order!.next!.settledAt!).toBeGreaterThan(order!.inFlight!.settledAt!);
 
       act$(() => probe.current!.renameRelease('r3', 'Launch v2'));
-      await wait(700);
+      await wait(800);
       expect(cloudReleaseName('p2', 'r3')).toBe('Launch v2');
       expect(syncErrorNow()).toBeNull();
     });

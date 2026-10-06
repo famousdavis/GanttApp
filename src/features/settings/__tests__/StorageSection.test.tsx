@@ -26,6 +26,7 @@ const mockStorage: GanttStorageService = {
   readAppData: vi.fn(),
   saveAppData: vi.fn(),
   loadSnapshots: vi.fn(),
+  loadSnapshotsStrict: vi.fn(),
   saveSnapshots: vi.fn(),
   addSnapshot: vi.fn(),
   deleteSnapshot: vi.fn(),

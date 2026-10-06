@@ -52,8 +52,19 @@ export interface GanttStorageService {
   /** Save the full AppData. */
   saveAppData(data: AppData): Promise<void>;
 
-  /** Load all snapshots. */
+  /**
+   * Load all snapshots. Cloud: an empty list when a read fails or the
+   * signed-in user changes during the reads, and offline what the cache holds.
+   */
   loadSnapshots(): Promise<Snapshot[]>;
+
+  /**
+   * Load all snapshots for an action that then replaces them all with
+   * saveSnapshots. Cloud: rejects with SnapshotsNotLoadedError, never with
+   * part of the list, unless every read came from the server for the same
+   * signed-in user. Local: the same as loadSnapshots().
+   */
+  loadSnapshotsStrict(): Promise<Snapshot[]>;
 
   /**
    * Replace all snapshots. Cloud: throws CloudDataNotLoadedError until a load

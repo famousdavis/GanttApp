@@ -35,9 +35,16 @@ vi.mock('firebase/firestore', () => ({
   where: (...args: unknown[]) => mockWhere(...args),
   runTransaction: (...args: unknown[]) => mockRunTransaction(...(args as [unknown, never])),
   deleteField: () => DELETE_FIELD_SENTINEL,
-  Timestamp: class { toMillis() { return 0; } },
+  // Keeps the seconds it is built with, so a test can tell a converted
+  // Timestamp apart from the 0 that an unreadable time becomes.
+  Timestamp: class {
+    seconds: number;
+    constructor(seconds = 0) { this.seconds = seconds; }
+    toMillis() { return this.seconds * 1000; }
+  },
 }));
 
+import { Timestamp } from 'firebase/firestore';
 import {
   removeCollaborator,
   getProjectMembers,
@@ -112,6 +119,25 @@ describe('firestore-sharing', () => {
       expect(savedPayload.updatedAt).toBeDefined();
       expect(savedPayload._changeLog).toBeDefined();
       expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
+    it('records the removal in a new change log when the project has none yet', async () => {
+      mockTxGet.mockResolvedValueOnce({
+        exists: () => true,
+        // No _changeLog field at all: a project written before it kept one.
+        data: () => ({
+          name: 'P1', owner: mockUid, members: { [mockUid]: 'owner', 'other-uid': 'editor' },
+          schemaVersion: 1, createdAt: '', updatedAt: '',
+        }),
+      });
+
+      const outcome = await removeCollaborator(mockDb, mockUid, 'p1', 'other-uid')
+        .then(() => 'removed', (error: unknown) => error);
+      expect(outcome).toBe('removed');
+      expect(mockTxUpdate).toHaveBeenCalledTimes(1);
+      expect(mockTxUpdate.mock.calls[0][1]._changeLog).toStrictEqual([
+        { timestamp: '2026-02-20T12:00:00.000Z', uid: mockUid, action: 'delete', target: 'member:other-uid' },
+      ]);
     });
   });
 
@@ -236,6 +262,62 @@ describe('firestore-sharing', () => {
 
       const result = await listPendingInvites(mockDb, mockUid, 'p1');
       expect(result.map((i) => i.tokenId)).toEqual(['new', 'old']);
+    });
+
+    /** A pending-invitation document as getDocs returns it, with chosen fields replaced or left out. */
+    function inviteDoc(id: string, overrides: Record<string, unknown> = {}, omit: string[] = []) {
+      const data: Record<string, unknown> = {
+        status: 'pending', appId: 'ganttapp', modelId: 'p1', modelName: 'P1', inviteeEmail: 'a@x.com',
+        role: 'editor', isVoting: false, inviterUid: mockUid, inviterName: 'Owner', inviterEmail: 'o@x.com',
+        createdAt: 100, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 0, updatedAt: 0,
+        ...overrides,
+      };
+      omit.forEach((key) => { delete data[key]; });
+      return { id, data: () => data };
+    }
+
+    it('converts Firestore Timestamps to milliseconds and lists the newest invitation first', async () => {
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          inviteDoc('older', { createdAt: new Timestamp(1700000000, 0) }),
+          inviteDoc('newer', { createdAt: new Timestamp(1800000000, 0) }),
+        ],
+      });
+
+      const result = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(result.map((i) => [i.tokenId, i.createdAt])).toEqual([
+        ['newer', 1800000000000],
+        ['older', 1700000000000],
+      ]);
+    });
+
+    it.each([
+      ['is missing', inviteDoc('t1', {}, ['createdAt'])],
+      ['is null', inviteDoc('t1', { createdAt: null })],
+    ])('reads a creation time that %s as 0', async (_state, doc) => {
+      mockGetDocs.mockResolvedValueOnce({ docs: [doc] });
+
+      const [invite] = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(invite.createdAt).toBe(0);
+    });
+
+    it('counts an invitation with no recorded send count as sent 0 times', async () => {
+      mockGetDocs.mockResolvedValueOnce({ docs: [inviteDoc('t1', {}, ['emailSendCount'])] });
+
+      const [invite] = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(invite.emailSendCount).toBe(0);
+    });
+
+    // The three fields the share dialog shows for each pending invitation.
+    it.each([
+      ['the invitee email', 'inviteeEmail', 'invitee@example.com'],
+      ['the role', 'role', 'viewer'],
+      ['the send count', 'emailSendCount', 3],
+    ] as const)('maps %s that the share dialog shows', async (_shown, field, value) => {
+      mockGetDocs.mockResolvedValueOnce({ docs: [inviteDoc('t1', { [field]: value })] });
+
+      const [invite] = await listPendingInvites(mockDb, mockUid, 'p1');
+      expect(invite[field]).toBe(value);
     });
   });
 });

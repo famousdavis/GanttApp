@@ -28,8 +28,12 @@ vi.mock('../../../context/AppDataContext', () => ({
 vi.mock('../../../context/ThemeContext', () => ({
   useTheme: () => mockUseTheme(),
 }));
+// Read live, so a test can render the modal with Firebase not configured.
+const firebaseState = vi.hoisted(() => ({ available: true }));
 vi.mock('../../../lib/firebase', () => ({
-  isFirebaseAvailable: true,
+  get isFirebaseAvailable() {
+    return firebaseState.available;
+  },
 }));
 
 // Hook mock — exercise it independently in useSignInWithTosGate.test.tsx.
@@ -64,6 +68,8 @@ function setup({
   needsCloudToLocalPrompt = null,
   authError = null,
   tosModalOpen = false,
+  isSwitching = false,
+  confirmKeepLocalCopy = vi.fn().mockResolvedValue(undefined),
 }: {
   open?: boolean;
   user?: User | null;
@@ -74,18 +80,20 @@ function setup({
   needsCloudToLocalPrompt?: { projectCount: number } | null;
   authError?: string | null;
   tosModalOpen?: boolean;
+  isSwitching?: boolean;
+  confirmKeepLocalCopy?: ReturnType<typeof vi.fn>;
 } = {}) {
   mockUseAuth.mockReturnValue({ user });
   mockUseStorage.mockReturnValue({
     storage: {} as never,
     mode,
     switchMode,
-    isSwitching: false,
+    isSwitching,
     uploadResult: null,
     clearUploadResult: vi.fn(),
     performSignOutWithCleanup,
     needsCloudToLocalPrompt,
-    confirmKeepLocalCopy: vi.fn().mockResolvedValue(undefined),
+    confirmKeepLocalCopy,
     confirmDiscardCloudData: vi.fn().mockResolvedValue(undefined),
   });
   mockUseAppData.mockReturnValue({
@@ -99,14 +107,59 @@ function setup({
     onClose: vi.fn(),
     performSignOutWithCleanup,
     switchMode,
+    confirmKeepLocalCopy,
     open,
   };
 }
+
+/** An Error carrying a Firebase `code`, which sanitizeFirebaseError maps to friendly text. */
+function firebaseError(code: string, message: string): Error {
+  return Object.assign(new Error(message), { code });
+}
+
+/** A sign-out that stays in progress until the test rejects it. */
+function pendingSignOut() {
+  let reject: (err: Error) => void = () => {};
+  const promise = new Promise<void>((_resolve, rej) => {
+    reject = rej;
+  });
+  return { performSignOutWithCleanup: vi.fn(() => promise), reject: (err: Error) => reject(err) };
+}
+
+/** Type into a field: one keydown per key (it bubbles to the document, where
+ *  the modal listens for Escape), and the field's new value for printable keys. */
+function typeKeys(input: HTMLInputElement, keys: string[]) {
+  keys.forEach((key) => {
+    fireEvent.keyDown(input, { key });
+    if (key.length === 1) fireEvent.change(input, { target: { value: input.value + key } });
+  });
+}
+
+/** Keyboard activation of a button. A browser turns Enter on a focused button
+ *  into a click even when the button has pointer-events: none; jsdom does not,
+ *  so this fires that click itself. */
+function pressEnterOn(button: HTMLElement) {
+  button.focus();
+  fireEvent.keyDown(button, { key: 'Enter' });
+  fireEvent.click(button);
+  fireEvent.keyUp(button, { key: 'Enter' });
+}
+
+const twoProjects: AppData = {
+  projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }],
+  releases: [],
+};
+
+const threeProjects: AppData = {
+  projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }, { id: 'p3', name: 'Gamma' }],
+  releases: [],
+};
 
 describe('CloudStorageModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSignIn.mockReset();
+    firebaseState.available = true;
   });
 
   describe('open=false', () => {
@@ -188,6 +241,19 @@ describe('CloudStorageModal', () => {
     });
   });
 
+  describe('State 1 with Firebase not configured', () => {
+    it('says cloud storage is unavailable and offers no sign-in buttons', () => {
+      firebaseState.available = false;
+      const ctx = setup({ user: null, mode: 'local' });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      expect(
+        screen.getByText('Firebase is not configured. Cloud storage is unavailable.')
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Sign in with Google')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sign in with Microsoft')).not.toBeInTheDocument();
+    });
+  });
+
   describe('State 2: signed in + local', () => {
     const user = { uid: 'u1', displayName: 'William Davis', email: 'w@example.com' } as User;
 
@@ -224,6 +290,28 @@ describe('CloudStorageModal', () => {
       fireEvent.click(screen.getByText('Keep using local storage'));
       expect(ctx.onClose).toHaveBeenCalledTimes(1);
       expect(ctx.switchMode).not.toHaveBeenCalled();
+    });
+
+    it('choosing Cloud with local projects asks to upload them before switching', () => {
+      const ctx = setup({ user, mode: 'local', data: twoProjects });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByDisplayValue('cloud'));
+      expect(
+        screen.getByText('You have local projects. Upload them to the cloud?')
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Upload to Cloud' })).toBeInTheDocument();
+      expect(ctx.switchMode).not.toHaveBeenCalled();
+    });
+
+    it('confirming the upload switches to cloud with the in-memory project count', async () => {
+      const ctx = setup({ user, mode: 'local', data: threeProjects });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByDisplayValue('cloud'));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Upload to Cloud' }));
+      });
+      expect(ctx.switchMode).toHaveBeenCalledTimes(1);
+      expect(ctx.switchMode).toHaveBeenCalledWith('cloud', 3);
     });
   });
 
@@ -272,6 +360,52 @@ describe('CloudStorageModal', () => {
       expect(screen.getByText('Keep Local Copy')).toBeInTheDocument();
       expect(screen.getByText('Discard')).toBeInTheDocument();
     });
+
+    it('Keep Local Copy hands over the current in-memory data', () => {
+      const confirmKeepLocalCopy = vi.fn().mockResolvedValue(undefined);
+      const ctx = setup({
+        user,
+        mode: 'cloud',
+        data: twoProjects,
+        needsCloudToLocalPrompt: { projectCount: 2 },
+        confirmKeepLocalCopy,
+      });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Keep Local Copy' }));
+      expect(confirmKeepLocalCopy).toHaveBeenCalledTimes(1);
+      expect(confirmKeepLocalCopy).toHaveBeenCalledWith(twoProjects);
+      expect(confirmKeepLocalCopy.mock.calls[0][0]).toBe(twoProjects);
+    });
+  });
+
+  describe('Identity card name fallbacks', () => {
+    it('shows the local part of the email when the account has no display name', () => {
+      const user = { uid: 'u2', displayName: null, email: 'jane.doe@example.com' } as User;
+      const ctx = setup({ user, mode: 'cloud' });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      expect(screen.getByText('jane.doe')).toBeInTheDocument();
+      expect(screen.getByText('jane.doe@example.com')).toBeInTheDocument();
+    });
+
+    it('shows "Signed in" when the account has neither a display name nor an email', () => {
+      const user = { uid: 'u3', displayName: null, email: null } as User;
+      const ctx = setup({ user, mode: 'cloud' });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      expect(screen.getByText('Signed in')).toBeInTheDocument();
+    });
+  });
+
+  describe('Switching storage mode', () => {
+    it('shows "Switching storage mode…" only while a switch is running', () => {
+      const user = { uid: 'u1', displayName: 'William Davis', email: 'w@example.com' } as User;
+      const ctx = setup({ user, mode: 'local' });
+      const { rerender } = render(<CloudStorageModal open onClose={ctx.onClose} />);
+      expect(screen.getByText('Keep using local storage')).toBeInTheDocument();
+      expect(screen.queryByText('Switching storage mode…')).not.toBeInTheDocument();
+      setup({ user, mode: 'local', isSwitching: true });
+      rerender(<CloudStorageModal open onClose={ctx.onClose} />);
+      expect(screen.getByText('Switching storage mode…')).toBeInTheDocument();
+    });
   });
 
   describe('Sign-out flow', () => {
@@ -297,6 +431,57 @@ describe('CloudStorageModal', () => {
       });
       expect(ctx.onClose).not.toHaveBeenCalled();
     });
+
+    it('a failed sign-out shows the friendly error message, not the raw error', async () => {
+      const performSignOutWithCleanup = vi.fn().mockRejectedValue(
+        firebaseError('unavailable', 'Failed to get document because the client is offline.')
+      );
+      const ctx = setup({ user, mode: 'cloud', performSignOutWithCleanup });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Sign out'));
+      });
+      expect(
+        screen.getByText('Service temporarily unavailable. Please try again later.')
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/client is offline/)).not.toBeInTheDocument();
+      expect(ctx.onClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Dismissal while signing out', () => {
+    const user = { uid: 'u1', displayName: 'William', email: 'w@example.com' } as User;
+
+    it('a backdrop click does not close the modal while signing out', async () => {
+      const signOut = pendingSignOut();
+      const ctx = setup({ user, mode: 'cloud', performSignOutWithCleanup: signOut.performSignOutWithCleanup });
+      const { container } = render(<CloudStorageModal open onClose={ctx.onClose} />);
+      const backdrop = container.firstChild as HTMLElement;
+      fireEvent.click(screen.getByText('Sign out'));
+      expect(screen.getByText('Signing out…')).toBeInTheDocument();
+      fireEvent.mouseDown(backdrop);
+      expect(ctx.onClose).not.toHaveBeenCalled();
+      // Once the sign-out has failed, the same backdrop click closes the modal.
+      await act(async () => signOut.reject(new Error('offline')));
+      fireEvent.mouseDown(backdrop);
+      expect(ctx.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('the × button, reached from the keyboard, does not close the modal while signing out', async () => {
+      const signOut = pendingSignOut();
+      const ctx = setup({ user, mode: 'cloud', performSignOutWithCleanup: signOut.performSignOutWithCleanup });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByText('Sign out'));
+      expect(screen.getByText('Signing out…')).toBeInTheDocument();
+      const closeButton = screen.getByRole('button', { name: 'Close' });
+      pressEnterOn(closeButton);
+      expect(document.activeElement).toBe(closeButton);
+      expect(ctx.onClose).not.toHaveBeenCalled();
+      // Once the sign-out has failed, the same keyboard press closes the modal.
+      await act(async () => signOut.reject(new Error('offline')));
+      pressEnterOn(closeButton);
+      expect(ctx.onClose).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Dismissal — Escape key', () => {
@@ -312,6 +497,26 @@ describe('CloudStorageModal', () => {
       render(<CloudStorageModal open onClose={ctx.onClose} />);
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(ctx.onClose).not.toHaveBeenCalled();
+    });
+
+    it('typing other keys in a field does not close the modal, and Escape still does', () => {
+      const ctx = setup();
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      const nameField = screen.getByLabelText('Name') as HTMLInputElement;
+      const keys = ['J', 'o', ' ', 'Tab', 'Enter', 'Backspace', 'ArrowLeft'];
+      const seen: string[] = [];
+      const record = (e: KeyboardEvent) => {
+        seen.push(e.key);
+      };
+      document.addEventListener('keydown', record);
+      typeKeys(nameField, keys);
+      document.removeEventListener('keydown', record);
+      // Every key reached the document, where the modal listens.
+      expect(seen).toEqual(keys);
+      expect(nameField.value).toBe('Jo ');
+      expect(ctx.onClose).not.toHaveBeenCalled();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(ctx.onClose).toHaveBeenCalledTimes(1);
     });
   });
 

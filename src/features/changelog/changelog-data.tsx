@@ -15,6 +15,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.4',
+    date: 'October 8, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud. Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.</>,
+      <><strong>Note</strong> &mdash; Future changes to how cloud-sync and sign-in errors are shown will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you.</>,
+      <><strong>Note</strong> &mdash; Signing in: the Terms of Service check that runs each time you sign in, the record it saves when you accept the terms, and what it does when that record is missing, out of date or cannot be read; the profile saved when you sign in; and the claim of any project invitations waiting for you, whose error log must never contain your account ID.</>,
+      <><strong>Note</strong> &mdash; The Settings tab and its Storage section: how errors from signing in, signing out and switching storage are shown and cleared, the terms dialog, and the &ldquo;Download All Projects as JSON&rdquo; button. Also the Cloud Storage window, the account button in the header, and the banner that warns your data is stored only in this browser.</>,
+      <><strong>Note</strong> &mdash; Project sharing: sending, resending and revoking invitations, removing a collaborator, and the lists of members and pending invitations. Also the invitation link and the invitation banner.</>,
+      <><strong>Note</strong> &mdash; How projects, releases, snapshots and settings are converted when they are saved to the cloud and read back, field by field, including settings that are switched off, empty or zero, and fields that are absent.</>,
+      <><strong>Note</strong> &mdash; Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.</>,
+      <><strong>Note</strong> &mdash; One older sign-in test passed only because its stand-in for the cloud failed, and the sign-in check lets you in when the cloud cannot be read. It now passes the check the intended way, and that let-in path has a test of its own.</>,
+      <><strong>Note</strong> &mdash; Coverage measured over every file rises from 83.64% to 88.09% of statements, from 78.39% to 82.79% of branches, from 78.75% to 82.58% of functions and from 85.18% to 89.67% of lines. No build or release check reads these figures.</>,
+      <><strong>Note</strong> &mdash; Two files outside this release&apos;s scope run inside the new tests, so their figures rose a little. They are not tested by this release: the shared input-validation and sanitising helpers, and the hook that holds a text field&apos;s edits until it is saved.</>,
+    ],
+  },
+  {
     version: '0.29.3',
     date: 'October 6, 2026',
     items: [

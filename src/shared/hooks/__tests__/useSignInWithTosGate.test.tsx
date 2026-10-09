@@ -24,6 +24,23 @@ vi.mock('../../../context/AuthContext', () => ({
 const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
 const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
 
+/** An error shaped like the ones Firebase Auth throws: an Error with a `code`. */
+function firebaseError(code: string): Error & { code: string } {
+  return Object.assign(new Error(`Firebase: Error (${code}).`), { code });
+}
+
+/** A sign-in popup that stays open until the test answers it. */
+function openPopup() {
+  let succeed: () => void = () => {};
+  let fail: (error: unknown) => void = () => {};
+  // The executor runs at once, so both answers are wired before this returns.
+  const promise = new Promise<void>((resolve, reject) => {
+    succeed = () => resolve();
+    fail = reject;
+  });
+  return { promise, succeed, fail };
+}
+
 describe('useSignInWithTosGate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -209,6 +226,80 @@ describe('useSignInWithTosGate', () => {
       await act(async () => {
         await result.current.signIn('google');
       });
+      expect(result.current.authError).toBeNull();
+    });
+  });
+
+  describe('clearing an earlier error', () => {
+    beforeEach(() => {
+      localStorage.setItem(TOS_ACCEPTED_KEY, TOS_VERSION);
+    });
+
+    it('clears the error from the last attempt as soon as a new sign-in starts', async () => {
+      mockSignInWithGoogle.mockRejectedValueOnce(firebaseError('auth/popup-closed-by-user'));
+      const { result } = renderHook(() => useSignInWithTosGate());
+      await act(async () => {
+        await result.current.signIn('google');
+      });
+      expect(result.current.authError).toBe('Sign-in was cancelled.');
+
+      // Try again: the new popup is open and has not answered yet.
+      const popup = openPopup();
+      mockSignInWithGoogle.mockReturnValueOnce(popup.promise);
+      let attempt: Promise<void> = Promise.resolve();
+      act(() => {
+        attempt = result.current.signIn('google');
+      });
+      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(2);
+      expect(result.current.authError).toBeNull();
+
+      await act(async () => {
+        popup.succeed();
+        await attempt;
+      });
+    });
+
+    it('clears an error shown while the sign-in was open once the sign-in succeeds', async () => {
+      const popup = openPopup();
+      mockSignInWithGoogle.mockReturnValueOnce(popup.promise);
+      const { result } = renderHook(() => useSignInWithTosGate());
+      let attempt: Promise<void> = Promise.resolve();
+      act(() => {
+        attempt = result.current.signIn('google');
+      });
+      act(() => {
+        result.current.setAuthError('Shown while the sign-in was open');
+      });
+      expect(result.current.authError).toBe('Shown while the sign-in was open');
+
+      await act(async () => {
+        popup.succeed();
+        await attempt;
+      });
+      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+      expect(result.current.authError).toBeNull();
+    });
+
+    it('clears an error shown while the sign-in was open when the sign-in ends in a silenced error', async () => {
+      const popup = openPopup();
+      mockSignInWithGoogle.mockReturnValueOnce(popup.promise);
+      const normalizeError = vi.fn<(error: unknown) => string | null | undefined>(() => null);
+      const { result } = renderHook(() => useSignInWithTosGate({ normalizeError }));
+      let attempt: Promise<void> = Promise.resolve();
+      act(() => {
+        attempt = result.current.signIn('google');
+      });
+      act(() => {
+        result.current.setAuthError('Shown while the sign-in was open');
+      });
+      expect(result.current.authError).toBe('Shown while the sign-in was open');
+
+      const closed = firebaseError('auth/popup-closed-by-user');
+      await act(async () => {
+        popup.fail(closed);
+        await attempt;
+      });
+      expect(normalizeError).toHaveBeenCalledWith(closed);
       expect(result.current.authError).toBeNull();
     });
   });

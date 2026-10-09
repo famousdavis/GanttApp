@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { ShareDialog } from '../ShareDialog';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import type { CloudGanttStorageService } from '../../../shared/storage';
@@ -29,6 +29,16 @@ function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): 
     dispose: vi.fn(),
     ...overrides,
   } as unknown as CloudGanttStorageService;
+}
+
+const OWNER = { uid: 'u1', role: 'owner' as const, email: 'owner@test.com' };
+const EDITOR = { uid: 'u2', role: 'editor' as const, email: 'editor@test.com' };
+
+function renderDialog(cloudStorage: CloudGanttStorageService) {
+  return render(
+    <ShareDialog projectId="p1" projectName="Test" cloudStorage={cloudStorage} onClose={vi.fn()} />,
+    { wrapper: ThemeWrapper },
+  );
 }
 
 describe('ShareDialog', () => {
@@ -187,5 +197,91 @@ describe('ShareDialog', () => {
       { wrapper: ThemeWrapper }
     );
     expect(screen.getByRole('button', { name: 'Send Invitations' })).toBeTruthy();
+  });
+
+  describe('when the members cannot be loaded', () => {
+    it('replaces the invite form with a message asking for a refresh', async () => {
+      // Driven by a rejected members load only. A project added in cloud mode
+      // whose first save has not landed also reaches this message today; that
+      // is a known defect and is deliberately not exercised here.
+      const mockStorage = createMockCloudStorage({
+        getProjectMembers: vi.fn().mockRejectedValue(new Error('Missing or insufficient permissions.')),
+      });
+      renderDialog(mockStorage);
+
+      expect(await screen.findByText("Couldn't load sharing details. Refresh the page to try again.")).toBeInTheDocument();
+      expect(screen.queryByLabelText('Email addresses')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Send Invitations' })).toBeNull();
+    });
+  });
+
+  describe('removing a member', () => {
+    /** Presses the member's Remove button and returns the confirm that opens. */
+    async function openRemoveConfirm() {
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove member' }));
+      return screen.getByRole('dialog', { name: 'Remove Member' });
+    }
+
+    it('removes the member after the confirm, then shows the refreshed member list', async () => {
+      const getProjectMembers = vi.fn()
+        .mockResolvedValueOnce([OWNER, EDITOR])
+        .mockResolvedValueOnce([OWNER]);
+      const mockStorage = createMockCloudStorage({ getProjectMembers });
+      renderDialog(mockStorage);
+
+      const confirm = await openRemoveConfirm();
+      expect(within(confirm).getByText('Remove this member from the project?')).toBeInTheDocument();
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Remove' }));
+
+      await waitFor(() => expect(mockStorage.removeCollaborator).toHaveBeenCalledWith('p1', 'u2'));
+      await waitFor(() => expect(screen.queryByText('editor@test.com')).toBeNull());
+      expect(screen.getByText('owner@test.com')).toBeInTheDocument();
+      expect(getProjectMembers).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
+    });
+
+    it('keeps the member when the confirm is cancelled', async () => {
+      const mockStorage = createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) });
+      renderDialog(mockStorage);
+
+      const confirm = await openRemoveConfirm();
+      expect(confirm).toBeInTheDocument();
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
+      expect(mockStorage.removeCollaborator).not.toHaveBeenCalled();
+      expect(screen.getByText('editor@test.com')).toBeInTheDocument();
+    });
+
+    it('shows the reason when removing the member fails', async () => {
+      const mockStorage = createMockCloudStorage({
+        getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]),
+        removeCollaborator: vi.fn().mockRejectedValue(new Error('Only the project owner can remove members.')),
+      });
+      renderDialog(mockStorage);
+
+      fireEvent.click(within(await openRemoveConfirm()).getByRole('button', { name: 'Remove' }));
+
+      expect(await screen.findByText('Only the project owner can remove members.')).toBeInTheDocument();
+      expect(screen.getByText('editor@test.com')).toBeInTheDocument();
+    });
+  });
+
+  describe('the member list', () => {
+    it('shows a member with no known email by their user id', async () => {
+      const mockStorage = createMockCloudStorage({
+        getProjectMembers: vi.fn().mockResolvedValue([OWNER, { uid: 'uid-without-profile', role: 'viewer' }]),
+      });
+      renderDialog(mockStorage);
+
+      expect(await screen.findByText('owner@test.com')).toBeInTheDocument();
+      expect(screen.getByText('uid-without-profile')).toBeInTheDocument();
+    });
+
+    it('says there are no members when the list comes back empty', async () => {
+      renderDialog(createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([]) }));
+
+      expect(await screen.findByText('No members')).toBeInTheDocument();
+    });
   });
 });

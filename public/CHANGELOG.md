@@ -1,5 +1,28 @@
 # Change Log
 
+## Version 0.29.4 (2026-10-08)
+
+### Changed: tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud
+
+Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.
+
+Future changes to how cloud-sync and sign-in errors are shown will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you. The tests cover:
+
+- signing in: the Terms of Service check that runs each time you sign in, the record it saves when you accept the terms, and what it does when that record is missing, out of date or cannot be read; the profile saved when you sign in; and the claim of any project invitations waiting for you, whose error log must never contain your account ID;
+- the Settings tab and its Storage section: how errors from signing in, signing out and switching storage are shown and cleared, the terms dialog, and the "Download All Projects as JSON" button;
+- the Cloud Storage window, the account button in the header, and the banner that warns your data is stored only in this browser;
+- project sharing: sending, resending and revoking invitations, removing a collaborator, and the lists of members and pending invitations;
+- the invitation link and the invitation banner;
+- how projects, releases, snapshots and settings are converted when they are saved to the cloud and read back, field by field, including settings that are switched off, empty or zero, and fields that are absent.
+
+Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.
+
+One older sign-in test passed only because its stand-in for the cloud failed, and the sign-in check lets you in when the cloud cannot be read. It now passes the check the intended way, and that let-in path has a test of its own.
+
+Coverage measured over every file rises from 83.64% to 88.09% of statements, from 78.39% to 82.79% of branches, from 78.75% to 82.58% of functions and from 85.18% to 89.67% of lines. No build or release check reads these figures.
+
+Two files outside this release's scope run inside the new tests, so their figures rose a little. They are not tested by this release: the shared input-validation and sanitising helpers, and the hook that holds a text field's edits until it is saved.
+
 ## Version 0.29.3 (2026-10-06)
 
 ### Fixed: in cloud mode, a merge import could delete the saved snapshots of every project you could edit

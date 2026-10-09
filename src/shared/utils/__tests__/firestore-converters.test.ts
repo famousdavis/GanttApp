@@ -680,4 +680,494 @@ describe('firestore-converters', () => {
       expect(snap.todayDateOverride).toBeUndefined();
     });
   });
+
+  // --- Whole results ---
+  //
+  // Each test below compares a converter's whole result with toStrictEqual,
+  // which, unlike toEqual, counts a key whose value is undefined. On the write
+  // side that is the difference between a document that saves and one that
+  // does not: src/lib/firebase.ts builds Firestore without
+  // ignoreUndefinedProperties, so a set() holding an undefined field value is
+  // rejected. A false flag, an empty preparedBy and order 0 are values, not
+  // "not set", and must survive both ways. The colours, labels and display
+  // settings below are valid, so the read-side sanitizers return them as they
+  // are.
+
+  const colours = (): NonNullable<AppData['chartColors']> => ({
+    solidBar: '#112233', hatchedBar: '#445566', todayLine: '#778899', finishDateLine: '#aabbcc',
+    mostLikelyLine: '#ddeeff', completedBar: '#123456', inProgressBar: '#654321',
+  });
+  const labels = (): NonNullable<AppData['legendLabels']> => ({
+    solidBar: 'Build', hatchedBar: 'Risk', finishDateLine: 'Due', mostLikelyLine: 'Target', inProgress: 'Active',
+  });
+  const display = (): NonNullable<AppData['chartDisplaySettings']> => ({
+    releaseNameFontSize: '18', dateLabelFontSize: '15', dateLabelColor: '#333',
+    verticalLineWidth: '4', barHeight: '50', rowSpacing: '30',
+  });
+
+  describe('projectToFirestoreMeta — whole document', () => {
+    it('writes no optional key, and a null finish date, for a project with nothing optional set', () => {
+      expect(projectToFirestoreMeta({ id: 'p1', name: 'Alpha' }, 'uid-1')).toStrictEqual({
+        name: 'Alpha',
+        owner: 'uid-1',
+        members: { 'uid-1': 'owner' },
+        finishDate: null,
+        schemaVersion: 1,
+        _originRef: 'uid:uid-1',
+        _changeLog: [],
+        createdAt: '2026-02-20T12:00:00.000Z',
+        updatedAt: '2026-02-20T12:00:00.000Z',
+      });
+    });
+
+    it('writes order 0 for the first project in the list', () => {
+      expect(projectToFirestoreMeta({ id: 'p1', name: 'Alpha' }, 'uid-1', undefined, 0)).toStrictEqual({
+        name: 'Alpha',
+        owner: 'uid-1',
+        members: { 'uid-1': 'owner' },
+        finishDate: null,
+        order: 0,
+        schemaVersion: 1,
+        _originRef: 'uid:uid-1',
+        _changeLog: [],
+        createdAt: '2026-02-20T12:00:00.000Z',
+        updatedAt: '2026-02-20T12:00:00.000Z',
+      });
+    });
+
+    it('keeps the stored origin, owner, members, change log and creation time when another member saves the project', () => {
+      const stored: Partial<FirestoreProjectMeta> = {
+        owner: 'uid-owner',
+        members: { 'uid-owner': 'owner', 'uid-editor': 'editor' },
+        _originRef: 'uid:uid-owner',
+        _changeLog: [{ timestamp: '2026-01-01T00:00:00.000Z', uid: 'uid-owner', action: 'create', target: 'project:p1' }],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      const project: Project = {
+        id: 'p1', name: 'Alpha', finishDate: '2026-06-30', workDays: [1, 2, 3, 4, 5, 6], legendLabels: { solidBar: 'Build' },
+      };
+      expect(projectToFirestoreMeta(project, 'uid-editor', stored, 2)).toStrictEqual({
+        name: 'Alpha',
+        owner: 'uid-owner',
+        members: { 'uid-owner': 'owner', 'uid-editor': 'editor' },
+        finishDate: '2026-06-30',
+        order: 2,
+        workDays: [1, 2, 3, 4, 5, 6],
+        legendLabels: { solidBar: 'Build' },
+        schemaVersion: 1,
+        _originRef: 'uid:uid-owner',
+        _changeLog: [{ timestamp: '2026-01-01T00:00:00.000Z', uid: 'uid-owner', action: 'create', target: 'project:p1' }],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-02-20T12:00:00.000Z',
+      });
+    });
+  });
+
+  describe('releaseToFirestore — whole document', () => {
+    const plain: Release = {
+      id: 'r1', projectId: 'p1', name: 'R1',
+      startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+    };
+
+    it('writes no optional key for a release with nothing optional set', () => {
+      expect(releaseToFirestore(plain, 0)).toStrictEqual({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+      });
+    });
+
+    it('writes hidden: false for a release that is shown on the chart', () => {
+      expect(releaseToFirestore({ ...plain, hidden: false }, 0)).toStrictEqual({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false, order: 0,
+      });
+    });
+  });
+
+  describe('appDataToUserSettings — whole document', () => {
+    it('writes every setting it is given, with the schema version', () => {
+      const data: AppData = {
+        projects: [], releases: [],
+        chartColors: colours(),
+        activePreset: 'Ocean',
+        legendLabels: labels(),
+        showTodayLine: true,
+        todayDateOverride: '2026-08-19',
+        showFinishDateLine: true,
+        showMostLikelyLine: true,
+        showMonths: true,
+        chartDisplaySettings: display(),
+        preparedBy: 'Ann',
+        showPreparedBy: true,
+        exportAttribution: { name: 'Ann', identifier: 'T1' },
+        globalWorkDays: [1, 2, 3, 4, 5],
+      };
+      expect(appDataToUserSettings(data)).toStrictEqual({
+        schemaVersion: 1,
+        chartColors: colours(),
+        activePreset: 'Ocean',
+        legendLabels: labels(),
+        showTodayLine: true,
+        todayDateOverride: '2026-08-19',
+        showFinishDateLine: true,
+        showMostLikelyLine: true,
+        showMonths: true,
+        chartDisplaySettings: display(),
+        preparedBy: 'Ann',
+        showPreparedBy: true,
+        exportAttribution: { name: 'Ann', identifier: 'T1' },
+        globalWorkDays: [1, 2, 3, 4, 5],
+      });
+    });
+
+    it('writes a setting turned off as false, and a cleared preparedBy as an empty string', () => {
+      const data: AppData = {
+        projects: [], releases: [],
+        showTodayLine: false, showFinishDateLine: false, showMostLikelyLine: false, showMonths: false,
+        preparedBy: '', showPreparedBy: false,
+      };
+      expect(appDataToUserSettings(data)).toStrictEqual({
+        schemaVersion: 1,
+        showTodayLine: false, showFinishDateLine: false, showMostLikelyLine: false, showMonths: false,
+        preparedBy: '', showPreparedBy: false,
+      });
+    });
+
+    it('writes only the schema version when no setting is set', () => {
+      expect(appDataToUserSettings({ projects: [], releases: [] })).toStrictEqual({ schemaVersion: 1 });
+    });
+  });
+
+  describe('snapshotToFirestore — whole document', () => {
+    it('writes every field of a snapshot, and its releases with their places as their order', () => {
+      const snapshot: Snapshot = {
+        id: 'snap1', projectId: 'p1', name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [
+          {
+            id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+            hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15',
+          },
+          { id: 'r2', projectId: 'p1', name: 'R2', startDate: '2026-03-01', earlyFinishDate: '2026-04-01', lateFinishDate: '2026-05-01' },
+        ],
+        projectFinishDate: '2026-06-30',
+        chartColors: colours(),
+        legendLabels: labels(),
+        preparedBy: 'Ann',
+        todayDateOverride: '2026-02-15',
+      };
+      expect(snapshotToFirestore(snapshot)).toStrictEqual({
+        name: 'Sprint 3',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [
+          {
+            name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+            hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15', order: 0,
+          },
+          { name: 'R2', startDate: '2026-03-01', earlyFinishDate: '2026-04-01', lateFinishDate: '2026-05-01', order: 1 },
+        ],
+        projectFinishDate: '2026-06-30',
+        chartColors: colours(),
+        legendLabels: labels(),
+        preparedBy: 'Ann',
+        todayDateOverride: '2026-02-15',
+      });
+    });
+
+    it('writes a cleared preparedBy as an empty string, and a shown release as hidden: false', () => {
+      const snapshot: Snapshot = {
+        id: 'snap2', projectId: 'p1', name: 'Sprint 4', timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false,
+        }],
+        preparedBy: '',
+      };
+      expect(snapshotToFirestore(snapshot)).toStrictEqual({
+        name: 'Sprint 4',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false, order: 0 }],
+        preparedBy: '',
+      });
+    });
+
+    it('writes no optional key for a snapshot with nothing optional set', () => {
+      const snapshot: Snapshot = {
+        id: 'snap3', projectId: 'p1', name: 'Sprint 5', timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }],
+      };
+      expect(snapshotToFirestore(snapshot)).toStrictEqual({
+        name: 'Sprint 5',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
+      });
+    });
+  });
+
+  describe('firestoreToProject — whole result', () => {
+    it('reads back the project fields of a stored project, and none of its bookkeeping', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'Alpha', owner: 'uid-1', members: { 'uid-1': 'owner', 'uid-2': 'viewer' },
+        finishDate: '2026-06-30', order: 3, workDays: [1, 2, 3, 4, 5, 6], legendLabels: { solidBar: 'Build', inProgress: 'Active' },
+        schemaVersion: 1, _originRef: 'uid:uid-1', _changeLog: [],
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z',
+      };
+      expect(firestoreToProject('p1', meta)).toStrictEqual({
+        id: 'p1',
+        name: 'Alpha',
+        finishDate: '2026-06-30',
+        workDays: [1, 2, 3, 4, 5, 6],
+        legendLabels: { solidBar: 'Build', inProgress: 'Active' },
+        owner: 'uid-1',
+      });
+    });
+
+    it('cleans a stored project name: control characters and surrounding spaces are removed', () => {
+      const meta: FirestoreProjectMeta = {
+        name: ' \tAlpha\u0007 Launch \n', owner: 'uid-1', members: { 'uid-1': 'owner' },
+        schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+      expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha Launch', owner: 'uid-1' });
+    });
+
+    it('reads no optional key from a stored project with nothing optional set', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'Alpha', owner: 'uid-1', members: { 'uid-1': 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '',
+      };
+      expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha', owner: 'uid-1' });
+    });
+  });
+
+  describe('firestoreReleasesToFlat — whole result', () => {
+    const entry = (data: FirestoreRelease) => [{ id: 'r1', data }];
+
+    it('reads back every field of a stored release, and not its order', () => {
+      const releases = firestoreReleasesToFlat('p1', entry({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15', order: 0,
+      }));
+      expect(releases).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15',
+      }]);
+    });
+
+    it('reads a stored hidden: false back as false', () => {
+      const releases = firestoreReleasesToFlat('p1', entry({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false, order: 0,
+      }));
+      expect(releases).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false,
+      }]);
+    });
+
+    it('cleans a stored release name: control characters and surrounding spaces are removed', () => {
+      const releases = firestoreReleasesToFlat('p1', entry({
+        name: '\n Release\u0007 One\t ', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+      }));
+      expect(releases).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'Release One', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+      }]);
+    });
+
+    it('reads no optional key from a stored release with nothing optional set', () => {
+      const releases = firestoreReleasesToFlat('p1', entry({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+      }));
+      expect(releases).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+      }]);
+    });
+  });
+
+  describe('userSettingsToAppData — whole result', () => {
+    it('reads back every stored setting, and not the schema version', () => {
+      const settings: FirestoreUserSettings = {
+        schemaVersion: 1,
+        chartColors: colours(),
+        activePreset: 'Ocean',
+        legendLabels: labels(),
+        showTodayLine: true,
+        todayDateOverride: '2026-08-19',
+        showFinishDateLine: true,
+        showMostLikelyLine: true,
+        showMonths: true,
+        chartDisplaySettings: display(),
+        preparedBy: 'Ann',
+        showPreparedBy: true,
+        exportAttribution: { name: 'Ann', identifier: 'T1' },
+        globalWorkDays: [1, 2, 3, 4, 5],
+      };
+      expect(userSettingsToAppData(settings)).toStrictEqual({
+        chartColors: colours(),
+        activePreset: 'Ocean',
+        legendLabels: labels(),
+        showTodayLine: true,
+        todayDateOverride: '2026-08-19',
+        showFinishDateLine: true,
+        showMostLikelyLine: true,
+        showMonths: true,
+        chartDisplaySettings: display(),
+        preparedBy: 'Ann',
+        showPreparedBy: true,
+        exportAttribution: { name: 'Ann', identifier: 'T1' },
+        globalWorkDays: [1, 2, 3, 4, 5],
+      });
+    });
+
+    it('reads a setting stored as false back as false, and a stored empty preparedBy as an empty string', () => {
+      const settings: FirestoreUserSettings = {
+        schemaVersion: 1,
+        showTodayLine: false, showFinishDateLine: false, showMostLikelyLine: false, showMonths: false,
+        preparedBy: '', showPreparedBy: false,
+      };
+      expect(userSettingsToAppData(settings)).toStrictEqual({
+        showTodayLine: false, showFinishDateLine: false, showMostLikelyLine: false, showMonths: false,
+        preparedBy: '', showPreparedBy: false,
+      });
+    });
+
+    it('reads no setting from a settings document that holds only its schema version', () => {
+      expect(userSettingsToAppData({ schemaVersion: 1 })).toStrictEqual({});
+    });
+  });
+
+  describe('firestoreSnapshotToFlat — whole result', () => {
+    it('reads back every field of a stored snapshot, each release given an id from the snapshot id and its place', () => {
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 3',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [
+          {
+            name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+            hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15', order: 0,
+          },
+          { name: 'R2', startDate: '2026-03-01', earlyFinishDate: '2026-04-01', lateFinishDate: '2026-05-01', order: 1 },
+        ],
+        projectFinishDate: '2026-06-30',
+        chartColors: colours(),
+        legendLabels: labels(),
+        preparedBy: 'Ann',
+        todayDateOverride: '2026-02-15',
+      };
+      expect(firestoreSnapshotToFlat('snap1', 'p1', stored)).toStrictEqual({
+        id: 'snap1',
+        projectId: 'p1',
+        name: 'Sprint 3',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [
+          {
+            id: 'snap1-r0', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+            hidden: true, status: 'in-progress', mostLikelyFinishDate: '2026-02-15',
+          },
+          { id: 'snap1-r1', projectId: 'p1', name: 'R2', startDate: '2026-03-01', earlyFinishDate: '2026-04-01', lateFinishDate: '2026-05-01' },
+        ],
+        projectFinishDate: '2026-06-30',
+        chartColors: colours(),
+        legendLabels: labels(),
+        preparedBy: 'Ann',
+        todayDateOverride: '2026-02-15',
+      });
+    });
+
+    it('reads a stored empty preparedBy back as an empty string, and a stored hidden: false as false', () => {
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 4',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false, order: 0 }],
+        preparedBy: '',
+      };
+      expect(firestoreSnapshotToFlat('snap2', 'p1', stored)).toStrictEqual({
+        id: 'snap2',
+        projectId: 'p1',
+        name: 'Sprint 4',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'snap2-r0', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', hidden: false,
+        }],
+        preparedBy: '',
+      });
+    });
+
+    it('puts releases stored out of order back in their order', () => {
+      const release = (name: string, startDate: string, order: number): FirestoreRelease => ({
+        name, startDate, earlyFinishDate: '2026-06-01', lateFinishDate: '2026-07-01', order,
+      });
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 5',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [release('Second', '2026-02-01', 1), release('First', '2026-01-01', 0), release('Third', '2026-03-01', 2)],
+      };
+      const snap = firestoreSnapshotToFlat('snap3', 'p1', stored);
+      expect(snap.releases.map(r => [r.id, r.name, r.startDate])).toStrictEqual([
+        ['snap3-r0', 'First', '2026-01-01'],
+        ['snap3-r1', 'Second', '2026-02-01'],
+        ['snap3-r2', 'Third', '2026-03-01'],
+      ]);
+    });
+
+    it('cleans the stored names of a snapshot and of its releases', () => {
+      const stored: FirestoreSnapshot = {
+        name: '\tSprint\u0007 6 \n',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: ' Release\u0007 One\n', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
+      };
+      expect(firestoreSnapshotToFlat('snap4', 'p1', stored)).toStrictEqual({
+        id: 'snap4',
+        projectId: 'p1',
+        name: 'Sprint 6',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'snap4-r0', projectId: 'p1', name: 'Release One', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        }],
+      });
+    });
+
+    it('reads no optional key from a stored snapshot with nothing optional set', () => {
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 7',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
+      };
+      expect(firestoreSnapshotToFlat('snap5', 'p1', stored)).toStrictEqual({
+        id: 'snap5',
+        projectId: 'p1',
+        name: 'Sprint 7',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'snap5-r0', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        }],
+      });
+    });
+  });
+
+  describe('firestoreToFlatAppData — whole result', () => {
+    const meta = (name: string): FirestoreProjectMeta => ({
+      name, owner: 'uid-1', members: { 'uid-1': 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '',
+    });
+    const stored = (name: string): FirestoreRelease => ({
+      name, startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+    });
+
+    it('reads a project and a release with nothing optional set, and no settings document, with no optional key', () => {
+      const appData = firestoreToFlatAppData(
+        [{ id: 'p1', meta: meta('Alpha') }],
+        new Map([['p1', [{ id: 'r1', data: stored('R1') }]]]),
+        null,
+      );
+      expect(appData).toStrictEqual({
+        projects: [{ id: 'p1', name: 'Alpha', owner: 'uid-1' }],
+        releases: [{ id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }],
+      });
+    });
+
+    it('reads a project that has no entry in the releases map as a project with no releases', () => {
+      // Beta has no entry in the map at all.
+      const releasesMap = new Map([['p1', [{ id: 'r1', data: stored('R1') }]]]);
+      let appData: AppData | undefined;
+      expect(() => {
+        appData = firestoreToFlatAppData([{ id: 'p1', meta: meta('Alpha') }, { id: 'p2', meta: meta('Beta') }], releasesMap, null);
+      }).not.toThrow();
+      expect(appData).toStrictEqual({
+        projects: [{ id: 'p1', name: 'Alpha', owner: 'uid-1' }, { id: 'p2', name: 'Beta', owner: 'uid-1' }],
+        releases: [{ id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }],
+      });
+    });
+  });
 });

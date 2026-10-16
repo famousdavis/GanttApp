@@ -7,7 +7,7 @@
 //   `onOpenModal` callback. Sign-in/sign-out logic moved into CloudStorageModal.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { StorageStatusChip } from '../StorageStatusChip';
 import { LIGHT_THEME } from '../../utils/theme';
 import type { User } from 'firebase/auth';
@@ -58,6 +58,14 @@ describe('StorageStatusChip (v17.0)', () => {
       fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
       expect(onOpenModal).toHaveBeenCalledTimes(1);
     });
+
+    it('titles the signed-out pill to say local storage is in use', () => {
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Sign in' })).toHaveAttribute(
+        'title',
+        'Using local storage'
+      );
+    });
   });
 
   describe('signed in + cloud', () => {
@@ -88,6 +96,32 @@ describe('StorageStatusChip (v17.0)', () => {
       expect(onOpenModal).toHaveBeenCalledTimes(1);
       // v17.0: no popover content rendered inside the chip itself.
       expect(screen.queryByText('Sign Out')).not.toBeInTheDocument();
+    });
+
+    it('titles the cloud pill with the signed-in email', () => {
+      setupMocks({ mode: 'cloud', user });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+        'title',
+        'Signed in as test@example.com'
+      );
+    });
+
+    it('titles the cloud pill "Signed in as cloud user" when the account has no email', () => {
+      setupMocks({ mode: 'cloud', user: { ...user, email: null } as User });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+        'title',
+        'Signed in as cloud user'
+      );
+    });
+
+    it('shows the upper-cased first initial in the cloud pill avatar', () => {
+      setupMocks({ mode: 'cloud', user: { ...user, displayName: 'zoe quinn' } as User });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      const pill = screen.getByRole('button', { name: 'Account menu' });
+      expect(within(pill).getByText('zoe')).toBeInTheDocument();
+      expect(within(pill).getByText('Z')).toBeInTheDocument();
     });
   });
 
@@ -120,6 +154,32 @@ describe('StorageStatusChip (v17.0)', () => {
       // v17.0: no popover content rendered inside the chip itself.
       expect(screen.queryByText('Switch to Cloud Storage')).not.toBeInTheDocument();
       expect(screen.queryByText('Sign Out')).not.toBeInTheDocument();
+    });
+
+    it('titles the local pill with the signed-in email', () => {
+      setupMocks({ mode: 'local', user });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+        'title',
+        'Signed in as test@example.com'
+      );
+    });
+
+    it('titles the local pill "Signed in as local user" when the account has no email', () => {
+      setupMocks({ mode: 'local', user: { ...user, email: null } as User });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+        'title',
+        'Signed in as local user'
+      );
+    });
+
+    it('shows the upper-cased first initial in the local pill avatar', () => {
+      setupMocks({ mode: 'local', user: { ...user, displayName: 'zoe quinn' } as User });
+      render(<StorageStatusChip onOpenModal={vi.fn()} />);
+      const pill = screen.getByRole('button', { name: 'Account menu' });
+      expect(within(pill).getByText('zoe')).toBeInTheDocument();
+      expect(within(pill).getByText('Z')).toBeInTheDocument();
     });
   });
 

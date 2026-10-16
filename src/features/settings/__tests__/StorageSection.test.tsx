@@ -5,7 +5,7 @@
 // StorageSection tests — validates radio buttons, upload/cleanup dialogs,
 // auth UI, download button, and status messages (v12.1).
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { StorageSection } from '../StorageSection';
 import { LIGHT_THEME } from '../../../shared/utils/theme';
@@ -277,6 +277,12 @@ describe('StorageSection', () => {
     expect(screen.getByText('Sign Out')).toBeInTheDocument();
   });
 
+  it('shows Unknown for a signed-in user who has no display name', () => {
+    renderSection({ isFirebaseAvailable: true, isAuthenticated: true, user: { ...mockUser, displayName: null } as User });
+    expect(screen.getByText(/Signed in as:/)).toBeInTheDocument();
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
   it('calls onSignIn with google when Google button is clicked', () => {
     const onSignIn = vi.fn();
     renderSection({ onSignIn });
@@ -308,6 +314,116 @@ describe('StorageSection', () => {
   it('does not show Download button in local mode', () => {
     renderSection({ mode: 'local', isAuthenticated: true, user: mockUser });
     expect(screen.queryByText('Download All Projects as JSON')).not.toBeInTheDocument();
+  });
+
+  describe('Download All Projects as JSON', () => {
+    const threeProjects = {
+      projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }, { id: 'p3', name: 'Gamma' }],
+      releases: [],
+    };
+    const snapshot = { id: 's1', projectId: 'p1', name: 'Sprint 1', createdAt: '2026-01-15T00:00:00.000Z', releases: [] };
+
+    beforeEach(() => {
+      // Keep the file instead of handing it to the browser.
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Storage whose project read is the one given and whose snapshot read succeeds. */
+    function storageThatReads(readAppData: () => Promise<unknown>) {
+      return { ...mockStorage, readAppData, loadSnapshots: vi.fn().mockResolvedValue([snapshot]) };
+    }
+
+    /** A project read that stays pending until the test finishes it. */
+    function pendingRead() {
+      let finish: () => void = () => {};
+      const readAppData = vi.fn(() => new Promise((resolve) => {
+        finish = () => resolve(threeProjects);
+      }));
+      return { readAppData, finish: () => finish() };
+    }
+
+    const renderCloud = (storage: object) =>
+      renderSection({ mode: 'cloud', isAuthenticated: true, user: mockUser, storage });
+
+    async function clickDownload() {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Download All Projects as JSON' }));
+      });
+    }
+
+    it('reports how many projects were exported after a complete export', async () => {
+      // The snapshot read succeeds here. After a failed or cache-served snapshot
+      // read the same success line still appears although the file has no
+      // snapshots. That is a known defect, so this covers only a complete export.
+      renderCloud(storageThatReads(vi.fn().mockResolvedValue(threeProjects)));
+
+      await clickDownload();
+
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+      const file = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+      expect(JSON.parse(await file.text()).snapshots).toHaveLength(1);
+      expect(screen.getByText('3 project(s) exported successfully.')).toBeInTheDocument();
+    });
+
+    it('reports why the export failed', async () => {
+      const storage = storageThatReads(vi.fn().mockResolvedValue({ projects: [], releases: [] }));
+      renderCloud(storage);
+
+      await clickDownload();
+
+      expect(storage.readAppData).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Export failed: No projects to export.')).toBeInTheDocument();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('reports an unknown error when the export fails with something that is not an Error', async () => {
+      const storage = storageThatReads(vi.fn().mockRejectedValue('offline'));
+      renderCloud(storage);
+
+      await clickDownload();
+
+      expect(storage.readAppData).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Export failed: unknown error')).toBeInTheDocument();
+      expect(screen.queryByText(/offline/)).not.toBeInTheDocument();
+    });
+
+    it('disables the download button while the export runs', async () => {
+      const read = pendingRead();
+      renderCloud(storageThatReads(read.readAppData));
+      const button = screen.getByRole('button', { name: /^Download/ });
+      expect(button).toBeEnabled();
+
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      expect(read.readAppData).toHaveBeenCalledTimes(1);
+      expect(button).toBeDisabled();
+
+      await act(async () => {
+        read.finish();
+      });
+      expect(button).toBeEnabled();
+    });
+
+    it('labels the download button Downloading... while the export runs', async () => {
+      const read = pendingRead();
+      renderCloud(storageThatReads(read.readAppData));
+
+      await clickDownload();
+      expect(read.readAppData).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button', { name: 'Downloading...' })).toBeInTheDocument();
+
+      await act(async () => {
+        read.finish();
+      });
+      expect(screen.getByRole('button', { name: 'Download All Projects as JSON' })).toBeInTheDocument();
+    });
   });
 
   // === Error states ===

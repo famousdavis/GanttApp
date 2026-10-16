@@ -264,6 +264,8 @@ describe('firestore-save-executor', () => {
       ['name', alpha, { ...alpha, name: 'Renamed' }, { name: 'Renamed' }],
       ['finishDate', alpha, { ...alpha, finishDate: '2026-06-30' }, { finishDate: '2026-06-30' }],
       ['workDays', { ...alpha, workDays: [1, 2, 3, 4, 5] }, { ...alpha, workDays: [1, 2, 3, 4, 5, 6] }, { workDays: [1, 2, 3, 4, 5, 6] }],
+      // As many days as before, but different ones: a comparison of the length alone would miss it.
+      ['workDays (same number of days, different days)', { ...alpha, workDays: [1, 2, 3, 4, 5] }, { ...alpha, workDays: [0, 1, 2, 3, 4] }, { workDays: [0, 1, 2, 3, 4] }],
     ])('rewrites an existing project whose %s changed', async (_field, before, after, written) => {
       await executeFirestoreSave(db, UID, state([after]), state([before]));
       const writes = sets('ganttapp_projects/p1');
@@ -379,7 +381,13 @@ describe('firestore-save-executor', () => {
     // Every setting holds a value, as in a returning user's saved state. Each
     // row below changes one setting alone: if the executor stopped comparing
     // that setting, the settings document would not be written and the change
-    // would be gone on the next load.
+    // would be gone on the next load. The document written must also hold the
+    // new value: if the settings converter dropped the field, the document
+    // would be written without it, and the change would be lost the same way.
+    // Three rows change one part of a value the executor compares whole (a
+    // colour other than the solid bar's, a display setting other than the bar
+    // height, other days of the same count): comparing only one part, or only
+    // the length, would miss them.
     const everySetting = state([], [], {
       chartColors: {
         solidBar: '#000', hatchedBar: '#111', todayLine: '#222', finishDateLine: '#333',
@@ -404,6 +412,7 @@ describe('firestore-save-executor', () => {
 
     it.each([
       ['chartColors', { chartColors: { ...everySetting.chartColors!, solidBar: '#fff' } }],
+      ['chartColors.todayLine', { chartColors: { ...everySetting.chartColors!, todayLine: '#f00' } }],
       ['activePreset', { activePreset: 'Ocean' }],
       ['legendLabels', { legendLabels: { solidBar: 'Build', hatchedBar: 'Delay' } }],
       ['showTodayLine', { showTodayLine: false }],
@@ -412,13 +421,17 @@ describe('firestore-save-executor', () => {
       ['showMostLikelyLine', { showMostLikelyLine: true }],
       ['showMonths', { showMonths: true }],
       ['chartDisplaySettings', { chartDisplaySettings: { ...everySetting.chartDisplaySettings!, barHeight: '50' } }],
+      ['chartDisplaySettings.rowSpacing', { chartDisplaySettings: { ...everySetting.chartDisplaySettings!, rowSpacing: '30' } }],
       ['preparedBy', { preparedBy: 'Bob' }],
       ['showPreparedBy', { showPreparedBy: true }],
       ['exportAttribution', { exportAttribution: { name: 'Ann', identifier: 'T2' } }],
       ['globalWorkDays', { globalWorkDays: [1, 2, 3, 4, 5, 6] }],
+      ['globalWorkDays (same number of days, different days)', { globalWorkDays: [0, 1, 2, 3, 4] }],
     ] as [string, Partial<AppData>][])('writes the settings document when only %s changes', async (_field, change) => {
       await executeFirestoreSave(db, UID, { ...everySetting, ...change }, structuredClone(everySetting));
-      expect(sets(`ganttapp_settings/${UID}`)).toHaveLength(1);
+      const written = sets(`ganttapp_settings/${UID}`);
+      expect(written).toHaveLength(1);
+      expect(written[0].data).toMatchObject(change);
     });
 
     // In production the copy a save is compared with is a structuredClone of

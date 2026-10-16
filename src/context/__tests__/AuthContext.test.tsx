@@ -60,6 +60,8 @@ vi.mock('firebase/auth', () => {
 
 import { AuthProvider, useAuth } from '../AuthContext';
 import { runSignOutCleanup } from '../signOutCleanupRegistry';
+import { getDoc } from 'firebase/firestore';
+import { TOS_VERSION } from '../../lib/version';
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
@@ -68,6 +70,7 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockOnAuthStateChanged.mockImplementation(() => vi.fn()); // returns unsubscribe
   });
 
@@ -97,6 +100,11 @@ describe('AuthContext', () => {
   });
 
   it('sets user and loading=false after auth state resolves', async () => {
+    // This browser has already accepted the current terms, so the sign-in
+    // passes the terms check on that cached acceptance. (Without it the check
+    // would read Firestore, whose mock here returns nothing usable, and the
+    // user would get through only because a failed read lets users through.)
+    localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
     const mockUser = { uid: 'test-uid', email: 'test@example.com', providerData: [{ providerId: 'google.com' }] };
     mockOnAuthStateChanged.mockImplementation((_auth: unknown, callback: (user: typeof mockUser) => void) => {
       callback(mockUser);
@@ -111,6 +119,7 @@ describe('AuthContext', () => {
     expect(result.current.user).toEqual(mockUser);
     expect(result.current.loading).toBe(false);
     expect(result.current.isAuthenticated).toBe(true);
+    expect(getDoc).not.toHaveBeenCalled(); // the cached acceptance was used, not Firestore
   });
 
   it('calls signInWithPopup for Google sign-in', async () => {

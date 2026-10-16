@@ -16,7 +16,7 @@ export interface ChangelogEntry {
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     version: '0.29.4',
-    date: 'October 15, 2026',
+    date: 'October 16, 2026',
     items: [
       <><strong>Changed</strong> &mdash; tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud. Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.</>,
       <><strong>Note</strong> &mdash; Future changes to how cloud-sync and sign-in errors are shown will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you.</>,
@@ -27,7 +27,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       <><strong>Note</strong> &mdash; Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.</>,
       <><strong>Note</strong> &mdash; One older sign-in test passed only because its stand-in for the cloud failed, and the sign-in check lets you in when the cloud cannot be read. It now passes the check the intended way, and that let-in path has a test of its own.</>,
       <><strong>Note</strong> &mdash; Coverage measured over every file rises from 83.64% to 88.09% of statements, from 78.39% to 82.82% of branches, from 78.75% to 82.58% of functions and from 85.18% to 89.67% of lines. No build or release check reads these figures.</>,
-      <><strong>Note</strong> &mdash; Two files outside this release&apos;s scope run inside the new tests, so their figures rose a little. They are not tested by this release: the shared input-validation and sanitising helpers, and the hook that holds a text field&apos;s edits until it is saved.</>,
+      <><strong>Note</strong> &mdash; Two files outside this release&apos;s scope run inside the new tests, so their figures rose a little. They are not tested in their own right: the shared input-validation and sanitising helpers, and the hook that holds a text field&apos;s edits until it is saved.</>,
     ],
   },
   {

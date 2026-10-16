@@ -73,8 +73,14 @@ describe('LocalStorageWarningBanner', () => {
     expect(screen.getByText(HEADLINE)).toBeInTheDocument();
   });
 
-  it('shows the warning again when the mode returns to local, even after "Got it"', () => {
+  it('hides the warning when the mode becomes cloud, and shows it again when the mode returns to local, even after "Got it"', () => {
     const { rerender } = render(<LocalStorageWarningBanner />);
+    expect(screen.getByText(HEADLINE)).toBeInTheDocument();
+    setMode('cloud');
+    rerender(<LocalStorageWarningBanner />);
+    expect(screen.queryByText(HEADLINE)).not.toBeInTheDocument();
+    setMode('local');
+    rerender(<LocalStorageWarningBanner />);
     expect(screen.getByText(HEADLINE)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(screen.queryByText(HEADLINE)).not.toBeInTheDocument();

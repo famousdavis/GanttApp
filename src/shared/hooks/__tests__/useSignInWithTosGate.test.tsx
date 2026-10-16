@@ -259,13 +259,16 @@ describe('useSignInWithTosGate', () => {
       });
     });
 
-    it('clears an error shown while the sign-in was open once the sign-in succeeds', async () => {
+    it.each([
+      { provider: 'google' as const, providerSignIn: mockSignInWithGoogle, otherSignIn: mockSignInWithMicrosoft },
+      { provider: 'microsoft' as const, providerSignIn: mockSignInWithMicrosoft, otherSignIn: mockSignInWithGoogle },
+    ])('clears an error shown while the sign-in was open once the sign-in succeeds, with $provider', async ({ provider, providerSignIn, otherSignIn }) => {
       const popup = openPopup();
-      mockSignInWithGoogle.mockReturnValueOnce(popup.promise);
+      providerSignIn.mockReturnValueOnce(popup.promise);
       const { result } = renderHook(() => useSignInWithTosGate());
       let attempt: Promise<void> = Promise.resolve();
       act(() => {
-        attempt = result.current.signIn('google');
+        attempt = result.current.signIn(provider);
       });
       act(() => {
         result.current.setAuthError('Shown while the sign-in was open');
@@ -276,7 +279,8 @@ describe('useSignInWithTosGate', () => {
         popup.succeed();
         await attempt;
       });
-      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+      expect(providerSignIn).toHaveBeenCalledTimes(1);
+      expect(otherSignIn).not.toHaveBeenCalled();
       expect(result.current.authError).toBeNull();
     });
 

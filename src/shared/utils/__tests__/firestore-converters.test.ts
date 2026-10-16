@@ -691,7 +691,7 @@ describe('firestore-converters', () => {
   // rejected. A false flag, an empty preparedBy and order 0 are values, not
   // "not set", and must survive both ways. The colours, labels and display
   // settings below are valid, so the read-side sanitizers return them as they
-  // are.
+  // are; the tests that give a sanitizer an invalid value say so.
 
   const colours = (): NonNullable<AppData['chartColors']> => ({
     solidBar: '#112233', hatchedBar: '#445566', todayLine: '#778899', finishDateLine: '#aabbcc',
@@ -918,12 +918,13 @@ describe('firestore-converters', () => {
       });
     });
 
-    it('cleans a stored project name: control characters and surrounding spaces are removed', () => {
+    it('cleans a stored project name: control characters and surrounding spaces are removed, and a name over 100 characters is cut to 100', () => {
       const meta: FirestoreProjectMeta = {
         name: ' \tAlpha\u0007 Launch \n', owner: 'uid-1', members: { 'uid-1': 'owner' },
         schemaVersion: 1, createdAt: '', updatedAt: '',
       };
       expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha Launch', owner: 'uid-1' });
+      expect(firestoreToProject('p1', { ...meta, name: 'P'.repeat(120) })).toStrictEqual({ id: 'p1', name: 'P'.repeat(100), owner: 'uid-1' });
     });
 
     it('reads no optional key from a stored project with nothing optional set', () => {
@@ -931,6 +932,14 @@ describe('firestore-converters', () => {
         name: 'Alpha', owner: 'uid-1', members: { 'uid-1': 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '',
       };
       expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha', owner: 'uid-1' });
+    });
+
+    it('drops a stored legend label that is not text, and keeps the others', () => {
+      const meta: FirestoreProjectMeta = {
+        name: 'Alpha', owner: 'uid-1', members: { 'uid-1': 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '',
+        legendLabels: { solidBar: 'Build', inProgress: 42 } as unknown as FirestoreProjectMeta['legendLabels'],
+      };
+      expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha', owner: 'uid-1', legendLabels: { solidBar: 'Build' } });
     });
   });
 
@@ -957,12 +966,18 @@ describe('firestore-converters', () => {
       }]);
     });
 
-    it('cleans a stored release name: control characters and surrounding spaces are removed', () => {
+    it('cleans a stored release name: control characters and surrounding spaces are removed, and a name over 100 characters is cut to 100', () => {
       const releases = firestoreReleasesToFlat('p1', entry({
         name: '\n Release\u0007 One\t ', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
       }));
       expect(releases).toStrictEqual([{
         id: 'r1', projectId: 'p1', name: 'Release One', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+      }]);
+      const long = firestoreReleasesToFlat('p1', entry({
+        name: 'R'.repeat(120), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+      }));
+      expect(long).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'R'.repeat(100), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
       }]);
     });
 
@@ -1025,6 +1040,18 @@ describe('firestore-converters', () => {
 
     it('reads no setting from a settings document that holds only its schema version', () => {
       expect(userSettingsToAppData({ schemaVersion: 1 })).toStrictEqual({});
+    });
+
+    it('replaces a stored colour that is not a hex colour with its default, and keeps the other colours', () => {
+      const settings: FirestoreUserSettings = { schemaVersion: 1, chartColors: { ...colours(), solidBar: 'red' } };
+      // #0070f3 is the default solid-bar colour.
+      expect(userSettingsToAppData(settings)).toStrictEqual({ chartColors: { ...colours(), solidBar: '#0070f3' } });
+    });
+
+    it('replaces a stored display setting that is not one of its choices with its default, and keeps the others', () => {
+      const settings: FirestoreUserSettings = { schemaVersion: 1, chartDisplaySettings: { ...display(), barHeight: '99' } };
+      // '30' is the default bar height.
+      expect(userSettingsToAppData(settings)).toStrictEqual({ chartDisplaySettings: { ...display(), barHeight: '30' } });
     });
   });
 
@@ -1102,7 +1129,7 @@ describe('firestore-converters', () => {
       ]);
     });
 
-    it('cleans the stored names of a snapshot and of its releases', () => {
+    it('cleans the stored names of a snapshot and of its releases, and cuts a name over 100 characters to 100', () => {
       const stored: FirestoreSnapshot = {
         name: '\tSprint\u0007 6 \n',
         timestamp: '2026-02-15T10:00:00.000Z',
@@ -1116,6 +1143,38 @@ describe('firestore-converters', () => {
         releases: [{
           id: 'snap4-r0', projectId: 'p1', name: 'Release One', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
         }],
+      });
+      const long: FirestoreSnapshot = {
+        name: 'S'.repeat(120),
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{ name: 'R'.repeat(130), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
+      };
+      expect(firestoreSnapshotToFlat('snap4', 'p1', long)).toStrictEqual({
+        id: 'snap4',
+        projectId: 'p1',
+        name: 'S'.repeat(100),
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'snap4-r0', projectId: 'p1', name: 'R'.repeat(100), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
+        }],
+      });
+    });
+
+    it('replaces a stored snapshot colour that is not a hex colour with its default, and keeps the other colours', () => {
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 8',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [],
+        chartColors: { ...colours(), todayLine: 'red' },
+      };
+      // #dc3545 is the default today-line colour.
+      expect(firestoreSnapshotToFlat('snap6', 'p1', stored)).toStrictEqual({
+        id: 'snap6',
+        projectId: 'p1',
+        name: 'Sprint 8',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [],
+        chartColors: { ...colours(), todayLine: '#dc3545' },
       });
     });
 
@@ -1167,6 +1226,159 @@ describe('firestore-converters', () => {
       expect(appData).toStrictEqual({
         projects: [{ id: 'p1', name: 'Alpha', owner: 'uid-1' }, { id: 'p2', name: 'Beta', owner: 'uid-1' }],
         releases: [{ id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01' }],
+      });
+    });
+  });
+
+  // --- One optional field at a time ---
+  //
+  // Each optional field is written and read under its own condition. A fixture
+  // with every field set, or with none, cannot tell that apart from a field
+  // written under another field's condition: the two are then set together or
+  // not at all. Each table below gives a converter one optional field alone
+  // and compares the whole result, so a field under the wrong condition is
+  // either dropped, or turns up as undefined beside the field that is set.
+
+  const oneReleaseField = (): { field: string; given: Pick<FirestoreRelease, 'hidden' | 'status' | 'mostLikelyFinishDate'> }[] => [
+    { field: 'hidden', given: { hidden: true } },
+    { field: 'status', given: { status: 'in-progress' } },
+    { field: 'mostLikelyFinishDate', given: { mostLikelyFinishDate: '2026-02-15' } },
+  ];
+  const oneSetting = (): { setting: string; given: Partial<AppData> }[] => [
+    { setting: 'chartColors', given: { chartColors: colours() } },
+    { setting: 'activePreset', given: { activePreset: 'Ocean' } },
+    { setting: 'legendLabels', given: { legendLabels: labels() } },
+    { setting: 'showTodayLine', given: { showTodayLine: true } },
+    { setting: 'todayDateOverride', given: { todayDateOverride: '2026-08-19' } },
+    { setting: 'showFinishDateLine', given: { showFinishDateLine: true } },
+    { setting: 'showMostLikelyLine', given: { showMostLikelyLine: true } },
+    { setting: 'showMonths', given: { showMonths: true } },
+    { setting: 'chartDisplaySettings', given: { chartDisplaySettings: display() } },
+    { setting: 'preparedBy', given: { preparedBy: 'Ann' } },
+    { setting: 'showPreparedBy', given: { showPreparedBy: true } },
+    { setting: 'exportAttribution', given: { exportAttribution: { name: 'Ann', identifier: 'T1' } } },
+    { setting: 'globalWorkDays', given: { globalWorkDays: [1, 2, 3, 4, 5] } },
+  ];
+  const oneSnapshotField = (): {
+    field: string;
+    given: Pick<Snapshot, 'projectFinishDate' | 'chartColors' | 'legendLabels' | 'preparedBy' | 'todayDateOverride'>;
+  }[] => [
+    { field: 'projectFinishDate', given: { projectFinishDate: '2026-06-30' } },
+    { field: 'chartColors', given: { chartColors: colours() } },
+    { field: 'legendLabels', given: { legendLabels: labels() } },
+    { field: 'preparedBy', given: { preparedBy: 'Ann' } },
+    { field: 'todayDateOverride', given: { todayDateOverride: '2026-02-15' } },
+  ];
+
+  describe('projectToFirestoreMeta — one optional field at a time', () => {
+    const rows: {
+      field: string;
+      project: Pick<Project, 'finishDate' | 'workDays' | 'legendLabels'>;
+      order?: number;
+      written: Partial<FirestoreProjectMeta>;
+    }[] = [
+      { field: 'finishDate', project: { finishDate: '2026-06-30' }, written: { finishDate: '2026-06-30' } },
+      { field: 'order', project: {}, order: 3, written: { order: 3 } },
+      { field: 'workDays', project: { workDays: [1, 2, 3, 4, 5, 6] }, written: { workDays: [1, 2, 3, 4, 5, 6] } },
+      { field: 'legendLabels', project: { legendLabels: { solidBar: 'Build' } }, written: { legendLabels: { solidBar: 'Build' } } },
+    ];
+
+    it.each(rows)('writes $field and no other optional field when it is the only one set', ({ project, order, written }) => {
+      expect(projectToFirestoreMeta({ id: 'p1', name: 'Alpha', ...project }, 'uid-1', undefined, order)).toStrictEqual({
+        name: 'Alpha',
+        owner: 'uid-1',
+        members: { 'uid-1': 'owner' },
+        finishDate: null,
+        schemaVersion: 1,
+        _originRef: 'uid:uid-1',
+        _changeLog: [],
+        createdAt: '2026-02-20T12:00:00.000Z',
+        updatedAt: '2026-02-20T12:00:00.000Z',
+        ...written,
+      });
+    });
+  });
+
+  describe('releaseToFirestore — one optional field at a time', () => {
+    it.each(oneReleaseField())('writes $field and no other optional field when it is the only one set', ({ given }) => {
+      const release: Release = {
+        id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', ...given,
+      };
+      expect(releaseToFirestore(release, 0)).toStrictEqual({
+        name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0, ...given,
+      });
+    });
+  });
+
+  describe('appDataToUserSettings — one setting at a time', () => {
+    it.each(oneSetting())('writes $setting and no other setting, with the schema version, when it is the only one set', ({ given }) => {
+      expect(appDataToUserSettings({ projects: [], releases: [], ...given })).toStrictEqual({ schemaVersion: 1, ...given });
+    });
+  });
+
+  describe('snapshotToFirestore — one optional field at a time', () => {
+    it.each(oneSnapshotField())('writes $field and no other optional field when it is the only one set', ({ given }) => {
+      const snapshot: Snapshot = { id: 'snap1', projectId: 'p1', name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z', releases: [], ...given };
+      expect(snapshotToFirestore(snapshot)).toStrictEqual({ name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z', releases: [], ...given });
+    });
+  });
+
+  describe('firestoreToProject — one optional field at a time', () => {
+    const rows: { field: string; given: Pick<FirestoreProjectMeta, 'finishDate' | 'workDays' | 'legendLabels'> }[] = [
+      { field: 'finishDate', given: { finishDate: '2026-06-30' } },
+      { field: 'workDays', given: { workDays: [1, 2, 3, 4, 5, 6] } },
+      { field: 'legendLabels', given: { legendLabels: { solidBar: 'Build', inProgress: 'Active' } } },
+    ];
+
+    it.each(rows)('reads $field and no other optional field back from a stored project that holds only it', ({ given }) => {
+      const meta: FirestoreProjectMeta = {
+        name: 'Alpha', owner: 'uid-1', members: { 'uid-1': 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '', ...given,
+      };
+      expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha', owner: 'uid-1', ...given });
+    });
+  });
+
+  describe('firestoreReleasesToFlat — one optional field at a time', () => {
+    it.each(oneReleaseField())('reads $field and no other optional field back from a stored release that holds only it', ({ given }) => {
+      const releases = firestoreReleasesToFlat('p1', [{
+        id: 'r1', data: { name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0, ...given },
+      }]);
+      expect(releases).toStrictEqual([{
+        id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', ...given,
+      }]);
+    });
+  });
+
+  describe('userSettingsToAppData — one setting at a time', () => {
+    it.each(oneSetting())('reads $setting and no other setting back from a settings document that holds only it', ({ given }) => {
+      expect(userSettingsToAppData(given)).toStrictEqual(given);
+    });
+  });
+
+  describe('firestoreSnapshotToFlat — one optional field at a time', () => {
+    const plainRelease: FirestoreRelease = {
+      name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+    };
+
+    it.each(oneSnapshotField())('reads $field and no other optional field back from a stored snapshot that holds only it', ({ given }) => {
+      const stored: FirestoreSnapshot = { name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z', releases: [], ...given };
+      expect(firestoreSnapshotToFlat('snap1', 'p1', stored)).toStrictEqual({
+        id: 'snap1', projectId: 'p1', name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z', releases: [], ...given,
+      });
+    });
+
+    it.each(oneReleaseField())('reads a stored snapshot release that holds only $field back with $field and no other optional field', ({ given }) => {
+      const stored: FirestoreSnapshot = {
+        name: 'Sprint 3', timestamp: '2026-02-15T10:00:00.000Z', releases: [{ ...plainRelease, ...given }],
+      };
+      expect(firestoreSnapshotToFlat('snap1', 'p1', stored)).toStrictEqual({
+        id: 'snap1',
+        projectId: 'p1',
+        name: 'Sprint 3',
+        timestamp: '2026-02-15T10:00:00.000Z',
+        releases: [{
+          id: 'snap1-r0', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', ...given,
+        }],
       });
     });
   });

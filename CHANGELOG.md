@@ -1,6 +1,6 @@
 # Change Log
 
-## Version 0.29.4 (2026-10-08)
+## Version 0.29.4 (2026-10-15)
 
 ### Changed: tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud
 
@@ -19,7 +19,7 @@ Each new test was checked by breaking the code it guards, one behaviour at a tim
 
 One older sign-in test passed only because its stand-in for the cloud failed, and the sign-in check lets you in when the cloud cannot be read. It now passes the check the intended way, and that let-in path has a test of its own.
 
-Coverage measured over every file rises from 83.64% to 88.09% of statements, from 78.39% to 82.79% of branches, from 78.75% to 82.58% of functions and from 85.18% to 89.67% of lines. No build or release check reads these figures.
+Coverage measured over every file rises from 83.64% to 88.09% of statements, from 78.39% to 82.82% of branches, from 78.75% to 82.58% of functions and from 85.18% to 89.67% of lines. No build or release check reads these figures.
 
 Two files outside this release's scope run inside the new tests, so their figures rose a little. They are not tested by this release: the shared input-validation and sanitising helpers, and the hook that holds a text field's edits until it is saved.
 

@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
@@ -12,6 +12,43 @@ import { ThemeProvider } from '../../../context/ThemeContext';
 import { ProjectsTab } from '../ProjectsTab';
 import { AppData } from '../../../shared/types/app';
 import { Project, Release } from '../../../shared/types/models';
+
+// Lets a test stand in for what ProjectsTab reads from the auth, storage and
+// app-data contexts. Left null, each hook is the real one, read from the real
+// providers, so the tests that do not set it see no difference.
+const ctxOverride = vi.hoisted(() => ({
+  signedInUser: null as { uid: string } | null,
+  auth: null as Record<string, unknown> | null,
+  storage: null as Record<string, unknown> | null,
+  appData: null as Record<string, unknown> | null,
+}));
+
+vi.mock('../../../context/AuthContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../context/AuthContext')>();
+  type Auth = ReturnType<typeof actual.useAuth>;
+  const useAuth = (): Auth => {
+    if (ctxOverride.auth) return ctxOverride.auth as unknown as Auth;
+    const real = actual.useAuth();
+    if (!ctxOverride.signedInUser) return real;
+    return { ...real, user: ctxOverride.signedInUser as unknown as Auth['user'], isAuthenticated: true };
+  };
+  return { ...actual, useAuth };
+});
+
+vi.mock('../../../context/StorageContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../context/StorageContext')>();
+  type Storage = ReturnType<typeof actual.useStorage>;
+  const useStorage = (): Storage => (ctxOverride.storage as unknown as Storage | null) ?? actual.useStorage();
+  return { ...actual, useStorage };
+});
+
+vi.mock('../../../context/AppDataContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../context/AppDataContext')>();
+  type AppDataValue = ReturnType<typeof actual.useAppData>;
+  const useAppData = (): AppDataValue =>
+    (ctxOverride.appData as unknown as AppDataValue | null) ?? actual.useAppData();
+  return { ...actual, useAppData };
+});
 
 // Mock firebase modules
 vi.mock('../../../lib/firebase', () => ({
@@ -696,7 +733,7 @@ describe('ProjectsTab', () => {
     });
 
     describe('Cancel clears preview and file input', () => {
-      it('clicking Cancel removes preview from DOM', async () => {
+      it('clicking Cancel removes preview from DOM and empties the file input', async () => {
         seedData({
           projects: [makeProject({ id: 'p1', name: 'Alpha' })],
           releases: [],
@@ -710,9 +747,20 @@ describe('ProjectsTab', () => {
           projects: [{ id: 'p1', name: 'Alpha' }],
           releases: [],
         });
+        // jsdom keeps a file input's value empty whatever `files` holds, where a
+        // browser shows the picked file's name. Give this input the browser's
+        // behaviour, so the test can see whether Cancel empties it (an input
+        // still holding the file would not fire a change for the same file again).
+        let shownValue = `C:\\fakepath\\${file.name}`;
+        Object.defineProperty(fileInput, 'value', {
+          configurable: true,
+          get: () => shownValue,
+          set: (v: string) => { shownValue = v; },
+        });
         fireEvent.change(fileInput, { target: { files: [file] } });
 
         await waitFor(() => expect(screen.getByTestId('import-preview-section')).toBeTruthy());
+        expect(fileInput.value).toBe('C:\\fakepath\\test.json');
 
         // Cancel button is in the preview (no modal yet).
         fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -720,6 +768,7 @@ describe('ProjectsTab', () => {
         await waitFor(() => {
           expect(screen.queryByTestId('import-preview-section')).toBeNull();
         });
+        expect(fileInput.value).toBe('');
       });
     });
 
@@ -917,5 +966,462 @@ describe('Escape on the Replace-All confirmation (v0.28.21)', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });   // now cancels the preview
     await waitFor(() => expect(screen.queryByTestId('import-preview-section')).toBeNull());
+  });
+});
+
+// ==========================================================================
+// The tiles, the toolbar's export and import controls, and the share and
+// delete dialogs.
+// ==========================================================================
+
+const OWNER_UID = 'owner-uid';
+
+/** The tile (the row) that holds a project's name and its buttons. */
+function tileOf(name: string): HTMLElement {
+  return screen.getByLabelText(`Open releases for ${name}`).parentElement as HTMLElement;
+}
+
+/** Keeps each downloaded file instead of handing it to the browser. */
+function captureDownloads(): Blob[] {
+  const files: Blob[] = [];
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((file: Blob | MediaSource) => {
+    files.push(file as Blob);
+    return `blob:test/${files.length}`;
+  });
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  return files;
+}
+
+function pickImportFile(content: object): HTMLInputElement {
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const file = new File([JSON.stringify(content)], 'import.json', { type: 'application/json' });
+  fireEvent.change(fileInput, { target: { files: [file] } });
+  return fileInput;
+}
+
+const storedProjectIds = () =>
+  (JSON.parse(localStorage.getItem('ganttAppData')!).projects as Project[]).map((p) => p.id);
+
+function resetContextOverrides() {
+  ctxOverride.signedInUser = null;
+  ctxOverride.auth = null;
+  ctxOverride.storage = null;
+  ctxOverride.appData = null;
+}
+
+describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
+  let alertSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    resetContextOverrides();
+    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetContextOverrides();
+    vi.restoreAllMocks();
+  });
+
+  it("a tile's Export downloads that project alone, with only its releases", async () => {
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
+      releases: [
+        makeRelease({ id: 'r1', projectId: 'p1', name: 'Alpha launch' }),
+        makeRelease({ id: 'r2', projectId: 'p2', name: 'Beta launch' }),
+      ],
+    });
+    const files = captureDownloads();
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Export project' }));
+    });
+
+    await waitFor(() => expect(files).toHaveLength(1));
+    const exported = JSON.parse(await files[0].text());
+    expect(exported._exportType).toBe('ganttapp-project-export');
+    expect(exported.projects?.map((p: Project) => p.name)).toEqual(['Beta']);
+    expect(exported.releases?.map((r: Release) => r.name)).toEqual(['Beta launch']);
+  });
+
+  it('Export All downloads the projects, their releases and the stored snapshots', async () => {
+    // The snapshot read succeeds here. When it fails, the export leaves the
+    // snapshots out without saying so (a known defect), so this covers only a
+    // complete export.
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
+      releases: [
+        makeRelease({ id: 'r1', projectId: 'p1', name: 'Alpha launch' }),
+        makeRelease({ id: 'r2', projectId: 'p2', name: 'Beta launch' }),
+      ],
+    });
+    localStorage.setItem('ganttAppSnapshots', JSON.stringify([
+      { id: 's1', projectId: 'p1', timestamp: '2026-02-01T00:00:00.000Z', name: 'Sprint 4 review', releases: [] },
+      { id: 's2', projectId: 'p2', timestamp: '2026-02-02T00:00:00.000Z', name: 'Sprint 5 review', releases: [] },
+    ]));
+    const files = captureDownloads();
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export all projects as JSON' }));
+    });
+
+    await waitFor(() => expect(files).toHaveLength(1));
+    const exported = JSON.parse(await files[0].text());
+    expect(exported.projects?.map((p: Project) => p.name)).toEqual(['Alpha', 'Beta']);
+    expect(exported.releases?.map((r: Release) => r.name)).toEqual(['Alpha launch', 'Beta launch']);
+    expect(exported.snapshots?.map((s: { name: string }) => s.name)).toEqual(['Sprint 4 review', 'Sprint 5 review']);
+  });
+
+  it('Dismiss hides the import banner', async () => {
+    renderProjectsTab();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const badFile = new File(['not valid json {{'], 'bad.json', { type: 'application/json' });
+    fireEvent.change(fileInput, { target: { files: [badFile] } });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Invalid file format'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText('Invalid file format')).toBeNull();
+  });
+
+  it("dragging over a tile reports that tile's project", async () => {
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
+      releases: [],
+    });
+    const onProjectDragOver = vi.fn();
+    renderProjectsTab({ onProjectDragOver });
+    await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
+
+    fireEvent.dragOver(tileOf('Beta'));
+    expect(onProjectDragOver).toHaveBeenCalledTimes(1);
+    expect(onProjectDragOver.mock.calls[0][0]).toHaveProperty('type', 'dragover');
+    expect(onProjectDragOver.mock.calls[0][1]).toBe('p2');
+
+    fireEvent.dragOver(tileOf('Alpha'));
+    expect(onProjectDragOver).toHaveBeenCalledTimes(2);
+    expect(onProjectDragOver.mock.calls[1][1]).toBe('p1');
+  });
+
+  it("starting a drag on a tile's handle reports that tile's project", async () => {
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
+      releases: [],
+    });
+    const onProjectDragStart = vi.fn();
+    renderProjectsTab({ onProjectDragStart });
+    await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
+
+    fireEvent.dragStart(within(tileOf('Beta')).getByLabelText('Drag to reorder project'));
+    expect(onProjectDragStart).toHaveBeenCalledTimes(1);
+    expect(onProjectDragStart).toHaveBeenLastCalledWith('p2');
+
+    fireEvent.dragStart(within(tileOf('Alpha')).getByLabelText('Drag to reorder project'));
+    expect(onProjectDragStart).toHaveBeenCalledTimes(2);
+    expect(onProjectDragStart).toHaveBeenLastCalledWith('p1');
+  });
+
+  it("a tile marks a finish date outside the work week, using the project's own work week first", async () => {
+    // The global work week is Monday to Friday by default.
+    seedData({
+      projects: [
+        makeProject({ id: 'p1', name: 'Alpha', finishDate: '2026-05-30' }), // a Saturday
+        makeProject({ id: 'p2', name: 'Beta', finishDate: '2026-05-29' }), // a Friday
+        // A Saturday, in a project whose own work week includes Saturday.
+        makeProject({ id: 'p3', name: 'Gamma', finishDate: '2026-05-30', workDays: [1, 2, 3, 4, 5, 6] }),
+      ],
+      releases: [],
+    });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Gamma')).toBeTruthy());
+
+    expect(within(tileOf('Alpha')).getByText('⚠')).toHaveAttribute(
+      'title',
+      'Falls on Saturday, which is outside your work week.',
+    );
+    expect(within(tileOf('Beta')).queryByText('⚠')).toBeNull();
+    expect(within(tileOf('Gamma')).queryByText('⚠')).toBeNull();
+  });
+
+  it('in local mode no tile offers Share, even for a project the signed-in user owns', async () => {
+    ctxOverride.signedInUser = { uid: OWNER_UID };
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha', owner: OWNER_UID })],
+      releases: [],
+    });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    const tile = tileOf('Alpha');
+    expect(within(tile).getByRole('button', { name: 'Export project' })).toBeTruthy();
+    expect(within(tile).getByRole('button', { name: 'Delete project' })).toBeTruthy();
+    expect(within(tile).queryByRole('button', { name: 'Share project' })).toBeNull();
+  });
+
+  it('the import file input is disabled while a picked file is read', async () => {
+    renderProjectsTab();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput.disabled).toBe(false);
+
+    pickImportFile({ _exportType: 'ganttapp-project-export', projects: [{ id: 'p2', name: 'Beta' }], releases: [] });
+    // Nothing has been awaited since the pick, so the read is still pending.
+    expect(fileInput.disabled).toBe(true);
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 project added.'));
+    expect(fileInput.disabled).toBe(false);
+  });
+
+  it('the Import control is aria-disabled while a picked file is read', async () => {
+    renderProjectsTab();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const importControl = fileInput.closest('label') as HTMLElement;
+    expect(importControl).toHaveAttribute('aria-label', 'Import projects from JSON');
+    expect(importControl).toHaveAttribute('aria-disabled', 'false');
+
+    pickImportFile({ _exportType: 'ganttapp-project-export', projects: [{ id: 'p2', name: 'Beta' }], releases: [] });
+    // Nothing has been awaited since the pick, so the read is still pending.
+    expect(importControl).toHaveAttribute('aria-disabled', 'true');
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 project added.'));
+    expect(importControl).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it("the preview's buttons are disabled while its merge is applying", async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    pickImportFile({ _exportType: 'ganttapp-all-projects', projects: [{ id: 'p2', name: 'Beta' }], releases: [] });
+    const preview = await screen.findByTestId('import-preview-section');
+    const confirm = within(preview).getByRole('button', { name: 'Confirm Merge' });
+    const cancel = within(preview).getByRole('button', { name: 'Cancel' });
+    const mergeMode = within(preview).getByRole('radio', { name: /Merge into workspace/ });
+    expect(confirm).toBeEnabled();
+    expect(cancel).toBeEnabled();
+    expect(mergeMode).toBeEnabled();
+
+    fireEvent.click(confirm);
+    // The merge waits on the snapshot load, and nothing has been awaited since
+    // the click, so the preview is still up with the merge applying.
+    expect(screen.getByTestId('import-preview-section')).toBe(preview);
+    expect(confirm).toBeDisabled();
+    expect(cancel).toBeDisabled();
+    expect(mergeMode).toBeDisabled();
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 project added.'));
+  });
+
+  it('each tile counts only its own releases', async () => {
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' })],
+      releases: [
+        makeRelease({ id: 'r1', projectId: 'p1' }),
+        makeRelease({ id: 'r2', projectId: 'p1', name: 'Release 2' }),
+        makeRelease({ id: 'r3', projectId: 'p2', name: 'Release 3' }),
+      ],
+    });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
+
+    expect(tileOf('Alpha')).toHaveTextContent('(2 releases)');
+    expect(tileOf('Beta')).toHaveTextContent('(1 releases)');
+  });
+
+  it('a tile shows its finish date as MM/DD/YYYY', async () => {
+    seedData({
+      projects: [makeProject({ id: 'p1', name: 'Alpha', finishDate: '2026-12-31' })],
+      releases: [],
+    });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    expect(tileOf('Alpha')).toHaveTextContent('(0 releases, finish: 12/31/2026)');
+    expect(tileOf('Alpha')).not.toHaveTextContent('2026-12-31');
+  });
+
+  it('Cancel on the delete confirmation closes it and deletes nothing', async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.click(within(tileOf('Alpha')).getByRole('button', { name: 'Delete project' }));
+    expect(screen.getByText('Delete Project')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(storedProjectIds()).toEqual(['p1']);
+    expect(screen.queryByText('Delete Project')).toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('deleting the selected project selects the first project that remains', async () => {
+    seedData({
+      projects: [
+        makeProject({ id: 'p1', name: 'Alpha' }),
+        makeProject({ id: 'p2', name: 'Beta' }),
+        makeProject({ id: 'p3', name: 'Gamma' }),
+      ],
+      releases: [],
+    });
+    const setSelectedProjectId = vi.fn();
+    renderProjectsTab({ selectedProjectId: 'p1', setSelectedProjectId });
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.click(within(tileOf('Alpha')).getByRole('button', { name: 'Delete project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(storedProjectIds()).toEqual(['p2', 'p3']));
+    await waitFor(() => expect(setSelectedProjectId).toHaveBeenCalledWith('p2'));
+    expect(setSelectedProjectId).toHaveBeenCalledTimes(1);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
+  const ALPHA: Project = { id: 'p1', name: 'Alpha', owner: OWNER_UID };
+  const BETA: Project = { id: 'p2', name: 'Beta', owner: OWNER_UID };
+  let alertSpy: ReturnType<typeof vi.spyOn>;
+
+  function cloudStorage(canWrite = true) {
+    return {
+      mode: 'cloud' as const,
+      canWrite: () => canWrite,
+      loadSnapshots: vi.fn(async () => []),
+      loadSnapshotsStrict: vi.fn(async () => []),
+      saveSnapshots: vi.fn(async () => {}),
+      deleteSnapshotsForProject: vi.fn(async () => []),
+      getProjectMembers: vi.fn(async (projectId: string) => [
+        { uid: OWNER_UID, role: 'owner' as const, email: `owner-of-${projectId}@example.com` },
+      ]),
+      listPendingInvites: vi.fn(async () => []),
+    };
+  }
+
+  /** Renders the tab signed in as the owner of every project, in cloud mode. */
+  function renderCloudTab(projects: Project[], storage = cloudStorage()) {
+    const updateData = vi.fn();
+    const showProjects = (list: Project[]) => {
+      ctxOverride.appData = {
+        data: { projects: list, releases: [] },
+        updateData,
+        globalWorkDays: [1, 2, 3, 4, 5],
+        loading: false,
+      };
+    };
+    showProjects(projects);
+    ctxOverride.storage = { storage, mode: 'cloud' };
+    ctxOverride.auth = { user: { uid: OWNER_UID }, loading: false, isAuthenticated: true, firebaseAvailable: true };
+    const props = {
+      selectedProjectId: 'p1',
+      setSelectedProjectId: vi.fn(),
+      setActiveTab: vi.fn(),
+      draggedProjectId: null,
+      onProjectDragStart: vi.fn(),
+      onProjectDragOver: vi.fn(),
+      onProjectDragEnd: vi.fn(),
+      onReplaceSnapshots: vi.fn().mockResolvedValue(undefined),
+    };
+    const tab = () => (
+      <ThemeProvider>
+        <ProjectsTab {...props} />
+      </ThemeProvider>
+    );
+    const view = render(tab());
+    // The projects change under the open tab, as a change from elsewhere would.
+    const projectsBecome = (list: Project[]) => {
+      showProjects(list);
+      view.rerender(tab());
+    };
+    return { storage, updateData, projectsBecome };
+  }
+
+  async function openShareFor(name: string, projectId: string) {
+    fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Share project' }));
+    await screen.findByText('Share Project');
+    await screen.findByText(`owner-of-${projectId}@example.com`);
+    await waitFor(() => expect(screen.queryByText('Loading...')).toBeNull());
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    resetContextOverrides();
+    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetContextOverrides();
+    vi.restoreAllMocks();
+  });
+
+  it('Share on a tile opens the sharing dialog for that project', async () => {
+    const { storage } = renderCloudTab([ALPHA, BETA]);
+
+    fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Share project' }));
+    const heading = await screen.findByText('Share Project');
+    await waitFor(() => expect(screen.queryByText('Loading...')).toBeNull());
+
+    expect(heading.nextElementSibling).toHaveTextContent(/^Beta$/);
+    expect(storage.getProjectMembers).toHaveBeenCalledWith('p2');
+    expect(storage.getProjectMembers).not.toHaveBeenCalledWith('p1');
+    expect(within(heading.parentElement as HTMLElement).getByText('owner-of-p2@example.com')).toBeTruthy();
+  });
+
+  it('Close on the sharing dialog closes it', async () => {
+    renderCloudTab([ALPHA, BETA]);
+    await openShareFor('Beta', 'p2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(tileOf('Beta')).toBeTruthy();
+    expect(screen.queryByText('Share Project')).toBeNull();
+  });
+
+  it('a sharing dialog whose project has vanished renders nothing', async () => {
+    const { projectsBecome } = renderCloudTab([ALPHA, BETA]);
+    await openShareFor('Beta', 'p2');
+
+    projectsBecome([ALPHA]);
+
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Beta')).toBeNull();
+    expect(screen.queryByText('Share Project')).toBeNull();
+  });
+
+  it('a delete confirmation whose project has vanished renders nothing', async () => {
+    const { projectsBecome } = renderCloudTab([ALPHA, BETA]);
+    fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Delete project' }));
+    expect(screen.getByText('Delete project "Beta"? This will also delete all its releases.')).toBeTruthy();
+
+    projectsBecome([ALPHA]);
+
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Beta')).toBeNull();
+    expect(screen.queryByText('Delete Project')).toBeNull();
+  });
+
+  it('Delete closes the confirmation even when the delete is refused', async () => {
+    // A cloud session whose data never loaded refuses the delete and keeps the
+    // project; the confirmation still closes.
+    const { updateData } = renderCloudTab([ALPHA, BETA], cloudStorage(false));
+    fireEvent.click(within(tileOf('Alpha')).getByRole('button', { name: 'Delete project' }));
+    expect(screen.getByText('Delete Project')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('This project was not deleted.'));
+    expect(updateData).not.toHaveBeenCalled();
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Delete Project')).toBeNull();
   });
 });

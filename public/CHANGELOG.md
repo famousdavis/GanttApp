@@ -1,5 +1,31 @@
 # Change Log
 
+## Version 0.29.5 (2026-10-17)
+
+### Changed: tests now cover importing a file, managing projects and snapshots, the Projects tab, and saving a snapshot from the chart
+
+Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.
+
+Future changes to the messages shown after a project or snapshot action, to how an import is applied, and to the layout of the Projects tab will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you. The tests cover:
+
+- importing a file: the preview, merging and Replace All, the message each one shows, the checks that stop an import when a project changed since the preview or the cloud cannot be written, and picking, re-picking and cancelling a file;
+- the Projects tab: the project form, its date checks and work-week choice, its keyboard shortcuts (Escape, Ctrl+S and Enter), the project tiles and their Export, Edit, Clone, Share and Delete buttons, Export All and Import, and the confirmation dialogs;
+- adding, editing, copying and deleting projects, including who owns a project created or copied in cloud mode;
+- saving and deleting snapshots, and the snapshot bar above the chart;
+- saving a snapshot from the Gantt Chart tab, through the whole app: the snapshot keeps the legend labels, finish date, colours, "Prepared by" name and status date shown at that moment, and only the visible releases. A snapshot imported from a file shows on the chart, and one deleted from the chart is gone.
+
+Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.
+
+Five older tests passed whether or not the code they were named for worked. They now check it: a second click on Confirm during an import, a second file picked while the first is being read, an old message cleared when a new file is picked, the file picker cleared on Cancel, and copying a project that has no snapshots. Two tests checked a copy of the snapshot-label logic written into the test rather than the app's own; they were removed, and the whole-app test checks the real logic. The test of the message shown when a copy would exceed the snapshot limit now checks its exact words.
+
+Three tests from the previous release were made stricter: long names read back from the cloud, a one-day work week saved to the cloud, and the list of projects in the invitation banner.
+
+The test run no longer prints 16 "Not implemented" messages about alerts. One group of tests had been running on snapshots left behind by another.
+
+Coverage measured over every file rises from 88.09% to 91.10% of statements, from 82.82% to 86.73% of branches, from 82.58% to 86.75% of functions and from 89.67% to 92.59% of lines. No build or release check reads these figures.
+
+Three files outside this release's scope run inside the new tests, so their figures rose. They are not tested in their own right: the main page beyond saving a snapshot and its two snapshot connections, the Gantt chart, and the export and import helpers.
+
 ## Version 0.29.4 (2026-10-16)
 
 ### Changed: tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud

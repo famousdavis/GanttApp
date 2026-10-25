@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.8',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; the SPERT&reg; Suite Terms of Service and Privacy Policy have new editions, version 1.4 of each, effective October 26, 2026. If you use cloud storage, you&apos;ll be asked to accept them the next time you sign in; if you are signed in, GanttApp signs you out the next time you open it, so that you can accept them. The acceptance it had recorded was for the October 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use GanttApp without signing in.</>,
+      <><strong>Note</strong> &mdash; The new editions replace a personal contact address with the SPERT&reg; Suite&apos;s own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures.</>,
+      <><strong>Note</strong> &mdash; The copies of the Terms and Privacy Policy kept in this project&apos;s repository now match the October 26 editions published on spertsuite.com.</>,
+    ],
+  },
+  {
     version: '0.29.7',
     date: 'October 25, 2026',
     items: [

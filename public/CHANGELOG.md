@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.29.7 (2026-10-25)
+
+### Security: signing out now resets Terms-of-Service acceptance on this browser
+
+Signing out now clears this browser's record that the Terms of Service were accepted, so the next person who signs in on the same browser is asked to accept the Terms, rather than being let through on the previous person's acceptance. This matters most on a shared computer.
+
+Nothing else about how the app works, looks or stores data changed.
+
 ## Version 0.29.6 (2026-10-25)
 
 ### Security: stronger HTTPS enforcement and a least-privilege release workflow

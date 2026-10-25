@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.7',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; signing out now resets this browser&apos;s record that the Terms of Service were accepted, so the next person who signs in on the same browser is asked to accept the Terms, rather than being let through on the previous person&apos;s acceptance. This matters most on a shared computer. Nothing else about how the app works, looks or stores data changed.</>,
+    ],
+  },
+  {
     version: '0.29.6',
     date: 'October 25, 2026',
     items: [

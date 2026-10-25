@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 0.29.6 (2026-10-25)
+
+### Security: stronger HTTPS enforcement and a least-privilege release workflow
+
+- The site now sends a stronger HTTP Strict-Transport-Security header (`max-age=63072000; includeSubDomains; preload`), telling browsers to use HTTPS for this site and its subdomains and making it eligible for the browser preload list. This matches the other SPERT® Suite apps.
+- The release workflow now declares least-privilege permissions (read-only access to the repository).
+
+Nothing about how the app works, looks or stores data changed.
+
 ## Version 0.29.4 (2026-10-16)
 
 ### Changed: tests now cover signing in, the Settings tab, project sharing, the invitation and storage banners, and how data is converted for the cloud

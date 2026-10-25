@@ -345,6 +345,30 @@ describe('AuthProvider when a user signs in', () => {
       expect(result.current.loading).toBe(false);
       expect(result.current.user).toBe(user);
     });
+
+    describe('the October 26, 2026 editions', () => {
+      it('signs out a returning user who accepted the October 5, 2026 editions, so they are asked again', async () => {
+        localStorage.setItem(ACCEPTED_KEY, '10-05-2026');
+        h.store.set(ACCEPTANCE_PATH, { tosVersion: '10-05-2026' });
+        const cleanup = registerCleanupSpy();
+        const result = await signIn(makeUser());
+
+        expect(cleanup).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem(ACCEPTED_KEY)).toBeNull();
+        expect(result.current.user).toBeNull();
+      });
+
+      it('keeps a returning user who accepted the October 26, 2026 editions signed in', async () => {
+        localStorage.setItem(ACCEPTED_KEY, '10-26-2026');
+        h.store.set(ACCEPTANCE_PATH, { tosVersion: '10-26-2026' });
+        const cleanup = registerCleanupSpy();
+        const user = makeUser();
+        const result = await signIn(user);
+
+        expect(cleanup).not.toHaveBeenCalled();
+        expect(result.current.user).toBe(user);
+      });
+    });
   });
 
   describe('writing the profile', () => {

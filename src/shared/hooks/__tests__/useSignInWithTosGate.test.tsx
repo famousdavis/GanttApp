@@ -94,6 +94,28 @@ describe('useSignInWithTosGate', () => {
     });
   });
 
+  describe('signIn — the October 26, 2026 editions', () => {
+    it('asks a user who accepted the October 5, 2026 editions to accept again', async () => {
+      localStorage.setItem(TOS_ACCEPTED_KEY, '10-05-2026');
+      const { result } = renderHook(() => useSignInWithTosGate());
+      await act(async () => {
+        await result.current.signIn('google');
+      });
+      expect(result.current.tosModalOpen).toBe(true);
+      expect(mockSignInWithGoogle).not.toHaveBeenCalled();
+    });
+
+    it('does not ask a user who accepted the October 26, 2026 editions', async () => {
+      localStorage.setItem(TOS_ACCEPTED_KEY, '10-26-2026');
+      const { result } = renderHook(() => useSignInWithTosGate());
+      await act(async () => {
+        await result.current.signIn('google');
+      });
+      expect(result.current.tosModalOpen).toBe(false);
+      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('onTosAccept — load-bearing localStorage sequence', () => {
     it('writes TOS_ACCEPTED_KEY and TOS_WRITE_PENDING_KEY before signInWithPopup fires', async () => {
       const callOrder: string[] = [];

@@ -1,5 +1,15 @@
 # Change Log
 
+## Version 0.29.8 (2026-10-25)
+
+### Changed: new Terms of Service and Privacy Policy, which you will be asked to accept again
+
+The SPERT® Suite **Terms of Service** and **Privacy Policy** have new editions — **version 1.4 of each, effective October 26, 2026** — published at the same spertsuite.com addresses GanttApp already links to.
+
+- **If you use cloud storage, you'll be asked to accept them the next time you sign in.** If you are signed in, GanttApp signs you out the next time you open it, so that you can accept them. The acceptance it had recorded was for the October 5, 2026 editions (`TOS_VERSION` `'10-05-2026'`); it is now `'10-26-2026'`, so the record names the edition you actually accept. Nothing changes if you use GanttApp without signing in.
+- **What the documents now say:** they replace a personal contact address with the SPERT® Suite's own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures.
+- The copies kept in this repository, `legal/TOS.pdf` and `legal/PRIVACY.pdf`, are now byte-identical to the October 26 editions on spertsuite.com.
+
 ## Version 0.29.7 (2026-10-25)
 
 ### Security: signing out now resets Terms-of-Service acceptance on this browser

@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.29.9 (2026-10-25)
+
+### Added: a security.txt file, so researchers know where to report a vulnerability
+
+- **GanttApp now publishes a security.txt file (RFC 9116)**, so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through GanttApp’s GitHub repository. Nothing about how the app works, looks or stores data changed.
+- A new test checks the file on every release, and fails a month before the file expires, as a reminder to renew it.
+
 ## Version 0.29.8 (2026-10-25)
 
 ### Changed: new Terms of Service and Privacy Policy, which you will be asked to accept again

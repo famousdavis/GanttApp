@@ -15,6 +15,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.9',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Added</strong> &mdash; a security.txt file (RFC 9116), so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through GanttApp&apos;s GitHub repository. Nothing about how the app works, looks or stores data changed.</>,
+    ],
+  },
+  {
     version: '0.29.8',
     date: 'October 25, 2026',
     items: [

@@ -101,6 +101,31 @@ export function isWorkDay(dateStr: string, workDays: number[]): boolean {
 }
 
 /**
+ * The first and last dates the chart's axis can reach (v0.29.10). The chart
+ * draws one mark per month, quarter and year between its earliest and latest
+ * release dates, so the span decides how much it draws. The release form
+ * keeps dates within 2000–2050, but duplicating a release carries its dates
+ * forward, and a date read from the cloud can be any year. Past this span a
+ * release is still loaded, listed and editable; only its bar is cut off at
+ * the chart's edge. The last date is 200 years past the form's limit, and the
+ * span costs at most 3,012 month, 1,004 quarter and 251 year marks.
+ */
+export const CHART_SPAN_FIRST = '2000-01-01';
+export const CHART_SPAN_LAST = '2250-12-31';
+
+/**
+ * Clamp the chart's axis to CHART_SPAN_FIRST..CHART_SPAN_LAST. A bound that
+ * is not finite is returned as it is: with no releases the bounds are
+ * Infinity and -Infinity, and the callers already draw nothing for them.
+ */
+export function clampChartSpan(minDate: number, maxDate: number): { minDate: number; maxDate: number } {
+  const first = parseDateLocal(CHART_SPAN_FIRST);
+  const last = parseDateLocal(CHART_SPAN_LAST);
+  const clamp = (time: number) => (Number.isFinite(time) ? Math.min(Math.max(time, first), last) : time);
+  return { minDate: clamp(minDate), maxDate: clamp(maxDate) };
+}
+
+/**
  * Calculate quarter boundaries for a date range
  * Returns array of Date objects representing quarter starts (Jan 1, Apr 1, Jul 1, Oct 1)
  */

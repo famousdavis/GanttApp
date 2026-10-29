@@ -338,13 +338,13 @@ describe('firestore-converters', () => {
         preparedBy: 'William',
       };
       const snap = firestoreSnapshotToFlat('snap1', 'p1', fsSnapshot);
-      expect(snap.id).toBe('snap1');
-      expect(snap.projectId).toBe('p1');
-      expect(snap.name).toBe('Sprint 1');
-      expect(snap.releases).toHaveLength(1);
-      expect(snap.releases[0].projectId).toBe('p1');
-      expect(snap.releases[0].name).toBe('R1');
-      expect(snap.projectFinishDate).toBe('2026-06-30');
+      expect(snap!.id).toBe('snap1');
+      expect(snap!.projectId).toBe('p1');
+      expect(snap!.name).toBe('Sprint 1');
+      expect(snap!.releases).toHaveLength(1);
+      expect(snap!.releases[0].projectId).toBe('p1');
+      expect(snap!.releases[0].name).toBe('R1');
+      expect(snap!.projectFinishDate).toBe('2026-06-30');
     });
 
     it('preserves empty-string preparedBy', () => {
@@ -355,7 +355,7 @@ describe('firestore-converters', () => {
         preparedBy: '',
       };
       const snap = firestoreSnapshotToFlat('snap2', 'p1', fsSnapshot);
-      expect(snap.preparedBy).toBe('');
+      expect(snap!.preparedBy).toBe('');
     });
   });
 
@@ -534,7 +534,7 @@ describe('firestore-converters', () => {
         ],
       };
       const snap = firestoreSnapshotToFlat('snap1', 'p1', fsSnapshot);
-      expect(snap.releases[0].status).toBe('complete');
+      expect(snap!.releases[0].status).toBe('complete');
     });
   });
 
@@ -662,7 +662,7 @@ describe('firestore-converters', () => {
         name: 'Sprint 1', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
         todayDateOverride: '2026-02-15',
       });
-      expect(snap.todayDateOverride).toBe('2026-02-15');
+      expect(snap!.todayDateOverride).toBe('2026-02-15');
     });
 
     it('drops an invalid frozen override', () => {
@@ -670,14 +670,14 @@ describe('firestore-converters', () => {
         name: 'Sprint 1', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
         todayDateOverride: 'not-a-date',
       });
-      expect(snap.todayDateOverride).toBeUndefined();
+      expect(snap!.todayDateOverride).toBeUndefined();
     });
 
     it('leaves a pre-v0.28.0 snapshot document without the field', () => {
       const snap = firestoreSnapshotToFlat('snap1', 'p1', {
         name: 'Legacy', timestamp: '2026-02-15T10:00:00.000Z', releases: [],
       });
-      expect(snap.todayDateOverride).toBeUndefined();
+      expect(snap!.todayDateOverride).toBeUndefined();
     });
   });
 
@@ -1122,7 +1122,7 @@ describe('firestore-converters', () => {
         releases: [release('Second', '2026-02-01', 1), release('First', '2026-01-01', 0), release('Third', '2026-03-01', 2)],
       };
       const snap = firestoreSnapshotToFlat('snap3', 'p1', stored);
-      expect(snap.releases.map(r => [r.id, r.name, r.startDate])).toStrictEqual([
+      expect(snap!.releases.map(r => [r.id, r.name, r.startDate])).toStrictEqual([
         ['snap3-r0', 'First', '2026-01-01'],
         ['snap3-r1', 'Second', '2026-02-01'],
         ['snap3-r2', 'Third', '2026-03-01'],
@@ -1380,6 +1380,168 @@ describe('firestore-converters', () => {
           id: 'snap1-r0', projectId: 'p1', name: 'R1', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', ...given,
         }],
       });
+    });
+  });
+});
+
+// --- v0.29.10: project data read from the cloud ---
+//
+// Another editor of a shared project can write its documents. Each hostile
+// case below was read through unchanged before v0.29.10 (and a date that is
+// not text then threw in parseDateLocal when the chart drew). Each must-pass
+// case is the most the app's own writers produce, and must load unchanged
+// with nothing set aside: the next save would drop whatever was.
+describe('cloud reads (v0.29.10)', () => {
+  const doc = (id: string, data: Record<string, unknown>) => ({ id, data: data as unknown as FirestoreRelease });
+
+  describe('the largest project the app writes loads unchanged, with nothing set aside', () => {
+    const longName = (prefix: string) => `${prefix} ${'x'.repeat(100)}`.slice(0, 100);
+    const project: Project = {
+      id: 'p1',
+      name: longName('Project'),
+      finishDate: '2050-12-31',
+      workDays: [0, 1, 2, 3, 4, 5, 6],
+      legendLabels: { solidBar: 'S'.repeat(50), hatchedBar: 'H'.repeat(50), finishDateLine: 'F', mostLikelyLine: 'M', inProgress: 'I' },
+    };
+    // Dates at the form's limits, and the dates repeated duplicates reach.
+    const dateSets: [string, string, string][] = [
+      ['2000-01-01', '2000-01-02', '2050-12-31'],
+      ['2050-12-31', '2075-06-30', '2101-12-31'],
+      ['9999-06-01', '10000-01-01', '10050-12-31'],
+    ];
+    const releases: Release[] = Array.from({ length: 90 }, (_, i) => {
+      const [startDate, earlyFinishDate, lateFinishDate] = dateSets[i % dateSets.length];
+      return {
+        id: `r${i}`,
+        projectId: 'p1',
+        name: longName(`Release ${i}`),
+        startDate, earlyFinishDate, lateFinishDate,
+        hidden: i % 2 === 0,
+        ...(i % 3 === 0 ? {} : { status: i % 3 === 1 ? 'in-progress' as const : 'complete' as const }),
+        ...(i % 4 === 0 ? {} : { mostLikelyFinishDate: earlyFinishDate }),
+      };
+    });
+
+    it('a project and its releases', () => {
+      const report = vi.fn();
+      const meta = projectToFirestoreMeta(project, 'uid-1', undefined, 0);
+      expect(firestoreToProject('p1', meta, report)).toStrictEqual({ ...project, owner: 'uid-1' });
+      const entries = releases.map((r, i) => doc(r.id, releaseToFirestore(r, i) as unknown as Record<string, unknown>));
+      expect(firestoreReleasesToFlat('p1', entries, report)).toStrictEqual(releases);
+      expect(report).not.toHaveBeenCalled();
+    });
+
+    it('a snapshot just under the 1 MiB document limit', () => {
+      const report = vi.fn();
+      const many: Release[] = Array.from({ length: 3850 }, (_, i) => ({ ...releases[i % releases.length], id: `s1-r${i}` }));
+      const snapshot: Snapshot = {
+        id: 's1', projectId: 'p1', name: longName('Snapshot'), timestamp: '2026-10-29T12:00:00.000Z', releases: many,
+        projectFinishDate: '2050-12-31',
+        legendLabels: { solidBar: 'S'.repeat(80), hatchedBar: 'H', finishDateLine: 'F', mostLikelyLine: 'M', inProgress: 'I' },
+        preparedBy: 'P'.repeat(100),
+        todayDateOverride: '2026-10-29',
+      };
+      const stored = snapshotToFirestore(snapshot);
+      expect(JSON.stringify(stored).length).toBeGreaterThan(1_000_000);
+      expect(JSON.stringify(stored).length).toBeLessThan(1024 * 1024);
+      expect(firestoreSnapshotToFlat('s1', 'p1', stored, report)).toStrictEqual(snapshot);
+      expect(report).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('firestoreReleasesToFlat', () => {
+    it('sets aside a release whose dates are not date strings, and loads the others', () => {
+      const report = vi.fn();
+      const result = firestoreReleasesToFlat('p1', [
+        doc('good1', { name: 'A', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }),
+        doc('bad', { name: 'B', startDate: 20260101, earlyFinishDate: { x: 1 }, lateFinishDate: null, order: 1 }),
+        doc('good2', { name: 'C', startDate: '2026-04-01', earlyFinishDate: '2026-05-01', lateFinishDate: '2026-06-01', order: 2 }),
+      ], report);
+      expect(result.map(r => r.id)).toStrictEqual(['good1', 'good2']);
+      expect(report).toHaveBeenCalledExactlyOnceWith('p1', 'release-dates');
+    });
+
+    it('sorts by order without throwing when an order is not a number', () => {
+      const result = firestoreReleasesToFlat('p1', [
+        doc('b', { name: 'B', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 1 }),
+        doc('x', { name: 'X', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 'last' }),
+        doc('a', { name: 'A', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: -1 }),
+      ]);
+      expect(result.map(r => r.id)).toStrictEqual(['a', 'x', 'b']);
+    });
+  });
+
+  describe('firestoreToProject', () => {
+    const meta = (finishDate: unknown) =>
+      ({ name: 'P', owner: 'u1', members: { u1: 'owner' }, finishDate } as unknown as FirestoreProjectMeta);
+
+    it('drops a finish date that is not a date string, keeping the project', () => {
+      const report = vi.fn();
+      const project = firestoreToProject('p1', meta({ seconds: 1 }), report);
+      expect(project.name).toBe('P');
+      expect(project).not.toHaveProperty('finishDate');
+      expect(report).toHaveBeenCalledExactlyOnceWith('p1', 'project-finish-date');
+    });
+
+    it('reads the null the app writes for "no finish date" as absent, reporting nothing', () => {
+      const report = vi.fn();
+      expect(firestoreToProject('p1', meta(null), report)).not.toHaveProperty('finishDate');
+      expect(report).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('firestoreSnapshotToFlat', () => {
+    const base = { name: 'Sprint', timestamp: '2026-02-15T10:00:00.000Z' };
+    const release = { name: 'R', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 };
+
+    it.each([
+      ['its releases are not a list', { ...base, releases: 'many' }],
+      ['it has no releases', { ...base }],
+      ['its timestamp is not text', { ...base, timestamp: 1760000000, releases: [] }],
+    ])('sets the snapshot aside when %s', (_label, data) => {
+      const report = vi.fn();
+      expect(firestoreSnapshotToFlat('s1', 'p1', data as unknown as FirestoreSnapshot, report)).toBeNull();
+      expect(report).toHaveBeenCalledExactlyOnceWith('p1', 'snapshot-shape');
+    });
+
+    it('sets aside a release in it that is not an object, or whose dates are not date strings', () => {
+      const report = vi.fn();
+      const snap = firestoreSnapshotToFlat('s1', 'p1', {
+        ...base, releases: [release, null, 'r', { ...release, order: 3, startDate: 5 }],
+      } as unknown as FirestoreSnapshot, report);
+      expect(snap!.releases.map(r => r.name)).toStrictEqual(['R']);
+      expect(report).toHaveBeenCalledTimes(3);
+      expect(report).toHaveBeenCalledWith('p1', 'release-dates');
+    });
+
+    it('drops legend labels, prepared-by text and a finish date that the chart cannot render', () => {
+      const report = vi.fn();
+      const snap = firestoreSnapshotToFlat('s1', 'p1', {
+        ...base, releases: [release],
+        legendLabels: { solidBar: { $$typeof: 'element' }, hatchedBar: 'Kept' },
+        preparedBy: { name: 'x' },
+        projectFinishDate: ['2026-06-30'],
+      } as unknown as FirestoreSnapshot, report);
+      expect(snap!.legendLabels).toStrictEqual({ hatchedBar: 'Kept' });
+      expect(snap).not.toHaveProperty('preparedBy');
+      expect(snap).not.toHaveProperty('projectFinishDate');
+      expect(report.mock.calls.map(([, rule]) => rule).sort()).toStrictEqual(
+        ['snapshot-finish-date', 'snapshot-legend-labels', 'snapshot-prepared-by']
+      );
+    });
+
+    it('does not reorder the stored releases array while sorting it', () => {
+      const stored = { ...base, releases: [{ ...release, order: 1, name: 'Second' }, { ...release, order: 0, name: 'First' }] };
+      firestoreSnapshotToFlat('s1', 'p1', stored as unknown as FirestoreSnapshot);
+      expect(stored.releases.map(r => r.name)).toStrictEqual(['Second', 'First']);
+    });
+  });
+
+  describe('appendChangeLogEntry', () => {
+    const entry: ChangeLogEntry = { timestamp: '2026-10-29T00:00:00.000Z', uid: 'u1', action: 'update', target: 'project:p1' };
+
+    it.each([42, { a: 1 }, null, 'log'])('starts the log again when the stored one is %s, rather than failing the save', (stored) => {
+      expect(appendChangeLogEntry(stored as unknown as ChangeLogEntry[], entry)).toStrictEqual([entry]);
     });
   });
 });

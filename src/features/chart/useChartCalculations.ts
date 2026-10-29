@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { Release, ChartDisplaySettings } from '../../shared/types';
-import { parseDateLocal, getQuarterBoundaries, getMonthBoundaries, getTodayString, isValidDateFormat } from '../../shared/utils';
+import { parseDateLocal, getQuarterBoundaries, getMonthBoundaries, getTodayString, isValidDateFormat, clampChartSpan } from '../../shared/utils';
 import { darkenColor } from '../../shared/utils/colors';
 
 export interface ChartDimensions {
@@ -75,8 +75,9 @@ export function useChartCalculations(
       parseDateLocal(r.lateFinishDate)
     ]);
 
-    const minDate = Math.min(...allDates);
-    const maxDate = Math.max(...allDates);
+    // v0.29.10: clamped, because the span decides how many month, quarter
+    // and year marks the chart draws (see CHART_SPAN_LAST).
+    const { minDate, maxDate } = clampChartSpan(Math.min(...allDates), Math.max(...allDates));
     const dateRange = maxDate - minDate;
 
     // v0.28.0: the today line is drawn at the status-date override when one is

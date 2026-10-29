@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.10',
+    date: 'October 29, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; projects loaded from cloud storage are now checked before they are shown. A release, snapshot or other value that GanttApp itself could not have saved is left out, and the rest of the project loads normally. A notice names the project when this happens. Loading a project changes nothing in the cloud, and projects saved by GanttApp load exactly as before.</>,
+      <><strong>Changed</strong> &mdash; the chart&apos;s timeline now covers at most the years 2000 to 2250. A release dated outside that range is still loaded, listed and editable; only its bar is cut off at the edge of the chart.</>,
+      <><strong>Fixed</strong> &mdash; an error in one tab no longer stops the whole app. That tab shows a message, and the other tabs and projects keep working.</>,
+    ],
+  },
+  {
     version: '0.29.9',
     date: 'October 25, 2026',
     items: [

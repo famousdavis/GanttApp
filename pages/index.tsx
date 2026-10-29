@@ -15,6 +15,8 @@ import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { InvitationBanner } from '../src/shared/components/InvitationBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
+import { CloudLoadNoticeBanner } from '../src/shared/components/CloudLoadNoticeBanner';
+import { ErrorBoundary } from '../src/shared/components/ErrorBoundary';
 import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
 import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
@@ -302,11 +304,14 @@ function AppContent() {
         <InvitationBanner />
         <FirstRunBanner />
         <LocalStorageWarningBanner />
+        <CloudLoadNoticeBanner />
         <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main>
+          {/* v0.29.10: an error in one view leaves the rest of the app up. */}
+          <ErrorBoundary key={`${activeTab}:${selectedProjectId}`}>
           {activeTab === 'projects' && (
             <ProjectsTab
               selectedProjectId={selectedProjectId}
@@ -388,6 +393,7 @@ function AppContent() {
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'about' && <AboutTab />}
           {activeTab === 'changelog' && <ChangelogTab />}
+          </ErrorBoundary>
         </main>
 
         <footer style={{

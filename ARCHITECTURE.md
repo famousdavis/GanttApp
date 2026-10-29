@@ -112,6 +112,7 @@ GanttApp/
 │   │       ├── colors.ts      # Color constants, presets, defaults
 │   │       ├── dates.ts       # Date parsing, formatting, ID generation
 │   │       ├── export.ts      # JSON export/import + Smart Import logic (v0.24.0)
+│   │       ├── cloud-load-guards.ts # Shape checks on project data read from the cloud (v0.29.10)
 │   │       ├── firestore-converters.ts # Flat AppData ↔ Firestore translation (v11.0)
 │   │       ├── snapshots.ts   # validateSnapshot + getSnapshotsForProject
 │   │       ├── storage.ts     # localStorage wrapper with validation
@@ -638,6 +639,23 @@ User Input / Import File
          ▼
     Validated Data
 ```
+
+### Cloud Read Checks (v0.29.10)
+
+Any editor of a shared project can write its documents, so the cloud read path does not trust them.
+- **Load time, shape only.** `src/shared/utils/cloud-load-guards.ts`, called by the converters in
+  `firestore-converters.ts`, sets aside a release whose dates are not date strings, a snapshot whose
+  releases are not a list, and any optional field of the wrong type, and loads the rest. It never
+  throws and never writes. It does **not** check the 2000–2050 range: `duplicateRelease` writes
+  dates past 2050, and the cloud save writes state back, so a stricter check would drop the user's
+  own releases at the next save.
+- **Point of use, the date range.** `clampChartSpan` (`src/shared/utils/dates.ts`) limits the
+  chart's axis to 2000–2250, which bounds the month, quarter and year marks it draws.
+- **Containment.** `src/shared/components/ErrorBoundary.tsx` wraps the current tab in
+  `pages/index.tsx`; `src/shared/components/CloudLoadNoticeBanner.tsx` names each project in which
+  something was set aside, from `src/shared/storage/cloud-load-notices.ts`.
+- `loadSnapshotsStrict` still refuses when a whole snapshot cannot be read, because
+  `saveSnapshots` deletes every snapshot it is not given.
 
 ### Security Functions (validation.ts)
 

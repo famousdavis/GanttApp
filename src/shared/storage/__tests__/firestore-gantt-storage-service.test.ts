@@ -51,6 +51,8 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import { FirestoreGanttStorageServiceImpl } from '../firestore-gantt-storage-service';
+import { SnapshotsNotLoadedError } from '../snapshots-not-loaded';
+import { clearCloudSetAsideNotices, getCloudSetAsideProjects } from '../cloud-load-notices';
 
 describe('FirestoreGanttStorageService', () => {
   let service: FirestoreGanttStorageServiceImpl;
@@ -791,6 +793,115 @@ describe('FirestoreGanttStorageService', () => {
       expect(pending).toBeNull();
     });
   });
+  // v0.29.10: a project's documents can be written by any of its editors.
+  // Before v0.29.10 a release whose dates were not text loaded unchanged (and
+  // threw when the chart drew it), and one unreadable snapshot made
+  // loadSnapshots return nothing for every project.
+  describe('cloud reads (v0.29.10)', () => {
+    const projectDoc = (id: string) => ({
+      id,
+      data: () => ({ name: `Project ${id}`, owner: mockUid, members: { [mockUid]: 'owner' }, schemaVersion: 1, createdAt: '', updatedAt: '' }),
+    });
+    const goodRelease = (id: string, order: number) => ({
+      id,
+      data: () => ({ name: id, startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order }),
+    });
+    const badRelease = (id: string, order: number) => ({
+      id,
+      data: () => ({ name: id, startDate: { seconds: 1 }, earlyFinishDate: 7, lateFinishDate: null, order }),
+    });
+    const snapshotDoc = (id: string, data: Record<string, unknown>) => ({ id, data: () => data });
+    const goodSnapshot = { name: 'Sprint', timestamp: '2026-02-15T10:00:00.000Z', releases: [] };
+
+    beforeEach(() => {
+      clearCloudSetAsideNotices();
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    it('loadAppData sets aside an unreadable release, loads the rest, and names its project', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [projectDoc('p1'), projectDoc('p2')] })
+        .mockResolvedValueOnce({ docs: [goodRelease('r1', 0), badRelease('r2', 1), goodRelease('r3', 2)] })
+        .mockResolvedValueOnce({ docs: [goodRelease('r4', 0)] });
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+
+      const data = await service.loadAppData();
+
+      expect(data!.projects.map(p => p.id)).toStrictEqual(['p1', 'p2']);
+      expect(data!.releases.map(r => r.id)).toStrictEqual(['r1', 'r3', 'r4']);
+      expect(getCloudSetAsideProjects()).toStrictEqual(['p1']);
+      expect(console.warn).toHaveBeenCalledWith('[GanttApp] cloud-load-guard: release-dates');
+    });
+
+    it('a release set aside at a load is not deleted by the next save', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [projectDoc('p1')] })
+        .mockResolvedValueOnce({ docs: [goodRelease('r1', 0), badRelease('r2', 1)] });
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+      const data = await service.loadAppData();
+      mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Project p1', owner: mockUid, members: { [mockUid]: 'owner' } }) });
+
+      service.saveAppData({ ...data!, projects: [{ ...data!.projects[0], name: 'Renamed' }] });
+      await vi.runAllTimersAsync();
+
+      expect(batchMock.commit).toHaveBeenCalled();
+      expect(batchMock.delete).not.toHaveBeenCalled();
+    });
+
+    it('the listener sets aside an unreadable release and delivers the rest', async () => {
+      await seedLoad('p1');
+      mockOnSnapshot.mockImplementation((_ref: unknown, callback: (snap: any) => void) => {
+        callback({ docs: [goodRelease('r1', 0), badRelease('r2', 1)], metadata: { hasPendingWrites: false } });
+        return vi.fn();
+      });
+      const callback = vi.fn();
+
+      service.subscribeToProject('p1', callback);
+
+      expect(callback.mock.calls[0][0].map((r: { id: string }) => r.id)).toStrictEqual(['r1']);
+      expect(getCloudSetAsideProjects()).toStrictEqual(['p1']);
+    });
+
+    it('loadSnapshots leaves out an unreadable snapshot and still loads the others', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [projectDoc('p1'), projectDoc('p2')] })
+        .mockResolvedValueOnce({ docs: [snapshotDoc('s1', goodSnapshot), snapshotDoc('s2', { ...goodSnapshot, releases: 'all' })] })
+        .mockResolvedValueOnce({ docs: [snapshotDoc('s3', goodSnapshot)] });
+
+      const snapshots = await service.loadSnapshots();
+
+      expect(snapshots.map(s => s.id)).toStrictEqual(['s1', 's3']);
+      expect(getCloudSetAsideProjects()).toStrictEqual(['p1']);
+    });
+
+    it('loadSnapshotsStrict refuses rather than return a list without an unreadable snapshot', async () => {
+      seedLoadForStrict();
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [projectDoc('p1')], metadata: { fromCache: false } })
+        .mockResolvedValueOnce({ docs: [snapshotDoc('s1', goodSnapshot), snapshotDoc('s2', { ...goodSnapshot, timestamp: 5 })], metadata: { fromCache: false } });
+
+      await expect(service.loadSnapshotsStrict()).rejects.toBeInstanceOf(SnapshotsNotLoadedError);
+    });
+
+    it('dispose forgets the notices, which named this account\'s projects', async () => {
+      await seedLoad('p1');
+      mockOnSnapshot.mockImplementation((_ref: unknown, callback: (snap: any) => void) => {
+        callback({ docs: [badRelease('r2', 0)], metadata: { hasPendingWrites: false } });
+        return vi.fn();
+      });
+      service.subscribeToProject('p1', vi.fn());
+      expect(getCloudSetAsideProjects()).toStrictEqual(['p1']);
+
+      service.dispose();
+
+      expect(getCloudSetAsideProjects()).toStrictEqual([]);
+    });
+
+    function seedLoadForStrict() {
+      mockGetDocs.mockReset();
+      mockGetDoc.mockReset();
+    }
+  });
 });
 
 // H (R46): a listener's snapshot is not delivered while this browser holds
@@ -930,4 +1041,5 @@ describe('FirestoreGanttStorageService — unsent release changes (H)', () => {
     deliver(snap([releaseDoc('r1', 'R1 v3', 0), releaseDoc('r2', 'R2', 1)]));
     expect(deliveredNames()).toEqual(['R1 v2,R2', 'R1 v3,R2']);
   });
+
 });

@@ -346,4 +346,42 @@ describe('useChartCalculations', () => {
       expect(colors.hatchedBar).toBe('#0070f3');
     });
   });
+
+  // v0.29.10: a date read from the cloud can be any year. Before v0.29.10,
+  // this release made the chart compute 1,175,689 month marks, 391,897
+  // quarter marks and 97,975 years, and then draw them.
+  describe('chart span (v0.29.10)', () => {
+    it('bounds the marks for a release dated far in the future', () => {
+      const releases = [makeRelease({ startDate: '2026-01-01', lateFinishDate: '100000-01-01' })];
+      const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
+
+      expect(result.current.dateInfo.monthBoundaries.length).toBeLessThanOrEqual(3012);
+      expect(result.current.dateInfo.quarterBoundaries.length).toBeLessThanOrEqual(1004);
+      expect(result.current.years.length).toBeLessThanOrEqual(251);
+      expect(result.current.years[result.current.years.length - 1]).toBe(2250);
+    });
+
+    it('keeps the real releases on the chart when another is dated far in the past', () => {
+      const releases = [
+        makeRelease({ id: 'r1', startDate: '1066-10-14', lateFinishDate: '1066-12-25' }),
+        makeRelease({ id: 'r2', startDate: '2026-01-01', lateFinishDate: '2026-12-31' }),
+      ];
+      const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
+
+      expect(result.current.years[0]).toBe(2000);
+      expect(result.current.dateToX('2026-12-31')).toBeLessThanOrEqual(
+        result.current.dimensions.chartWidth - result.current.dimensions.rightMargin
+      );
+    });
+
+    it('draws the widest span the release form allows exactly as before', () => {
+      const releases = [makeRelease({ startDate: '2000-01-01', earlyFinishDate: '2025-01-01', lateFinishDate: '2050-12-31' })];
+      const { result } = renderHook(() => useChartCalculations(releases, defaultSettings));
+
+      expect(result.current.dateInfo.minDate).toBe(new Date(2000, 0, 1).getTime());
+      expect(result.current.dateInfo.maxDate).toBe(new Date(2050, 11, 31).getTime());
+      expect(result.current.dateInfo.monthBoundaries).toHaveLength(612);
+      expect(result.current.years).toHaveLength(51);
+    });
+  });
 });

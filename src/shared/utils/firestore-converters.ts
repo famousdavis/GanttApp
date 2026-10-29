@@ -22,10 +22,17 @@ import {
   isValidDateFormat,
   sanitizeWorkDays,
   sanitizeProjectLegendLabels,
-  migrateReleaseStatus,
   sanitizeChartColors,
   sanitizeDisplaySettings,
 } from './validation';
+import {
+  type CloudSetAsideReport,
+  cloudOrderOf,
+  cloudRelease,
+  cloudLegendLabels,
+  cloudPreparedBy,
+  optionalCloudDate,
+} from './cloud-load-guards';
 
 // --- Flat AppData → Firestore ---
 
@@ -105,45 +112,44 @@ export function snapshotToFirestore(snapshot: Snapshot): FirestoreSnapshot {
 }
 
 // --- Firestore → Flat AppData ---
+//
+// v0.29.10: another editor of a shared project can write its documents, so
+// these read them through the checks in cloud-load-guards.ts. A value the app
+// cannot have written is set aside and passed to `report`; the rest loads.
+// None of them throws on a document's content.
 
 /** Convert a Firestore project meta + its releases back to Project + Release[]. */
 export function firestoreToProject(
   projectId: string,
-  meta: FirestoreProjectMeta
+  meta: FirestoreProjectMeta,
+  report?: CloudSetAsideReport
 ): Project {
   const sanitizedWorkDays = sanitizeWorkDays(meta.workDays);
   const sanitizedLegendLabels = sanitizeProjectLegendLabels(meta.legendLabels);
+  const finishDate = optionalCloudDate(meta.finishDate, projectId, 'project-finish-date', report);
   return {
     id: projectId,
     name: sanitizeString(meta.name),
-    ...(meta.finishDate && { finishDate: meta.finishDate }),
+    ...(finishDate && { finishDate }),
     ...(sanitizedWorkDays && { workDays: sanitizedWorkDays }),
     ...(sanitizedLegendLabels && { legendLabels: sanitizedLegendLabels }),
     owner: sanitizeId(meta.owner),
   };
 }
 
-/** Convert Firestore releases back to flat Release[], preserving order. */
+/**
+ * Convert Firestore releases back to flat Release[], preserving order. A
+ * release whose dates cannot be read is left out.
+ */
 export function firestoreReleasesToFlat(
   projectId: string,
-  releaseEntries: { id: string; data: FirestoreRelease }[]
+  releaseEntries: { id: string; data: FirestoreRelease }[],
+  report?: CloudSetAsideReport
 ): Release[] {
   return releaseEntries
-    .sort((a, b) => a.data.order - b.data.order)
-    .map(({ id, data }) => {
-      const migratedStatus = migrateReleaseStatus(data);
-      return {
-        id,
-        projectId,
-        name: sanitizeString(data.name),
-        startDate: data.startDate,
-        earlyFinishDate: data.earlyFinishDate,
-        lateFinishDate: data.lateFinishDate,
-        ...(data.hidden !== undefined && { hidden: data.hidden }),
-        ...(migratedStatus ? { status: migratedStatus } : {}),
-        ...(data.mostLikelyFinishDate && { mostLikelyFinishDate: data.mostLikelyFinishDate }),
-      };
-    });
+    .sort((a, b) => cloudOrderOf(a.data) - cloudOrderOf(b.data))
+    .map(({ id, data }) => cloudRelease(id, projectId, data, report))
+    .filter((release): release is Release => release !== null);
 }
 
 /** Convert Firestore user settings back to the relevant AppData fields. */
@@ -175,37 +181,37 @@ export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<
   };
 }
 
-/** Convert a Firestore snapshot document back to a Snapshot. */
+/**
+ * Convert a Firestore snapshot document back to a Snapshot. Null when the
+ * document cannot be read as one: its releases are not a list, or its
+ * timestamp is not text. A release in it whose dates cannot be read is left out.
+ */
 export function firestoreSnapshotToFlat(
   snapshotId: string,
   projectId: string,
-  data: FirestoreSnapshot
-): Snapshot {
+  data: FirestoreSnapshot,
+  report?: CloudSetAsideReport
+): Snapshot | null {
+  if (!Array.isArray(data.releases) || typeof data.timestamp !== 'string') {
+    report?.(projectId, 'snapshot-shape');
+    return null;
+  }
+  const projectFinishDate = optionalCloudDate(data.projectFinishDate, projectId, 'snapshot-finish-date', report);
+  const legendLabels = cloudLegendLabels(data.legendLabels, projectId, report);
+  const preparedBy = cloudPreparedBy(data.preparedBy, projectId, report);
   return {
     id: snapshotId,
     projectId,
     name: sanitizeString(data.name),
     timestamp: data.timestamp,
-    releases: data.releases
-      .sort((a, b) => a.order - b.order)
-      .map((r, i) => {
-        const migratedStatus = migrateReleaseStatus(r);
-        return {
-          id: `${snapshotId}-r${i}`,
-          projectId,
-          name: sanitizeString(r.name),
-          startDate: r.startDate,
-          earlyFinishDate: r.earlyFinishDate,
-          lateFinishDate: r.lateFinishDate,
-          ...(r.hidden !== undefined && { hidden: r.hidden }),
-          ...(migratedStatus ? { status: migratedStatus } : {}),
-          ...(r.mostLikelyFinishDate && { mostLikelyFinishDate: r.mostLikelyFinishDate }),
-        };
-      }),
-    ...(data.projectFinishDate && { projectFinishDate: data.projectFinishDate }),
+    releases: [...data.releases]
+      .sort((a, b) => cloudOrderOf(a) - cloudOrderOf(b))
+      .map((r, i) => cloudRelease(`${snapshotId}-r${i}`, projectId, r, report))
+      .filter((release): release is Release => release !== null),
+    ...(projectFinishDate && { projectFinishDate }),
     ...(data.chartColors && { chartColors: sanitizeChartColors(data.chartColors) }),
-    ...(data.legendLabels && { legendLabels: data.legendLabels }),
-    ...(data.preparedBy !== undefined && { preparedBy: data.preparedBy }),
+    ...(legendLabels && { legendLabels }),
+    ...(preparedBy !== undefined && { preparedBy }),
     ...(data.todayDateOverride && isValidDateFormat(data.todayDateOverride) && { todayDateOverride: data.todayDateOverride }),
   };
 }
@@ -217,13 +223,14 @@ export function firestoreSnapshotToFlat(
 export function firestoreToFlatAppData(
   projects: { id: string; meta: FirestoreProjectMeta }[],
   releasesMap: Map<string, { id: string; data: FirestoreRelease }[]>,
-  settings: FirestoreUserSettings | null
+  settings: FirestoreUserSettings | null,
+  report?: CloudSetAsideReport
 ): AppData {
-  const flatProjects: Project[] = projects.map(p => firestoreToProject(p.id, p.meta));
+  const flatProjects: Project[] = projects.map(p => firestoreToProject(p.id, p.meta, report));
 
   const flatReleases: Release[] = projects.flatMap(p => {
     const entries = releasesMap.get(p.id) ?? [];
-    return firestoreReleasesToFlat(p.id, entries);
+    return firestoreReleasesToFlat(p.id, entries, report);
   });
 
   const settingsFields = settings ? userSettingsToAppData(settings) : {};
@@ -237,12 +244,16 @@ export function firestoreToFlatAppData(
 
 // --- Changelog helpers ---
 
-/** Append an entry to a project's changelog, enforcing the cap. */
+/**
+ * Append an entry to a project's changelog, enforcing the cap. `existing` is
+ * read from the cloud document; when it is not a list (the app always writes
+ * one), the log starts again from this entry rather than failing the save.
+ */
 export function appendChangeLogEntry(
   existing: ChangeLogEntry[],
   entry: ChangeLogEntry
 ): ChangeLogEntry[] {
-  const updated = [...existing, entry];
+  const updated = [...(Array.isArray(existing) ? existing : []), entry];
   if (updated.length > MAX_CHANGELOG_ENTRIES) {
     return updated.slice(updated.length - MAX_CHANGELOG_ENTRIES);
   }

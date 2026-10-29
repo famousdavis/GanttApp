@@ -15,6 +15,9 @@ import {
   getMonthBoundaries,
   generateId,
   isWorkDay,
+  clampChartSpan,
+  CHART_SPAN_FIRST,
+  CHART_SPAN_LAST,
 } from '../dates';
 
 describe('parseDateLocal', () => {
@@ -340,5 +343,35 @@ describe('isWorkDay', () => {
     // 2000-01-01 is a Saturday (dow=6)
     expect(isWorkDay('2000-01-01', [1, 2, 3, 4, 5])).toBe(false);
     expect(isWorkDay('2000-01-01', [0, 6])).toBe(true);
+  });
+});
+
+// v0.29.10: the chart draws one mark per month, quarter and year of its span.
+describe('clampChartSpan', () => {
+  const first = parseDateLocal(CHART_SPAN_FIRST);
+  const last = parseDateLocal(CHART_SPAN_LAST);
+
+  it('leaves a span inside 2000–2250 unchanged, including the whole range the release form allows', () => {
+    const min = parseDateLocal('2000-01-01');
+    const max = parseDateLocal('2050-12-31');
+    expect(clampChartSpan(min, max)).toStrictEqual({ minDate: min, maxDate: max });
+    const late = parseDateLocal('2250-12-31');
+    expect(clampChartSpan(min, late)).toStrictEqual({ minDate: min, maxDate: late });
+  });
+
+  it('clamps a date past either end to that end', () => {
+    expect(clampChartSpan(parseDateLocal('1900-01-01'), parseDateLocal('100000-01-01')))
+      .toStrictEqual({ minDate: first, maxDate: last });
+  });
+
+  it('returns bounds that are not finite as they are (no releases: Infinity and -Infinity)', () => {
+    expect(clampChartSpan(Infinity, -Infinity)).toStrictEqual({ minDate: Infinity, maxDate: -Infinity });
+    const nan = clampChartSpan(NaN, NaN);
+    expect(Number.isNaN(nan.minDate) && Number.isNaN(nan.maxDate)).toBe(true);
+  });
+
+  it('bounds the marks the widest span draws', () => {
+    expect(getMonthBoundaries(first, last)).toHaveLength(3012);
+    expect(getQuarterBoundaries(first, last)).toHaveLength(1004);
   });
 });

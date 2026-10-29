@@ -40,6 +40,8 @@ import {
   firestoreSnapshotToFlat,
 } from '../utils/firestore-converters';
 import { sanitizeFirebaseError } from '../utils/validation';
+import { cloudOrder, type CloudSetAsideReport } from '../utils/cloud-load-guards';
+import { noteCloudSetAside, clearCloudSetAsideNotices } from './cloud-load-notices';
 import { executeFirestoreSave, type ViewerSkip } from './firestore-save-executor';
 import { unsentReleaseIds } from './unsent-release-changes';
 import {
@@ -270,9 +272,12 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         // v0.27.0 (Pass 6, I1a): bail mid-loop if user changed.
         if (auth?.currentUser?.uid !== this.uid) return [];
         for (const snapDoc of snapshotsSnap.docs) {
-          allSnapshots.push(
-            firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot)
+          // v0.29.10: a snapshot the converter cannot read is left out, and
+          // the others still load.
+          const snapshot = firestoreSnapshotToFlat(
+            snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot, this.reportSetAside
           );
+          if (snapshot) allSnapshots.push(snapshot);
         }
       }
 
@@ -306,9 +311,13 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
         if (snapshotsSnap.metadata?.fromCache) throw new SnapshotsNotLoadedError();
         if (auth?.currentUser?.uid !== this.uid) throw new SnapshotsNotLoadedError();
         for (const snapDoc of snapshotsSnap.docs) {
-          allSnapshots.push(
-            firestoreSnapshotToFlat(snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot)
+          const snapshot = firestoreSnapshotToFlat(
+            snapDoc.id, projectDoc.id, snapDoc.data() as FirestoreSnapshot, this.reportSetAside
           );
+          // v0.29.10: a snapshot the converter cannot read is one this list
+          // cannot leave out, since saveSnapshots deletes what it is not given.
+          if (!snapshot) throw new SnapshotsNotLoadedError();
+          allSnapshots.push(snapshot);
         }
       }
       return allSnapshots;
@@ -432,7 +441,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
           id: d.id,
           data: d.data() as FirestoreRelease,
         }));
-        const releases = firestoreReleasesToFlat(projectId, entries);
+        const releases = firestoreReleasesToFlat(projectId, entries, this.reportSetAside);
         // H (R46): while this browser holds release changes for the project
         // that it has not sent (in the pending save, or in a save in flight
         // until it settles), delivering would replace them on screen, and the
@@ -583,6 +592,8 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
     this.disposed = true;
     this.deferred.clear();
     this.lastDelivered.clear();
+    // v0.29.10: the notices named this account's projects.
+    clearCloudSetAsideNotices();
 
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -612,6 +623,21 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
   }
 
   // --- Private ---
+
+  /**
+   * v0.29.10: a value the cloud-load checks set aside. Its project is named
+   * in the notice banner, its rule in the console, and it is left out of
+   * state. The load writes nothing. A release set aside at a load is missing
+   * from the save baseline too, so no save deletes it. One set aside from a
+   * listener delivery, when the baseline holds its earlier version, is
+   * deleted by the next save, as a release a collaborator deleted is. Only a
+   * release whose dates are not date strings is set aside, and the app never
+   * writes one. A snapshot set aside is never deleted: loadSnapshotsStrict,
+   * which every saveSnapshots caller reads first, refuses instead.
+   */
+  private readonly reportSetAside: CloudSetAsideReport = (projectId, rule) => {
+    if (!this.disposed) noteCloudSetAside(projectId, rule);
+  };
 
   private report(message: string | null): void {
     this.reportingLoadFailure = message === CLOUD_LOAD_FAILED_MESSAGE;
@@ -654,7 +680,7 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
       memberDocs.map(d => ({ id: d.id, meta: d.data() }));
 
     // Sort projects by order (v12.5 — preserves drag-and-drop reorder)
-    projects.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
+    projects.sort((a, b) => cloudOrder(a.meta.order) - cloudOrder(b.meta.order));
 
     // Step 2: Load releases for each project
     const releasesMap = new Map<string, { id: string; data: FirestoreRelease }[]>();
@@ -678,10 +704,10 @@ export class FirestoreGanttStorageServiceImpl implements CloudGanttStorageServic
 
     // Reconstruct flat AppData
     return {
-      projects: projects.map(p => firestoreToProject(p.id, p.meta)),
+      projects: projects.map(p => firestoreToProject(p.id, p.meta, this.reportSetAside)),
       releases: projects.flatMap(p => {
         const entries = releasesMap.get(p.id) ?? [];
-        return firestoreReleasesToFlat(p.id, entries);
+        return firestoreReleasesToFlat(p.id, entries, this.reportSetAside);
       }),
       ...((settings ? userSettingsToAppData(settings) : {}) as Partial<AppData>),
     };

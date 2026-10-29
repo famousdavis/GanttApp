@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.29.10 (2026-10-29)
+
+### Security: project data loaded from cloud storage is now checked before it is shown
+
+- **Projects loaded from cloud storage are now checked before they are shown.** A release, snapshot or other value that GanttApp itself could not have saved is left out, and the rest of the project loads normally. A notice names the project when this happens. Loading a project changes nothing in the cloud, and projects saved by GanttApp load exactly as before.
+- **The chart's timeline now covers at most the years 2000 to 2250.** A release dated outside that range is still loaded, listed and editable; only its bar is cut off at the edge of the chart.
+- **An error in one tab no longer stops the whole app.** That tab shows a message, and the other tabs and projects keep working.
+
 ## Version 0.29.9 (2026-10-25)
 
 ### Added: a security.txt file, so researchers know where to report a vulnerability

@@ -101,7 +101,10 @@ export async function getProjectMembers(
       // ShareDialog's `member.email || member.uid` renders a raw Auth UID.
       profileDoc = await getDoc(doc(db, `spertsuite_profiles/${memberUid}`));
     }
-    const email = profileDoc.exists() ? (profileDoc.data() as { email?: string }).email : undefined;
+    // v0.29.10: each member writes their own profile, so its email is read
+    // as text only. ShareDialog renders it.
+    const storedEmail = profileDoc.exists() ? (profileDoc.data() as { email?: unknown }).email : undefined;
+    const email = typeof storedEmail === 'string' ? storedEmail : undefined;
     members.push({ uid: memberUid, role, email });
   }
 

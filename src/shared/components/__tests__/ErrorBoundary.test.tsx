@@ -89,6 +89,15 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('renders the view again when its reset key becomes empty, as when no project is left', () => {
+    const { rerender } = render(<ErrorBoundary resetKey="p1"><View /></ErrorBoundary>);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    shouldThrow = false;
+    rerender(<ErrorBoundary resetKey=""><View /></ErrorBoundary>);
+    expect(screen.getByText('The view')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('keeps the notice on a re-render with the same reset key', () => {
     const { rerender } = render(<ErrorBoundary resetKey="p1"><View /></ErrorBoundary>);
     expect(screen.getByRole('alert')).toBeInTheDocument();

@@ -63,6 +63,16 @@ export function ReleasesTab({
 
   const [deleteConfirmReleaseId, setDeleteConfirmReleaseId] = useState<string | null>(null);
 
+  // A change of the selected project, from the selector or from anywhere else
+  // (the project deleted, an import), clears the form and closes any edit in
+  // progress, as Escape does for an edit. The tab is not restarted, so its
+  // project selector keeps keyboard focus (v0.29.11).
+  const [formProjectId, setFormProjectId] = useState(selectedProjectId);
+  if (formProjectId !== selectedProjectId) {
+    setFormProjectId(selectedProjectId);
+    clearReleaseForm();
+  }
+
   const currentReleases = data.releases.filter(r => r.projectId === selectedProjectId);
   const selectedProject = data.projects.find(p => p.id === selectedProjectId);
   const errorMessage = getDateErrorMessage(startDate, earlyFinish, lateFinish, touchedFields);

@@ -6,17 +6,19 @@
 
 Since version 0.29.10, the Projects tab started over whenever the selected project changed, and lost what it was showing or holding:
 
-- An import that changed the selected project showed no message when it finished. That was an import into an empty workspace (Replace All, or a project file merged in), and a Replace All whose file did not hold the selected project. If such an import could not save its snapshots, for example because the browser's storage was full, the error was not shown either: the imported projects appeared, and nothing said the snapshots had not been saved.
+- An import that changed which project was selected showed no message when it finished: for example an import into an empty workspace (Replace All, or a project file merged in), or a Replace All after which a different project came first in the list, when no project had been chosen. If such an import could not save its snapshots, for example because the browser's storage was full, the error was not shown either: the imported projects appeared, and nothing said the snapshots had not been saved.
 - Deleting the selected project discarded the name typed in the new-project form.
 
-An import that kept the selected project, such as a Replace All whose file held it, was not affected. Each case was reproduced in tests on version 0.29.10.
+An import that left the same project selected was not affected. Each case was reproduced in tests on version 0.29.10.
 
-What changes:
+What changes when the selected project changes:
 
-- The Projects tab no longer starts over when the selected project changes. The import's result or error message appears, and the name typed in the form stays.
-- What version 0.29.10 added still holds: a tab that cannot be displayed shows "This view could not be displayed.", and the other tabs keep working. Changing tab, or choosing "Try again", shows it again. A change of the selected project now does too, without starting over a tab that is working.
+- The Projects tab no longer starts over. The import's result or error message appears, and the name typed in the form stays.
+- The Releases tab clears its form and closes any edit in progress, without starting over, so its project selector keeps keyboard focus. Version 0.29.10 also cleared the form, by starting the tab over, which moved keyboard focus from the selector to the page.
+- The Gantt Chart tab no longer starts over either. That follows from the code, and no test covers it.
+- What version 0.29.10 added still holds: a tab that cannot be displayed shows "This view could not be displayed.", and the other tabs keep working. Changing tab, or choosing "Try again", shows it again. A change of the selected project still does, now without starting over a tab that is working.
 
-Tested in automated tests that render the whole app: each case above, an import that keeps the selected project, and a tab that cannot be displayed being shown again when its project is removed. It was not tried in a browser. These tests are the first to run the app's main page (`pages/index.tsx`), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.
+Tested in automated tests that render the whole app: each case above, an import that keeps the selected project, the Releases tab's form and keyboard focus when the selected project changes (from its selector, and when the project is removed elsewhere), and a tab that cannot be displayed being shown again when its project is removed or another tab is opened. It was not tried in a browser. These tests are the first to run the app's main page (`pages/index.tsx`), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.
 
 ## Version 0.29.10 (2026-10-29)
 

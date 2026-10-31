@@ -6,8 +6,10 @@
 // tab must not restart a healthy tab when the selected project changes. An
 // import or a delete on the Projects tab can move the selection, and the tab's
 // own state (an import's result or error, a draft in the new-project form)
-// must survive it. A view that could not be displayed is shown again once the
-// selected project changes.
+// must survive it. The Releases tab instead clears its form and closes an edit
+// in progress, without restarting, so its project selector keeps focus. A view
+// that could not be displayed is shown again once the selected project or the
+// tab changes.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within, configure } from '@testing-library/react';
@@ -70,8 +72,10 @@ const APP_DATA_KEY = 'ganttAppData';
 const SNAPSHOTS_KEY = 'ganttAppSnapshots';
 const QUOTA_TEXT = 'Storage quota exceeded. Please export your data and clear some space.';
 const REPLACED_ONE = 'All data replaced. 1 project imported.';
+const REPLACED_TWO = 'All data replaced. 2 projects imported.';
 const MERGED_ONE = '1 project added.';
 const NOTICE_TEXT = 'This view could not be displayed.';
+const RELEASES_SELECTOR = 'Project shown on the Releases tab';
 
 type Stored = Record<string, unknown>;
 
@@ -102,6 +106,23 @@ function seedAlpha() {
   seed({
     projects: [{ id: 'proj-alpha', name: 'Alpha Platform' }],
     releases: [release('rel-one', 'proj-alpha', 'Release One')],
+  });
+}
+
+function seedTwoPlans() {
+  seed({
+    projects: [{ id: 'proj-a', name: 'Plan A' }, { id: 'proj-b', name: 'Plan B' }],
+    releases: [release('rel-a', 'proj-a', 'Release A1'), release('rel-b', 'proj-b', 'Release B1')],
+  });
+}
+
+function seedUnreadableFirst() {
+  seed({
+    projects: [{ id: 'proj-unreadable', name: 'Unreadable Plan' }, { id: 'proj-working', name: 'Working Plan' }],
+    releases: [
+      release('rel-unreadable', 'proj-unreadable', 'Unreadable Release'),
+      release('rel-working', 'proj-working', 'Working Release'),
+    ],
   });
 }
 
@@ -212,6 +233,21 @@ describe('the Projects tab when an import or a delete moves the selected project
     expect(screen.getByText('Alpha Restored')).toBeInTheDocument();
   });
 
+  it('shows the result of a Replace All whose file holds the selected project, but not first', async () => {
+    seedAlpha();
+    render(<Home />, { wrapper: FullWrapper });
+    await screen.findByText('Alpha Platform');
+    // No project was chosen, so the first one is selected: the import moves it.
+    await pickFile(workspaceFile(
+      [{ id: 'proj-other', name: 'Other Plan' }, { id: 'proj-alpha', name: 'Alpha Platform' }],
+      [release('rel-other', 'proj-other', 'Other Release'), release('rel-one', 'proj-alpha', 'Release One')],
+      []
+    ));
+    await replaceViaPreview();
+    expect(await screen.findByText(REPLACED_TWO)).toBeInTheDocument();
+    expect(screen.getByText('Other Plan')).toBeInTheDocument();
+  });
+
   it('keeps a draft in the new-project form when the selected project is deleted', async () => {
     seed({
       projects: [{ id: 'proj-alpha', name: 'Alpha Platform' }, { id: 'proj-beta', name: 'Beta Platform' }],
@@ -244,6 +280,88 @@ describe('the Projects tab when an import or a delete moves the selected project
   });
 });
 
+describe('the Releases tab when the selected project changes', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function openReleasesOfPlanA() {
+    fireEvent.click(await screen.findByRole('button', { name: 'Releases' }));
+    expect(await screen.findByText('Release A1')).toBeInTheDocument();
+  }
+
+  const chooseProject = (id: string) =>
+    fireEvent.change(screen.getByRole('combobox', { name: RELEASES_SELECTOR }), { target: { value: id } });
+
+  it('closes an edit in progress and shows an empty form for the newly selected project', async () => {
+    seedTwoPlans();
+    render(<Home />, { wrapper: FullWrapper });
+    await openReleasesOfPlanA();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit release' }));
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('Release A1');
+    expect(screen.queryByRole('button', { name: 'Add Release' })).not.toBeInTheDocument();
+
+    chooseProject('proj-b');
+    expect(await screen.findByText('Release B1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add Release' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('');
+  });
+
+  it('clears a draft in the Add Release form, and adds nothing to the newly selected project', async () => {
+    seedTwoPlans();
+    render(<Home />, { wrapper: FullWrapper });
+    await openReleasesOfPlanA();
+    fireEvent.change(screen.getByPlaceholderText('Release name'), { target: { value: 'Draft for A' } });
+    fireEvent.change(screen.getByLabelText(/Start Date/), { target: { value: '2026-04-06' } });
+    fireEvent.change(screen.getByLabelText(/Early Finish/), { target: { value: '2026-05-04' } });
+    fireEvent.change(screen.getByLabelText(/Late Finish/), { target: { value: '2026-06-01' } });
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('Draft for A');
+    expect(screen.getByRole('button', { name: 'Add Release' })).toBeEnabled();
+
+    chooseProject('proj-b');
+    expect(await screen.findByText('Release B1')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('');
+    expect(screen.getByLabelText(/Start Date/)).toHaveValue('');
+    const add = screen.getByRole('button', { name: 'Add Release' });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(screen.queryByText('Draft for A')).not.toBeInTheDocument();
+  });
+
+  it('keeps keyboard focus on its project selector', async () => {
+    seedTwoPlans();
+    render(<Home />, { wrapper: FullWrapper });
+    await openReleasesOfPlanA();
+    const selector = screen.getByRole('combobox', { name: RELEASES_SELECTOR });
+    selector.focus();
+    expect(selector).toHaveFocus();
+
+    chooseProject('proj-b');
+    expect(await screen.findByText('Release B1')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: RELEASES_SELECTOR })).toHaveFocus();
+    expect(selector).toBeInTheDocument();
+  });
+
+  it('closes an edit in progress when the selected project is removed from outside the tab', async () => {
+    seedTwoPlans();
+    render(<><Home /><RemoveFirstProject /></>, { wrapper: FullWrapper });
+    await openReleasesOfPlanA();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit release' }));
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('Release A1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove the first project' }));
+    expect(await screen.findByText('Release B1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add Release' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Release name')).toHaveValue('');
+    expect(screen.queryByText('Release A1')).not.toBeInTheDocument();
+  });
+});
+
 describe('a view that could not be displayed', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -258,22 +376,28 @@ describe('a view that could not be displayed', () => {
     vi.restoreAllMocks();
   });
 
-  it('is shown again for the newly selected project when the selection changes from outside the tab', async () => {
-    seed({
-      projects: [{ id: 'proj-unreadable', name: 'Unreadable Plan' }, { id: 'proj-working', name: 'Working Plan' }],
-      releases: [
-        release('rel-unreadable', 'proj-unreadable', 'Unreadable Release'),
-        release('rel-working', 'proj-working', 'Working Release'),
-      ],
-    });
+  it('is shown again for the newly selected project when the chosen project is removed from outside the tab', async () => {
+    seedUnreadableFirst();
     render(<><Home /><RemoveFirstProject /></>, { wrapper: FullWrapper });
-    await screen.findByText('Unreadable Plan');
-    fireEvent.click(screen.getByRole('button', { name: 'Releases' }));
+    // Chosen explicitly, so the stored choice still names the removed project.
+    fireEvent.click(await screen.findByRole('button', { name: 'Open releases for Unreadable Plan' }));
     expect(await screen.findByText(NOTICE_TEXT)).toBeInTheDocument();
     expect(errorSpy).toHaveBeenCalledWith('[GanttApp] view error:', 'a value the view cannot render', expect.any(String));
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove the first project' }));
     expect(await screen.findByText('Working Release')).toBeInTheDocument();
+    expect(screen.queryByText(NOTICE_TEXT)).not.toBeInTheDocument();
+  });
+
+  it('is gone when another tab is opened', async () => {
+    seedUnreadableFirst();
+    render(<Home />, { wrapper: FullWrapper });
+    await screen.findByText('Unreadable Plan');
+    fireEvent.click(screen.getByRole('button', { name: 'Releases' }));
+    expect(await screen.findByText(NOTICE_TEXT)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+    expect(await screen.findByPlaceholderText('Project name')).toBeInTheDocument();
     expect(screen.queryByText(NOTICE_TEXT)).not.toBeInTheDocument();
   });
 });

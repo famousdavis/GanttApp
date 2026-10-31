@@ -2,11 +2,14 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
+import * as AppDataModule from '../../../context/AppDataContext';
+import * as StorageModule from '../../../context/StorageContext';
+import * as AuthModule from '../../../context/AuthContext';
 import { AppDataProvider, useAppData } from '../../../context/AppDataContext';
-import { StorageProvider } from '../../../context/StorageContext';
+import { StorageProvider, useStorage } from '../../../context/StorageContext';
 import { AuthProvider } from '../../../context/AuthContext';
 import { useProjects, buildCloneCandidateName } from '../useProjects';
 import { validateLoadedData } from '../../../shared/utils/storage';
@@ -384,6 +387,34 @@ describe('useProjects', () => {
       expect(result.current.projectFinishDate).toBe('');
       expect(result.current.editingProjectId).toBeNull();
     });
+
+    it('leaves every other project exactly as it was', async () => {
+      const bystander = makeProject({ id: 'p2', name: 'Bystander', finishDate: '2027-02-02', workDays: [2, 4] });
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Target' }), bystander],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(2));
+
+      act(() => {
+        result.current.startEditProject(makeProject({ id: 'p1', name: 'Target' }));
+      });
+      act(() => {
+        result.current.setProjectName('Target Renamed');
+        result.current.setProjectFinishDate('2026-10-15');
+      });
+      act(() => {
+        result.current.updateProject();
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      // The edited project changed...
+      expect(stored.projects[0]).toEqual({ id: 'p1', name: 'Target Renamed', finishDate: '2026-10-15' });
+      // ...and the other one did not.
+      expect(stored.projects[1]).toEqual(bystander);
+    });
   });
 
   describe('deleteProject', () => {
@@ -587,6 +618,30 @@ describe('useProjects', () => {
       expect(stored.projects[0].workDays).toBeUndefined();
     });
 
+    it('updateProject saves a work-week override set during the edit', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Weekend Crew' })],
+        releases: [],
+      });
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      act(() => {
+        result.current.startEditProject(makeProject({ id: 'p1', name: 'Weekend Crew' }));
+      });
+      act(() => {
+        result.current.setProjectWorkDays([0, 6]);
+      });
+      act(() => {
+        result.current.updateProject();
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects[0].name).toBe('Weekend Crew');
+      expect(stored.projects[0].workDays).toEqual([0, 6]);
+    });
+
     it('startEditProject populates projectWorkDays from project.workDays', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
@@ -753,6 +808,50 @@ describe('useProjects', () => {
       expect(clonedIds).not.toContain('r2');
     });
 
+    describe('copies the source settings', () => {
+      /** Clones a project that carries a finish date, a work week and legend labels; returns the stored copy. */
+      async function cloneConfiguredSource(): Promise<Project> {
+        seedData({
+          projects: [makeProject({
+            id: 'p1',
+            name: 'Configured',
+            finishDate: '2026-11-30',
+            workDays: [1, 3, 5],
+            legendLabels: { solidBar: 'Build', mostLikelyLine: 'Best Guess' },
+          })],
+          releases: [],
+        });
+        const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+        const { result } = renderProjectsHook();
+        await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+        await act(async () => {
+          await result.current.cloneProject('p1');
+        });
+
+        expect(alertSpy).not.toHaveBeenCalled();
+        alertSpy.mockRestore();
+        const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+        expect(stored.projects.map((p: Project) => p.name)).toEqual(['Configured', 'Configured - Copy (1)']);
+        return stored.projects[1];
+      }
+
+      it('a copy keeps the source finish date', async () => {
+        const copy = await cloneConfiguredSource();
+        expect(copy.finishDate).toBe('2026-11-30');
+      });
+
+      it('a copy keeps the source work week', async () => {
+        const copy = await cloneConfiguredSource();
+        expect(copy.workDays).toEqual([1, 3, 5]);
+      });
+
+      it('a copy keeps the source legend labels', async () => {
+        const copy = await cloneConfiguredSource();
+        expect(copy.legendLabels).toEqual({ solidBar: 'Build', mostLikelyLine: 'Best Guess' });
+      });
+    });
+
     it('does nothing when projectId is unknown (no throw, no data change)', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Source' })],
@@ -772,22 +871,38 @@ describe('useProjects', () => {
 
     it('does not call saveSnapshots when source has zero snapshots', async () => {
       seedData({
-        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        projects: [makeProject({ id: 'p1', name: 'Source' }), makeProject({ id: 'p2', name: 'Other' })],
         releases: [],
       });
+      // Only another project has a snapshot. A write here would rewrite the
+      // whole list unchanged (in the cloud, every snapshot of every project),
+      // and stored content cannot show that, so the service call is checked.
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify([
+        { id: 's-other', projectId: 'p2', timestamp: '2026-01-01T00:00:00Z', name: 'Other Snap', releases: [] },
+      ]));
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
-      const { result } = renderProjectsHook();
-      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+      const { result } = renderHook(() => {
+        const projects = useProjects();
+        const { data } = useAppData();
+        const { storage } = useStorage();
+        return { ...projects, data, storage };
+      }, { wrapper });
+      await waitFor(() => expect(result.current.data.projects.length).toBe(2));
+      const loadSpy = vi.spyOn(result.current.storage, 'loadSnapshotsStrict');
+      const saveSpy = vi.spyOn(result.current.storage, 'saveSnapshots');
 
       await act(async () => {
         await result.current.cloneProject('p1');
       });
 
-      const storedSnapshots = localStorage.getItem('ganttAppSnapshots');
-      // Either null (never written) or an empty array — both indicate no clone snapshot write
-      if (storedSnapshots) {
-        expect(JSON.parse(storedSnapshots)).toEqual([]);
-      }
+      // The copy was made, and its snapshot step read the list from this service...
+      expect(result.current.data.projects.map(p => p.name)).toEqual(['Source', 'Source - Copy (1)', 'Other']);
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+      // ...and wrote nothing back.
+      expect(saveSpy).not.toHaveBeenCalled();
+      expect(alertSpy).not.toHaveBeenCalled();
+      alertSpy.mockRestore();
     });
 
     it('clones snapshots when the source has them and cap allows', async () => {
@@ -847,13 +962,51 @@ describe('useProjects', () => {
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.projects).toHaveLength(2);
 
-      // Alert was fired
+      // Alert was fired, with the cap's own words (the other snapshot alerts
+      // also mention snapshots, so a pattern match could not tell them apart)
       expect(alertSpy).toHaveBeenCalledTimes(1);
-      expect(alertSpy.mock.calls[0][0]).toMatch(/snapshots/i);
+      expect(alertSpy.mock.calls[0][0]).toBe(
+        'Project cloned successfully. Snapshots were not copied because the ' +
+        'workspace is near the storage limit.'
+      );
 
       // Snapshots NOT cloned (still 99)
       const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
       expect(allSnapshots).toHaveLength(99);
+
+      alertSpy.mockRestore();
+    });
+
+    it('copies the snapshots, with no alert, when the clone brings the total to exactly the cap', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+      // Seed 98 snapshots (cap = 100). Source has 2 → exactly 100, which is allowed.
+      const snapshots = [];
+      for (let i = 0; i < 96; i += 1) {
+        snapshots.push({ id: `other-${i}`, projectId: 'p2', timestamp: '2026-01-01T00:00:00Z', name: `Other ${i}`, releases: [] });
+      }
+      snapshots.push({ id: 's1', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'Snap 1', releases: [] });
+      snapshots.push({ id: 's2', projectId: 'p1', timestamp: '2026-01-02T00:00:00Z', name: 'Snap 2', releases: [] });
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify(snapshots));
+
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(2);
+      const cloned = stored.projects.find((p: Project) => p.name === 'Source - Copy (1)');
+      const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
+      expect(allSnapshots).toHaveLength(100);
+      expect(allSnapshots.filter((s: { projectId: string }) => s.projectId === cloned.id)).toHaveLength(2);
+      expect(alertSpy).not.toHaveBeenCalled();
 
       alertSpy.mockRestore();
     });
@@ -874,6 +1027,13 @@ describe('useProjects', () => {
 // would pass against the broken code.
 // ==========================================================================
 describe('cloneProject — name length (v0.28.20)', () => {
+  // Start from empty storage: without this, these tests inherit whatever the
+  // previous describe left behind (99 snapshots from the cap test), and every
+  // clone below hits the snapshot cap alert.
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   /** Round-trip through the real load-side sanitiser, as every reload does. */
   function reload(): Project[] {
     const raw = JSON.parse(localStorage.getItem('ganttAppData')!);
@@ -948,5 +1108,113 @@ describe('cloneProject — name length (v0.28.20)', () => {
     const name = buildCloneCandidateName('A'.repeat(88) + ' ' + 'B'.repeat(11), 1);
     expect(name).not.toContain('  ');
     expect(name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
+  });
+});
+
+// ==========================================================================
+// Who owns a new project or a copy, in memory, before any reload. The hook
+// reads its data, the storage mode and the signed-in user from three
+// contexts; they are stubbed here so the mode can be cloud (or local with a
+// user signed in) without a Firebase backend. The assertions are on what the
+// hook hands to updateData.
+// ==========================================================================
+describe('owner of a new project or a copy, before any reload', () => {
+  const SIGNED_IN_UID = 'uid-signed-in';
+  const SOURCE_OWNER_UID = 'uid-of-the-source-owner';
+  let updateData: ReturnType<typeof vi.fn>;
+  let alertSpy: ReturnType<typeof vi.spyOn>;
+
+  function stubContexts(mode: 'cloud' | 'local', data: AppData) {
+    updateData = vi.fn();
+    const storage = {
+      mode,
+      canWrite: () => true,
+      loadSnapshotsStrict: vi.fn(async () => []),
+      saveSnapshots: vi.fn(async () => {}),
+    };
+    vi.spyOn(AppDataModule, 'useAppData')
+      .mockReturnValue({ data, updateData } as unknown as ReturnType<typeof AppDataModule.useAppData>);
+    vi.spyOn(StorageModule, 'useStorage')
+      .mockReturnValue({ storage } as unknown as ReturnType<typeof StorageModule.useStorage>);
+    // A signed-in user also has an email and a display name, each unlike the
+    // uid, so an owner taken from the wrong field shows.
+    const user = { uid: SIGNED_IN_UID, email: 'signed.in@example.com', displayName: 'Signed In' };
+    vi.spyOn(AuthModule, 'useAuth')
+      .mockReturnValue({ user } as unknown as ReturnType<typeof AuthModule.useAuth>);
+  }
+
+  /** The project list the hook committed to memory. */
+  function committedProjects(): Project[] {
+    expect(updateData).toHaveBeenCalledTimes(1);
+    return (updateData.mock.calls[0][0] as AppData).projects;
+  }
+
+  function addNamed(name: string) {
+    const { result } = renderHook(() => useProjects());
+    act(() => {
+      result.current.setProjectName(name);
+    });
+    act(() => {
+      result.current.addProject('', vi.fn());
+    });
+  }
+
+  async function cloneSharedSource() {
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {
+      await result.current.cloneProject('p1');
+    });
+  }
+
+  const sharedSource: AppData = {
+    projects: [{ id: 'p1', name: 'Shared Source', owner: SOURCE_OWNER_UID }],
+    releases: [],
+  };
+
+  beforeEach(() => {
+    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('a project added in cloud mode is owned by the signed-in user', () => {
+    stubContexts('cloud', { projects: [], releases: [] });
+    addNamed('Cloud Add');
+
+    const [added] = committedProjects();
+    expect(added.name).toBe('Cloud Add');
+    expect(added.owner).toBe(SIGNED_IN_UID);
+  });
+
+  it('a project added in local mode by a signed-in user has no owner', () => {
+    stubContexts('local', { projects: [], releases: [] });
+    addNamed('Local Add');
+
+    const [added] = committedProjects();
+    expect(added.name).toBe('Local Add');
+    expect('owner' in added).toBe(false);
+  });
+
+  it('a copy made in cloud mode is owned by the signed-in user, not the source owner', async () => {
+    stubContexts('cloud', sharedSource);
+    await cloneSharedSource();
+
+    const projects = committedProjects();
+    expect(projects.map(p => p.name)).toEqual(['Shared Source', 'Shared Source - Copy (1)']);
+    expect(projects[1].owner).toBe(SIGNED_IN_UID);
+    expect(projects[0].owner).toBe(SOURCE_OWNER_UID);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('a copy made in local mode by a signed-in user has no owner', async () => {
+    stubContexts('local', sharedSource);
+    await cloneSharedSource();
+
+    const projects = committedProjects();
+    expect(projects.map(p => p.name)).toEqual(['Shared Source', 'Shared Source - Copy (1)']);
+    expect('owner' in projects[1]).toBe(false);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });

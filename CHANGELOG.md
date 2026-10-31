@@ -1,5 +1,35 @@
 # Change Log
 
+## Version 0.29.12 (2026-10-31)
+
+### Changed: tests now cover importing a file, managing projects and snapshots, the Projects tab, and saving a snapshot from the chart
+
+Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.
+
+There is no version 0.29.5: this release was prepared under that number while other releases shipped first.
+
+Future changes to the messages shown after a project or snapshot action, to how an import is applied, and to the layout of the Projects tab will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you. The tests cover:
+
+- importing a file: the preview, merging and Replace All, the message each one shows, the checks that stop an import when a project changed since the preview or the cloud cannot be written, and picking, re-picking and cancelling a file;
+- the Projects tab: the project form, its date checks and work-week choice, its keyboard shortcuts (Escape, Ctrl+S and Enter), the project tiles and their Export, Edit, Clone, Share and Delete buttons, Export All and Import, and the confirmation dialogs;
+- adding, editing, copying and deleting projects, including who owns a project created or copied in cloud mode;
+- saving and deleting snapshots, and the snapshot bar above the chart;
+- saving a snapshot from the Gantt Chart tab, through the whole app: the snapshot keeps the legend labels, finish date, colours, "Prepared by" name and status date shown at that moment, and only the visible releases. A snapshot imported from a file shows on the chart, and one deleted from the chart is gone.
+
+Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.
+
+A second round of checks broke each behaviour on the side the first tests did not reach, and tests were added for each break that passed: each release and snapshot of an imported project gets an id of its own; Replace All runs again after one that failed or was refused; a success message clears the file picker, as an error does; a conflict that moved to another project stops Confirm; a project the workspace holds takes no owner from the file; a snapshot keeps the global label of every key a project leaves alone and the finish date of a selected project that is not the first, and stores no status date when none is set; Escape leaves an edit that cannot be saved; a copy that brings the snapshots to exactly the limit copies them; who owns a new project or copy is checked against a signed-in user who also has an email and a name; long names read back from the cloud keep their beginning; a seven-day work week is saved to the cloud; and the message after a Replace All whose projects were not saved is shown as an alert.
+
+Five older tests passed whether or not the code they were named for worked. They now check it: a second click on Confirm during an import, a second file picked while the first is being read, an old message cleared when a new file is picked, the file picker cleared on Cancel, and copying a project that has no snapshots. Two tests checked a copy of the snapshot-label logic written into the test rather than the app's own; they were removed, and the whole-app test checks the real logic. The test of the message shown when a copy would exceed the snapshot limit now checks its exact words.
+
+Three tests from version 0.29.4 were made stricter: long names read back from the cloud, a one-day work week saved to the cloud, and the list of projects in the invitation banner.
+
+The test run no longer prints 16 "Not implemented" messages about alerts. One group of tests had been running on snapshots left behind by another.
+
+Coverage measured over every file rises from 89.42% to 91.45% of statements, from 84.10% to 86.95% of branches, from 84.09% to 87.36% of functions and from 90.89% to 92.86% of lines. No build or release check reads these figures.
+
+Three files outside this release's scope run inside the new tests, so their figures rose. They are not tested in their own right: the main page beyond saving a snapshot and its two snapshot connections, the Gantt chart, and the export and import helpers.
+
 ## Version 0.29.11 (2026-10-31)
 
 ### Fixed: an import's message, or a project name being typed, could be lost when the selected project changed

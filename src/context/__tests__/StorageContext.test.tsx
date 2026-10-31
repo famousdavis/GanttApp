@@ -7,6 +7,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { StorageProvider, useStorage } from '../StorageContext';
 import { AuthProvider } from '../AuthContext';
+import { TOS_VERSION } from '../../lib/version';
 
 // Mock firebase modules
 vi.mock('../../lib/firebase', () => ({
@@ -258,6 +259,21 @@ describe('StorageContext', () => {
       });
 
       expect(localStorage.getItem('ganttapp-has-uploaded-to-cloud')).toBeNull();
+    });
+
+    it('clears the ToS acceptance flags so the next user is re-prompted (B-10)', async () => {
+      // Shared-computer fix: before v0.29.7 these keys survived sign-out, so the
+      // next person signing in was let through on the prior user's acceptance.
+      localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
+      localStorage.setItem('spert_tos_write_pending', 'true');
+      const { result } = renderHook(() => useStorage(), { wrapper });
+
+      await act(async () => {
+        await result.current.performSignOutWithCleanup();
+      });
+
+      expect(localStorage.getItem('spert_tos_accepted_version')).toBeNull();
+      expect(localStorage.getItem('spert_tos_write_pending')).toBeNull();
     });
 
     it('clears transition state (uploadResult, needsUploadPrompt)', async () => {

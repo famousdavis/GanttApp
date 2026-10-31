@@ -169,6 +169,22 @@ describe('firestore-sharing', () => {
       expect(result[0]).toEqual({ uid: 'uid-1', role: 'owner', email: 'user@test.com' });
     });
 
+    // v0.29.10: each member writes their own profile, and ShareDialog renders
+    // the email. Before v0.29.10 an object here reached the dialog as is.
+    it('reads a profile email that is not text as no email', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          name: 'P1', owner: 'uid-1', members: { 'uid-1': 'owner' },
+          schemaVersion: 1, createdAt: '', updatedAt: '',
+        }),
+      });
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ email: { $$typeof: 'element' } }) });
+
+      const result = await getProjectMembers(mockDb, 'p1');
+      expect(result).toStrictEqual([{ uid: 'uid-1', role: 'owner', email: undefined }]);
+    });
+
     // Regression: ShareDialog renders `member.email || member.uid`, so an
     // unresolved profile put a raw 28-char Firebase Auth UID on screen.
     // writeUserProfile dual-writes ganttapp_profiles + spertsuite_profiles, but

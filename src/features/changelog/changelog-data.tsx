@@ -15,8 +15,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
-    version: '0.29.5',
-    date: 'October 17, 2026',
+    version: '0.29.12',
+    date: 'October 31, 2026',
     items: [
       <><strong>Changed</strong> &mdash; tests now cover importing a file, managing projects and snapshots, the Projects tab, and saving a snapshot from the chart. Nothing about how the app works changed. Tests only: no application code, no behaviour, no appearance, no data.</>,
       <><strong>Note</strong> &mdash; Future changes to the messages shown after a project or snapshot action, to how an import is applied, and to the layout of the Projects tab will touch this code, so this release puts tests under it first. The aim is that a regression there fails a test before it can reach you.</>,
@@ -30,6 +30,60 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       <><strong>Note</strong> &mdash; The test run no longer prints 16 &ldquo;Not implemented&rdquo; messages about alerts. One group of tests had been running on snapshots left behind by another.</>,
       <><strong>Note</strong> &mdash; Coverage measured over every file rises from 88.09% to 91.10% of statements, from 82.82% to 86.73% of branches, from 82.58% to 86.75% of functions and from 89.67% to 92.59% of lines. No build or release check reads these figures.</>,
       <><strong>Note</strong> &mdash; Three files outside this release&apos;s scope run inside the new tests, so their figures rose. They are not tested in their own right: the main page beyond saving a snapshot and its two snapshot connections, the Gantt chart, and the export and import helpers.</>,
+    ],
+  },
+  {
+    version: '0.29.11',
+    date: 'October 31, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; an import&apos;s message, or a project name being typed, could be lost when the selected project changed. Since version 0.29.10, the Projects tab started over whenever the selected project changed, and lost what it was showing or holding.</>,
+      <><strong>Note</strong> &mdash; An import that changed which project was selected showed no message when it finished: for example an import into an empty workspace (Replace All, or a project file merged in), or a Replace All after which a different project came first in the list, when no project had been chosen. If such an import could not save its snapshots, for example because the browser&apos;s storage was full, the error was not shown either: the imported projects appeared, and nothing said the snapshots had not been saved.</>,
+      <><strong>Note</strong> &mdash; Deleting the selected project discarded the name typed in the new-project form. An import that left the same project selected was not affected. Each case was reproduced in tests on version 0.29.10.</>,
+      <><strong>Changed</strong> &mdash; The Projects tab no longer starts over when the selected project changes. The import&apos;s result or error message appears, and the name typed in the form stays.</>,
+      <><strong>Changed</strong> &mdash; When the selected project changes, the Releases tab clears its form and closes any edit in progress, without starting over, so its project selector keeps keyboard focus. Version 0.29.10 also cleared the form, by starting the tab over, which moved keyboard focus from the selector to the page.</>,
+      <><strong>Note</strong> &mdash; The Gantt Chart tab no longer starts over either when the selected project changes. That follows from the code, and no test covers it.</>,
+      <><strong>Note</strong> &mdash; What version 0.29.10 added still holds: a tab that cannot be displayed shows &ldquo;This view could not be displayed.&rdquo;, and the other tabs keep working. Changing tab, or choosing &ldquo;Try again&rdquo;, shows it again. A change of the selected project still does, now without starting over a tab that is working.</>,
+      <><strong>Note</strong> &mdash; Tested in automated tests that render the whole app: each import and draft case above, an import that keeps the selected project, the Releases tab&apos;s form when the selected project changes (from its selector, and when the project is removed elsewhere), its keyboard focus when its selector is used, and a tab that cannot be displayed being shown again when its project is removed or another tab is opened. It was not tried in a browser. These tests are the first to run the app&apos;s main page (<code>pages/index.tsx</code>), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.</>,
+    ],
+  },
+  {
+    version: '0.29.10',
+    date: 'October 29, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; projects loaded from cloud storage are now checked before they are shown. A release, snapshot or other value that GanttApp itself could not have saved is left out, and the rest of the project loads normally. A notice names the project when this happens. Loading a project changes nothing in the cloud, and projects saved by GanttApp load exactly as before.</>,
+      <><strong>Changed</strong> &mdash; the chart&apos;s timeline now covers at most the years 2000 to 2250. A release dated outside that range is still loaded, listed and editable; only its bar is cut off at the edge of the chart.</>,
+      <><strong>Fixed</strong> &mdash; an error in one tab no longer stops the whole app. That tab shows a message, and the other tabs and projects keep working.</>,
+    ],
+  },
+  {
+    version: '0.29.9',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Added</strong> &mdash; a security.txt file (RFC 9116), so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through GanttApp&apos;s GitHub repository. Nothing about how the app works, looks or stores data changed.</>,
+    ],
+  },
+  {
+    version: '0.29.8',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; the SPERT&reg; Suite Terms of Service and Privacy Policy have new editions, version 1.4 of each, effective October 26, 2026. If you use cloud storage, you&apos;ll be asked to accept them the next time you sign in; if you are signed in, GanttApp signs you out the next time you open it, so that you can accept them. The acceptance it had recorded was for the October 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use GanttApp without signing in.</>,
+      <><strong>Note</strong> &mdash; The new editions replace a personal contact address with the SPERT&reg; Suite&apos;s own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures.</>,
+      <><strong>Note</strong> &mdash; The copies of the Terms and Privacy Policy kept in this project&apos;s repository now match the October 26 editions published on spertsuite.com.</>,
+    ],
+  },
+  {
+    version: '0.29.7',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; signing out now resets this browser&apos;s record that the Terms of Service were accepted, so the next person who signs in on the same browser is asked to accept the Terms, rather than being let through on the previous person&apos;s acceptance. This matters most on a shared computer. Nothing else about how the app works, looks or stores data changed.</>,
+    ],
+  },
+  {
+    version: '0.29.6',
+    date: 'October 25, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; the site now sends a stronger HTTP Strict-Transport-Security header (<code>max-age=63072000; includeSubDomains; preload</code>), telling browsers to use HTTPS for this site and its subdomains and making it eligible for the browser preload list. This matches the other SPERT&reg; Suite apps.</>,
+      <><strong>Changed</strong> &mdash; the release workflow now declares least-privilege permissions (read-only access to the repository). Nothing about how the app works, looks or stores data changed.</>,
     ],
   },
   {

@@ -30,6 +30,13 @@ const STORAGE_MODE_KEY = 'ganttapp-storage-mode';
 // one-time migration cleanup inside performSignOutWithCleanup step 7.
 const HAS_UPLOADED_KEY_V16_5_LEGACY = 'ganttapp-has-uploaded-to-cloud';
 
+// ToS consent keys — the SAME string literals written by AuthContext.tsx and
+// src/shared/hooks/useSignInWithTosGate.ts (each defines its own copy). Cleared
+// on sign-out (B-10, v0.29.7) so the next user on a shared browser is
+// re-prompted; see performSignOutWithCleanup step 7.5.
+const TOS_ACCEPTED_KEY = 'spert_tos_accepted_version';
+const TOS_WRITE_PENDING_KEY = 'spert_tos_write_pending';
+
 /** What a switch to the cloud did; the uploaded projects' local copies are already removed. */
 export type UploadResult = Omit<SwitchToCloudResult, 'service'>;
 
@@ -212,9 +219,11 @@ export function StorageProvider({ children }: { children: ReactNode }) {
    *   6. Clear stale transition state (isSwitching, switchError,
    *      uploadResult, needsUploadPrompt).
    *   7. Remove the v16.5 dead localStorage key as a one-time migration.
+   *   7.5. Clear the ToS acceptance flags (B-10) so the next user who signs in
+   *        on this browser is re-prompted to accept the Terms.
    *   8. firebaseSignOut(auth) — only async step.
    *
-   * Steps 1–7 are synchronous. No awaits until step 8.
+   * Steps 1–7.5 are synchronous. No awaits until step 8.
    */
   const performSignOutWithCleanup = useCallback(async (): Promise<void> => {
     // Step 1: cancel pending cloud writes
@@ -258,6 +267,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     // Step 7: remove v16.5 dead key (one-time migration cleanup for users
     // upgrading from a version that wrote but never read this flag).
     localStorage.removeItem(HAS_UPLOADED_KEY_V16_5_LEGACY);
+
+    // Step 7.5 (B-10, v0.29.7): clear the Terms-of-Service acceptance flags so
+    // the next person to sign in on this browser is prompted to accept the
+    // Terms, rather than being let through on the previous user's acceptance.
+    // Unconditional (both storage modes): the ToS gate runs on every sign-in.
+    // Mirrors SPERT AHP, which clears its consent flag on every sign-out.
+    localStorage.removeItem(TOS_ACCEPTED_KEY);
+    localStorage.removeItem(TOS_WRITE_PENDING_KEY);
 
     // Step 8: Firebase sign-out
     if (auth) {

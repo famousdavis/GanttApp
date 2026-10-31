@@ -3,15 +3,16 @@
 // See LICENSE file in the project root for full license text.
 
 // v0.26.0 — Smart Import state machine tests (pitfall #59).
-// renderHook cases, plus direct tests of withImportOwners. ImportPreviewSection-level rendering is covered by
+// renderHook cases, plus direct tests of withImportOwners and withFreshImportIds. ImportPreviewSection-level rendering is covered by
 // ProjectsTab.test.tsx; this file targets the hook's internal state machine
 // in isolation, mocking storage + updateData + onReplaceSnapshots.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useImportState, withImportOwners } from '../hooks/useImportState';
+import { useImportState, withImportOwners, withFreshImportIds } from '../hooks/useImportState';
 import type { AppData } from '../../../shared/types/app';
 import type { Snapshot } from '../../../shared/types/snapshots';
+import type { ImportResult } from '../../../shared/utils/export';
 
 function makeAppData(overrides: Partial<AppData> = {}): AppData {
   return {
@@ -143,6 +144,24 @@ function startPick(result: HookResult, event: React.ChangeEvent<HTMLInputElement
 
 function previewIds(result: HookResult): string[] | undefined {
   return result.current.importPreview?.imported.appData.projects.map((p) => p.id);
+}
+
+// Picks an all-projects file holding these projects, opens the Replace All
+// confirmation and confirms it.
+async function replaceAllWith(result: HookResult, projects: Array<{ id: string; name: string }>) {
+  await act(async () => {
+    await result.current.handleImport(makeChangeEvent(makeFile({
+      _exportType: 'ganttapp-all-projects',
+      projects,
+      releases: [],
+    })));
+  });
+  act(() => {
+    result.current.openReplaceAllConfirm();
+  });
+  await act(async () => {
+    result.current.handleConfirmReplaceAll();
+  });
 }
 
 const validProjectExport = {
@@ -927,6 +946,38 @@ describe('useImportState — state machine', () => {
     expect(onReplaceSnapshots).not.toHaveBeenCalled();
   });
 
+  it('31b. a conflict replaced by another, so their number is the same, also stops Confirm before the snapshot load', async () => {
+    // As in test 31, the abort is the deviation SD-5 records, and only the
+    // strict load tells the check before the load from its repeat after it.
+    // Here the number of conflicts does not change, only which project the
+    // file's project conflicts with.
+    const before = makeAppData({ projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }] });
+    const loadSnapshotsStrict = vi.fn(() => Promise.resolve<Snapshot[]>([]));
+    const { result, rerender, updateData, onReplaceSnapshots } = setup({ data: before, loadSnapshotsStrict });
+    await act(async () => {
+      await result.current.handleImport(makeChangeEvent(makeFile({
+        _exportType: 'ganttapp-project-export',
+        projects: [{ id: 'p9', name: 'Alpha' }], // name conflict with p1
+        releases: [],
+      })));
+    });
+    expect(result.current.importPreview?.conflicts.map((c) => [c.type, c.existingProject.id])).toEqual([['name', 'p1']]);
+
+    // While the preview is open, p1 is renamed away and p2 is renamed to the
+    // file's name: still one name conflict, now with p2.
+    rerender({ dataOverride: makeAppData({ projects: [{ id: 'p1', name: 'Alpha (old)' }, { id: 'p2', name: 'Alpha' }] }) });
+    await act(async () => {
+      result.current.handleConfirmMerge();
+    });
+    expect(result.current.importBanner).toEqual({
+      kind: 'error',
+      text: 'The workspace changed while the preview was open. Please review your import again.',
+    });
+    expect(loadSnapshotsStrict).not.toHaveBeenCalled();
+    expect(updateData).not.toHaveBeenCalled();
+    expect(onReplaceSnapshots).not.toHaveBeenCalled();
+  });
+
   it('32. no fast Replace All while the workspace is still loading: the preview shows instead', async () => {
     const { result, updateData, onReplaceSnapshots } = setup({ mode: 'local', appDataLoading: true });
     await act(async () => {
@@ -988,32 +1039,62 @@ describe('useImportState — state machine', () => {
     expect(event.target.value).toBe('');
   });
 
+  it('34b. a success banner clears the file input too', async () => {
+    const { result } = setup();
+    const event = makePickedFileEvent(makeFile(validProjectExport));
+    expect(event.target.value).toBe('C:\\fakepath\\test.json');
+    await act(async () => {
+      await result.current.handleImport(event);
+    });
+    expect(result.current.importBanner?.kind).toBe('success');
+    expect(event.target.value).toBe('');
+  });
+
   it('35. a second Replace All runs after the first one finished', async () => {
     const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }] });
     const { result, updateData, setSelectedProjectId } = setup({ data });
-    const replaceAllWith = async (projects: Array<{ id: string; name: string }>) => {
-      await act(async () => {
-        await result.current.handleImport(makeChangeEvent(makeFile({
-          _exportType: 'ganttapp-all-projects',
-          projects,
-          releases: [],
-        })));
-      });
-      act(() => {
-        result.current.openReplaceAllConfirm();
-      });
-      await act(async () => {
-        result.current.handleConfirmReplaceAll();
-      });
-    };
 
-    await replaceAllWith([{ id: 'p2', name: 'First' }]);
+    await replaceAllWith(result, [{ id: 'p2', name: 'First' }]);
     expect(result.current.importBanner).toEqual({ kind: 'success', text: 'All data replaced. 1 project imported.' });
 
-    await replaceAllWith([{ id: 'p3', name: 'Second' }, { id: 'p4', name: 'Third' }]);
+    await replaceAllWith(result, [{ id: 'p3', name: 'Second' }, { id: 'p4', name: 'Third' }]);
     expect(result.current.importBanner).toEqual({ kind: 'success', text: 'All data replaced. 2 projects imported.' });
     expect(updateData).toHaveBeenCalledTimes(2);
     expect(vi.mocked(updateData).mock.calls[1][0].projects.map((p) => p.id)).toEqual(['p3', 'p4']);
+    expect(setSelectedProjectId).toHaveBeenLastCalledWith('p3');
+  });
+
+  it('35b. a Replace All runs after an earlier one failed', async () => {
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }] });
+    const onReplaceSnapshots = vi.fn()
+      .mockRejectedValueOnce(new Error('Snapshot write failed'))
+      .mockResolvedValue(undefined);
+    const { result, updateData, setSelectedProjectId } = setup({ data, onReplaceSnapshots });
+
+    await replaceAllWith(result, [{ id: 'p2', name: 'First' }]);
+    expect(result.current.importBanner).toEqual({ kind: 'error', text: 'Snapshot write failed' });
+
+    await replaceAllWith(result, [{ id: 'p3', name: 'Second' }]);
+    expect(result.current.importBanner).toEqual({ kind: 'success', text: 'All data replaced. 1 project imported.' });
+    expect(onReplaceSnapshots).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(updateData).mock.calls[1][0].projects.map((p) => p.id)).toEqual(['p3']);
+    expect(setSelectedProjectId).toHaveBeenLastCalledWith('p3');
+  });
+
+  it('35c. a Replace All runs after an earlier one was refused', async () => {
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }] });
+    const { result, storage, updateData, setSelectedProjectId } = setup({ data });
+
+    storage.canWrite = () => false;
+    await replaceAllWith(result, [{ id: 'p2', name: 'First' }]);
+    expect(result.current.importBanner?.kind).toBe('error');
+    expect(updateData).not.toHaveBeenCalled();
+
+    storage.canWrite = () => true;
+    await replaceAllWith(result, [{ id: 'p3', name: 'Second' }]);
+    expect(result.current.importBanner).toEqual({ kind: 'success', text: 'All data replaced. 1 project imported.' });
+    expect(updateData).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(updateData).mock.calls[0][0].projects.map((p) => p.id)).toEqual(['p3']);
     expect(setSelectedProjectId).toHaveBeenLastCalledWith('p3');
   });
 });
@@ -1026,7 +1107,8 @@ describe('withImportOwners', () => {
     const workspace = makeAppData({ projects: [{ id: 'p-held', name: 'Held' }] });
     const imported = makeAppData({
       projects: [
-        { id: 'p-held', name: 'Held, from the file' },
+        // Export writes no owner, but a hand-edited file can carry one.
+        { id: 'p-held', name: 'Held, from the file', owner: 'uid-other' },
         { id: 'p-new', name: 'New' },
       ],
     });
@@ -1034,8 +1116,51 @@ describe('withImportOwners', () => {
     const byId = new Map(out.projects.map((p) => [p.id, p] as const));
     // An owner uid was passed: a project the workspace does not hold gets it.
     expect(byId.get('p-new')?.owner).toBe('uid-me');
-    // The held project has no owner, not even an undefined one.
+    // The held project has no owner, not even an undefined one, and not the file's.
     expect(byId.get('p-held')?.name).toBe('Held, from the file');
     expect(Object.keys(byId.get('p-held') ?? {}).sort()).toEqual(['id', 'name']);
+  });
+});
+
+describe('withFreshImportIds', () => {
+  it('in cloud mode, gives each release and snapshot of a project the workspace does not hold an id of its own', () => {
+    const release = (id: string, projectId: string) => ({
+      id, projectId, name: `Release ${id}`, startDate: '2026-01-05', earlyFinishDate: '2026-02-02', lateFinishDate: '2026-03-02',
+    });
+    const snapshot = (id: string, projectId: string): Snapshot => ({
+      id, projectId, name: `Snapshot ${id}`, timestamp: '2026-01-01T00:00:00Z', releases: [],
+    });
+    const workspace = makeAppData({ projects: [{ id: 'p-held', name: 'Held' }] });
+    const imported: ImportResult = {
+      exportType: 'ganttapp-project-export',
+      appData: makeAppData({
+        projects: [{ id: 'p-new', name: 'New' }, { id: 'p-held', name: 'Held, from the file' }],
+        releases: [release('r1', 'p-new'), release('r2', 'p-new'), release('r-held', 'p-held')],
+      }),
+      snapshots: [snapshot('s1', 'p-new'), snapshot('s2', 'p-new'), snapshot('s-held', 'p-held')],
+    };
+    const fileIds = ['p-new', 'p-held', 'r1', 'r2', 'r-held', 's1', 's2', 's-held'];
+
+    const out = withFreshImportIds(imported, workspace, 'uid-me').imported;
+    const newProjectId = out.appData.projects[0].id;
+    expect(fileIds).not.toContain(newProjectId);
+    expect(out.appData.projects[0].name).toBe('New');
+
+    // Both releases and both snapshots of the new project follow it, each with
+    // an id of its own: none shared, none the project's, none from the file.
+    const renewed = [
+      ...out.appData.releases.filter((r) => r.projectId === newProjectId),
+      ...(out.snapshots ?? []).filter((s) => s.projectId === newProjectId),
+    ];
+    expect(renewed.map((item) => item.name)).toEqual(['Release r1', 'Release r2', 'Snapshot s1', 'Snapshot s2']);
+    const ids = renewed.map((item) => item.id);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids).not.toContain(newProjectId);
+    expect(ids.filter((id) => fileIds.includes(id))).toEqual([]);
+
+    // The held project, its release and its snapshot keep their ids.
+    expect(out.appData.projects[1]).toEqual({ id: 'p-held', name: 'Held, from the file' });
+    expect(out.appData.releases.filter((r) => r.projectId === 'p-held')).toEqual([release('r-held', 'p-held')]);
+    expect((out.snapshots ?? []).filter((s) => s.projectId === 'p-held')).toEqual([snapshot('s-held', 'p-held')]);
   });
 });

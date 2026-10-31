@@ -924,7 +924,7 @@ describe('firestore-converters', () => {
         schemaVersion: 1, createdAt: '', updatedAt: '',
       };
       expect(firestoreToProject('p1', meta)).toStrictEqual({ id: 'p1', name: 'Alpha Launch', owner: 'uid-1' });
-      expect(firestoreToProject('p1', { ...meta, name: 'A' + 'b'.repeat(119) })).toStrictEqual({ id: 'p1', name: 'A' + 'b'.repeat(99), owner: 'uid-1' });
+      expect(firestoreToProject('p1', { ...meta, name: 'A' + 'b'.repeat(99) + 'C'.repeat(20) })).toStrictEqual({ id: 'p1', name: 'A' + 'b'.repeat(99), owner: 'uid-1' });
     });
 
     it('reads no optional key from a stored project with nothing optional set', () => {
@@ -974,7 +974,7 @@ describe('firestore-converters', () => {
         id: 'r1', projectId: 'p1', name: 'Release One', startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
       }]);
       const long = firestoreReleasesToFlat('p1', entry({
-        name: 'C' + 'd'.repeat(119), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
+        name: 'C' + 'd'.repeat(99) + 'E'.repeat(20), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0,
       }));
       expect(long).toStrictEqual([{
         id: 'r1', projectId: 'p1', name: 'C' + 'd'.repeat(99), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01',
@@ -1145,9 +1145,9 @@ describe('firestore-converters', () => {
         }],
       });
       const long: FirestoreSnapshot = {
-        name: 'E' + 'f'.repeat(119),
+        name: 'E' + 'f'.repeat(99) + 'X'.repeat(20),
         timestamp: '2026-02-15T10:00:00.000Z',
-        releases: [{ name: 'G' + 'h'.repeat(129), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
+        releases: [{ name: 'G' + 'h'.repeat(99) + 'Y'.repeat(30), startDate: '2026-01-01', earlyFinishDate: '2026-02-01', lateFinishDate: '2026-03-01', order: 0 }],
       };
       expect(firestoreSnapshotToFlat('snap4', 'p1', long)).toStrictEqual({
         id: 'snap4',
@@ -1259,6 +1259,7 @@ describe('firestore-converters', () => {
     { setting: 'exportAttribution', given: { exportAttribution: { name: 'Ann', identifier: 'T1' } } },
     { setting: 'globalWorkDays', given: { globalWorkDays: [1, 2, 3, 4, 5] } },
     { setting: 'globalWorkDays of one day', given: { globalWorkDays: [3] } },
+    { setting: 'globalWorkDays of seven days', given: { globalWorkDays: [0, 1, 2, 3, 4, 5, 6] } },
   ];
   const oneSnapshotField = (): {
     field: string;
@@ -1282,6 +1283,7 @@ describe('firestore-converters', () => {
       { field: 'order', project: {}, order: 3, written: { order: 3 } },
       { field: 'workDays', project: { workDays: [1, 2, 3, 4, 5, 6] }, written: { workDays: [1, 2, 3, 4, 5, 6] } },
       { field: 'workDays of one day', project: { workDays: [3] }, written: { workDays: [3] } },
+      { field: 'workDays of seven days', project: { workDays: [0, 1, 2, 3, 4, 5, 6] }, written: { workDays: [0, 1, 2, 3, 4, 5, 6] } },
       { field: 'legendLabels', project: { legendLabels: { solidBar: 'Build' } }, written: { legendLabels: { solidBar: 'Build' } } },
     ];
 

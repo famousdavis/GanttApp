@@ -323,6 +323,24 @@ describe('ProjectsTab form', () => {
       expect(storedProject('p1')?.name).toBe('Alpha');
     });
 
+    it.each([
+      { draft: 'a blank name', enter: () => typeName('') },
+      { draft: 'a finish date after 2050', enter: () => { setFinishDate('2051-01-01'); leaveFinishDate(); } },
+    ])('Escape leaves an edit with $draft, which cannot be saved, without saving it', async ({ enter }) => {
+      await renderLoaded({ projects: [{ id: 'p1', name: 'Alpha', finishDate: '2026-06-15' }] });
+      startEdit();
+      enter();
+      expect(updateButton()).toBeDisabled();
+
+      pressEscape();
+
+      expect(addButton()).toBeInTheDocument();
+      expect(nameInput().value).toBe('');
+      expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
+      expect(storedProject('p1')?.name).toBe('Alpha');
+      expect(storedProject('p1')?.finishDate).toBe('2026-06-15');
+    });
+
     it('Ctrl+S saves an open edit', async () => {
       await renderLoaded({ projects: [{ id: 'p1', name: 'Alpha' }] });
       startEdit();

@@ -1231,7 +1231,9 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
 
     expect(tileOf('Alpha')).toHaveTextContent('(2 releases)');
-    expect(tileOf('Beta')).toHaveTextContent('(1 releases)');
+    // The tile says "1 releases" today: it has no singular, which is wrong, and
+    // a fix is planned. This checks the count and accepts either wording.
+    expect(tileOf('Beta')).toHaveTextContent(/\(1 releases?\b/);
   });
 
   it('a tile shows its finish date as MM/DD/YYYY', async () => {

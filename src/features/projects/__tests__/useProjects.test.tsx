@@ -976,6 +976,40 @@ describe('useProjects', () => {
 
       alertSpy.mockRestore();
     });
+
+    it('copies the snapshots, with no alert, when the clone brings the total to exactly the cap', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Source' })],
+        releases: [],
+      });
+      // Seed 98 snapshots (cap = 100). Source has 2 → exactly 100, which is allowed.
+      const snapshots = [];
+      for (let i = 0; i < 96; i += 1) {
+        snapshots.push({ id: `other-${i}`, projectId: 'p2', timestamp: '2026-01-01T00:00:00Z', name: `Other ${i}`, releases: [] });
+      }
+      snapshots.push({ id: 's1', projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: 'Snap 1', releases: [] });
+      snapshots.push({ id: 's2', projectId: 'p1', timestamp: '2026-01-02T00:00:00Z', name: 'Snap 2', releases: [] });
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify(snapshots));
+
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(2);
+      const cloned = stored.projects.find((p: Project) => p.name === 'Source - Copy (1)');
+      const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
+      expect(allSnapshots).toHaveLength(100);
+      expect(allSnapshots.filter((s: { projectId: string }) => s.projectId === cloned.id)).toHaveLength(2);
+      expect(alertSpy).not.toHaveBeenCalled();
+
+      alertSpy.mockRestore();
+    });
   });
 });
 
@@ -1102,8 +1136,11 @@ describe('owner of a new project or a copy, before any reload', () => {
       .mockReturnValue({ data, updateData } as unknown as ReturnType<typeof AppDataModule.useAppData>);
     vi.spyOn(StorageModule, 'useStorage')
       .mockReturnValue({ storage } as unknown as ReturnType<typeof StorageModule.useStorage>);
+    // A signed-in user also has an email and a display name, each unlike the
+    // uid, so an owner taken from the wrong field shows.
+    const user = { uid: SIGNED_IN_UID, email: 'signed.in@example.com', displayName: 'Signed In' };
     vi.spyOn(AuthModule, 'useAuth')
-      .mockReturnValue({ user: { uid: SIGNED_IN_UID } } as unknown as ReturnType<typeof AuthModule.useAuth>);
+      .mockReturnValue({ user } as unknown as ReturnType<typeof AuthModule.useAuth>);
   }
 
   /** The project list the hook committed to memory. */

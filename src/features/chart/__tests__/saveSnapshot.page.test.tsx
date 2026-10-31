@@ -98,10 +98,15 @@ const PROJECT = { id: 'proj-alpha', name: 'Alpha Platform' };
 const ONE_RELEASE = [release('rel-one', 'proj-alpha', 'Release One')];
 
 // Renders the page, opens the chart, saves a snapshot through its button and
-// returns the one snapshot that was stored.
-async function saveSnapshotThroughThePage(): Promise<Stored> {
+// returns the one snapshot that was stored. With `pick`, the chart's project
+// picker first selects that project.
+async function saveSnapshotThroughThePage(pick?: string): Promise<Stored> {
   render(<Home />, { wrapper: FullWrapper });
   fireEvent.click(await screen.findByRole('button', { name: 'Gantt Chart' }));
+  if (pick) {
+    const picker = await screen.findByRole('combobox', { name: 'Project shown on the Gantt Chart tab' });
+    fireEvent.change(picker, { target: { value: pick } });
+  }
   fireEvent.click(await screen.findByRole('button', { name: /Save Snapshot/ }));
   // The chip appears once the write has resolved.
   await screen.findByRole('button', { name: SNAPSHOT_NAME });
@@ -109,7 +114,7 @@ async function saveSnapshotThroughThePage(): Promise<Stored> {
   const stored = storedSnapshots();
   expect(stored).toHaveLength(1);
   expect(stored[0].name).toBe(SNAPSHOT_NAME);
-  expect(stored[0].projectId).toBe('proj-alpha');
+  expect(stored[0].projectId).toBe(pick ?? 'proj-alpha');
   return stored[0];
 }
 
@@ -128,6 +133,13 @@ const PROJECT_LABELS = {
   mostLikelyLine: 'Alpha likely override',
   inProgress: 'Alpha progress override',
 };
+
+// Two projects that each override some labels and not others. Between them,
+// every key is overridden once and left to the global label once.
+const PARTIAL_OVERRIDES: { name: string; keys: (keyof typeof PROJECT_LABELS)[] }[] = [
+  { name: 'solidBar and inProgress', keys: ['solidBar', 'inProgress'] },
+  { name: 'hatchedBar, finishDateLine and mostLikelyLine', keys: ['hatchedBar', 'finishDateLine', 'mostLikelyLine'] },
+];
 
 describe('pages/index — saving a snapshot through the page', () => {
   beforeEach(() => {
@@ -160,6 +172,18 @@ describe('pages/index — saving a snapshot through the page', () => {
       });
       const snapshot = await saveSnapshotThroughThePage();
       expect(snapshot.legendLabels).toEqual(GLOBAL_LABELS);
+      expect(window.alert).not.toHaveBeenCalled();
+    });
+
+    it.each(PARTIAL_OVERRIDES)('freezes the project override of $name and the global label of every other key', async ({ keys }) => {
+      const overrides = Object.fromEntries(keys.map((key) => [key, PROJECT_LABELS[key]]));
+      seed({
+        projects: [{ ...PROJECT, legendLabels: overrides }],
+        releases: ONE_RELEASE,
+        legendLabels: GLOBAL_LABELS,
+      });
+      const snapshot = await saveSnapshotThroughThePage();
+      expect(snapshot.legendLabels).toEqual({ ...GLOBAL_LABELS, ...overrides });
       expect(window.alert).not.toHaveBeenCalled();
     });
 
@@ -223,6 +247,11 @@ describe('pages/index — saving a snapshot through the page', () => {
       expect(snapshot.projectFinishDate).toBe('2026-11-20');
     });
 
+    it('freezes the finish date of the selected project when it is not the first one', async () => {
+      const snapshot = await saveSnapshotThroughThePage('proj-beta');
+      expect(snapshot.projectFinishDate).toBe('2026-12-11');
+    });
+
     it('freezes the chart colours', async () => {
       const snapshot = await saveSnapshotThroughThePage();
       expect(snapshot.chartColors).toEqual(CHART_COLORS);
@@ -237,6 +266,13 @@ describe('pages/index — saving a snapshot through the page', () => {
       const snapshot = await saveSnapshotThroughThePage();
       expect(snapshot.todayDateOverride).toBe('2026-04-17');
     });
+  });
+
+  it('stores no status date when none is set', async () => {
+    seed({ projects: [PROJECT], releases: ONE_RELEASE });
+    const snapshot = await saveSnapshotThroughThePage();
+    expect((snapshot.releases as Stored[]).map((r) => r.id)).toEqual(['rel-one']);
+    expect(snapshot).not.toHaveProperty('todayDateOverride');
   });
 });
 

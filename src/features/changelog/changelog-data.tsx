@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.29.11',
+    date: 'October 31, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; an import&apos;s message, or a project name being typed, could be lost when the selected project changed. Since version 0.29.10, the Projects tab started over whenever the selected project changed, and lost what it was showing or holding.</>,
+      <><strong>Note</strong> &mdash; An import that changed which project was selected showed no message when it finished: for example an import into an empty workspace (Replace All, or a project file merged in), or a Replace All after which a different project came first in the list, when no project had been chosen. If such an import could not save its snapshots, for example because the browser&apos;s storage was full, the error was not shown either: the imported projects appeared, and nothing said the snapshots had not been saved.</>,
+      <><strong>Note</strong> &mdash; Deleting the selected project discarded the name typed in the new-project form. An import that left the same project selected was not affected. Each case was reproduced in tests on version 0.29.10.</>,
+      <><strong>Changed</strong> &mdash; The Projects tab no longer starts over when the selected project changes. The import&apos;s result or error message appears, and the name typed in the form stays.</>,
+      <><strong>Changed</strong> &mdash; When the selected project changes, the Releases tab clears its form and closes any edit in progress, without starting over, so its project selector keeps keyboard focus. Version 0.29.10 also cleared the form, by starting the tab over, which moved keyboard focus from the selector to the page.</>,
+      <><strong>Note</strong> &mdash; The Gantt Chart tab no longer starts over either when the selected project changes. That follows from the code, and no test covers it.</>,
+      <><strong>Note</strong> &mdash; What version 0.29.10 added still holds: a tab that cannot be displayed shows &ldquo;This view could not be displayed.&rdquo;, and the other tabs keep working. Changing tab, or choosing &ldquo;Try again&rdquo;, shows it again. A change of the selected project still does, now without starting over a tab that is working.</>,
+      <><strong>Note</strong> &mdash; Tested in automated tests that render the whole app: each import and draft case above, an import that keeps the selected project, the Releases tab&apos;s form when the selected project changes (from its selector, and when the project is removed elsewhere), its keyboard focus when its selector is used, and a tab that cannot be displayed being shown again when its project is removed or another tab is opened. It was not tried in a browser. These tests are the first to run the app&apos;s main page (<code>pages/index.tsx</code>), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.</>,
+    ],
+  },
+  {
     version: '0.29.10',
     date: 'October 29, 2026',
     items: [

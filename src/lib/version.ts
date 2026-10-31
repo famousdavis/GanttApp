@@ -2,6 +2,6 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.29.10';
+export const APP_VERSION = '0.29.11';
 export const TOS_VERSION = '10-26-2026';
 export const APP_ID = 'ganttapp';

@@ -652,7 +652,8 @@ Any editor of a shared project can write its documents, so the cloud read path d
 - **Point of use, the date range.** `clampChartSpan` (`src/shared/utils/dates.ts`) limits the
   chart's axis to 2000–2250, which bounds the month, quarter and year marks it draws.
 - **Containment.** `src/shared/components/ErrorBoundary.tsx` wraps the current tab in
-  `pages/index.tsx`; `src/shared/components/CloudLoadNoticeBanner.tsx` names each project in which
+  `pages/index.tsx`, keyed on the tab: a change of the selected project clears an error without
+  restarting a healthy tab; `src/shared/components/CloudLoadNoticeBanner.tsx` names each project in which
   something was set aside, from `src/shared/storage/cloud-load-notices.ts`.
 - `loadSnapshotsStrict` still refuses when a whole snapshot cannot be read, because
   `saveSnapshots` deletes every snapshot it is not given.

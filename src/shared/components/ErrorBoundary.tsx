@@ -4,15 +4,19 @@
 
 // ErrorBoundary (v0.29.10) — catches an error thrown while rendering the
 // current tab, so the header, banners, tabs and footer stay up and the user
-// can move to another tab or project. pages/index.tsx keys it on the tab and
-// the selected project, so either change starts a fresh view. The suite's
-// precedent is spert-scheduler's ErrorBoundary.
+// can move to another tab or project. pages/index.tsx keys it on the tab, so a
+// change of tab starts a fresh view, and passes the selected project as
+// resetKey, so a change of project clears an error without restarting a
+// healthy tab (v0.29.11). The suite's precedent is spert-scheduler's
+// ErrorBoundary.
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 
 interface Props {
   children: ReactNode;
+  /** A change of this value clears an error the notice already shows. */
+  resetKey?: string;
 }
 
 interface State {
@@ -65,6 +69,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[GanttApp] view error:', error.message, info.componentStack ?? '');
+  }
+
+  componentDidUpdate(prevProps: Props, prevState: State): void {
+    // Only an error the notice already showed: in the commit that catches an
+    // error, the view has just failed with the new key, so it is not retried.
+    if (prevState.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
   }
 
   private retry = () => {

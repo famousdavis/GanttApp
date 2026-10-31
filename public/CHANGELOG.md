@@ -18,7 +18,7 @@ What changes when the selected project changes:
 - The Gantt Chart tab no longer starts over either. That follows from the code, and no test covers it.
 - What version 0.29.10 added still holds: a tab that cannot be displayed shows "This view could not be displayed.", and the other tabs keep working. Changing tab, or choosing "Try again", shows it again. A change of the selected project still does, now without starting over a tab that is working.
 
-Tested in automated tests that render the whole app: each case above, an import that keeps the selected project, the Releases tab's form and keyboard focus when the selected project changes (from its selector, and when the project is removed elsewhere), and a tab that cannot be displayed being shown again when its project is removed or another tab is opened. It was not tried in a browser. These tests are the first to run the app's main page (`pages/index.tsx`), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.
+Tested in automated tests that render the whole app: each import and draft case above, an import that keeps the selected project, the Releases tab's form when the selected project changes (from its selector, and when the project is removed elsewhere), its keyboard focus when its selector is used, and a tab that cannot be displayed being shown again when its project is removed or another tab is opened. It was not tried in a browser. These tests are the first to run the app's main page (`pages/index.tsx`), so its measured coverage rises from 0 to 33 of its 87 branches; that rise is incidental, and the rest of the page is not tested by them.
 
 ## Version 0.29.10 (2026-10-29)
 

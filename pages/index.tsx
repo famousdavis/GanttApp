@@ -310,8 +310,10 @@ function AppContent() {
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main>
-          {/* v0.29.10: an error in one view leaves the rest of the app up. */}
-          <ErrorBoundary key={`${activeTab}:${selectedProjectId}`}>
+          {/* v0.29.10: an error in one view leaves the rest of the app up.
+              Keyed on the tab; a change of the selected project clears an
+              error without restarting a healthy tab (v0.29.11). */}
+          <ErrorBoundary key={activeTab} resetKey={selectedProjectId}>
           {activeTab === 'projects' && (
             <ProjectsTab
               selectedProjectId={selectedProjectId}

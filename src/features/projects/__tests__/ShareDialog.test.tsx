@@ -326,6 +326,26 @@ describe("ShareDialog's colours, by theme", () => {
     expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveStyle({ border: `1px solid ${p.btnBorder}` });
   });
 
+  it.each(['light', 'dark'] as const)('in %s mode Resend is the tab\'s blue, and its muted grey once the five sends are used', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    const p = projectsTabPalette(theme);
+    const invite = (tokenId: string, inviteeEmail: string, emailSendCount: number) => ({
+      tokenId, appId: 'ganttapp', modelId: 'p1', modelName: 'Test', inviteeEmail, inviterUid: 'u1', role: 'editor',
+      status: 'pending', createdAt: 0, expiresAt: 0, lastEmailSentAt: 0, emailSendCount, updatedAt: 0,
+    });
+    renderDialog(createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite('t1', 'one@example.com', 1), invite('t5', 'five@example.com', 5)]),
+    }));
+
+    const rowOf = async (email: string) => (await screen.findByText(email)).closest('div[style]')?.parentElement as HTMLElement;
+    const open = within(await rowOf('one@example.com')).getByRole('button', { name: 'Resend' });
+    const spent = within(await rowOf('five@example.com')).getByRole('button', { name: 'Resend' });
+    expect(open).toBeEnabled();
+    expect(open).toHaveStyle({ color: p.link, border: `1px solid ${p.link}` });
+    expect(spent).toBeDisabled();
+    expect(spent).toHaveStyle({ color: p.meta, border: `1px solid ${p.btnBorder}` });
+  });
+
   it.each(['light', 'dark'] as const)('in %s mode the could-not-load message uses the tab\'s red', async (theme) => {
     localStorage.setItem('gantt-theme', theme);
     renderDialog(createMockCloudStorage({ getProjectMembers: vi.fn().mockRejectedValue(new Error('denied')) }));

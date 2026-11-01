@@ -240,6 +240,18 @@ describe('ShareDialog', () => {
       expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
     });
 
+    it('Escape closes the Remove Member confirm, keeps the member, and leaves the sharing dialog open', async () => {
+      const mockStorage = createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) });
+      renderDialog(mockStorage);
+
+      const confirm = await openRemoveConfirm();
+      fireEvent.keyDown(within(confirm).getByRole('button', { name: 'Cancel' }), { key: 'Escape', bubbles: true, cancelable: true });
+
+      expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
+      expect(mockStorage.removeCollaborator).not.toHaveBeenCalled();
+      expect(screen.getByText('editor@test.com')).toBeInTheDocument();
+    });
+
     it('keeps the member when the confirm is cancelled', async () => {
       const mockStorage = createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) });
       renderDialog(mockStorage);

@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { AppDataProvider } from '../../../context/AppDataContext';
 import { StorageProvider } from '../../../context/StorageContext';
@@ -323,6 +323,26 @@ describe('ReleasesTab', () => {
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.releases).toHaveLength(0);
+    });
+
+    it('Escape closes the Delete Release confirmation and deletes nothing', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1' })],
+        releases: [makeRelease({ id: 'r1', name: 'Sprint 1' })],
+      });
+
+      renderReleasesTab();
+      await waitFor(() => {
+        expect(screen.getByText('Sprint 1')).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Delete release' }));
+      const confirm = screen.getByRole('dialog', { name: 'Delete Release' });
+
+      fireEvent.keyDown(within(confirm).getByRole('button', { name: 'Cancel' }), { key: 'Escape', bubbles: true, cancelable: true });
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(JSON.parse(localStorage.getItem('ganttAppData')!).releases).toHaveLength(1);
+      expect(screen.getByText('Sprint 1')).toBeTruthy();
     });
   });
 

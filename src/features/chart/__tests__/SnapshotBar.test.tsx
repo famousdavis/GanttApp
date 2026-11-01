@@ -148,6 +148,22 @@ describe('SnapshotBar', () => {
       expect(screen.getByTitle('Delete this snapshot')).toBeInTheDocument();
     });
 
+    it('Escape closes the confirmation and keeps the snapshot', () => {
+      const onDelete = vi.fn();
+      renderWithTheme(
+        <SnapshotBar {...defaultProps} activeSnapshotId="snap1" onDeleteSnapshot={onDelete} />
+      );
+
+      fireEvent.click(screen.getByTitle('Delete this snapshot'));
+      expect(screen.getByRole('dialog', { name: 'Delete Snapshot' })).toBeInTheDocument();
+
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), { key: 'Escape', bubbles: true, cancelable: true });
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.getByText('Sprint 1')).toBeInTheDocument();
+    });
+
     it('Delete deletes the named snapshot and closes the confirmation', () => {
       const onDelete = vi.fn();
       renderWithTheme(

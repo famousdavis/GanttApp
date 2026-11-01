@@ -329,6 +329,18 @@ describe('ShareDialog invitations', () => {
       expect(screen.queryByRole('dialog', { name: 'Revoke Invitation' })).toBeNull();
     });
 
+    it('Escape closes the revoke confirm and keeps the invitation', async () => {
+      const cloudStorage = createMockCloudStorage({ listPendingInvites: vi.fn().mockResolvedValue([invite()]) });
+      renderDialog(cloudStorage);
+
+      const confirm = await openRevokeConfirm('pending@example.com');
+      fireEvent.keyDown(within(confirm).getByRole('button', { name: 'Cancel' }), { key: 'Escape', bubbles: true, cancelable: true });
+
+      expect(screen.queryByRole('dialog', { name: 'Revoke Invitation' })).toBeNull();
+      expect(cloudStorage.revokeInvite).not.toHaveBeenCalled();
+      expect(section('Pending invitations').getByText('pending@example.com')).toBeInTheDocument();
+    });
+
     it('keeps the invitation when the revoke confirm is cancelled', async () => {
       const cloudStorage = createMockCloudStorage({ listPendingInvites: vi.fn().mockResolvedValue([invite()]) });
       renderDialog(cloudStorage);

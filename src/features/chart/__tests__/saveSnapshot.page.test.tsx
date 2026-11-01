@@ -274,6 +274,16 @@ describe('pages/index — saving a snapshot through the page', () => {
     expect((snapshot.releases as Stored[]).map((r) => r.id)).toEqual(['rel-one']);
     expect(snapshot).not.toHaveProperty('todayDateOverride');
   });
+
+  it('stores no finish date when the selected project has none, though another project has one', async () => {
+    seed({
+      projects: [{ ...PROJECT, finishDate: '2026-11-20' }, { id: 'proj-beta', name: 'Beta Service' }],
+      releases: [...ONE_RELEASE, release('rel-beta', 'proj-beta', 'Beta Release')],
+    });
+    const snapshot = await saveSnapshotThroughThePage('proj-beta');
+    expect((snapshot.releases as Stored[]).map((r) => r.id)).toEqual(['rel-beta']);
+    expect(snapshot).not.toHaveProperty('projectFinishDate');
+  });
 });
 
 describe('pages/index — snapshot wiring', () => {

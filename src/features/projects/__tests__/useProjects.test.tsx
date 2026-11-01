@@ -1010,6 +1010,33 @@ describe('useProjects', () => {
 
       alertSpy.mockRestore();
     });
+
+    it.each([
+      { others: 98, source: 1, copies: true },
+      { others: 95, source: 3, copies: false },
+    ])('counts the source\'s own $source snapshot(s) against the cap, with $others others', async ({ others, source, copies }) => {
+      seedData({ projects: [makeProject({ id: 'p1', name: 'Source' })], releases: [] });
+      const snapshots = [];
+      for (let i = 0; i < others; i += 1) {
+        snapshots.push({ id: `other-${i}`, projectId: 'p2', timestamp: '2026-01-01T00:00:00Z', name: `Other ${i}`, releases: [] });
+      }
+      for (let i = 0; i < source; i += 1) {
+        snapshots.push({ id: `s${i}`, projectId: 'p1', timestamp: '2026-01-01T00:00:00Z', name: `Snap ${i}`, releases: [] });
+      }
+      localStorage.setItem('ganttAppSnapshots', JSON.stringify(snapshots));
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const { result } = renderProjectsHook();
+      await waitFor(() => expect(result.current.data.projects.length).toBe(1));
+      await act(async () => {
+        await result.current.cloneProject('p1');
+      });
+      const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
+      expect(stored.projects).toHaveLength(2);
+      const allSnapshots = JSON.parse(localStorage.getItem('ganttAppSnapshots')!);
+      expect(allSnapshots).toHaveLength(copies ? others + 2 * source : others + source);
+      expect(alertSpy).toHaveBeenCalledTimes(copies ? 0 : 1);
+      alertSpy.mockRestore();
+    });
   });
 });
 

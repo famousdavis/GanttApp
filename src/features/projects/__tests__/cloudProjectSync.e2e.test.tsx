@@ -1661,6 +1661,9 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await wait(900);
 
       expect(bannerText()).toContain(MERGE_NOT_SAVED);
+      const mergeBanner = Array.from(document.querySelectorAll('[role="status"], [role="alert"]'))
+        .find((e) => e.textContent?.includes(MERGE_NOT_SAVED));
+      expect(mergeBanner?.getAttribute('role')).toBe('alert');
       expect(onScreen()).toContain('Imported Plan');
     });
 

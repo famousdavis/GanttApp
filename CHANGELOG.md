@@ -1,6 +1,6 @@
 # Change Log
 
-## Version 0.29.12 (2026-10-31)
+## Version 0.29.12 (2026-11-01)
 
 ### Changed: tests now cover importing a file, managing projects and snapshots, the Projects tab, and saving a snapshot from the chart
 
@@ -18,11 +18,11 @@ Future changes to the messages shown after a project or snapshot action, to how 
 
 Each new test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails.
 
-A second round of checks broke each behaviour on the side the first tests did not reach, and tests were added for each break that passed: each release and snapshot of an imported project gets an id of its own; Replace All runs again after one that failed or was refused; a success message clears the file picker, as an error does; a conflict that moved to another project stops Confirm; a project the workspace holds takes no owner from the file; a snapshot keeps the global label of every key a project leaves alone and the finish date of a selected project that is not the first, and stores no status date when none is set; Escape leaves an edit that cannot be saved; a copy that brings the snapshots to exactly the limit copies them; who owns a new project or copy is checked against a signed-in user who also has an email and a name; long names read back from the cloud keep their beginning; a seven-day work week is saved to the cloud; and the message after a Replace All whose projects were not saved is shown as an alert.
+Two more rounds of checks broke each of these behaviours on a side the first tests did not reach, and a test was added or changed for each break that passed: each release and snapshot of an imported project gets an id of its own; Replace All runs again after one that failed or was refused; a success message clears the file picker, as an error does; a conflict that moved to another project stops Confirm; a project the workspace holds takes no owner from the file; a snapshot keeps the global label of every key a project leaves alone and the finish date of a selected project that is not the first, and stores no status date when none is set; a snapshot of a selected project with no finish date stores none, though another project has one; Escape leaves an edit that cannot be saved; a copy that brings the snapshots to exactly the limit copies them; a copy counts the snapshots of the project being copied against the limit, tested with one, two and three of them; who owns a new project or copy is checked against a signed-in user who also has an email and a name; long names read back from the cloud keep their beginning; a seven-day work week is saved to the cloud; and the message after a Replace All or a merge import whose projects were not saved is shown as an alert.
 
 Five older tests passed whether or not the code they were named for worked. They now check it: a second click on Confirm during an import, a second file picked while the first is being read, an old message cleared when a new file is picked, the file picker cleared on Cancel, and copying a project that has no snapshots. Two tests checked a copy of the snapshot-label logic written into the test rather than the app's own; they were removed, and the whole-app test checks the real logic. The test of the message shown when a copy would exceed the snapshot limit now checks its exact words.
 
-Three tests from version 0.29.4 were made stricter: long names read back from the cloud, a one-day work week saved to the cloud, and the list of projects in the invitation banner.
+Two tests from version 0.29.4 were made stricter: long names read back from the cloud, and the list of projects in the invitation banner. The two tables of single cloud writes from version 0.29.4 also gained a one-day work week.
 
 The test run no longer prints 16 "Not implemented" messages about alerts. One group of tests had been running on snapshots left behind by another.
 

@@ -267,6 +267,7 @@ describe('ProjectsTab form', () => {
       setFinishDate('1999-01-01');
       leaveFinishDate();
       expect(within(dialog()).getByText(RANGE_ERROR)).toBeInTheDocument();
+      expect(dateInput()).toHaveAttribute('aria-invalid', 'true');
 
       setFinishDate('2026-06-16');
 
@@ -302,6 +303,7 @@ describe('ProjectsTab form', () => {
       expect(createButton()).toBeEnabled();
       expect(nameInput()).not.toHaveAttribute('aria-invalid');
 
+      createButton().focus(); // as a real click would
       fireEvent.click(createButton());
       expect(within(dialog()).getByRole('alert')).toHaveTextContent('Enter a project name.');
       expect(nameInput()).toHaveAttribute('aria-invalid', 'true');
@@ -569,6 +571,7 @@ describe('ProjectsTab form', () => {
 
     it('Reset to default drops the work week of the edited project, and Update saves it without one', async () => {
       await renderLoaded({ projects: [{ id: 'p1', name: 'Weekend Crew', workDays: [0, 6] }] });
+      expect(tileOf('Weekend Crew')).toHaveTextContent(/Custom work week/); // shown before the reset
       startEdit();
       expect(pressedDays()).toEqual(['Sunday', 'Saturday']);
 

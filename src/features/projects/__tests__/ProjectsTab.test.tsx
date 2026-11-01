@@ -422,6 +422,9 @@ describe('ProjectsTab', () => {
       fireEvent.change(finishDateInput, { target: { value: '' } });
       fireEvent.blur(finishDateInput);
       expect(screen.queryByText('Date must be between 2000 and 2050')).toBeNull();
+      // An empty date is allowed: no other message takes its place.
+      expect(screen.queryByText('Please enter a complete date')).toBeNull();
+      expect(finishDateInput).not.toHaveAttribute('aria-invalid');
     });
   });
 

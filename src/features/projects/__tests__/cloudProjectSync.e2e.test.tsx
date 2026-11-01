@@ -586,7 +586,10 @@ function tileOf(name: string): HTMLElement {
 }
 /** Which of Share and Delete a tile offers, listed in that order whatever the tile's layout. */
 const tileButtons = (name: string) => {
-  const labels = within(tileOf(name)).queryAllByRole('button').map((b) => b.getAttribute('aria-label'));
+  const tile = tileOf(name);
+  // Every tile has Export: finding it shows the scope is the whole tile, so an empty list means something.
+  within(tile).getByRole('button', { name: 'Export project' });
+  const labels = within(tile).queryAllByRole('button').map((b) => b.getAttribute('aria-label'));
   return ['Share project', 'Delete project'].filter((l) => labels.includes(l));
 };
 const cloneViaTile = (name: string) =>
@@ -1093,6 +1096,9 @@ describe('a project created in a cloud session that loaded normally, end to end'
     await wait(600);
     addViaForm('Delta');
     await wait(600);
+    // Both adds happened: without them one listener per project holds trivially.
+    expect(idOf('Gamma')).toBeDefined();
+    expect(idOf('Delta')).toBeDefined();
 
     const ids = probe.current!.data.projects.map((p) => p.id);
     expect(liveListens()).toEqual(Object.fromEntries(ids.map((id) => [id, 1])));
@@ -1268,6 +1274,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
     addViaForm('Gamma');
     await wait(900);
 
+    expect(idOf('Gamma')).toBeDefined(); // the add happened, so the re-subscription ran
     expect(releaseOnScreen('r1')).toBe('Design v2');
     expect(cloudReleaseName('p1', 'r1')).toBe('Design v2');
   });

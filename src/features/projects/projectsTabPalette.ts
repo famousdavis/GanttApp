@@ -13,9 +13,13 @@ import type { CSSProperties } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
 
 export interface ProjectsTabPalette {
+  /** The colour-scheme the browser draws native controls in (date pickers, radios, focus rings). */
+  scheme: 'light' | 'dark';
   text: string;
   meta: string;
   warn: string;
+  /** A note on the import preview's amber conflict block. */
+  note: string;
   error: string;
   errorBorder: string;
   inputBorder: string;
@@ -35,9 +39,11 @@ export interface ProjectsTabPalette {
 }
 
 const LIGHT: ProjectsTabPalette = {
+  scheme: 'light',
   text: '#333333',
   meta: '#666666',
   warn: '#b45309',
+  note: '#92400e',
   error: '#b91c1c',
   errorBorder: '#dc3545',
   inputBorder: '#8a8a8a',
@@ -57,9 +63,11 @@ const LIGHT: ProjectsTabPalette = {
 };
 
 const DARK: ProjectsTabPalette = {
+  scheme: 'dark',
   text: '#e2e8f0',
   meta: '#a0aec0',
   warn: '#fbbf24',
+  note: '#fbbf24',
   error: '#fca5a5',
   errorBorder: '#f87171',
   inputBorder: '#8b9bb4',
@@ -85,6 +93,7 @@ export function projectsTabPalette(resolvedTheme: 'light' | 'dark'): ProjectsTab
 /** The palette as the --pt-* custom properties the tab's stylesheet reads. */
 export function paletteStyle(p: ProjectsTabPalette): CSSProperties {
   return {
+    colorScheme: p.scheme,
     '--pt-text': p.text,
     '--pt-meta': p.meta,
     '--pt-warn': p.warn,

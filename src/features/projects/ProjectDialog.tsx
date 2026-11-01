@@ -252,7 +252,9 @@ export function ProjectDialog({
           <WorkWeekSelector
             value={workDays}
             onChange={onWorkDaysChange}
-            colors={patchedColors(colors, palette)}
+            // Unselected chips take the dialog's own background, so a selected
+            // chip's blue stands 3:1 against them in each theme.
+            colors={{ ...patchedColors(colors, palette), inputBg: palette.surface }}
             placeholder="Uses global default"
             allowReset={workDays !== undefined}
             onReset={() => onWorkDaysChange(undefined)}

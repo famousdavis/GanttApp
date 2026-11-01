@@ -32,6 +32,15 @@ import type { PendingInvite, ProjectRole } from '../../shared/types/firestore';
 import { getSendInvitationEmail } from '../../lib/firebase';
 import { mapInvitationError } from '../../lib/invitation-errors';
 import { modalSurfaceProps } from '../../shared/utils/modalSurface';
+import { projectsTabPalette, patchedColors } from './projectsTabPalette';
+
+// This dialog opens only from the Projects tab, so it takes that tab's colours:
+// text at 4.5:1, borders at 3:1, where the shared theme tokens fall short.
+function useShareColors() {
+  const { colors, resolvedTheme } = useTheme();
+  const palette = projectsTabPalette(resolvedTheme);
+  return { colors: patchedColors(colors, palette), palette };
+}
 
 interface ShareDialogProps {
   projectId: string;
@@ -53,7 +62,7 @@ interface SendResult {
 }
 
 export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: ShareDialogProps) {
-  const { colors } = useTheme();
+  const { colors, palette } = useShareColors();
 
   // Four-state share-section status. 'error' replaces the share UI with a
   // visible recovery message instead of leaving the user with a half-loaded
@@ -147,7 +156,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
           /* Members fetch failed — replace the share UI with a recovery
              message rather than render an empty bulk form (LESSONS-LEARNED §60). */
           <p style={{
-            color: '#e53e3e',
+            color: palette.error,
             fontSize: '0.9rem',
             marginBottom: '1rem',
             padding: '0.75rem',
@@ -171,7 +180,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
         {/* Parent error display — covers the remove-member path. The
             bulk-send flow renders its own inviteError inside InvitationSection. */}
         {inviteError && (
-          <p style={{ color: '#e53e3e', fontSize: '0.85rem', marginBottom: '1rem' }}>
+          <p style={{ color: palette.error, fontSize: '0.85rem', marginBottom: '1rem' }}>
             {inviteError}
           </p>
         )}
@@ -207,7 +216,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
                     <span style={{
                       marginLeft: '0.5rem',
                       fontSize: '0.75rem',
-                      color: member.role === 'owner' ? '#0070f3' : colors.textMuted,
+                      color: member.role === 'owner' ? palette.link : colors.textMuted,
                       fontWeight: member.role === 'owner' ? '600' : '400'
                     }}>
                       {member.role}
@@ -299,7 +308,7 @@ function InvitationSection({
   cloudStorage,
   onMembersUpdate,
 }: InvitationSectionProps) {
-  const { colors } = useTheme();
+  const { colors, palette } = useShareColors();
 
   const bulkTextareaId = useId();
   const roleSelectId = useId();
@@ -503,7 +512,7 @@ function InvitationSection({
           border: `1px solid ${colors.border}`,
           borderRadius: '4px',
           fontSize: '0.85rem',
-          color: '#e53e3e',
+          color: palette.error,
           lineHeight: 1.5,
         }}>
           <strong>Skipped {bulkInvalidEmails.length}:</strong>{' '}
@@ -530,7 +539,7 @@ function InvitationSection({
             <div><strong>Invited {sendResult.invited.length}:</strong> {sendResult.invited.join(', ')}</div>
           )}
           {sendResult.failed.length > 0 && (
-            <div style={{ color: '#e53e3e' }}>
+            <div style={{ color: palette.error }}>
               <strong>Skipped {sendResult.failed.length}:</strong>{' '}
               {sendResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ')}
             </div>
@@ -539,7 +548,7 @@ function InvitationSection({
       )}
 
       {inviteError && (
-        <p style={{ color: '#e53e3e', fontSize: '0.85rem', marginBottom: '1rem' }}>
+        <p style={{ color: palette.error, fontSize: '0.85rem', marginBottom: '1rem' }}>
           {inviteError}
         </p>
       )}
@@ -597,8 +606,8 @@ function InvitationSection({
                     style={{
                       padding: '0.25rem 0.6rem',
                       background: 'transparent',
-                      color: resendDisabled ? colors.textMuted : '#0070f3',
-                      border: `1px solid ${resendDisabled ? colors.border : '#0070f3'}`,
+                      color: resendDisabled ? colors.textMuted : palette.link,
+                      border: `1px solid ${resendDisabled ? colors.border : palette.link}`,
                       borderRadius: '4px',
                       cursor: resendDisabled ? 'not-allowed' : 'pointer',
                       fontSize: '0.8rem',

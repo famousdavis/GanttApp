@@ -575,3 +575,29 @@ describe('Escape handling (v0.28.21)', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ImportPreviewSection: colours', () => {
+  it.each([
+    ['id', /Already exists — same project/],
+    ['name', /Already exists — same name, different origin/],
+  ] as const)('the note under a type:%s conflict takes the colour it is given', (type, note) => {
+    const conflicts = makeConflicts([{ incomingId: 'inc-1', incomingName: 'Foo', existingId: type === 'id' ? 'inc-1' : 'old-1', existingName: 'Foo', type }]);
+    render(<ImportPreviewSection {...defaultProps({ conflicts, decisions: new Map([['inc-1', 'skip']]), noteColor: '#fbbf24' })} />);
+
+    expect(within(screen.getByTestId('conflict-group-inc-1')).getByText(note)).toHaveStyle({ color: '#fbbf24' });
+  });
+
+  it('the note keeps its amber when no colour is given', () => {
+    const conflicts = makeConflicts([{ incomingId: 'inc-1', incomingName: 'Foo', existingId: 'inc-1', existingName: 'Foo', type: 'id' }]);
+    render(<ImportPreviewSection {...defaultProps({ conflicts, decisions: new Map([['inc-1', 'skip']]) })} />);
+
+    expect(screen.getByText(/Already exists — same project/)).toHaveStyle({ color: '#92400e' });
+  });
+
+  it('Replace All Data is #dc3545, where white text reaches 4.5:1', () => {
+    render(<ImportPreviewSection {...defaultProps({ imported: makeImportResult('ganttapp-all-projects', [{ id: 'inc-1', name: 'Imported' }]), mode: 'replace-all' })} />);
+
+    expect(screen.getByRole('button', { name: 'Replace All Data' })).toHaveStyle({ background: '#dc3545', color: '#ffffff' });
+  });
+});
+

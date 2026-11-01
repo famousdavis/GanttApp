@@ -47,7 +47,15 @@
 .pt-btn-primary svg { color: #ffffff; }
 .pt-btn-primary:hover { background: var(--pt-primary-hover); border-color: var(--pt-primary-hover); }
 
-/* Visible keyboard focus on every control this tab draws. */
+/* Visible keyboard focus on every control this tab draws. The first rule also
+   covers the controls of the dialogs drawn inside the tab (Delete Project,
+   Replace All, the import preview, Share): the browser's own ring is
+   near-black and vanishes on the dark theme's surfaces. :where() keeps it
+   below the open button's own rule further down. */
+.pt-root :where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--pt-focus);
+  outline-offset: 2px;
+}
 .pt-btn:focus-visible,
 .pt-btn:has(input:focus-visible),
 .pt-tile button:not(.pt-open):focus-visible,
@@ -209,6 +217,14 @@
 .pt-dialog .pt-date { width: 200px; max-width: 100%; }
 .pt-dialog .pt-input[aria-invalid="true"] { border: 2px solid var(--pt-error-border); }
 .pt-dialog .pt-input:focus-visible { outline: 2px solid var(--pt-focus); outline-offset: 1px; }
+/* Placeholders and an empty date's mm/dd/yyyy at 4.5:1: the theme's muted grey
+   falls short. A focused or filled date keeps globals.css's text colour. */
+.pt-dialog .pt-input::placeholder,
+.pt-root textarea::placeholder { color: var(--pt-meta); opacity: 1; }
+.pt-dialog .pt-date::-webkit-datetime-edit-month-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-day-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-year-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-text { color: var(--pt-meta); }
 .pt-field-msg { min-height: 1.2em; margin-top: 0.25rem; font-size: 0.8rem; }
 .pt-field-msg.pt-error { color: var(--pt-error); }
 .pt-field-msg.pt-warn { color: var(--pt-warn); }

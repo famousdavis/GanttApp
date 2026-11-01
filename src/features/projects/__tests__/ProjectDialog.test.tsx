@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { ProjectDialog, finishDateError, NAME_REQUIRED } from '../ProjectDialog';
 import type { ProjectDialogProps } from '../ProjectDialog';
 import { projectsTabPalette } from '../projectsTabPalette';
-import { LIGHT_THEME } from '../../../shared/utils/theme';
+import { LIGHT_THEME, DARK_THEME } from '../../../shared/utils/theme';
 
 type Overrides = Partial<ProjectDialogProps> & { initialName?: string; initialDate?: string };
 
@@ -242,3 +242,18 @@ describe('ProjectDialog', () => {
     expect(document.activeElement).toBe(document.body);
   });
 });
+
+describe('the work-week chips', () => {
+  // Unselected chips take the dialog's own background, so a selected chip's
+  // blue stands at least 3:1 against them in each theme.
+  it.each(['light', 'dark'] as const)('in %s mode an unselected chip has the dialog background and a selected one is blue', (theme) => {
+    const palette = projectsTabPalette(theme);
+    render(<Harness palette={palette} colors={theme === 'dark' ? DARK_THEME : LIGHT_THEME} />);
+
+    expect(screen.getByRole('button', { name: 'Sunday' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Sunday' })).toHaveStyle({ background: palette.surface });
+    expect(screen.getByRole('button', { name: 'Monday' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Monday' })).toHaveStyle({ background: '#0070f3' });
+  });
+});
+

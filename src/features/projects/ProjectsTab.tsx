@@ -376,6 +376,7 @@ export function ProjectsTab({
           applying={applying}
           idPrefix={importIdPrefix}
           colors={tabColors}
+          noteColor={palette.note}
           onModeChange={onModeChange}
           onDecisionChange={onDecisionChange}
           onConfirm={handleConfirmMerge}

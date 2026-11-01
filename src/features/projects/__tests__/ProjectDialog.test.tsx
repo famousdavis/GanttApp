@@ -123,6 +123,17 @@ describe('ProjectDialog', () => {
     expect(create).toHaveFocus();
   });
 
+  it.each([
+    { label: 'Tab', shiftKey: false, lands: 'Project Name' },
+    { label: 'Shift+Tab', shiftKey: true, lands: 'Create' },
+  ])('$label with focus outside the dialog brings focus back into it', ({ shiftKey, lands }) => {
+    render(<Harness />);
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document.body, { key: 'Tab', shiftKey });
+    expect(lands === 'Create' ? screen.getByRole('button', { name: 'Create' }) : nameField()).toHaveFocus();
+  });
+
   it('Tab between the ends is left to the browser', () => {
     render(<Harness />);
     const cancel = screen.getByRole('button', { name: 'Cancel' });

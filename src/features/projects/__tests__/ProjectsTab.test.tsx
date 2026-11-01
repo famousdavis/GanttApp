@@ -894,6 +894,19 @@ describe('ProjectsTab', () => {
       expect(screen.getByText('Custom work week (Mon–Wed)')).toBeTruthy();
     });
 
+    it('lists the days of a custom work week that is not a run of three or more', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [0, 6] })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+      expect(screen.getByText('Custom work week (Sun, Sat)')).toBeTruthy();
+    });
+
     it('does NOT render "custom work week" indicator when workDays is undefined', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha' })],
@@ -1459,13 +1472,11 @@ describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
     expect(screen.queryByText('Delete Project')).toBeNull();
   });
 
-  it("after a refused delete, focus goes back to that tile's Delete", async () => {
+  it.each(['Alpha', 'Beta', 'Gamma'])("after a refused delete of %s, focus goes back to that tile's Delete", async (name) => {
     // Nothing was deleted, so focus does not move on to a neighbour: it returns
-    // to the Delete that was pressed. Beta is not first, so a return to the
-    // first tile would show.
+    // to the Delete that was pressed, on the first, a middle or the last tile.
     renderCloudTab([ALPHA, BETA, { id: 'p3', name: 'Gamma', owner: OWNER_UID }], cloudStorage(false));
-    const betaDelete = within(tileOf('Beta')).getByRole('button', { name: 'Delete project' });
-    fireEvent.click(betaDelete);
+    fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Delete project' }));
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -1473,6 +1484,18 @@ describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
 
     expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('This project was not deleted.'));
     expect(screen.queryByText('Delete Project')).toBeNull();
-    expect(document.activeElement).toBe(within(tileOf('Beta')).getByRole('button', { name: 'Delete project' }));
+    expect(document.activeElement).toBe(within(tileOf(name)).getByRole('button', { name: 'Delete project' }));
+  });
+
+  it('an edit whose project vanishes while the dialog is open returns focus to New Project on closing', () => {
+    const { projectsBecome } = renderCloudTab([ALPHA, BETA]);
+    fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Edit project' }));
+    expect(screen.getByRole('dialog', { name: 'Edit Project' })).toBeInTheDocument();
+
+    projectsBecome([ALPHA]);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: 'New Project' })).toHaveFocus();
   });
 });

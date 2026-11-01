@@ -30,6 +30,7 @@ describe('sampleAnchor', () => {
   it.each([
     { today: new Date(2026, 5, 12), days: [1, 2, 3, 4, 5], expected: '2026-06-12' }, // Friday, a work day
     { today: new Date(2026, 5, 13), days: [1, 2, 3, 4, 5], expected: '2026-06-15' }, // Saturday → Monday
+    { today: new Date(2026, 5, 14), days: [1, 2, 3, 4, 5], expected: '2026-06-15' }, // Sunday → Monday, one day on
     { today: new Date(2026, 5, 12), days: [0, 1, 2, 3, 4], expected: '2026-06-14' }, // Friday → Sunday
     { today: new Date(2026, 5, 9), days: [6], expected: '2026-06-13' }, // Tuesday → Saturday
     { today: new Date(2026, 5, 12, 23, 30), days: [5], expected: '2026-06-12' }, // late on a work day

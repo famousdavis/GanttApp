@@ -87,6 +87,23 @@ describe('the Projects tab on the page', () => {
     vi.restoreAllMocks();
   });
 
+  describe('the chart picker', () => {
+    it('opening the Gantt Chart tab from the tab bar leaves focus on the tab', async () => {
+      seed({
+        projects: projects('Alpha'),
+        releases: [{ id: 'r1', projectId: 'p1', name: 'R1', startDate: '2026-06-01', earlyFinishDate: '2026-07-01', lateFinishDate: '2026-08-01' }],
+      });
+      await renderPage();
+      const chartTab = screen.getByRole('button', { name: 'Gantt Chart' });
+      chartTab.focus();
+      fireEvent.click(chartTab);
+
+      const picker = await screen.findByRole('combobox', { name: 'Project shown on the Gantt Chart tab' });
+      expect(picker).not.toHaveFocus();
+      expect(chartTab).toHaveFocus();
+    });
+  });
+
   describe('the toolbar', () => {
     it('reads Export All, Import, Load Sample, New Project, on the heading row', async () => {
       seed({ projects: projects('Alpha') });

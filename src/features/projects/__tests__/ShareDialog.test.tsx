@@ -278,6 +278,21 @@ describe('ShareDialog', () => {
       expect(await screen.findByText('Only the project owner can remove members.')).toBeInTheDocument();
       expect(screen.getByText('editor@test.com')).toBeInTheDocument();
     });
+
+    it.each(['light', 'dark'] as const)('in %s mode the reason a removal failed is in the tab\'s red', async (theme) => {
+      localStorage.setItem('gantt-theme', theme);
+      try {
+        renderDialog(createMockCloudStorage({
+          getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]),
+          removeCollaborator: vi.fn().mockRejectedValue(new Error('Only the project owner can remove members.')),
+        }));
+        fireEvent.click(within(await openRemoveConfirm()).getByRole('button', { name: 'Remove' }));
+        expect(await screen.findByText('Only the project owner can remove members.'))
+          .toHaveStyle({ color: projectsTabPalette(theme).error });
+      } finally {
+        localStorage.removeItem('gantt-theme');
+      }
+    });
   });
 
   describe('the member list', () => {
@@ -344,6 +359,28 @@ describe("ShareDialog's colours, by theme", () => {
     expect(open).toHaveStyle({ color: p.link, border: `1px solid ${p.link}` });
     expect(spent).toBeDisabled();
     expect(spent).toHaveStyle({ color: p.meta, border: `1px solid ${p.btnBorder}` });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode Resend is muted while a resend is in flight', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    const p = projectsTabPalette(theme);
+    const invite = {
+      tokenId: 't1', appId: 'ganttapp', modelId: 'p1', modelName: 'Test', inviteeEmail: 'one@example.com', inviterUid: 'u1', role: 'editor',
+      status: 'pending', createdAt: 0, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 1, updatedAt: 0,
+    };
+    renderDialog(createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite]),
+      resendInvite: vi.fn(() => new Promise<void>(() => {})), // never settles: the resend stays in flight
+    }));
+
+    const row = (await screen.findByText('one@example.com')).closest('div[style]')?.parentElement as HTMLElement;
+    const resend = within(row).getByRole('button', { name: 'Resend' });
+    expect(resend).toHaveStyle({ color: p.link, border: `1px solid ${p.link}` });
+    fireEvent.click(resend);
+
+    await waitFor(() => expect(resend).toBeDisabled()); // the same button, labelled "..." while busy
+    expect(resend).toHaveTextContent('...');
+    expect(resend).toHaveStyle({ color: p.meta, border: `1px solid ${p.btnBorder}` });
   });
 
   it.each(['light', 'dark'] as const)('in %s mode the could-not-load message uses the tab\'s red', async (theme) => {

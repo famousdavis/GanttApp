@@ -1169,6 +1169,30 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     expect(within(tile).queryByRole('button', { name: 'Share project' })).toBeNull();
   });
 
+  it("Import's file input is a tab stop between Export All and Load Sample, labelled by the Import control", async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+    const input = document.querySelector('input[name="importJson"]') as HTMLInputElement;
+
+    // Visually hidden by the tab's stylesheet, never removed from the tab order.
+    expect(input).toHaveClass('pt-sr-only');
+    expect(input.hidden).toBe(false);
+    expect(input.style.display).toBe('');
+    expect(input.tabIndex).toBe(0);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    const exportAll = screen.getByRole('button', { name: 'Export all projects as JSON' });
+    const loadSample = screen.getByRole('button', { name: 'Load Sample' });
+    expect(exportAll.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(input.compareDocumentPosition(loadSample) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const control = input.closest('label') as HTMLElement;
+    expect(control).toHaveAttribute('aria-label', 'Import projects from JSON');
+    expect(screen.getByLabelText('Import', { selector: 'input' })).toBe(input);
+  });
+
   it('the import file input is disabled while a picked file is read', async () => {
     renderProjectsTab();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1430,5 +1454,22 @@ describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
     expect(updateData).not.toHaveBeenCalled();
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Delete Project')).toBeNull();
+  });
+
+  it("after a refused delete, focus goes back to that tile's Delete", async () => {
+    // Nothing was deleted, so focus does not move on to a neighbour: it returns
+    // to the Delete that was pressed. Beta is not first, so a return to the
+    // first tile would show.
+    renderCloudTab([ALPHA, BETA, { id: 'p3', name: 'Gamma', owner: OWNER_UID }], cloudStorage(false));
+    const betaDelete = within(tileOf('Beta')).getByRole('button', { name: 'Delete project' });
+    fireEvent.click(betaDelete);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('This project was not deleted.'));
+    expect(screen.queryByText('Delete Project')).toBeNull();
+    expect(document.activeElement).toBe(within(tileOf('Beta')).getByRole('button', { name: 'Delete project' }));
   });
 });

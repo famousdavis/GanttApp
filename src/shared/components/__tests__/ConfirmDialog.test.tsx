@@ -351,3 +351,84 @@ describe('ConfirmDialog — focus management (v0.28.21)', () => {
     expect(dialog.getAttribute('aria-labelledby')).toBe(screen.getByText('Replace All Data').id);
   });
 });
+
+describe('ConfirmDialog — Escape in a modal dialog', () => {
+  /** A bubble-phase document listener, as a surface underneath the dialog has. */
+  function listenBelow() {
+    const below = vi.fn();
+    document.addEventListener('keydown', below);
+    return { below, stop: () => document.removeEventListener('keydown', below) };
+  }
+
+  it('presses Cancel, and the key goes no further', () => {
+    const cancel = vi.fn();
+    const remove = vi.fn();
+    const { below, stop } = listenBelow();
+    render(<ConfirmDialog modal title="Delete Project" message="Delete?" colors={LIGHT_THEME}
+      buttons={[{ label: 'Delete', variant: 'danger', onClick: remove }, { label: 'Cancel', variant: 'secondary', onClick: cancel }]} />);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(remove).not.toHaveBeenCalled();
+    expect(below).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('treats a button with no variant as the Cancel', () => {
+    const cancel = vi.fn();
+    render(<ConfirmDialog modal message="Leave?" colors={LIGHT_THEME}
+      buttons={[{ label: 'Leave', variant: 'primary', onClick: vi.fn() }, { label: 'Stay', onClick: cancel }]} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses onEscape in place of Cancel when one is given', () => {
+    const cancel = vi.fn();
+    const onEscape = vi.fn();
+    render(<ConfirmDialog modal message="Replace?" colors={LIGHT_THEME} onEscape={onEscape}
+      buttons={[{ label: 'Cancel', variant: 'secondary', onClick: cancel }]} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(onEscape).toHaveBeenCalledTimes(1);
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it('does nothing while Cancel is disabled, and still keeps the key from what is underneath', () => {
+    const cancel = vi.fn();
+    const { below, stop } = listenBelow();
+    render(<ConfirmDialog modal message="Working…" colors={LIGHT_THEME}
+      buttons={[{ label: 'Cancel', variant: 'secondary', onClick: cancel, disabled: true }, { label: 'Delete', variant: 'danger', onClick: vi.fn() }]} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(below).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('with no Cancel at all, leaves Escape alone', () => {
+    const ok = vi.fn();
+    const { below, stop } = listenBelow();
+    render(<ConfirmDialog modal message="Done." colors={LIGHT_THEME}
+      buttons={[{ label: 'OK', variant: 'primary', onClick: ok }]} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(ok).not.toHaveBeenCalled();
+    expect(below).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it('an inline dialog leaves Escape alone', () => {
+    const cancel = vi.fn();
+    const { below, stop } = listenBelow();
+    render(<ConfirmDialog message="Inline" colors={LIGHT_THEME}
+      buttons={[{ label: 'Cancel', variant: 'secondary', onClick: cancel }]} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', bubbles: true, cancelable: true });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(below).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it('a modal dialog is a modal surface, described by its message', () => {
+    render(<ConfirmDialog modal title="Delete Project" message="Delete it?" colors={LIGHT_THEME}
+      buttons={[{ label: 'Cancel', variant: 'secondary', onClick: vi.fn() }]} />);
+    const dialog = screen.getByRole('dialog', { name: 'Delete Project' });
+    expect(dialog).toHaveAccessibleDescription('Delete it?');
+    expect(dialog.closest('[data-modal-surface]')).not.toBeNull();
+  });
+});

@@ -15,10 +15,13 @@ interface ExportIconButtonProps {
   disabled?: boolean;
 }
 
-const HOVER_GREEN = '#10b981';
+const HOVER_GREEN_LIGHT = '#047857';
+const HOVER_GREEN_DARK = '#34d399';
 const HOVER_BG_LIGHT = '#ecfdf5';
 const HOVER_BG_DARK = 'rgba(16, 185, 129, 0.15)';
-const DEFAULT_GRAY = '#9ca3af';
+// Resting grey: at least 3:1 against every tile and dialog background in each theme.
+const REST_GRAY_LIGHT = '#808080';
+const REST_GRAY_DARK = '#9ca3af';
 
 export function ExportIconButton({
   onClick,
@@ -30,8 +33,11 @@ export function ExportIconButton({
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_GREEN : DEFAULT_GRAY;
-  const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
+  const isDark = resolvedTheme === 'dark';
+  const iconColor = isHoverActive
+    ? (isDark ? HOVER_GREEN_DARK : HOVER_GREEN_LIGHT)
+    : (isDark ? REST_GRAY_DARK : REST_GRAY_LIGHT);
+  const hoverBg = isDark ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
     <button
@@ -45,7 +51,10 @@ export function ExportIconButton({
       title={title}
       disabled={disabled}
       style={{
-        padding: '0.35rem',
+        width: '28px',
+        height: '28px',
+        padding: 0,
+        flexShrink: 0,
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',

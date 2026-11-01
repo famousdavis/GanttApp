@@ -576,17 +576,19 @@ function watchText(pattern: RegExp) {
 }
 
 function addViaForm(name: string) {
-  const input = screen.getByLabelText('Project Name');
+  fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+  const input = within(screen.getByRole('dialog', { name: 'New Project' })).getByLabelText('Project Name');
   fireEvent.change(input, { target: { value: name } });
   fireEvent.keyDown(input, { key: 'Enter' });
 }
 function tileOf(name: string): HTMLElement {
-  let el: HTMLElement | null = screen.getByLabelText(`Open releases for ${name}`);
-  while (el && !el.querySelector('[aria-label="Drag to reorder project"]')) el = el.parentElement;
-  return el!;
+  return screen.getByLabelText(`Open releases for ${name}`).closest<HTMLElement>('[data-project-tile]')!;
 }
-const tileButtons = (name: string) =>
-  within(tileOf(name)).queryAllByRole('button').map((b) => b.getAttribute('aria-label')).filter((l) => /^(Share|Delete) project$/.test(l ?? ''));
+/** Which of Share and Delete a tile offers, listed in that order whatever the tile's layout. */
+const tileButtons = (name: string) => {
+  const labels = within(tileOf(name)).queryAllByRole('button').map((b) => b.getAttribute('aria-label'));
+  return ['Share project', 'Delete project'].filter((l) => labels.includes(l));
+};
 const cloneViaTile = (name: string) =>
   fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Clone project' }));
 function deleteViaTile(name: string) {

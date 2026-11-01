@@ -126,3 +126,7 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 .snapshot-bar-scroll::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Edge */
 }
+/* Gantt Chart tab's project picker: a visible ring on keyboard focus only. */
+.chart-project-picker:focus { outline: none; }
+.chart-project-picker:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }
+[data-theme="dark"] .chart-project-picker:focus-visible { outline-color: #60a5fa; }

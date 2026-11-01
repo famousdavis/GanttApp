@@ -42,13 +42,13 @@ describe('CloneIconButton', () => {
   it('uses gray default and turns violet on mouse enter', () => {
     render(<CloneIconButton onClick={() => {}} />);
     const button = screen.getByRole('button');
-    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#808080');
 
     fireEvent.mouseEnter(button);
-    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#8b5cf6');
+    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#7c3aed');
 
     fireEvent.mouseLeave(button);
-    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('turns violet on focus and reverts on blur', () => {
@@ -56,10 +56,10 @@ describe('CloneIconButton', () => {
     const button = screen.getByRole('button');
 
     fireEvent.focus(button);
-    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#8b5cf6');
+    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#7c3aed');
 
     fireEvent.blur(button);
-    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('rect')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('shows soft violet background tile on hover', () => {

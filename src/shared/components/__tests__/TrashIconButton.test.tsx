@@ -42,13 +42,13 @@ describe('TrashIconButton', () => {
     const button = screen.getByRole('button');
     const path = button.querySelector('path');
 
-    expect(path?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(path?.getAttribute('stroke')).toBe('#808080');
 
     fireEvent.mouseEnter(button);
     expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#ef4444');
 
     fireEvent.mouseLeave(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('shows soft red background tile on hover', () => {

@@ -31,6 +31,7 @@ import type { CloudGanttStorageService } from '../../shared/storage';
 import type { PendingInvite, ProjectRole } from '../../shared/types/firestore';
 import { getSendInvitationEmail } from '../../lib/firebase';
 import { mapInvitationError } from '../../lib/invitation-errors';
+import { modalSurfaceProps } from '../../shared/utils/modalSurface';
 
 interface ShareDialogProps {
   projectId: string;
@@ -108,7 +109,7 @@ export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: S
   };
 
   return (
-    <div style={{
+    <div {...modalSurfaceProps} style={{
       position: 'fixed',
       top: 0,
       left: 0,

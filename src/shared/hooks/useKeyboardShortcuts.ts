@@ -5,6 +5,7 @@
 // Global keyboard shortcuts hook
 
 import { useEffect, useCallback } from 'react';
+import { isModalSurfaceOpen } from '../utils/modalSurface';
 
 export interface ShortcutMap {
   [key: string]: (e: KeyboardEvent) => void;
@@ -21,6 +22,9 @@ export interface ShortcutMap {
  * The hook handles both Ctrl (Windows/Linux) and Cmd (Mac) for modifier keys.
  * Escape always fires even when an input is focused.
  * Other shortcuts are skipped when the user is typing in an input field.
+ * Every shortcut waits while a modal surface is open: the dialog handles its
+ * own keys, and nothing behind it may act (an arrow key would switch the tab
+ * and unmount the dialog).
  *
  * @param shortcuts - Object mapping key strings to handler functions
  * @param enabled - Whether shortcuts are active (default: true)
@@ -28,6 +32,7 @@ export interface ShortcutMap {
 export function useKeyboardShortcuts(shortcuts: ShortcutMap, enabled: boolean = true) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
+    if (isModalSurfaceOpen()) return;
 
     // Check if user is typing in an input field
     const target = e.target as HTMLElement;

@@ -15,10 +15,13 @@ interface ShareIconButtonProps {
   disabled?: boolean;
 }
 
-const HOVER_CYAN = '#06b6d4';
+const HOVER_CYAN_LIGHT = '#0e7490';
+const HOVER_CYAN_DARK = '#22d3ee';
 const HOVER_BG_LIGHT = '#ecfeff';
 const HOVER_BG_DARK = 'rgba(6, 182, 212, 0.15)';
-const DEFAULT_GRAY = '#9ca3af';
+// Resting grey: at least 3:1 against every tile and dialog background in each theme.
+const REST_GRAY_LIGHT = '#808080';
+const REST_GRAY_DARK = '#9ca3af';
 
 export function ShareIconButton({
   onClick,
@@ -30,8 +33,11 @@ export function ShareIconButton({
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_CYAN : DEFAULT_GRAY;
-  const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
+  const isDark = resolvedTheme === 'dark';
+  const iconColor = isHoverActive
+    ? (isDark ? HOVER_CYAN_DARK : HOVER_CYAN_LIGHT)
+    : (isDark ? REST_GRAY_DARK : REST_GRAY_LIGHT);
+  const hoverBg = isDark ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
     <button
@@ -45,7 +51,10 @@ export function ShareIconButton({
       title={title}
       disabled={disabled}
       style={{
-        padding: '0.35rem',
+        width: '28px',
+        height: '28px',
+        padding: 0,
+        flexShrink: 0,
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',

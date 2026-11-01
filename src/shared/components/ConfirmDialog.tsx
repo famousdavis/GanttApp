@@ -9,6 +9,7 @@
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { ThemeColors } from '../utils/theme';
+import { modalSurfaceProps } from '../utils/modalSurface';
 
 export interface ConfirmDialogButton {
   label: string;
@@ -41,11 +42,26 @@ interface ConfirmDialogProps {
    */
   blocking?: boolean;
   /**
-   * Escape handler. Modal only. When supplied, the dialog claims Escape in the
-   * CAPTURE phase and stops propagation, so document-level listeners belonging
-   * to surfaces underneath it do not also fire.
+   * Escape handler. Modal only. The dialog claims Escape in the CAPTURE phase
+   * and stops propagation, so document-level listeners belonging to surfaces
+   * underneath it do not also fire. Without one, Escape presses the first
+   * `secondary` button (the Cancel), and does nothing while that is disabled.
    */
   onEscape?: () => void;
+}
+
+/**
+ * What Escape does in a modal dialog: `claim` is whether the dialog takes the
+ * key at all; `action` is what it runs (none while the Cancel is disabled).
+ */
+export function modalEscape(
+  buttons: ConfirmDialogButton[],
+  onEscape?: () => void,
+): { claim: boolean; action?: () => void } {
+  if (onEscape) return { claim: true, action: onEscape };
+  const cancel = buttons.find((b) => (b.variant ?? 'secondary') === 'secondary');
+  if (!cancel) return { claim: false };
+  return { claim: true, action: cancel.disabled ? undefined : cancel.onClick };
 }
 
 /** Enabled buttons inside a dialog root, in DOM order. */
@@ -90,6 +106,13 @@ export function ConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreTargetRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const messageId = useId();
+  // The latest Escape behaviour, read at key time so the listener is not
+  // re-registered on every render (the buttons array is rebuilt each time).
+  const escapeRef = useRef(modalEscape(buttons, onEscape));
+  useEffect(() => {
+    escapeRef.current = modalEscape(buttons, onEscape);
+  });
   // Focus behaviour defaults to `modal` but is independently overridable.
   const takesFocus = blocking ?? Boolean(modal);
 
@@ -120,10 +143,11 @@ export function ConfirmDialog({
     if (!modal) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (!onEscape) return;
+        const { claim, action } = escapeRef.current;
+        if (!claim) return;
         e.preventDefault();
         e.stopPropagation();
-        onEscape();
+        action?.();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -148,11 +172,11 @@ export function ConfirmDialog({
     // document listener belonging to a surface rendered underneath it.
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [modal, onEscape]);
+  }, [modal]);
 
   if (modal) {
     return (
-      <div style={{
+      <div {...modalSurfaceProps} style={{
         position: 'fixed',
         top: 0,
         left: 0,
@@ -169,6 +193,7 @@ export function ConfirmDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
+          aria-describedby={messageId}
           tabIndex={-1}
           style={{
           background: colors.surface,
@@ -188,7 +213,7 @@ export function ConfirmDialog({
               {title}
             </h3>
           )}
-          <div style={{
+          <div id={messageId} style={{
             color: colors.textSecondary,
             lineHeight: '1.6',
             marginBottom: '1.5rem',

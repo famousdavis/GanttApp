@@ -194,7 +194,7 @@ describe('ProjectsTab', () => {
 
       renderProjectsTab();
       await waitFor(() => {
-        expect(screen.getByText(/finish:/)).toBeTruthy();
+        expect(screen.getByText('Finish: 12/31/2026')).toBeTruthy();
       });
     });
 
@@ -220,20 +220,25 @@ describe('ProjectsTab', () => {
   describe('add project form', () => {
     it('renders project name input', () => {
       renderProjectsTab();
-      expect(screen.getByPlaceholderText('Project name')).toBeTruthy();
+      expect(screen.queryByPlaceholderText('Project name')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+      expect(within(screen.getByRole('dialog', { name: 'New Project' })).getByPlaceholderText('Project name')).toBeTruthy();
     });
 
-    it('renders Add Project button', () => {
+    it('renders a New Project button, whose dialog offers Create', () => {
       renderProjectsTab();
-      expect(screen.getByText('Add Project')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Add Project' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+      expect(within(screen.getByRole('dialog', { name: 'New Project' })).getByRole('button', { name: 'Create' })).toBeTruthy();
     });
 
     it('adds project when name is entered and button is clicked', () => {
       renderProjectsTab({ selectedProjectId: '' });
 
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
       const input = screen.getByPlaceholderText('Project name');
       fireEvent.change(input, { target: { value: 'New Project' } });
-      fireEvent.click(screen.getByText('Add Project'));
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
       const stored = JSON.parse(localStorage.getItem('ganttAppData')!);
       expect(stored.projects).toHaveLength(1);
@@ -243,11 +248,13 @@ describe('ProjectsTab', () => {
     it('clears input after adding project', () => {
       renderProjectsTab({ selectedProjectId: '' });
 
-      const input = screen.getByPlaceholderText('Project name') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: 'New Project' } });
-      fireEvent.click(screen.getByText('Add Project'));
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+      fireEvent.change(screen.getByPlaceholderText('Project name'), { target: { value: 'New Project' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
 
-      expect(input.value).toBe('');
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+      expect((screen.getByPlaceholderText('Project name') as HTMLInputElement).value).toBe('');
     });
   });
 
@@ -302,24 +309,12 @@ describe('ProjectsTab', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
       fireEvent.click(screen.getByText('Cancel'));
+      expect(screen.queryByRole('dialog')).toBeNull();
 
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
       const nameInput = screen.getByPlaceholderText('Project name') as HTMLInputElement;
       expect(nameInput.value).toBe('');
-      expect(screen.getByText('Add Project')).toBeTruthy();
-    });
-
-    it('calls window.scrollTo when Edit pencil is clicked (v19.0)', async () => {
-      seedData({
-        projects: [makeProject({ id: 'p1', name: 'Alpha' })],
-        releases: [],
-      });
-
-      renderProjectsTab();
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Edit project' })).toBeTruthy();
-      });
-      fireEvent.click(screen.getByRole('button', { name: 'Edit project' }));
-      expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+      expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy();
     });
   });
 
@@ -402,6 +397,7 @@ describe('ProjectsTab', () => {
   describe('finish date validation', () => {
     it('shows error for date outside 2000-2050 range', () => {
       renderProjectsTab();
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
 
       const dateInputs = document.querySelectorAll('input[type="date"]');
       const finishDateInput = dateInputs[0] as HTMLInputElement;
@@ -414,6 +410,7 @@ describe('ProjectsTab', () => {
 
     it('clears error when date is emptied', () => {
       renderProjectsTab();
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
 
       const dateInputs = document.querySelectorAll('input[type="date"]');
       const finishDateInput = dateInputs[0] as HTMLInputElement;
@@ -875,8 +872,10 @@ describe('ProjectsTab', () => {
   describe('work week selector (v15.0)', () => {
     it('renders WorkWeekSelector in the Add Project form', () => {
       renderProjectsTab();
-      const group = screen.getByRole('group', { name: /work week/i });
-      expect(group).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+      const dialog = screen.getByRole('dialog', { name: 'New Project' });
+      expect(within(dialog).getByRole('group', { name: 'Work Week (Optional Override)' }))
+        .toContainElement(within(dialog).getByRole('group', { name: 'Work week selector' }));
     });
 
     it('renders "custom work week" indicator in list row when project.workDays is set', async () => {
@@ -889,7 +888,7 @@ describe('ProjectsTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Alpha')).toBeTruthy();
       });
-      expect(screen.getByText(/custom work week/)).toBeTruthy();
+      expect(screen.getByText('Custom work week (Mon–Wed)')).toBeTruthy();
     });
 
     it('does NOT render "custom work week" indicator when workDays is undefined', async () => {
@@ -902,7 +901,7 @@ describe('ProjectsTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Alpha')).toBeTruthy();
       });
-      expect(screen.queryByText(/custom work week/)).toBeNull();
+      expect(screen.queryByText(/custom work week/i)).toBeNull();
     });
   });
 });
@@ -978,7 +977,7 @@ const OWNER_UID = 'owner-uid';
 
 /** The tile (the row) that holds a project's name and its buttons. */
 function tileOf(name: string): HTMLElement {
-  return screen.getByLabelText(`Open releases for ${name}`).parentElement as HTMLElement;
+  return screen.getByLabelText(`Open releases for ${name}`).closest<HTMLElement>('[data-project-tile]')!;
 }
 
 /** Keeps each downloaded file instead of handing it to the browser. */
@@ -1119,11 +1118,11 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     renderProjectsTab({ onProjectDragStart });
     await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
 
-    fireEvent.dragStart(within(tileOf('Beta')).getByLabelText('Drag to reorder project'));
+    fireEvent.dragStart(within(tileOf('Beta')).getByTitle('Drag to reorder'));
     expect(onProjectDragStart).toHaveBeenCalledTimes(1);
     expect(onProjectDragStart).toHaveBeenLastCalledWith('p2');
 
-    fireEvent.dragStart(within(tileOf('Alpha')).getByLabelText('Drag to reorder project'));
+    fireEvent.dragStart(within(tileOf('Alpha')).getByTitle('Drag to reorder'));
     expect(onProjectDragStart).toHaveBeenCalledTimes(2);
     expect(onProjectDragStart).toHaveBeenLastCalledWith('p1');
   });
@@ -1142,12 +1141,17 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     renderProjectsTab();
     await waitFor(() => expect(screen.getByText('Gamma')).toBeTruthy());
 
+    // The explanation is a visible line, and part of the open button's description.
+    expect(within(tileOf('Alpha')).getByText('Saturday is outside the work week'))
+      .toHaveTextContent('⚠ Saturday is outside the work week');
+    expect(screen.getByRole('button', { name: 'Open releases for Alpha' }))
+      .toHaveAccessibleDescription(/Saturday is outside the work week/);
     expect(within(tileOf('Alpha')).getByText('⚠')).toHaveAttribute(
       'title',
       'Falls on Saturday, which is outside your work week.',
     );
-    expect(within(tileOf('Beta')).queryByText('⚠')).toBeNull();
-    expect(within(tileOf('Gamma')).queryByText('⚠')).toBeNull();
+    expect(within(tileOf('Beta')).queryByText(/⚠|outside the work week/)).toBeNull();
+    expect(within(tileOf('Gamma')).queryByText(/⚠|outside the work week/)).toBeNull();
   });
 
   it('in local mode no tile offers Share, even for a project the signed-in user owns', async () => {
@@ -1230,10 +1234,10 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     renderProjectsTab();
     await waitFor(() => expect(screen.getByText('Beta')).toBeTruthy());
 
-    expect(tileOf('Alpha')).toHaveTextContent('(2 releases)');
-    // The tile says "1 releases" today: it has no singular, which is wrong, and
-    // a fix is planned. This checks the count and accepts either wording.
-    expect(tileOf('Beta')).toHaveTextContent(/\(1 releases?\b/);
+    expect(within(tileOf('Alpha')).getByText('2 releases')).toBeInTheDocument();
+    // One release is singular.
+    expect(within(tileOf('Beta')).getByText('1 release')).toBeInTheDocument();
+    expect(tileOf('Beta')).not.toHaveTextContent('1 releases');
   });
 
   it('a tile shows its finish date as MM/DD/YYYY', async () => {
@@ -1244,7 +1248,8 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     renderProjectsTab();
     await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
 
-    expect(tileOf('Alpha')).toHaveTextContent('(0 releases, finish: 12/31/2026)');
+    expect(within(tileOf('Alpha')).getByText('0 releases')).toBeInTheDocument();
+    expect(within(tileOf('Alpha')).getByText('Finish: 12/31/2026')).toBeInTheDocument();
     expect(tileOf('Alpha')).not.toHaveTextContent('2026-12-31');
   });
 

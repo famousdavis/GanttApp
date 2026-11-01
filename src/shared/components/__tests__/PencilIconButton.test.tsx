@@ -40,13 +40,13 @@ describe('PencilIconButton', () => {
   it('uses gray default and turns blue on mouse enter', () => {
     render(<PencilIconButton onClick={() => {}} />);
     const button = screen.getByRole('button');
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
 
     fireEvent.mouseEnter(button);
     expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#0070f3');
 
     fireEvent.mouseLeave(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('turns blue on focus and reverts on blur', () => {
@@ -57,7 +57,7 @@ describe('PencilIconButton', () => {
     expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#0070f3');
 
     fireEvent.blur(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('shows soft blue background tile on hover', () => {
@@ -102,7 +102,7 @@ describe('PencilIconButton', () => {
     render(<PencilIconButton onClick={() => {}} active disabled />);
     const button = screen.getByRole('button');
     // Stays gray despite active=true
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
     expect(button.style.background).toBe('transparent');
   });
 });

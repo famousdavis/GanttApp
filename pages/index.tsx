@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
 import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
@@ -71,6 +71,10 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [selectedProjectIdRaw, setSelectedProjectId] = useState<string>('');
   const [cloudModalOpen, setCloudModalOpen] = useState(false);
+  // Load Sample opens the Gantt Chart tab: its message is read out here (the
+  // Projects tab has gone), and focus moves to the chart's project picker.
+  const [announcement, setAnnouncement] = useState('');
+  const focusChartPickerRef = useRef(false);
 
   // Auto-select first project when none is selected
   const selectedProjectId = (selectedProjectIdRaw && data.projects.some(p => p.id === selectedProjectIdRaw))
@@ -217,6 +221,17 @@ function AppContent() {
       .catch(err => console.error('Save snapshot failed:', err));
   }, [snapshotState, visibleReleases, selectedProject?.finishDate, selectedProject?.legendLabels, chartColors, solidBarLabel, hatchedBarLabel, finishDateLabel, mostLikelyLineLabel, inProgressLabel, preparedBy, todayDateOverride]);
 
+  const handleSampleLoaded = useCallback((message: string) => {
+    setAnnouncement(message);
+    focusChartPickerRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!focusChartPickerRef.current || activeTab !== 'chart') return;
+    focusChartPickerRef.current = false;
+    document.querySelector<HTMLElement>('select[name="chartTabSelectedProject"]')?.focus();
+  }, [activeTab]);
+
   // Keyboard shortcuts
   const tabOrder: TabType[] = useMemo(() => ['projects', 'releases', 'chart', 'settings', 'about'], []);
   const shortcuts = useMemo(() => ({
@@ -309,6 +324,8 @@ function AppContent() {
 
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
+        <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
+
         <main>
           {/* v0.29.10: an error in one view leaves the rest of the app up.
               Keyed on the tab; a change of the selected project clears an
@@ -324,6 +341,7 @@ function AppContent() {
               onProjectDragOver={handleProjectDragOver}
               onProjectDragEnd={handleProjectDragEnd}
               onReplaceSnapshots={snapshotState.replaceAllSnapshots}
+              onSampleLoaded={handleSampleLoaded}
             />
           )}
 

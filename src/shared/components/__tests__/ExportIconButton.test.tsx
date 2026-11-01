@@ -40,13 +40,13 @@ describe('ExportIconButton', () => {
   it('uses gray default and turns green on mouse enter', () => {
     render(<ExportIconButton onClick={() => {}} />);
     const button = screen.getByRole('button');
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
 
     fireEvent.mouseEnter(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#10b981');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#047857');
 
     fireEvent.mouseLeave(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('turns green on focus and reverts on blur', () => {
@@ -54,10 +54,10 @@ describe('ExportIconButton', () => {
     const button = screen.getByRole('button');
 
     fireEvent.focus(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#10b981');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#047857');
 
     fireEvent.blur(button);
-    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#9ca3af');
+    expect(button.querySelector('path')?.getAttribute('stroke')).toBe('#808080');
   });
 
   it('shows soft green background tile on hover', () => {

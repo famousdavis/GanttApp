@@ -21,10 +21,13 @@ interface PencilIconButtonProps {
   active?: boolean;
 }
 
-const HOVER_BLUE = '#0070f3';
+const HOVER_BLUE_LIGHT = '#0070f3';
+const HOVER_BLUE_DARK = '#60a5fa';
 const HOVER_BG_LIGHT = '#eff6ff';
 const HOVER_BG_DARK = 'rgba(0, 112, 243, 0.15)';
-const DEFAULT_GRAY = '#9ca3af';
+// Resting grey: at least 3:1 against every tile and dialog background in each theme.
+const REST_GRAY_LIGHT = '#808080';
+const REST_GRAY_DARK = '#9ca3af';
 
 export function PencilIconButton({
   onClick,
@@ -37,8 +40,11 @@ export function PencilIconButton({
   const [hover, setHover] = useState(false);
 
   const isHoverActive = (hover || active) && !disabled;
-  const iconColor = isHoverActive ? HOVER_BLUE : DEFAULT_GRAY;
-  const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
+  const isDark = resolvedTheme === 'dark';
+  const iconColor = isHoverActive
+    ? (isDark ? HOVER_BLUE_DARK : HOVER_BLUE_LIGHT)
+    : (isDark ? REST_GRAY_DARK : REST_GRAY_LIGHT);
+  const hoverBg = isDark ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
     <button
@@ -52,7 +58,10 @@ export function PencilIconButton({
       title={title}
       disabled={disabled}
       style={{
-        padding: '0.35rem',
+        width: '28px',
+        height: '28px',
+        padding: 0,
+        flexShrink: 0,
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',

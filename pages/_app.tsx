@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import '@/styles/globals.css';
+import '@/styles/projects-tab.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import { AuthProvider } from '../src/context/AuthContext';

@@ -16,6 +16,7 @@ import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../shared/storage/cloud-data-not-loaded';
 import { isPermissionDenied, isProjectNotSavedError } from '../../shared/storage/cloud-not-saved';
 import { isSnapshotsNotLoadedError } from '../../shared/storage/snapshots-not-loaded';
+import { buildSampleProject } from './sampleProject';
 
 const NOT_DELETED = 'This project was not deleted.';
 const NOT_COPIED = 'This project was not copied.';
@@ -80,7 +81,7 @@ export function buildCloneCandidateName(sourceName: string, suffix: number): str
 }
 
 export function useProjects() {
-  const { data, updateData } = useAppData();
+  const { data, updateData, globalWorkDays } = useAppData();
   const { storage } = useStorage();
   const { user } = useAuth();
   const [projectName, setProjectName] = useState('');
@@ -127,6 +128,33 @@ export function useProjects() {
     setProjectFinishDate('');
     setProjectWorkDays(undefined);
     setEditingProjectId(null);
+  };
+
+  /**
+   * Load Sample: add the sample project and its releases at the end of the
+   * list, by the same path as a new project (in cloud mode the user owns it).
+   * Returns the new project, for the caller to select and show.
+   */
+  const addSampleProject = (today: Date = new Date()): Project => {
+    const sample = buildSampleProject(today, globalWorkDays, data.projects.map(p => p.name));
+    const project: Project = {
+      id: generateId(),
+      name: sanitizeString(sample.name),
+      finishDate: sample.finishDate,
+      ...(storage.mode === 'cloud' && user && { owner: user.uid }),
+    };
+    const releases = sample.releases.map(r => ({
+      ...r,
+      id: generateId(),
+      projectId: project.id,
+      name: sanitizeString(r.name),
+    }));
+    updateData({
+      ...data,
+      projects: [...data.projects, project],
+      releases: [...data.releases, ...releases],
+    });
+    return project;
   };
 
   const deleteProject = async (id: string, selectedProjectId: string, setSelectedProjectId: (id: string) => void) => {
@@ -291,6 +319,7 @@ export function useProjects() {
     setProjectWorkDays,
     editingProjectId,
     addProject,
+    addSampleProject,
     updateProject,
     deleteProject,
     startEditProject,

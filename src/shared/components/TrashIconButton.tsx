@@ -15,10 +15,13 @@ interface TrashIconButtonProps {
   disabled?: boolean;
 }
 
-const HOVER_RED = '#ef4444';
+const HOVER_RED_LIGHT = '#ef4444';
+const HOVER_RED_DARK = '#f87171';
 const HOVER_BG_LIGHT = '#fef2f2';
 const HOVER_BG_DARK = 'rgba(239, 68, 68, 0.15)';
-const DEFAULT_GRAY = '#9ca3af';
+// Resting grey: at least 3:1 against every tile and dialog background in each theme.
+const REST_GRAY_LIGHT = '#808080';
+const REST_GRAY_DARK = '#9ca3af';
 
 export function TrashIconButton({
   onClick,
@@ -30,8 +33,11 @@ export function TrashIconButton({
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_RED : DEFAULT_GRAY;
-  const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
+  const isDark = resolvedTheme === 'dark';
+  const iconColor = isHoverActive
+    ? (isDark ? HOVER_RED_DARK : HOVER_RED_LIGHT)
+    : (isDark ? REST_GRAY_DARK : REST_GRAY_LIGHT);
+  const hoverBg = isDark ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
     <button
@@ -45,7 +51,10 @@ export function TrashIconButton({
       title={title}
       disabled={disabled}
       style={{
-        padding: '0.35rem',
+        width: '28px',
+        height: '28px',
+        padding: 0,
+        flexShrink: 0,
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',

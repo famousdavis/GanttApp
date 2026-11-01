@@ -20,6 +20,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ImportPreviewSection } from '../ImportPreviewSection';
 import { LIGHT_THEME } from '../../../shared/utils/theme';
 import type { ImportResult, ImportConflict, ConflictAction } from '../../../shared/utils/export';
+import type { Release } from '../../../shared/types';
 
 function makeImportResult(exportType: ImportResult['exportType'], projects: { id: string; name: string }[]): ImportResult {
   return {
@@ -358,6 +359,181 @@ describe('ImportPreviewSection (v0.24.0)', () => {
       const replaceRadio = screen.getByRole('radio', { name: 'Replace existing with imported' }) as HTMLInputElement;
       expect(replaceRadio.checked).toBe(true);
     });
+  });
+});
+
+// ==========================================================================
+// The new-projects list, the conflict count, the mode switch back to Merge,
+// the decision radios while applying, and focus on mount.
+// ==========================================================================
+
+function makeRelease(id: string, projectId: string): Release {
+  return {
+    id,
+    projectId,
+    name: `Release ${id}`,
+    startDate: '2026-01-05',
+    earlyFinishDate: '2026-02-02',
+    lateFinishDate: '2026-03-02',
+  };
+}
+
+function newProjectRows(): (string | null)[] {
+  return screen.getAllByRole('listitem').map(li => li.textContent);
+}
+
+describe('ImportPreviewSection: the new-projects list and the counts', () => {
+  it('shows each new project with its own release count: 1 release, 2 releases, 0 releases', () => {
+    const imported: ImportResult = {
+      appData: {
+        projects: [
+          { id: 'p-one', name: 'Alpha' },
+          { id: 'p-two', name: 'Beta' },
+          { id: 'p-none', name: 'Gamma' },
+        ],
+        releases: [
+          makeRelease('r1', 'p-two'),
+          makeRelease('r2', 'p-one'),
+          makeRelease('r3', 'p-two'),
+        ],
+      },
+      exportType: 'ganttapp-project-export',
+    };
+    render(<ImportPreviewSection {...defaultProps({ imported })} />);
+
+    expect(newProjectRows()).toEqual([
+      'Alpha (1 release)',
+      'Beta (2 releases)',
+      'Gamma (0 releases)',
+    ]);
+  });
+
+  it('heads the list with the number of new projects, not counting a conflicting one', () => {
+    const imported = makeImportResult('ganttapp-project-export', [
+      { id: 'n1', name: 'First New' },
+      { id: 'c1', name: 'Clashing' },
+      { id: 'n2', name: 'Second New' },
+    ]);
+    const conflicts = makeConflicts([{ incomingId: 'c1', incomingName: 'Clashing', existingId: 'e1', existingName: 'Clashing', type: 'id' }]);
+    render(<ImportPreviewSection {...defaultProps({ imported, conflicts, decisions: new Map([['c1', 'skip']]) })} />);
+
+    expect(screen.getByText('New projects (2)')).toBeTruthy();
+    expect(screen.queryByText(/New projects \(3\)/)).toBeNull();
+  });
+
+  it('does not list a conflicting project as new (a name conflict, whose existing project has another id)', () => {
+    const imported = makeImportResult('ganttapp-project-export', [
+      { id: 'inc-new', name: 'Brand New' },
+      { id: 'inc-clash', name: 'Clashing' },
+    ]);
+    const conflicts = makeConflicts([{ incomingId: 'inc-clash', incomingName: 'Clashing', existingId: 'existing-clash', existingName: 'Clashing', type: 'name' }]);
+    render(<ImportPreviewSection {...defaultProps({ imported, conflicts, decisions: new Map([['inc-clash', 'copy']]) })} />);
+
+    // The conflicting project is shown, under the conflicts.
+    expect(within(screen.getByTestId('conflict-group-inc-clash')).getByText(/Clashing/)).toBeTruthy();
+    // The new-projects list holds the other project, and only that one.
+    expect(newProjectRows()).toEqual(['Brand New (0 releases)']);
+  });
+
+  it('heads the conflicts with the number of conflicts', () => {
+    const imported = makeImportResult('ganttapp-project-export', [
+      { id: 'c1', name: 'Clash One' },
+      { id: 'n1', name: 'Only New' },
+      { id: 'c2', name: 'Clash Two' },
+    ]);
+    const conflicts = makeConflicts([
+      { incomingId: 'c1', incomingName: 'Clash One', existingId: 'c1', existingName: 'Clash One', type: 'id' },
+      { incomingId: 'c2', incomingName: 'Clash Two', existingId: 'e2', existingName: 'Clash Two', type: 'name' },
+    ]);
+    render(<ImportPreviewSection {...defaultProps({ imported, conflicts, decisions: new Map([['c1', 'skip'], ['c2', 'copy']]) })} />);
+
+    expect(screen.getByTestId('conflict-group-c1')).toBeTruthy();
+    expect(screen.getByTestId('conflict-group-c2')).toBeTruthy();
+    expect(screen.getByText('Conflicts (2)')).toBeTruthy();
+    expect(screen.getByText('New projects (1)')).toBeTruthy();
+  });
+});
+
+describe('ImportPreviewSection: switching back to Merge', () => {
+  it('choosing "Merge into workspace" while Replace All is selected asks for merge mode', () => {
+    const onModeChange = vi.fn();
+    render(
+      <ImportPreviewSection
+        {...defaultProps({
+          imported: makeImportResult('ganttapp-all-projects', [{ id: 'i1', name: 'Foo' }]),
+          mode: 'replace-all',
+          onModeChange,
+        })}
+      />
+    );
+    const mergeMode = screen.getByRole('radio', { name: /Merge into workspace/ }) as HTMLInputElement;
+    const replaceMode = screen.getByRole('radio', { name: /Replace entire workspace/ }) as HTMLInputElement;
+    // Replace All is the current mode.
+    expect(replaceMode.checked).toBe(true);
+    expect(mergeMode.checked).toBe(false);
+    expect(screen.getByRole('button', { name: 'Replace All Data' })).toBeTruthy();
+
+    fireEvent.click(mergeMode);
+
+    expect(onModeChange).toHaveBeenCalledTimes(1);
+    expect(onModeChange).toHaveBeenCalledWith('merge');
+  });
+});
+
+describe('ImportPreviewSection: the conflict decisions while applying', () => {
+  it('disables every decision radio while the import is applying, and enables them again after', () => {
+    const conflicts = makeConflicts([{ incomingId: 'inc-1', incomingName: 'Foo', existingId: 'e1', existingName: 'Foo', type: 'name' }]);
+    const props = {
+      imported: makeImportResult('ganttapp-project-export', [{ id: 'inc-1', name: 'Foo' }]),
+      conflicts,
+      decisions: new Map<string, ConflictAction>([['inc-1', 'copy']]),
+      mode: 'merge' as const,
+    };
+    const { rerender } = render(<ImportPreviewSection {...defaultProps({ ...props, applying: true })} />);
+
+    const decisionRadios = () => within(screen.getByTestId('conflict-group-inc-1')).getAllByRole('radio') as HTMLInputElement[];
+    expect(decisionRadios().map(r => r.value)).toEqual(['skip', 'copy', 'replace']);
+    expect(decisionRadios().map(r => r.disabled)).toEqual([true, true, true]);
+
+    rerender(<ImportPreviewSection {...defaultProps({ ...props, applying: false })} />);
+    expect(decisionRadios().map(r => r.disabled)).toEqual([false, false, false]);
+  });
+});
+
+describe('ImportPreviewSection: focus', () => {
+  it('moves focus to the "Review import" heading when it appears', () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Somewhere else';
+    document.body.appendChild(outside);
+    try {
+      outside.focus();
+      expect(document.activeElement).toBe(outside);
+
+      render(<ImportPreviewSection {...defaultProps()} />);
+
+      expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review import' }));
+    } finally {
+      outside.remove();
+    }
+  });
+
+  it('does not take focus back from the user when it re-renders', () => {
+    const conflicts = makeConflicts([{ incomingId: 'inc-1', incomingName: 'Foo', existingId: 'e1', existingName: 'Foo', type: 'name' }]);
+    const props = {
+      imported: makeImportResult('ganttapp-project-export', [{ id: 'inc-1', name: 'Foo' }]),
+      conflicts,
+      mode: 'merge' as const,
+    };
+    const { rerender } = render(<ImportPreviewSection {...defaultProps({ ...props, decisions: new Map([['inc-1', 'skip']]) })} />);
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review import' }));
+
+    // The user moves to a decision and changes it; the parent re-renders the preview.
+    const copyRadio = screen.getByRole('radio', { name: 'Add as a copy' }) as HTMLInputElement;
+    copyRadio.focus();
+    rerender(<ImportPreviewSection {...defaultProps({ ...props, decisions: new Map([['inc-1', 'copy']]) })} />);
+
+    expect(copyRadio.checked).toBe(true);
+    expect(document.activeElement).toBe(copyRadio);
   });
 });
 

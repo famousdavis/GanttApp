@@ -6,10 +6,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSnapshots } from '../useSnapshots';
 import { AppDataProvider } from '../../../context/AppDataContext';
+import * as StorageModule from '../../../context/StorageContext';
 import { StorageProvider } from '../../../context/StorageContext';
 import { AuthProvider } from '../../../context/AuthContext';
 import { ThemeProvider } from '../../../context/ThemeContext';
 import React from 'react';
+import type { Snapshot } from '../../../shared/types';
 
 // Mock firebase modules
 vi.mock('../../../lib/firebase', () => ({
@@ -90,6 +92,13 @@ const otherProjectSnapshot = {
   timestamp: '2026-01-20T10:00:00.000Z',
   name: 'Other Project Snap',
   releases: []
+};
+
+const saveParams = {
+  releases: [],
+  chartColors: { solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545', finishDateLine: '#00ff00', mostLikelyLine: '#000000', completedBar: '#90ee90', inProgressBar: '#f59e0b' },
+  legendLabels: { solidBar: 'Design', hatchedBar: 'Uncertainty' },
+  preparedBy: 'William',
 };
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -382,156 +391,113 @@ describe('useSnapshots', () => {
     expect(result.current.snapshots[1].id).toBe('snap1');
   });
 
-  // --- v16.2 Risk 1 regression guard ---
-  // The snapshot-save code path at pages/index.tsx (handleSaveSnapshot) MUST pass
-  // EFFECTIVE label values to saveSnapshot(), not raw (possibly empty) AppDataContext
-  // state. A snapshot taken today with empty global state should display the hardcoded
-  // defaults forever, not empty strings.
-  //
-  // useSnapshots.saveSnapshot is a pure pass-through of its legendLabels argument —
-  // the regression risk lives in the CALLER (handleSaveSnapshot). pages/index.tsx
-  // isn't unit-testable here, so this test documents the CONTRACT by exercising the
-  // same raw-or-default computation that handleSaveSnapshot performs.
-  it('snapshot save contract: caller builds legendLabels from raw || DEFAULT_LEGEND_LABELS (Risk 1)', async () => {
-    // Import the DEFAULT_LEGEND_LABELS constant used by pages/index.tsx
-    const { DEFAULT_LEGEND_LABELS } = await import('../../../shared/utils/validation');
-
-    // Simulate the state at first-time user time-of-snapshot: raw state is all empty
-    const emptyRawState = {
-      solidBarLabel: '',
-      hatchedBarLabel: '',
-      finishDateLabel: '',
-      mostLikelyLineLabel: '',
-      inProgressLabel: '',
-    };
-
-    // THIS is the exact same computation handleSaveSnapshot performs in pages/index.tsx.
-    // If a future refactor regresses this to pass raw state, the snapshot would freeze
-    // empty strings and render as blank labels — the symptom is invisible until someone
-    // opens that snapshot weeks/months later.
-    const legendLabelsForSnapshot = {
-      solidBar: emptyRawState.solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar,
-      hatchedBar: emptyRawState.hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar,
-      finishDateLine: emptyRawState.finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine,
-      mostLikelyLine: emptyRawState.mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine,
-      inProgress: emptyRawState.inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress,
-    };
-
-    // Assert the payload that pages/index.tsx produces from empty state is well-formed:
-    // every label is a non-empty string matching the hardcoded default.
-    expect(legendLabelsForSnapshot.solidBar).toBe('Design, Code, Test');
-    expect(legendLabelsForSnapshot.hatchedBar).toBe('Delivery Uncertainty');
-    expect(legendLabelsForSnapshot.finishDateLine).toBe('Project Finish Date');
-    expect(legendLabelsForSnapshot.mostLikelyLine).toBe('Most Likely Finish');
-    expect(legendLabelsForSnapshot.inProgress).toBe('In Progress');
-
-    // Now verify saveSnapshot stores them faithfully (no surprises in the hook):
-    localStorageMock.setItem('ganttAppData', JSON.stringify({
-      projects: [{ id: 'p1', name: 'Project 1' }],
-      releases: [],
-    }));
-    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([]));
-
-    vi.spyOn(window, 'prompt').mockReturnValue('Regression Guard Snapshot');
+  // saveSnapshot passes its legendLabels argument through untouched. Which
+  // labels the caller passes (defaults, project overrides) is the page's job
+  // and is tested through the page, not here.
+  it('stores the five legend labels exactly as passed', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('Label Pass-through');
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
     await act(async () => {
       await result.current.saveSnapshot({
-        releases: [],
-        chartColors: {
-          solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545',
-          finishDateLine: '#00ff00', mostLikelyLine: '#000000',
-          completedBar: '#90ee90', inProgressBar: '#f59e0b',
+        ...saveParams,
+        legendLabels: {
+          solidBar: 'Solid label A',
+          hatchedBar: 'Hatched label B',
+          finishDateLine: 'Finish label C',
+          mostLikelyLine: 'Likely label D',
+          inProgress: 'Progress label E',
         },
-        legendLabels: legendLabelsForSnapshot,
-        preparedBy: '',
       });
     });
 
-    const saved = result.current.snapshots.find(s => s.name === 'Regression Guard Snapshot');
-    expect(saved).toBeDefined();
-    // Snapshot preserves exactly the effective values — never empty strings.
-    expect(saved?.legendLabels?.solidBar).toBe('Design, Code, Test');
-    expect(saved?.legendLabels?.hatchedBar).toBe('Delivery Uncertainty');
-    expect(saved?.legendLabels?.finishDateLine).toBe('Project Finish Date');
-    expect(saved?.legendLabels?.mostLikelyLine).toBe('Most Likely Finish');
-    expect(saved?.legendLabels?.inProgress).toBe('In Progress');
+    const stored: Snapshot[] = JSON.parse(localStorageMock.getItem('ganttAppSnapshots')!);
+    expect(stored.map(s => s.name)).toEqual(['Label Pass-through']);
+    expect(stored[0].legendLabels).toEqual({
+      solidBar: 'Solid label A',
+      hatchedBar: 'Hatched label B',
+      finishDateLine: 'Finish label C',
+      mostLikelyLine: 'Likely label D',
+      inProgress: 'Progress label E',
+    });
   });
 
-  // --- v16.8 regression guard: project-override labels must be frozen in snapshots ---
-  // Same pattern as v16.2 Risk 1: useSnapshots.saveSnapshot is a pass-through, so the
-  // bug lives in the caller (handleSaveSnapshot in pages/index.tsx). This test exercises
-  // the exact resolveLabel(key, projectLabels, globalOrDefault) computation that the
-  // caller performs. If a future refactor regresses this to pass raw globals, snapshots
-  // will silently freeze the wrong labels and users won't notice until they open an old
-  // snapshot and see Settings-default text instead of their per-project override.
-  it('snapshot save contract: caller uses resolveLabel so project overrides are frozen (v16.8)', async () => {
-    const { resolveLabel, DEFAULT_LEGEND_LABELS } = await import('../../../shared/utils/validation');
+  it("names the snapshot with today's date when the name entered is only spaces", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 4, 12, 0, 0));
+    try {
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('   ');
 
-    // Simulate live state: global labels customized in Settings, PLUS a project override
-    // on two of the five keys. The snapshot should capture the project override for
-    // those two, and the global value (not the hardcoded default) for the other three.
-    const globalRaw = {
-      solidBarLabel: 'Global Solid',
-      hatchedBarLabel: 'Global Hatched',
-      finishDateLabel: '',                     // empty → falls back to DEFAULT
-      mostLikelyLineLabel: 'Global Likely',
-      inProgressLabel: 'Global In-Progress',
-    };
-    const projectLabels = {
-      solidBar: 'Project Solid Override',
-      mostLikelyLine: 'Project Likely Override',
-    };
+      const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
 
-    const legendLabelsForSnapshot = {
-      solidBar: resolveLabel('solidBar', projectLabels, globalRaw.solidBarLabel || DEFAULT_LEGEND_LABELS.solidBar),
-      hatchedBar: resolveLabel('hatchedBar', projectLabels, globalRaw.hatchedBarLabel || DEFAULT_LEGEND_LABELS.hatchedBar),
-      finishDateLine: resolveLabel('finishDateLine', projectLabels, globalRaw.finishDateLabel || DEFAULT_LEGEND_LABELS.finishDateLine),
-      mostLikelyLine: resolveLabel('mostLikelyLine', projectLabels, globalRaw.mostLikelyLineLabel || DEFAULT_LEGEND_LABELS.mostLikelyLine),
-      inProgress: resolveLabel('inProgress', projectLabels, globalRaw.inProgressLabel || DEFAULT_LEGEND_LABELS.inProgress),
-    };
+      await act(async () => {
+        await result.current.saveSnapshot(saveParams);
+      });
 
-    // Project override wins where present.
-    expect(legendLabelsForSnapshot.solidBar).toBe('Project Solid Override');
-    expect(legendLabelsForSnapshot.mostLikelyLine).toBe('Project Likely Override');
-    // Global wins where no project override exists.
-    expect(legendLabelsForSnapshot.hatchedBar).toBe('Global Hatched');
-    expect(legendLabelsForSnapshot.inProgress).toBe('Global In-Progress');
-    // Hardcoded default wins where both project override AND global are absent/empty.
-    expect(legendLabelsForSnapshot.finishDateLine).toBe('Project Finish Date');
+      // The date offered as the default is the one used.
+      expect(promptSpy).toHaveBeenCalledWith('Enter a name for this snapshot (optional):', 'July 4, 2026');
+      const stored: Snapshot[] = JSON.parse(localStorageMock.getItem('ganttAppSnapshots')!);
+      expect(stored).toHaveLength(1);
+      expect(stored[0].name).toBe('July 4, 2026');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
-    // Verify saveSnapshot stores the resolved values faithfully.
-    localStorageMock.setItem('ganttAppData', JSON.stringify({
-      projects: [{ id: 'p1', name: 'Project 1', legendLabels: projectLabels }],
-      releases: [],
-    }));
-    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify([]));
-
-    vi.spyOn(window, 'prompt').mockReturnValue('v16.8 Override Freeze');
+  it('at the snapshot limit, says so and adds nothing', async () => {
+    // The project already holds the 50 snapshots a project may have, and they
+    // load successfully.
+    const full = Array.from({ length: 50 }, (_, i) => ({ ...testSnapshot, id: `full-${i}`, name: `Full ${i}` }));
+    localStorageMock.setItem('ganttAppSnapshots', JSON.stringify(full));
+    vi.spyOn(window, 'prompt').mockReturnValue('One Too Many');
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
     const { result } = renderHook(() => useSnapshots('p1'), { wrapper });
-
-    await act(async () => {
-      await result.current.saveSnapshot({
-        releases: [],
-        chartColors: {
-          solidBar: '#0070f3', hatchedBar: '#0070f3', todayLine: '#dc3545',
-          finishDateLine: '#00ff00', mostLikelyLine: '#000000',
-          completedBar: '#90ee90', inProgressBar: '#f59e0b',
-        },
-        legendLabels: legendLabelsForSnapshot,
-        preparedBy: '',
-      });
+    await waitFor(() => {
+      expect(result.current.snapshots).toHaveLength(50);
     });
 
-    const saved = result.current.snapshots.find(s => s.name === 'v16.8 Override Freeze');
-    expect(saved).toBeDefined();
-    expect(saved?.legendLabels?.solidBar).toBe('Project Solid Override');
-    expect(saved?.legendLabels?.mostLikelyLine).toBe('Project Likely Override');
-    expect(saved?.legendLabels?.hatchedBar).toBe('Global Hatched');
-    expect(saved?.legendLabels?.inProgress).toBe('Global In-Progress');
-    expect(saved?.legendLabels?.finishDateLine).toBe('Project Finish Date');
+    await act(async () => {
+      await result.current.saveSnapshot(saveParams);
+    });
+
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith('Snapshot limit reached. Delete old snapshots to save new ones.');
+    expect(result.current.snapshots).toHaveLength(50);
+    expect(result.current.snapshots.some(s => s.name === 'One Too Many')).toBe(false);
+    expect(JSON.parse(localStorageMock.getItem('ganttAppSnapshots')!)).toHaveLength(50);
+    alertSpy.mockRestore();
+  });
+
+  it('discards a snapshot load that finishes after the storage changed', async () => {
+    let resolveFirstLoad: (snapshots: Snapshot[]) => void = () => {};
+    const firstLoad = new Promise<Snapshot[]>(resolve => { resolveFirstLoad = resolve; });
+    const firstStorage = { loadSnapshots: vi.fn(() => firstLoad) };
+    const secondStorage = { loadSnapshots: vi.fn(async () => [{ ...testSnapshot, id: 'from-second-storage' }]) };
+    let currentStorage: unknown = firstStorage;
+    // The hook reads the storage service from its context; stub that context
+    // so the service can be swapped while the first load is still pending.
+    const useStorageSpy = vi.spyOn(StorageModule, 'useStorage')
+      .mockImplementation(() => ({ storage: currentStorage }) as unknown as ReturnType<typeof StorageModule.useStorage>);
+
+    const { result, rerender } = renderHook(() => useSnapshots('p1'));
+    expect(firstStorage.loadSnapshots).toHaveBeenCalledTimes(1);
+
+    currentStorage = secondStorage;
+    rerender();
+    await waitFor(() => {
+      expect(result.current.allSnapshots.map(s => s.id)).toEqual(['from-second-storage']);
+    });
+
+    // The first storage's load finishes only now, after the swap.
+    await act(async () => {
+      resolveFirstLoad([{ ...testSnapshot, id: 'from-first-storage' }]);
+      await firstLoad;
+    });
+
+    expect(result.current.allSnapshots.map(s => s.id)).toEqual(['from-second-storage']);
+    useStorageSpy.mockRestore();
   });
 
   // v0.27.0 (Pass 5, I2): when the cloud driver dispatches the eviction

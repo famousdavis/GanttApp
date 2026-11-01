@@ -1661,6 +1661,9 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await wait(900);
 
       expect(bannerText()).toContain(MERGE_NOT_SAVED);
+      const mergeBanner = Array.from(document.querySelectorAll('[role="status"], [role="alert"]'))
+        .find((e) => e.textContent?.includes(MERGE_NOT_SAVED));
+      expect(mergeBanner?.getAttribute('role')).toBe('alert');
       expect(onScreen()).toContain('Imported Plan');
     });
 
@@ -1674,6 +1677,10 @@ describe('a project created in a cloud session that loaded normally, end to end'
       await wait(900);
 
       expect(bannerText()).toContain(REPLACE_ALL_NOT_SAVED);
+      // bannerText() reads both roles; the message is shown as an alert.
+      const banner = Array.from(document.querySelectorAll('[role="status"], [role="alert"]'))
+        .find((e) => e.textContent?.includes(REPLACE_ALL_NOT_SAVED));
+      expect(banner?.getAttribute('role')).toBe('alert');
       expect(cloudSnapshotPaths()).toEqual(['ganttapp_projects/p1/snapshots/s1', 'ganttapp_projects/p1/snapshots/s2']);
     });
 

@@ -185,8 +185,8 @@ describe('InvitationBanner', () => {
 
   describe('claimed', () => {
     it('lists every claimed project, with the plural wording for more than one', () => {
-      renderBanner({ bannerState: 'claimed', claimedProjectNames: ['Alpha', 'Beta', 'Gamma'] });
-      expect(screen.getByText("You've been added to: Alpha, Beta, Gamma")).toBeInTheDocument();
+      renderBanner({ bannerState: 'claimed', claimedProjectNames: ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'] });
+      expect(screen.getByText("You've been added to: Alpha, Beta, Gamma, Delta, Epsilon, Zeta")).toBeInTheDocument();
       expect(screen.getByText('The projects should now appear in your project list.')).toBeInTheDocument();
     });
 

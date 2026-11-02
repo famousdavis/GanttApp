@@ -48,6 +48,8 @@ interface ImportPreviewSectionProps {
    * Same reasoning as the v0.28.10 `.catch()` backstops.
    */
   dismissalSuppressed?: boolean;
+  /** The colour of the note under a conflict, on its amber block (4.5:1 in each theme). */
+  noteColor?: string;
 }
 
 const ACTION_LABELS: Record<ConflictAction, string> = {
@@ -72,6 +74,7 @@ export function ImportPreviewSection({
   onRequestReplaceAll,
   onCancel,
   dismissalSuppressed = false,
+  noteColor = '#92400e',
 }: ImportPreviewSectionProps) {
   const isModeToggleable =
     imported.exportType === 'ganttapp-all-projects' ||
@@ -167,7 +170,7 @@ export function ImportPreviewSection({
 
   const dangerButtonStyle = (enabled: boolean): React.CSSProperties => ({
     padding: '0.55rem 1.1rem',
-    background: enabled ? '#e53e3e' : '#9ca3af',
+    background: enabled ? '#dc3545' : '#9ca3af',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
@@ -276,7 +279,7 @@ export function ImportPreviewSection({
                           {' → '}
                           <span style={{ color: colors.textMuted }}>Incoming:</span> <strong>&ldquo;{conflict.incomingProject.name}&rdquo;</strong>
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#92400e', marginTop: '0.15rem' }}>
+                        <div style={{ fontSize: '0.85rem', color: noteColor, marginTop: '0.15rem' }}>
                           Already exists — same project
                         </div>
                       </>
@@ -285,7 +288,7 @@ export function ImportPreviewSection({
                         <div id={groupLabelId} style={{ fontSize: '0.9rem', color: colors.text }}>
                           <strong>&ldquo;{conflict.incomingProject.name}&rdquo;</strong>
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#92400e', marginTop: '0.15rem' }}>
+                        <div style={{ fontSize: '0.85rem', color: noteColor, marginTop: '0.15rem' }}>
                           Already exists — same name, different origin
                         </div>
                       </>

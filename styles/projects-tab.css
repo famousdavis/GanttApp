@@ -1,0 +1,256 @@
+/* Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved. */
+/* Licensed under the GNU General Public License v3.0. */
+/* See LICENSE file in the project root for full license text. */
+
+/* Projects tab: the toolbar, the tile grid and the project dialog.
+   Inline style objects cannot express :hover, :focus-within, ::after,
+   @container or @media (hover: none), so these live here. Colours come in as
+   --pt-* custom properties, set inline from the theme by projectsTabPalette(). */
+
+.pt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 1rem;
+}
+.pt-head h2 { font-size: 1.5rem; color: var(--pt-text); }
+
+.pt-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.pt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--pt-btn-border);
+  border-radius: 6px;
+  background: var(--pt-bg);
+  color: var(--pt-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pt-btn svg { color: var(--pt-meta); flex: none; }
+.pt-btn:hover { background: var(--pt-hover-bg); }
+.pt-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.pt-btn-primary {
+  background: var(--pt-primary);
+  border-color: var(--pt-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+.pt-btn-primary svg { color: #ffffff; }
+.pt-btn-primary:hover { background: var(--pt-primary-hover); border-color: var(--pt-primary-hover); }
+
+/* Visible keyboard focus on every control this tab draws. The first rule also
+   covers the controls of the dialogs drawn inside the tab (Delete Project,
+   Replace All, the import preview, Share): the browser's own ring is
+   near-black and vanishes on the dark theme's surfaces. :where() keeps it
+   below the open button's own rule further down. */
+.pt-root :where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--pt-focus);
+  outline-offset: 2px;
+}
+.pt-btn:focus-visible,
+.pt-btn:has(input:focus-visible),
+.pt-tile button:not(.pt-open):focus-visible,
+.pt-dialog button:focus-visible {
+  outline: 2px solid var(--pt-focus);
+  outline-offset: 2px;
+}
+
+.pt-empty { color: var(--pt-meta); font-style: italic; }
+
+/* The grid: one, two or three columns by the width it has. */
+.pt-area { container-type: inline-size; }
+.pt-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@container (min-width: 560px) { .pt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 860px) { .pt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.pt-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 10px 8px 12px;
+  background: var(--pt-surface);
+  border: 2px solid var(--pt-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+}
+.pt-tile:hover { border-color: var(--pt-tile-hover-border); box-shadow: 0 2px 10px var(--pt-shadow); }
+.pt-tile.pt-dragging { opacity: 0.5; }
+
+.pt-name-row { display: flex; align-items: flex-start; gap: 6px; }
+.pt-grip {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: inline-flex;
+  margin-top: 5px;
+  color: var(--pt-grip);
+  cursor: grab;
+}
+.pt-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding-top: 1px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  color: var(--pt-text);
+}
+
+/* The open button's ::after covers the whole tile, so a click anywhere on it
+   opens the project; the icons sit above it (z-index 1), so theirs do not. */
+.pt-open {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+.pt-open::after { content: ""; position: absolute; inset: 0; border-radius: 6px; }
+.pt-open:focus-visible { outline: none; }
+.pt-open:focus-visible::after { box-shadow: 0 0 0 2px var(--pt-bg), 0 0 0 4px var(--pt-focus); }
+.pt-tile:hover .pt-open,
+.pt-open:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+
+.pt-meta {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--pt-meta);
+}
+.pt-meta-warn { color: var(--pt-warn); }
+
+.pt-tile button:not(.pt-open) { position: relative; z-index: 1; }
+
+.pt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 8px;
+  margin-top: auto;
+  padding-top: 6px;
+  padding-left: 10px;
+}
+.pt-act-group { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+
+/* Revealed icons: shown while the pointer is over the tile or focus is in it,
+   and always where there is no hover. They stay in the tab order throughout. */
+.pt-reveal { opacity: 0; transition: opacity 0.12s ease; }
+.pt-tile:hover .pt-reveal,
+.pt-tile:focus-within .pt-reveal { opacity: 1; }
+@media (hover: none) {
+  .pt-reveal { opacity: 1; }
+  .pt-tile:hover { border-color: var(--pt-border); box-shadow: none; }
+}
+
+/* The project dialog */
+.pt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.pt-dialog {
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: auto;
+  padding: 1.75rem 2rem;
+  border-radius: 12px;
+  background: var(--pt-surface);
+  color: var(--pt-text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.pt-dialog h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
+.pt-field { margin: 0 0 0.9rem; border: 0; padding: 0; min-width: 0; }
+.pt-field > label,
+.pt-field > legend {
+  display: block;
+  padding: 0;
+  margin-bottom: 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pt-meta);
+}
+.pt-opt { font-weight: 400; }
+/* Two classes, so this outranks the dark theme's `[data-theme] input` rule. */
+.pt-dialog .pt-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  border: 1px solid var(--pt-input-border);
+  border-radius: 4px;
+  background: var(--pt-input-bg);
+  color: var(--pt-text);
+}
+.pt-dialog .pt-date { width: 200px; max-width: 100%; }
+.pt-dialog .pt-input[aria-invalid="true"] { border: 2px solid var(--pt-error-border); }
+.pt-dialog .pt-input:focus-visible { outline: 2px solid var(--pt-focus); outline-offset: 1px; }
+/* Placeholders and an empty date's mm/dd/yyyy at 4.5:1: the theme's muted grey
+   falls short. A focused or filled date keeps globals.css's text colour. */
+.pt-dialog .pt-input::placeholder,
+.pt-root textarea::placeholder { color: var(--pt-meta); opacity: 1; }
+.pt-dialog .pt-date::-webkit-datetime-edit-month-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-day-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-year-field,
+.pt-dialog .pt-date::-webkit-datetime-edit-text { color: var(--pt-meta); }
+.pt-field-msg { min-height: 1.2em; margin-top: 0.25rem; font-size: 0.8rem; }
+.pt-field-msg.pt-error { color: var(--pt-error); }
+.pt-field-msg.pt-warn { color: var(--pt-warn); }
+.pt-dlg-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.pt-dlg-buttons .pt-btn { padding: 0.6rem 1.25rem; font-weight: 600; }
+.pt-kbd-hint { margin-top: 0.75rem; text-align: right; font-size: 0.78rem; color: var(--pt-meta); }
+
+.pt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pt-root *,
+  .pt-overlay * { transition: none !important; }
+}

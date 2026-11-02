@@ -576,17 +576,22 @@ function watchText(pattern: RegExp) {
 }
 
 function addViaForm(name: string) {
-  const input = screen.getByLabelText('Project Name');
+  fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
+  const input = within(screen.getByRole('dialog', { name: 'New Project' })).getByLabelText('Project Name');
   fireEvent.change(input, { target: { value: name } });
   fireEvent.keyDown(input, { key: 'Enter' });
 }
 function tileOf(name: string): HTMLElement {
-  let el: HTMLElement | null = screen.getByLabelText(`Open releases for ${name}`);
-  while (el && !el.querySelector('[aria-label="Drag to reorder project"]')) el = el.parentElement;
-  return el!;
+  return screen.getByLabelText(`Open releases for ${name}`).closest<HTMLElement>('[data-project-tile]')!;
 }
-const tileButtons = (name: string) =>
-  within(tileOf(name)).queryAllByRole('button').map((b) => b.getAttribute('aria-label')).filter((l) => /^(Share|Delete) project$/.test(l ?? ''));
+/** Which of Share and Delete a tile offers, listed in that order whatever the tile's layout. */
+const tileButtons = (name: string) => {
+  const tile = tileOf(name);
+  // Every tile has Export: finding it shows the scope is the whole tile, so an empty list means something.
+  within(tile).getByRole('button', { name: 'Export project' });
+  const labels = within(tile).queryAllByRole('button').map((b) => b.getAttribute('aria-label'));
+  return ['Share project', 'Delete project'].filter((l) => labels.includes(l));
+};
 const cloneViaTile = (name: string) =>
   fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Clone project' }));
 function deleteViaTile(name: string) {
@@ -1091,6 +1096,9 @@ describe('a project created in a cloud session that loaded normally, end to end'
     await wait(600);
     addViaForm('Delta');
     await wait(600);
+    // Both adds happened: without them one listener per project holds trivially.
+    expect(idOf('Gamma')).toBeDefined();
+    expect(idOf('Delta')).toBeDefined();
 
     const ids = probe.current!.data.projects.map((p) => p.id);
     expect(liveListens()).toEqual(Object.fromEntries(ids.map((id) => [id, 1])));
@@ -1266,6 +1274,7 @@ describe('a project created in a cloud session that loaded normally, end to end'
     addViaForm('Gamma');
     await wait(900);
 
+    expect(idOf('Gamma')).toBeDefined(); // the add happened, so the re-subscription ran
     expect(releaseOnScreen('r1')).toBe('Design v2');
     expect(cloudReleaseName('p1', 'r1')).toBe('Design v2');
   });

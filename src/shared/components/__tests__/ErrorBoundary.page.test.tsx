@@ -253,13 +253,16 @@ describe('the Projects tab when an import or a delete moves the selected project
       projects: [{ id: 'proj-alpha', name: 'Alpha Platform' }, { id: 'proj-beta', name: 'Beta Platform' }],
       releases: [],
     });
-    render(<Home />, { wrapper: FullWrapper });
+    // The draft is in the open New Project dialog, and the page behind it is
+    // inert, so the selected project is removed from outside the tab.
+    render(<><Home /><RemoveFirstProject /></>, { wrapper: FullWrapper });
     await screen.findByText('Alpha Platform');
+    fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
     fireEvent.change(screen.getByPlaceholderText('Project name'), { target: { value: 'Draft Gamma' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete project' })[0]);
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove the first project' }));
     await waitFor(() => expect(screen.queryByText('Alpha Platform')).not.toBeInTheDocument());
     expect(screen.getByText('Beta Platform')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'New Project' })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Project name')).toHaveValue('Draft Gamma');
   });
 
@@ -397,7 +400,7 @@ describe('a view that could not be displayed', () => {
     expect(await screen.findByText(NOTICE_TEXT)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-    expect(await screen.findByPlaceholderText('Project name')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'New Project' })).toBeInTheDocument();
     expect(screen.queryByText(NOTICE_TEXT)).not.toBeInTheDocument();
   });
 });

@@ -22,6 +22,8 @@ export interface WorkWeekSelectorProps {
   onReset?: () => void;
   /** v16.4: fallback days to display when `value` is undefined (e.g. a live global setting the parent wants reflected in a project-override selector). Falls through to Mon–Fri only if this is also undefined. */
   fallbackDays?: number[];
+  /** Colour of the "Reset to default" link. Defaults to the app blue; a surface where that falls below 4.5:1 passes its own. */
+  linkColor?: string;
 }
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
@@ -36,6 +38,7 @@ export function WorkWeekSelector({
   allowReset = false,
   onReset,
   fallbackDays,
+  linkColor = '#0070f3',
 }: WorkWeekSelectorProps) {
   // Visual fallback when the parent has not persisted anything yet.
   // Prefer the caller-supplied fallback (e.g. live global work days) over the
@@ -102,7 +105,7 @@ export function WorkWeekSelector({
             padding: '0.25rem 0.5rem',
             background: 'transparent',
             border: 'none',
-            color: '#0070f3',
+            color: linkColor,
             cursor: 'pointer',
             fontSize: '0.8rem',
             fontWeight: '600',

@@ -28,6 +28,7 @@ import { LocalStorageWarningToggle } from './LocalStorageWarningToggle';
 import { UploadConfirmFlow, type UploadConfirmFlowHandle } from './UploadConfirmFlow';
 import { ConfirmDialog } from './ConfirmDialog';
 import { GoogleLogo, MicrosoftLogo } from './AuthProviderLogos';
+import { modalSurfaceProps } from '../utils/modalSurface';
 
 interface CloudStorageModalProps {
   open: boolean;
@@ -202,6 +203,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
 
   return (
     <div
+      {...modalSurfaceProps}
       onMouseDown={handleBackdropMouseDown}
       style={{
         position: 'fixed',

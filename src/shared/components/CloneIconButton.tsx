@@ -15,10 +15,13 @@ interface CloneIconButtonProps {
   disabled?: boolean;
 }
 
-const HOVER_VIOLET = '#8b5cf6';
+const HOVER_VIOLET_LIGHT = '#7c3aed';
+const HOVER_VIOLET_DARK = '#a78bfa';
 const HOVER_BG_LIGHT = '#f5f3ff';
 const HOVER_BG_DARK = 'rgba(139, 92, 246, 0.15)';
-const DEFAULT_GRAY = '#9ca3af';
+// Resting grey: at least 3:1 against every tile and dialog background in each theme.
+const REST_GRAY_LIGHT = '#808080';
+const REST_GRAY_DARK = '#9ca3af';
 
 export function CloneIconButton({
   onClick,
@@ -30,8 +33,11 @@ export function CloneIconButton({
   const [hover, setHover] = useState(false);
 
   const isHoverActive = hover && !disabled;
-  const iconColor = isHoverActive ? HOVER_VIOLET : DEFAULT_GRAY;
-  const hoverBg = resolvedTheme === 'dark' ? HOVER_BG_DARK : HOVER_BG_LIGHT;
+  const isDark = resolvedTheme === 'dark';
+  const iconColor = isHoverActive
+    ? (isDark ? HOVER_VIOLET_DARK : HOVER_VIOLET_LIGHT)
+    : (isDark ? REST_GRAY_DARK : REST_GRAY_LIGHT);
+  const hoverBg = isDark ? HOVER_BG_DARK : HOVER_BG_LIGHT;
 
   return (
     <button
@@ -45,7 +51,10 @@ export function CloneIconButton({
       title={title}
       disabled={disabled}
       style={{
-        padding: '0.35rem',
+        width: '28px',
+        height: '28px',
+        padding: 0,
+        flexShrink: 0,
         background: isHoverActive ? hoverBg : 'transparent',
         border: 'none',
         borderRadius: '6px',

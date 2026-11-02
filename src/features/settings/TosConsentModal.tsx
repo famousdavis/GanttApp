@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
+import { modalSurfaceProps } from '../../shared/utils/modalSurface';
 
 interface TosConsentModalProps {
   colors: ThemeColors;
@@ -19,7 +20,7 @@ export function TosConsentModal({ colors, onAccept, onCancel }: TosConsentModalP
   const [checked, setChecked] = useState(false);
 
   return (
-    <div style={{
+    <div {...modalSurfaceProps} style={{
       position: 'fixed',
       top: 0,
       left: 0,

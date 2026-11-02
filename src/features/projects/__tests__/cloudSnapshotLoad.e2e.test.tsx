@@ -455,9 +455,7 @@ function importBanner() {
 }
 
 function tileOf(name: string): HTMLElement {
-  let el: HTMLElement | null = screen.getByLabelText(`Open releases for ${name}`);
-  while (el && !el.querySelector('[aria-label="Drag to reorder project"]')) el = el.parentElement;
-  return el!;
+  return screen.getByLabelText(`Open releases for ${name}`).closest<HTMLElement>('[data-project-tile]')!;
 }
 const cloneViaTile = (name: string) =>
   fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Clone project' }));

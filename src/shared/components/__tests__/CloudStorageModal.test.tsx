@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CloudStorageModal } from '../CloudStorageModal';
+import { ShortcutProbe, makeProbeSpies, PROBE_KEYS, pressOnPage } from '../../../test/shortcutProbe';
 import { LIGHT_THEME } from '../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { AppData } from '../../types/app';
@@ -545,5 +546,31 @@ describe('CloudStorageModal', () => {
       fireEvent.click(screen.getByLabelText('Close'));
       expect(ctx.onClose).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('CloudStorageModal and page-wide shortcuts', () => {
+  it.each(PROBE_KEYS)('$name waits while the modal is open, and reaches the page once it closes', ({ init, spy }) => {
+    const { onClose } = setup();
+    const spies = makeProbeSpies();
+    const view = render(
+      <>
+        <ShortcutProbe spies={spies} />
+        <CloudStorageModal open onClose={onClose} />
+      </>,
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    pressOnPage(init);
+    Object.values(spies).forEach(s => expect(s).not.toHaveBeenCalled());
+
+    view.rerender(
+      <>
+        <ShortcutProbe spies={spies} />
+        <CloudStorageModal open={false} onClose={onClose} />
+      </>,
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    pressOnPage(init);
+    expect(spies[spy]).toHaveBeenCalledTimes(1);
   });
 });

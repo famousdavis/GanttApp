@@ -1244,4 +1244,23 @@ describe('owner of a new project or a copy, before any reload', () => {
     expect('owner' in projects[1]).toBe(false);
     expect(alertSpy).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['cloud', 'is owned by the signed-in user', SIGNED_IN_UID],
+    ['local', 'has no owner', undefined],
+  ] as const)('a sample loaded in %s mode by a signed-in user %s', (mode, _what, owner) => {
+    stubContexts(mode, sharedSource);
+    const { result } = renderHook(() => useProjects());
+    let returned: Project | undefined;
+    act(() => {
+      returned = result.current.addSampleProject(new Date(2026, 10, 2));
+    });
+
+    const projects = committedProjects();
+    expect(projects.map(p => p.name)).toEqual(['Shared Source', 'Mobile App Launch (Sample)']);
+    expect(projects[1]).toBe(returned);
+    if (owner) expect(projects[1].owner).toBe(owner);
+    else expect('owner' in projects[1]).toBe(false);
+    expect(projects[0].owner).toBe(SOURCE_OWNER_UID);
+  });
 });

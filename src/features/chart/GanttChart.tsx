@@ -221,6 +221,7 @@ export function GanttChart({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
           <select
             name="chartTabSelectedProject"
+            className="chart-project-picker"
             aria-label="Project shown on the Gantt Chart tab"
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -233,8 +234,7 @@ export function GanttChart({
               cursor: 'pointer',
               fontFamily: 'inherit',
               fontWeight: 600,
-              padding: 0,
-              outline: 'none'
+              padding: 0
             }}
           >
             {projects.map(project => (

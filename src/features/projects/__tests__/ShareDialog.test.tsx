@@ -7,6 +7,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { ShareDialog } from '../ShareDialog';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import type { CloudGanttStorageService } from '../../../shared/storage';
+import { projectsTabPalette } from '../projectsTabPalette';
 
 // Create a mock cloud storage service
 function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): CloudGanttStorageService {
@@ -240,6 +241,18 @@ describe('ShareDialog', () => {
       expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
     });
 
+    it('Escape closes the Remove Member confirm, keeps the member, and leaves the sharing dialog open', async () => {
+      const mockStorage = createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) });
+      renderDialog(mockStorage);
+
+      const confirm = await openRemoveConfirm();
+      fireEvent.keyDown(within(confirm).getByRole('button', { name: 'Cancel' }), { key: 'Escape', bubbles: true, cancelable: true });
+
+      expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
+      expect(mockStorage.removeCollaborator).not.toHaveBeenCalled();
+      expect(screen.getByText('editor@test.com')).toBeInTheDocument();
+    });
+
     it('keeps the member when the confirm is cancelled', async () => {
       const mockStorage = createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) });
       renderDialog(mockStorage);
@@ -265,6 +278,21 @@ describe('ShareDialog', () => {
       expect(await screen.findByText('Only the project owner can remove members.')).toBeInTheDocument();
       expect(screen.getByText('editor@test.com')).toBeInTheDocument();
     });
+
+    it.each(['light', 'dark'] as const)('in %s mode the reason a removal failed is in the tab\'s red', async (theme) => {
+      localStorage.setItem('gantt-theme', theme);
+      try {
+        renderDialog(createMockCloudStorage({
+          getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]),
+          removeCollaborator: vi.fn().mockRejectedValue(new Error('Only the project owner can remove members.')),
+        }));
+        fireEvent.click(within(await openRemoveConfirm()).getByRole('button', { name: 'Remove' }));
+        expect(await screen.findByText('Only the project owner can remove members.'))
+          .toHaveStyle({ color: projectsTabPalette(theme).error });
+      } finally {
+        localStorage.removeItem('gantt-theme');
+      }
+    });
   });
 
   describe('the member list', () => {
@@ -283,5 +311,83 @@ describe('ShareDialog', () => {
 
       expect(await screen.findByText('No members')).toBeInTheDocument();
     });
+  });
+});
+
+describe("ShareDialog's colours, by theme", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  // The dialog opens only from the Projects tab and takes that tab's colours:
+  // the shared theme's muted text, borders, red and blue fall short of 4.5:1
+  // (text) or 3:1 (borders) on its backgrounds.
+  it.each(['light', 'dark'] as const)('in %s mode the member list, fields and Close use the tab\'s colours', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    const p = projectsTabPalette(theme);
+    renderDialog(createMockCloudStorage({ getProjectMembers: vi.fn().mockResolvedValue([OWNER, EDITOR]) }));
+
+    expect(await screen.findByText('editor@test.com')).toBeInTheDocument();
+    expect(screen.getByText('owner')).toHaveStyle({ color: p.link });
+    expect(screen.getByText('editor')).toHaveStyle({ color: p.meta });
+    expect(screen.getByLabelText('Email addresses')).toHaveStyle({ border: `1px solid ${p.btnBorder}` });
+    expect(screen.getByLabelText('Role:')).toHaveStyle({ border: `1px solid ${p.btnBorder}` });
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveStyle({ border: `1px solid ${p.btnBorder}` });
+    expect(await screen.findByText('No pending invitations')).toHaveStyle({ color: p.meta });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove member' }));
+    const confirm = screen.getByRole('dialog', { name: 'Remove Member' });
+    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveStyle({ border: `1px solid ${p.btnBorder}` });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode Resend is the tab\'s blue, and its muted grey once the five sends are used', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    const p = projectsTabPalette(theme);
+    const invite = (tokenId: string, inviteeEmail: string, emailSendCount: number) => ({
+      tokenId, appId: 'ganttapp', modelId: 'p1', modelName: 'Test', inviteeEmail, inviterUid: 'u1', role: 'editor',
+      status: 'pending', createdAt: 0, expiresAt: 0, lastEmailSentAt: 0, emailSendCount, updatedAt: 0,
+    });
+    renderDialog(createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite('t1', 'one@example.com', 1), invite('t5', 'five@example.com', 5)]),
+    }));
+
+    const rowOf = async (email: string) => (await screen.findByText(email)).closest('div[style]')?.parentElement as HTMLElement;
+    const open = within(await rowOf('one@example.com')).getByRole('button', { name: 'Resend' });
+    const spent = within(await rowOf('five@example.com')).getByRole('button', { name: 'Resend' });
+    expect(open).toBeEnabled();
+    expect(open).toHaveStyle({ color: p.link, border: `1px solid ${p.link}` });
+    expect(spent).toBeDisabled();
+    expect(spent).toHaveStyle({ color: p.meta, border: `1px solid ${p.btnBorder}` });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode Resend is muted while a resend is in flight', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    const p = projectsTabPalette(theme);
+    const invite = {
+      tokenId: 't1', appId: 'ganttapp', modelId: 'p1', modelName: 'Test', inviteeEmail: 'one@example.com', inviterUid: 'u1', role: 'editor',
+      status: 'pending', createdAt: 0, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 1, updatedAt: 0,
+    };
+    renderDialog(createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite]),
+      resendInvite: vi.fn(() => new Promise<void>(() => {})), // never settles: the resend stays in flight
+    }));
+
+    const row = (await screen.findByText('one@example.com')).closest('div[style]')?.parentElement as HTMLElement;
+    const resend = within(row).getByRole('button', { name: 'Resend' });
+    expect(resend).toHaveStyle({ color: p.link, border: `1px solid ${p.link}` });
+    fireEvent.click(resend);
+
+    await waitFor(() => expect(resend).toBeDisabled()); // the same button, labelled "..." while busy
+    expect(resend).toHaveTextContent('...');
+    expect(resend).toHaveStyle({ color: p.meta, border: `1px solid ${p.btnBorder}` });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode the could-not-load message uses the tab\'s red', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    renderDialog(createMockCloudStorage({ getProjectMembers: vi.fn().mockRejectedValue(new Error('denied')) }));
+
+    expect(await screen.findByText("Couldn't load sharing details. Refresh the page to try again."))
+      .toHaveStyle({ color: projectsTabPalette(theme).error });
   });
 });

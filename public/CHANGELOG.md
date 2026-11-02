@@ -1,5 +1,36 @@
 # Change Log
 
+## Version 0.30.0 (2026-11-01)
+
+### Added: the Projects tab is a grid of project tiles, with a New Project dialog
+
+The way projects are stored has not changed: no new or changed field, and files exported by earlier versions import as before.
+
+- **Projects are shown as tiles in a grid** of up to three columns, by the width available: two in a window about 768 pixels wide, one in a narrow one. A tile shows the project's name, its number of releases ("1 release" in the singular), its finish date, and "Custom work week" with its days when the project has its own. A finish date outside the work week now shows a line on the tile saying so, for example "Saturday is outside the work week". A click on a tile opens that project's releases, as before.
+- **New Project opens a dialog** with the same three fields as the form it replaces: Project Name, Finish Date and Work Week. Edit (the pencil on a tile) opens the same dialog, filled in. Create and Update are never greyed out: with no name, the dialog says "Enter a project name." Enter or Ctrl/Cmd+S saves, Escape or Cancel closes without saving, and focus goes back to the button that opened the dialog.
+- **A tile's icons appear when the pointer is over the tile or keyboard focus is in it, and are always shown on touch screens.** Delete is always shown, at the tile's top right.
+- **Move earlier and Move later** reorder projects without dragging, and say the project's new position. Dragging still works.
+- **Load Sample** adds a sample project, "Mobile App Launch (Sample)", with five releases dated from today on the days of the work week, and opens it on the Gantt Chart tab with focus on the chart's project picker. A second press adds "Mobile App Launch (Sample 2)", and so on.
+- **The toolbar sits beside the "Projects" heading:** Export All, Import, Load Sample and New Project. Import can now be reached with the keyboard. With no projects, the tab shows the toolbar and "No projects yet."
+- **After a project is deleted, focus moves to the next tile**, or the previous one, or New Project.
+
+### Changed: dialogs and the keyboard
+
+- **Escape closes every confirmation dialog that has a Cancel:** Delete Project, Delete Release, Delete Snapshot, Remove Member and Revoke Invitation.
+- **While any dialog is open, the page's own shortcuts wait** (the arrow keys, Ctrl/Cmd+S and Escape). An arrow key no longer switches the tab behind a dialog.
+- **While a confirmation dialog is open, the page behind it can be neither reached nor read by a screen reader**, on every tab, as with the New Project dialog. Before, the confirmation dialogs said they were modal, but Chrome still exposed the page behind them.
+
+### Changed: colours
+
+- **The Projects tab, its dialogs, the import preview and the Share dialog now reach WCAG AA contrast in both themes:** text at least 4.5:1, and icons, borders and focus rings at least 3:1. Focus rings are visible, and date pickers and radio buttons follow the dark theme. The chart's project picker now shows a focus ring. Replace All's button is a stronger red.
+- **The shared icon buttons (delete, edit, export, clone and share) rest in a darker grey and hover in stronger colours on every tab that uses them:** the Releases tab, the snapshot bar and the Share dialog as well as the Projects tab. Other tabs' own colours are unchanged.
+
+### Tested
+
+- 2,374 automated tests in 120 files. Each new or changed test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails; where a break passed every test, a test was added or changed until it failed. Among them, the Share dialog's error messages each take the tab's red, in both themes.
+- In Chrome 154, headless, over the DevTools protocol, against the app in local mode: the grid at 1280, 1024, 768 and 520 pixels wide, with no horizontal scrolling at 1024 and wider; light and dark themes; with a pointer and with touch emulated (no hover); visible focus; the dialogs; and Load Sample landing on the chart. Contrast was computed for every colour pair in both themes. The Share dialog appears only in cloud mode, so its colours were checked from the source, not in a browser.
+- The accessibility tree, read in Chrome in nine states: the tab at rest, with no projects, with keyboard focus in a tile, the New Project dialog empty and with "Enter a project name.", the Edit Project dialog, the Delete Project confirmation, after Move later, and after Load Sample on the Gantt Chart tab. Every control has a role and a name, and the icon buttons keep their names; each dialog is a modal dialog named by its title, with the page behind it out of the tree; the empty name field is marked invalid and described by its message; the headings are "Projects" and one per tile; Import's file input is reachable and named; and the Move and Load Sample messages are read from polite live regions. This check found the confirmation dialogs' page behind still exposed, fixed above. A pass with a screen reader is still to come.
+
 ## Version 0.29.12 (2026-11-01)
 
 ### Changed: tests now cover importing a file, managing projects and snapshots, the Projects tab, and saving a snapshot from the chart

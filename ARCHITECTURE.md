@@ -57,7 +57,11 @@ GanttApp/
 │   │   │   ├── useChartCalculations.ts
 │   │   │   └── useEffectiveChartProps.ts # Snapshot vs live data resolver (v7.1)
 │   │   ├── projects/
-│   │   │   ├── ProjectsTab.tsx
+│   │   │   ├── ProjectsTab.tsx       # Toolbar + tile grid; dialogs, Move, Load Sample (grid v0.30.0)
+│   │   │   ├── ProjectTile.tsx       # One project tile: open button, Delete, revealed icons (v0.30.0)
+│   │   │   ├── ProjectDialog.tsx     # New Project / Edit Project modal dialog (v0.30.0)
+│   │   │   ├── projectsTabPalette.ts # The tab's own AA colours, by theme (v0.30.0)
+│   │   │   ├── sampleProject.ts      # Load Sample's project and releases (v0.30.0)
 │   │   │   ├── ImportPreviewSection.tsx # Smart Import preview (v0.24.0)
 │   │   │   ├── ShareDialog.tsx       # Project sharing modal (v11.0)
 │   │   │   └── useProjects.ts
@@ -88,6 +92,7 @@ GanttApp/
 │   │   │   ├── ExportIconButton.tsx         # Per-project export (v19.0, 18×18 v0.23.0)
 │   │   │   ├── CloneIconButton.tsx          # Per-project clone (v19.0, 18×18 v0.23.0)
 │   │   │   ├── ShareIconButton.tsx          # Per-project share, owner+cloud only (v0.23.0)
+│   │   │   ├── MoveIconButton.tsx           # Move earlier / Move later, reorder without dragging (v0.30.0)
 │   │   │   └── Tabs.tsx
 │   │   ├── hooks/
 │   │   │   ├── useBufferedField.ts          # Buffered cloud-write text inputs (v0.27.0)
@@ -114,6 +119,7 @@ GanttApp/
 │   │       ├── export.ts      # JSON export/import + Smart Import logic (v0.24.0)
 │   │       ├── cloud-load-guards.ts # Shape checks on project data read from the cloud (v0.29.10)
 │   │       ├── firestore-converters.ts # Flat AppData ↔ Firestore translation (v11.0)
+│   │       ├── modalSurface.ts # Marks modal overlays; page shortcuts wait while one is open (v0.30.0)
 │   │       ├── snapshots.ts   # validateSnapshot + getSnapshotsForProject
 │   │       ├── storage.ts     # localStorage wrapper with validation
 │   │       ├── theme.ts       # Theme color constants
@@ -126,7 +132,8 @@ GanttApp/
 │       └── FullWrapper.tsx    # Test utility with all providers (v10.0)
 │
 ├── styles/
-│   └── globals.css            # Global styles + date input styling
+│   ├── globals.css            # Global styles + date input styling
+│   └── projects-tab.css       # Projects tab: grid columns, hover/focus reveal, (hover: none) (v0.30.0)
 │
 ├── public/
 │   ├── CHANGELOG.md           # Served copy, byte-identical to root (gate-checked)
@@ -697,8 +704,10 @@ Any editor of a shared project can write its documents, so the cloud read path d
 ```
 index.tsx (AppContent)
 ├── Tabs (navigation: Projects | Releases | Gantt Chart | Settings | About)
-├── ProjectsTab
+├── ProjectsTab (heading row + toolbar: Export All · Import · Load Sample · New Project; v0.30.0)
 │   ├── useProjects (CRUD hook + cascade snapshot delete)
+│   ├── ProjectTile (one per project, in a grid of up to three columns, v0.30.0)
+│   ├── ProjectDialog (New Project / Edit Project, modal; the page behind is inert, v0.30.0)
 │   ├── ImportPreviewSection (Smart Import inline preview, v0.24.0)
 │   └── ShareDialog (cloud mode only, v11.0)
 ├── ReleasesTab

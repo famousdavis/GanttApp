@@ -8,6 +8,7 @@ import { ShareDialog } from '../ShareDialog';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import type { CloudGanttStorageService } from '../../../shared/storage';
 import type { PendingInvite } from '../../../shared/types/firestore';
+import { projectsTabPalette } from '../projectsTabPalette';
 
 // The invitation callable, as getSendInvitationEmail() hands it to the dialog.
 const mockSendInvitationEmail = vi.fn();
@@ -365,5 +366,57 @@ describe('ShareDialog invitations', () => {
 
       expect(await screen.findByText(`Failed to revoke invitation. ${UNAVAILABLE}`)).toBeInTheDocument();
     });
+  });
+});
+
+describe("ShareDialog invitations' colours, by theme", () => {
+  beforeEach(() => {
+    mockSendInvitationEmail.mockReset();
+    mockSendInvitationEmail.mockResolvedValue({ data: { added: [], invited: [], failed: [] } });
+    mockGetSendInvitationEmail.mockReset();
+    mockGetSendInvitationEmail.mockReturnValue(mockSendInvitationEmail);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem('gantt-theme');
+  });
+
+  // The dialog opens only from the Projects tab and takes that tab's red: the
+  // shared theme's red falls short of 4.5:1 on the dialog's backgrounds.
+  it.each(['light', 'dark'] as const)('in %s mode the entries that are not addresses are listed in the tab\'s red', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    renderDialog(createMockCloudStorage());
+    await sendInvitations('alice-at-example, bob@');
+
+    const line = (await screen.findByText('Skipped 2:')).parentElement as HTMLElement;
+    expect(line).toHaveTextContent('Skipped 2: alice-at-example, bob@');
+    expect(line).toHaveStyle({ color: projectsTabPalette(theme).error });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode the addresses a send skipped are listed in the tab\'s red', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    mockSendInvitationEmail.mockResolvedValue({ data: {
+      added: [],
+      invited: ['new@example.com'],
+      failed: [{ email: 'blocked@example.com', reason: 'already invited' }],
+    } });
+    renderDialog(createMockCloudStorage());
+    await sendInvitations('new@example.com blocked@example.com');
+
+    const line = (await screen.findByText('Skipped 1:')).parentElement as HTMLElement;
+    expect(line).toHaveTextContent('Skipped 1: blocked@example.com (already invited)');
+    expect(line).toHaveStyle({ color: projectsTabPalette(theme).error });
+  });
+
+  it.each(['light', 'dark'] as const)('in %s mode a failed send is reported in the tab\'s red', async (theme) => {
+    localStorage.setItem('gantt-theme', theme);
+    mockSendInvitationEmail.mockRejectedValue(callableError('unavailable', UNAVAILABLE));
+    renderDialog(createMockCloudStorage());
+    await sendInvitations('new@example.com');
+
+    expect(await screen.findByText(`Failed to send invitations. ${UNAVAILABLE}`))
+      .toHaveStyle({ color: projectsTabPalette(theme).error });
   });
 });

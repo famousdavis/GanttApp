@@ -1309,6 +1309,22 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
+  it('while the delete confirmation is open the rest of the tab is inert, and nothing is once it closes', async () => {
+    seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
+    renderProjectsTab();
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.click(within(tileOf('Alpha')).getByRole('button', { name: 'Delete project' }));
+    const confirm = screen.getByRole('dialog', { name: 'Delete Project' });
+    expect(confirm.closest('[inert]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'New Project' }).closest('[inert]')).not.toBeNull();
+    expect(tileOf('Alpha').closest('[inert]')).not.toBeNull();
+
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete Project' })).toBeNull();
+    expect(document.querySelector('[inert]')).toBeNull();
+  });
+
   it('deleting the selected project selects the first project that remains', async () => {
     seedData({
       projects: [

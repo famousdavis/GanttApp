@@ -6,10 +6,10 @@
 // Inline mode: card with border, message, button row (StorageSection pattern).
 // Modal mode: full-screen overlay with centered dialog, title, description (ProjectsTab pattern).
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { ThemeColors } from '../utils/theme';
-import { modalSurfaceProps } from '../utils/modalSurface';
+import { inertOutside, modalSurfaceProps } from '../utils/modalSurface';
 
 export interface ConfirmDialogButton {
   label: string;
@@ -103,6 +103,7 @@ function renderButton(btn: ConfirmDialogButton, colors: ThemeColors, index: numb
 export function ConfirmDialog({
   message, title, buttons, colors, modal, borderColor, blocking, onEscape,
 }: ConfirmDialogProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreTargetRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -118,6 +119,15 @@ export function ConfirmDialog({
 
   // Hooks must run before the `if (modal)` early return below — putting them
   // inside that branch is a Rules-of-Hooks violation that lint would catch.
+
+  // A modal dialog makes the page behind it inert while open, so it can be
+  // neither reached nor read. A layout effect, so on close the inert is gone
+  // before the focus effect below hands focus back to an element behind.
+  useLayoutEffect(() => {
+    const overlay = overlayRef.current;
+    if (!modal || !overlay) return;
+    return inertOutside(overlay);
+  }, [modal]);
 
   // Focus in on open, back out on close.
   useEffect(() => {
@@ -176,7 +186,7 @@ export function ConfirmDialog({
 
   if (modal) {
     return (
-      <div {...modalSurfaceProps} style={{
+      <div ref={overlayRef} {...modalSurfaceProps} style={{
         position: 'fixed',
         top: 0,
         left: 0,

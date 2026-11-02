@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, vi } from 'vitest';
+import { useState } from 'react';
 import { render, screen, fireEvent, createEvent } from '@testing-library/react';
 import { ConfirmDialog } from '../ConfirmDialog';
 import type { ConfirmDialogButton } from '../ConfirmDialog';
@@ -430,5 +431,51 @@ describe('ConfirmDialog — Escape in a modal dialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'Delete Project' });
     expect(dialog).toHaveAccessibleDescription('Delete it?');
     expect(dialog.closest('[data-modal-surface]')).not.toBeNull();
+  });
+});
+
+describe('ConfirmDialog — the page behind a modal dialog', () => {
+  /** A page with content beside the dialog at two levels; Cancel closes the dialog and keeps the page. */
+  function Page({ modal }: { modal: boolean }) {
+    const [open, setOpen] = useState(true);
+    return (
+      <main>
+        <p>Before the dialog</p>
+        <section>
+          {open && (
+            <ConfirmDialog modal={modal} title="Delete Project" message="Delete it?" colors={LIGHT_THEME}
+              buttons={[{ label: 'Cancel', variant: 'secondary', onClick: () => setOpen(false) }]} />
+          )}
+        </section>
+        <p>After the dialog</p>
+      </main>
+    );
+  }
+
+  it('is inert at every level up to the page while a modal dialog is open, and only what it changed is restored on close', () => {
+    const outside = document.createElement('div');
+    const alreadyInert = document.createElement('div');
+    alreadyInert.setAttribute('inert', '');
+    document.body.append(outside, alreadyInert);
+
+    render(<Page modal />);
+    const overlay = screen.getByRole('dialog', { name: 'Delete Project' }).closest('[data-modal-surface]') as HTMLElement;
+    const behind = [screen.getByText('Before the dialog'), screen.getByText('After the dialog'), outside];
+    behind.forEach((el) => expect(el).toHaveAttribute('inert'));
+    for (let el: HTMLElement | null = overlay; el; el = el.parentElement) expect(el).not.toHaveAttribute('inert');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    behind.forEach((el) => expect(el).not.toHaveAttribute('inert'));
+    expect(alreadyInert).toHaveAttribute('inert');
+    outside.remove();
+    alreadyInert.remove();
+  });
+
+  it('an inline dialog leaves the page alone', () => {
+    render(<Page modal={false} />);
+    expect(screen.getByText('Delete it?')).toBeInTheDocument();
+    expect(screen.getByText('Before the dialog')).not.toHaveAttribute('inert');
+    expect(screen.getByText('After the dialog')).not.toHaveAttribute('inert');
   });
 });

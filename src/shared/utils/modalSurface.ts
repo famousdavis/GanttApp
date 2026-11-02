@@ -17,3 +17,22 @@ export const modalSurfaceProps = { [MODAL_SURFACE_ATTR]: '' } as const;
 export function isModalSurfaceOpen(doc: Document = document): boolean {
   return doc.querySelector(`[${MODAL_SURFACE_ATTR}]`) !== null;
 }
+
+/**
+ * Make everything outside `keep` inert, at every level up to body, leaving
+ * `keep` and its ancestors alone; returns the undo, which restores only what
+ * this call changed. For a modal surface rendered in place: aria-modal alone
+ * leaves the page behind it in Chrome's accessibility tree.
+ */
+export function inertOutside(keep: HTMLElement): () => void {
+  const changed: Element[] = [];
+  for (let node: HTMLElement | null = keep; node && node !== keep.ownerDocument.body; node = node.parentElement) {
+    const self = node;
+    Array.from(node.parentElement?.children ?? []).forEach((sibling) => {
+      if (sibling === self || sibling.hasAttribute('inert')) return;
+      sibling.setAttribute('inert', '');
+      changed.push(sibling);
+    });
+  }
+  return () => changed.forEach((el) => el.removeAttribute('inert'));
+}

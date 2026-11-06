@@ -418,6 +418,45 @@ describe('archive and tile colour on the page', () => {
     });
   });
 
+  describe('a project whose id is not its name', () => {
+    function seedById() {
+      localStorage.setItem('ganttAppData', JSON.stringify({
+        projects: [{ id: 'p-1', name: 'Alpha' }, { id: 'p-2', name: 'Beta' }],
+        releases: [],
+        projectPrefs: { 'p-1': { color: 'teal', archived: true } },
+      }));
+    }
+
+    it('its tile reads its colour and its archived state by id', async () => {
+      seedById();
+      await renderPage();
+      fireEvent.click(filter()!);
+      expect(tileOf('Alpha')).toHaveClass('pt-archived');
+      expect(tileOf('Alpha')).toHaveAttribute('data-color', 'teal');
+      expect(tileOf('Beta')).not.toHaveClass('pt-archived');
+      expect(tileOf('Beta')).toHaveAttribute('data-color', 'none');
+    });
+
+    it('Unarchive clears the entry under its id', async () => {
+      seedById();
+      await renderPage();
+      fireEvent.click(filter()!);
+      fireEvent.click(tileButton('Alpha', 'Unarchive project'));
+      expect(stored().projectPrefs).toEqual({ 'p-1': { color: 'teal' } });
+      expect(status()).toBe('Unarchived "Alpha".');
+    });
+
+    it('a click on its archived tile unarchives it by id and opens its releases', async () => {
+      seedById();
+      await renderPage();
+      fireEvent.click(filter()!);
+      fireEvent.click(openButton('Alpha'));
+      expect(await picker(RELEASES_PICKER)).toHaveValue('p-1');
+      expect(stored().projectPrefs).toEqual({ 'p-1': { color: 'teal' } });
+      expect(pageMessage()).toBe('Unarchived "Alpha" and opened its releases.');
+    });
+  });
+
   describe('Move earlier and Move later, past hidden projects', () => {
     it.each([
       { hidden: ['A'], move: 'C', label: 'Move later', order: 'A B D C E F', message: '"C" moved to position 3 of 5.', where: 'hidden first' },
@@ -522,6 +561,30 @@ describe('archive and tile colour on the page', () => {
       const before = localStorage.getItem('ganttAppData');
       fireEvent.dragOver(tileOf('B'));
       expect(localStorage.getItem('ganttAppData')).toBe(before);
+    });
+
+    it('a drag whose own tile has gone from the shown ones writes nothing', async () => {
+      seed(['A', 'B', 'C'], []);
+      await renderPage();
+      fireEvent.dragStart(tileOf('A').querySelector('.pt-grip')!);
+      fireEvent.click(tileButton('A', 'Archive project'));
+      expect(shownNames()).toEqual(['B', 'C']);
+
+      const write = vi.spyOn(Storage.prototype, 'setItem');
+      fireEvent.dragOver(tileOf('B'));
+      expect(write).not.toHaveBeenCalled();
+      expect(storedNames()).toEqual(['A', 'B', 'C']);
+    });
+
+    it('marks the tile being dragged, and only until the drag ends', async () => {
+      seed(['A', 'B'], []);
+      await renderPage();
+      const grip = tileOf('A').querySelector('.pt-grip')!;
+      fireEvent.dragStart(grip);
+      expect(tileOf('A')).toHaveClass('pt-dragging');
+      expect(tileOf('B')).not.toHaveClass('pt-dragging');
+      fireEvent.dragEnd(grip);
+      expect(tileOf('A')).not.toHaveClass('pt-dragging');
     });
   });
 
@@ -806,6 +869,14 @@ describe('archive and tile colour on the page', () => {
       fireEvent.click(tab('Gantt Chart'));
       expect(await screen.findByText(ALL_ARCHIVED_ELSEWHERE)).toBeInTheDocument();
       expect(screen.queryByRole('combobox', { name: CHART_PICKER })).toBeNull();
+    });
+
+    it('with a project to show, the Gantt Chart tab does not say every project is archived', async () => {
+      seed(['A', 'B'], ['B'], {}, releasesFor(['A', 'B']));
+      await renderPage();
+      fireEvent.click(tab('Gantt Chart'));
+      expect(await picker(CHART_PICKER)).toHaveValue('A');
+      expect(screen.queryByText(ALL_ARCHIVED_ELSEWHERE)).toBeNull();
     });
 
     it('with no projects at all, neither tab says it', async () => {

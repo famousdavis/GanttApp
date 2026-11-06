@@ -97,4 +97,24 @@ describe('ArchiveIconButton', () => {
     fireEvent.click(button);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('goes back to rest when it is disabled under the pointer', () => {
+    const { rerender } = render(<ArchiveIconButton variant="archive" onClick={() => {}} />);
+    const button = screen.getByRole('button');
+    fireEvent.mouseEnter(button);
+    expect(stroke(button)).toBe('#475569');
+
+    rerender(<ArchiveIconButton variant="archive" onClick={() => {}} disabled />);
+    expect(stroke(button)).toBe('#808080');
+  });
+
+  it('does not light up when enabled under a pointer or focus that came while it was disabled', () => {
+    const { rerender } = render(<ArchiveIconButton variant="archive" onClick={() => {}} disabled />);
+    const button = screen.getByRole('button');
+    fireEvent.mouseEnter(button);
+    fireEvent.focus(button);
+
+    rerender(<ArchiveIconButton variant="archive" onClick={() => {}} />);
+    expect(stroke(button)).toBe('#808080');
+  });
 });

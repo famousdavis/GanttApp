@@ -281,6 +281,17 @@ describe('ProjectColorControl', () => {
       expect(icon()).not.toHaveFocus();
     });
 
+    it('a press outside tells the latest onOpenChange, not the one it opened with', () => {
+      const first = vi.fn();
+      const latest = vi.fn();
+      const props = { projectId: 'p1', color: undefined, open: true, onPick: () => true };
+      const { rerender } = render(<ProjectColorControl {...props} onOpenChange={first} />);
+      rerender(<ProjectColorControl {...props} onOpenChange={latest} />);
+      fireEvent.pointerDown(document.body);
+      expect(latest).toHaveBeenCalledWith(false);
+      expect(first).not.toHaveBeenCalled();
+    });
+
     it('a press on the icon or inside the popover is not a press outside', () => {
       render(<Harness initial="blue" />);
       fireEvent.pointerDown(icon());

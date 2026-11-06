@@ -501,13 +501,7 @@ export function ProjectsTab({
                 }}
                 onArchive={() => archiveProject(project)}
                 onUnarchive={() => unarchiveProject(project)}
-                onColorOpenChange={(open) => {
-                  // Closing one popover never closes another that has opened since.
-                  setColorPopoverFor(current => {
-                    if (open) return project.id;
-                    return current === project.id ? null : current;
-                  });
-                }}
+                onColorOpenChange={(open) => setColorPopoverFor(open ? project.id : null)}
                 onPickColor={(color) => setProjectColor(project.id, color)}
                 onMove={(direction) => moveProject(project, direction)}
                 onDragStart={() => onProjectDragStart(project.id)}

@@ -209,7 +209,9 @@ const fake = vi.hoisted(() => {
     writeBatch: () => {
       const ops: Op[] = [];
       return {
-        set: (ref: Ref, data: Data) => { ops.push({ op: 'set', path: ref.path, data: structuredClone(data) }); },
+        set: (ref: Ref, data: Data, options?: { merge?: boolean }) => {
+          ops.push({ op: 'set', path: ref.path, data: structuredClone(options?.merge ? { ...state.docs.get(ref.path), ...data } : data) });
+        },
         delete: (ref: Ref) => { ops.push({ op: 'delete', path: ref.path }); },
         commit: () => commit(ops),
       };
@@ -1489,6 +1491,42 @@ describe('a project created in a cloud session that loaded normally, end to end'
       act$(() => probe.current!.renameRelease('r1', 'Later edit'));
       await wait(600);
       expect(cloudReleaseName('p1', 'r1')).toBe('Later edit');
+    });
+
+    const tileKeepsItsColor = () => expect(tileOf('Alpha')).toHaveAttribute('data-color', 'teal');
+    const tileLeftTheTab = () => {
+      expect(screen.queryByLabelText('Open releases for Alpha')).toBeNull();
+      expect(screen.getByRole('checkbox', { name: 'Show archived (1)' })).toBeInTheDocument();
+    };
+
+    it.each([
+      ['a colour', () => probe.current!.setProjectColor('p1', 'teal'), { p1: { color: 'teal' } }, tileKeepsItsColor],
+      ['an archive', () => probe.current!.setProjectArchived('p1', true), { p1: { archived: true } }, tileLeftTheTab],
+    ])('%s made while commits fail stays on screen, is reported in Settings, and a later edit saves it', async (_what, change, prefs, onScreenNow) => {
+      seed();
+      await openCloud();
+      fake.state.writes.length = 0;
+      fake.config.failCommits = fake.unavailable();
+
+      let applied = false;
+      act$(() => { applied = change(); });
+      await wait(600);
+
+      expect(applied).toBe(true);
+      expect(probe.current!.data.projectPrefs).toEqual(prefs);
+      onScreenNow();
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(fake.state.writes).toEqual([]);
+      expect(cloudDoc(SETTINGS)).not.toHaveProperty('projectPrefs');
+      expect(syncErrorNow()).toBe('Cloud sync error: Service temporarily unavailable. Please try again later.');
+
+      fake.config.failCommits = null;
+      act$(() => probe.current!.renameRelease('r1', 'Later edit'));
+      await wait(600);
+
+      expect(cloudDoc(SETTINGS)?.projectPrefs).toEqual(prefs);
+      expect(cloudReleaseName('p1', 'r1')).toBe('Later edit');
+      expect(syncErrorNow()).toBeNull();
     });
   });
 

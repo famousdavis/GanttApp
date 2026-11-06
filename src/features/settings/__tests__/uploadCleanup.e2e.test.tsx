@@ -102,7 +102,9 @@ const fake = vi.hoisted(() => {
     writeBatch: () => {
       const ops: Write[] = [];
       return {
-        set: (ref: Ref, data: Data) => { ops.push({ op: 'set', path: ref.path, data: structuredClone(data) }); },
+        set: (ref: Ref, data: Data, options?: { merge?: boolean }) => {
+          ops.push({ op: 'set', path: ref.path, data: structuredClone(options?.merge ? { ...state.docs.get(ref.path), ...data } : data) });
+        },
         delete: (ref: Ref) => { ops.push({ op: 'delete', path: ref.path }); },
         commit: async () => {
           await pause(config.commitDelayMs);
@@ -635,6 +637,31 @@ describe('switching to the cloud with projects in this browser, end to end', () 
 
       const uploadedId = cloudProjects().find((p) => p.name === 'North Plan')!.id;
       expect(cloudSettings().projectPrefs).toEqual({ [uploadedId]: { color: 'purple' } });
+    });
+
+    it('an upload writes the settings document whole: a stale entry under the uploaded id goes, and the map with it', async () => {
+      // The project keeps its id only where the cloud lets a missing project be read.
+      fake.config.denyMissingProjectGet = false;
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: { N1: { color: 'blue' } } });
+      storeLocally(NORTH);
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudProjectNames()).toContain('North Plan'), { timeout: 3000 });
+
+      expect(cloudProjects().find((p) => p.name === 'North Plan')!.id).toBe('N1');
+      expect(cloudSettings().preparedBy).toBe('Local Person');
+      expect(cloudSettings()).not.toHaveProperty('projectPrefs');
+    });
+
+    it('an upload that skips every project still writes the settings document whole', async () => {
+      seedCloudPlan();
+      storeLocally({ ...MIXED, projects: [MIXED.projects[0]], releases: [MIXED.releases[0]], snapshots: [] });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudSettings().preparedBy).toBe('Local Person'), { timeout: 3000 });
+
+      // Held by the cloud and not by this browser.
+      expect(cloudSettings()).not.toHaveProperty('exportAttribution');
     });
   });
 

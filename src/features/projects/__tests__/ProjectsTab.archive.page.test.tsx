@@ -363,6 +363,19 @@ describe('archive and tile colour on the page', () => {
       expect(storedNames()).toEqual(['B', 'A - Copy (1)']);
       expect(stored().projectPrefs?.A).toBeUndefined();
     });
+
+    it('stays archived when it is coloured, and when its colour is cleared', async () => {
+      await renderArchived();
+
+      fireEvent.click(colorIcon('A'));
+      fireEvent.click(screen.getByRole('radio', { name: 'Teal' }));
+      expect(tileOf('A')).toHaveClass('pt-archived');
+      expect(stored().projectPrefs).toEqual({ A: { color: 'teal', archived: true } });
+
+      fireEvent.click(screen.getByRole('radio', { name: 'No color' }));
+      expect(tileOf('A')).toHaveClass('pt-archived');
+      expect(stored().projectPrefs).toEqual({ A: { archived: true } });
+    });
   });
 
   describe('Unarchive', () => {

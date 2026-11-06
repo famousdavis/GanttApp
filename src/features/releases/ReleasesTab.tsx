@@ -10,13 +10,16 @@ import { ReleaseFormFields } from './ReleaseFormFields';
 import { ReleaseStatusControl } from './ReleaseStatusControl';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, getWorkDayWarning, formatDateLocale } from '../../shared/utils';
+import { isReleaseValid, getDateErrorMessage, getMostLikelyDateError, getDateWarnings, getEffectiveWorkDays, getWorkDayWarning, formatDateLocale, shownProjects } from '../../shared/utils';
 import { DragHandle } from '../../shared/components/DragHandle';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { TrashIconButton } from '../../shared/components/TrashIconButton';
 import { PencilIconButton } from '../../shared/components/PencilIconButton';
 import { CloneIconButton } from '../../shared/components/CloneIconButton';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
+
+/** What the Releases and Gantt Chart tabs say when every project is archived. */
+export const ALL_ARCHIVED_MESSAGE = 'All projects are archived. Unarchive one on the Projects tab to see it here.';
 
 interface ReleasesTabProps {
   selectedProjectId: string;
@@ -108,6 +111,12 @@ export function ReleasesTab({
     return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>No projects yet. Create a project first!</p>;
   }
 
+  // This person's archived projects leave the picker.
+  const pickerProjects = shownProjects(data.projects, data.projectPrefs, false);
+  if (pickerProjects.length === 0) {
+    return <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>{ALL_ARCHIVED_MESSAGE}</p>;
+  }
+
   // Form fields props — shared between Add and inline Edit forms
   const formFieldsProps = {
     releaseName, setReleaseName,
@@ -140,7 +149,7 @@ export function ReleasesTab({
             marginLeft: '0'
           }}
         >
-          {data.projects.map(p => (
+          {pickerProjects.map(p => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>

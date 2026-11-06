@@ -140,7 +140,8 @@ describe('the Projects tab on the page', () => {
       await renderPage();
       const labels = within(tileOf('Alpha')).getAllByRole('button').map(b => b.getAttribute('aria-label'));
       expect(labels).toEqual([
-        'Open releases for Alpha', 'Delete project', 'Export project', 'Edit project', 'Clone project', 'Move earlier', 'Move later',
+        'Open releases for Alpha', 'Delete project', 'Export project', 'Edit project', 'Clone project',
+        'Archive project', 'Tile color: No color', 'Move earlier', 'Move later',
       ]);
     });
 

@@ -66,6 +66,17 @@
 
 .pt-empty { color: var(--pt-meta); font-style: italic; }
 
+.pt-filter { margin: -0.25rem 0 1rem; }
+.pt-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--pt-meta);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.pt-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--pt-primary); }
+
 /* The grid: one, two or three columns by the width it has. */
 .pt-area { container-type: inline-size; }
 .pt-grid {
@@ -86,14 +97,40 @@
   gap: 2px;
   min-width: 0;
   padding: 10px 10px 8px 12px;
-  background: var(--pt-surface);
-  border: 2px solid var(--pt-border);
+  background: var(--pt-tile-tint, var(--pt-surface));
+  border: 2px solid var(--pt-tile-border, var(--pt-border));
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
 }
 .pt-tile:hover { border-color: var(--pt-tile-hover-border); box-shadow: 0 2px 10px var(--pt-shadow); }
 .pt-tile.pt-dragging { opacity: 0.5; }
+
+/* The tile's colour, and the swatch its Colour icon shows. */
+.pt-tile[data-color="blue"] { --pt-tile-tint: var(--pt-tint-blue); --pt-swatch: var(--pt-sw-blue); }
+.pt-tile[data-color="teal"] { --pt-tile-tint: var(--pt-tint-teal); --pt-swatch: var(--pt-sw-teal); }
+.pt-tile[data-color="slate"] { --pt-tile-tint: var(--pt-tint-slate); --pt-swatch: var(--pt-sw-slate); }
+.pt-tile[data-color="purple"] { --pt-tile-tint: var(--pt-tint-purple); --pt-swatch: var(--pt-sw-purple); }
+.pt-tile[data-color="pink"] { --pt-tile-tint: var(--pt-tint-pink); --pt-swatch: var(--pt-sw-pink); }
+
+/* An archived tile: dashed, half the tint, a badge. Never faded with opacity:
+   that would take its text below 4.5:1. */
+.pt-tile.pt-archived {
+  --pt-tile-border: var(--pt-archived-border);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--pt-tile-tint, var(--pt-surface)) 50%, var(--pt-surface));
+}
+.pt-archived .pt-name { color: var(--pt-meta); }
+.pt-badge {
+  flex: none;
+  align-self: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--pt-badge-bg);
+  color: var(--pt-badge-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
 
 .pt-name-row { display: flex; align-items: flex-start; gap: 6px; }
 .pt-grip {
@@ -158,15 +195,98 @@
   padding-left: 10px;
 }
 .pt-act-group { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.pt-move-pair { display: inline-flex; gap: 2px; }
+
+/* The Colour icon: a dot in the tile's colour, struck through for no colour. */
+.pt-color { display: inline-flex; }
+.pt-color-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pt-grip);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.pt-color-btn:hover,
+.pt-color-btn:focus-visible { background: var(--pt-hover-bg); }
+.pt-cdot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: var(--pt-swatch, transparent);
+}
+.pt-tile[data-color="none"] .pt-cdot {
+  background: linear-gradient(135deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%);
+}
+
+/* The colour popover: placed on the tile, drawn over the next row. */
+.pt-popover {
+  position: absolute;
+  z-index: 20;
+  right: 6px;
+  top: calc(100% - 6px);
+  width: max-content;
+  max-width: 280px;
+  padding: 10px;
+  background: var(--pt-bg);
+  color: var(--pt-text);
+  border: 1px solid var(--pt-archived-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--pt-shadow);
+  cursor: default;
+}
+.pt-pop-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 600; color: var(--pt-meta); }
+.pt-swatches { display: grid; grid-template-columns: repeat(2, auto); gap: 4px 6px; }
+.pt-sw {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 5px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.pt-sw:hover { background: var(--pt-hover-bg); }
+.pt-sw input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.pt-sw:has(input:checked) { border-color: var(--pt-text); font-weight: 600; }
+.pt-sw:has(input:focus-visible) { outline: 2px solid var(--pt-focus); outline-offset: 2px; }
+.pt-dot {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--pt-dot-border);
+}
+.pt-dot[data-c="blue"] { background: var(--pt-sw-blue); }
+.pt-dot[data-c="teal"] { background: var(--pt-sw-teal); }
+.pt-dot[data-c="slate"] { background: var(--pt-sw-slate); }
+.pt-dot[data-c="purple"] { background: var(--pt-sw-purple); }
+.pt-dot[data-c="pink"] { background: var(--pt-sw-pink); }
+.pt-dot[data-c="none"] {
+  border-color: var(--pt-meta);
+  background: linear-gradient(135deg, transparent 44%, var(--pt-meta) 44%, var(--pt-meta) 56%, transparent 56%);
+}
+.pt-pop-hint { margin: 6px 0 0; font-size: 0.75rem; color: var(--pt-meta); }
 
 /* Revealed icons: shown while the pointer is over the tile or focus is in it,
    and always where there is no hover. They stay in the tab order throughout. */
 .pt-reveal { opacity: 0; transition: opacity 0.12s ease; }
 .pt-tile:hover .pt-reveal,
-.pt-tile:focus-within .pt-reveal { opacity: 1; }
+.pt-tile:focus-within .pt-reveal,
+.pt-tile.pt-pop-open .pt-reveal { opacity: 1; }
 @media (hover: none) {
   .pt-reveal { opacity: 1; }
-  .pt-tile:hover { border-color: var(--pt-border); box-shadow: none; }
+  .pt-tile:hover { border-color: var(--pt-tile-border, var(--pt-border)); box-shadow: none; }
 }
 
 /* The project dialog */

@@ -11,6 +11,8 @@
 
 import type { CSSProperties } from 'react';
 import type { ThemeColors } from '../../shared/utils/theme';
+import type { ProjectColor } from '../../shared/types';
+import { PROJECT_COLORS } from '../../shared/utils/projectPrefs';
 
 export interface ProjectsTabPalette {
   /** The colour-scheme the browser draws native controls in (date pickers, radios, focus rings). */
@@ -36,7 +38,24 @@ export interface ProjectsTabPalette {
   primary: string;
   primaryHover: string;
   grip: string;
+  badgeBg: string;
+  badgeText: string;
+  archivedBorder: string;
+  /** The ring around a colour's dot in the tile colour popover. */
+  dotBorder: string;
+  /** A tile's background in each colour. */
+  tints: Record<ProjectColor, string>;
+  /** Each colour at full strength, for its dot. */
+  swatches: Record<ProjectColor, string>;
 }
+
+const SWATCHES: Record<ProjectColor, string> = {
+  blue: '#3b82f6',
+  teal: '#14b8a6',
+  slate: '#64748b',
+  purple: '#a855f7',
+  pink: '#ec4899',
+};
 
 const LIGHT: ProjectsTabPalette = {
   scheme: 'light',
@@ -60,6 +79,12 @@ const LIGHT: ProjectsTabPalette = {
   primary: '#0070f3',
   primaryHover: '#005bc4',
   grip: '#808080',
+  badgeBg: '#e5e7eb',
+  badgeText: '#374151',
+  archivedBorder: '#dddddd',
+  dotBorder: 'rgba(0, 0, 0, 0.25)',
+  tints: { blue: '#e0ebfe', teal: '#d9f4f1', slate: '#e6e9ec', purple: '#f1e4fe', pink: '#fce2ef' },
+  swatches: SWATCHES,
 };
 
 const DARK: ProjectsTabPalette = {
@@ -84,6 +109,12 @@ const DARK: ProjectsTabPalette = {
   primary: '#0070f3',
   primaryHover: '#005bc4',
   grip: '#9ca3af',
+  badgeBg: '#2d3748',
+  badgeText: '#e2e8f0',
+  archivedBorder: '#4a5568',
+  dotBorder: 'rgba(255, 255, 255, 0.35)',
+  tints: { blue: '#1e3667', teal: '#164255', slate: '#27334f', purple: '#362c67', pink: '#452a52' },
+  swatches: SWATCHES,
 };
 
 export function projectsTabPalette(resolvedTheme: 'light' | 'dark'): ProjectsTabPalette {
@@ -113,6 +144,12 @@ export function paletteStyle(p: ProjectsTabPalette): CSSProperties {
     '--pt-primary': p.primary,
     '--pt-primary-hover': p.primaryHover,
     '--pt-grip': p.grip,
+    '--pt-badge-bg': p.badgeBg,
+    '--pt-badge-text': p.badgeText,
+    '--pt-archived-border': p.archivedBorder,
+    '--pt-dot-border': p.dotBorder,
+    ...Object.fromEntries(PROJECT_COLORS.map(c => [`--pt-tint-${c}`, p.tints[c]])),
+    ...Object.fromEntries(PROJECT_COLORS.map(c => [`--pt-sw-${c}`, p.swatches[c]])),
   } as CSSProperties;
 }
 

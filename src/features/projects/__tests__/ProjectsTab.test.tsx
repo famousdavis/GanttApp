@@ -1468,6 +1468,8 @@ describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
     renderCloudTab([{ id: 'p1', name: 'Alpha', owner: OWNER_UID }, { id: 'p2', name: 'Beta', owner: OWNER_UID }]);
     fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Tile color: No color' }));
     expect(screen.getByRole('dialog', { name: 'Tile color' })).toBeTruthy();
+    // No blur is left to close it: only the tab can.
+    (document.activeElement as HTMLElement).blur();
 
     await openShareFor('Alpha', 'p1');
     expect(screen.queryByRole('dialog', { name: 'Tile color' })).toBeNull();

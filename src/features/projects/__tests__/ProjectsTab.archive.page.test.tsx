@@ -634,6 +634,46 @@ describe('archive and tile colour on the page', () => {
         expect(popover()).not.toBeNull();
       }
 
+      /** As when the window lost focus: no blur is left to close the popover, only the tab can. */
+      function withFocusAlreadyOut() {
+        (document.activeElement as HTMLElement).blur();
+        expect(popover()).not.toBeNull();
+      }
+
+      it.each([
+        ['Edit project', 'Edit Project'],
+        ['Delete project', 'Delete Project'],
+      ])('%s closes it even with focus already out of it', async (label, title) => {
+        seed(['A', 'B']);
+        await renderPage();
+        await withPopoverOn('A');
+        withFocusAlreadyOut();
+        fireEvent.click(tileButton('B', label));
+        expect(screen.getByText(title)).toBeInTheDocument();
+        expect(popover()).toBeNull();
+      });
+
+      it('a reorder closes it even with focus already out of it', async () => {
+        seed(['A', 'B']);
+        await renderPage();
+        await withPopoverOn('A');
+        withFocusAlreadyOut();
+        fireEvent.click(tileButton('A', 'Move later'));
+        expect(storedNames()).toEqual(['B', 'A']);
+        expect(popover()).toBeNull();
+      });
+
+      it('archiving with "Show archived" on closes it even with focus already out of it', async () => {
+        seed(['A', 'B', 'C'], ['C']);
+        await renderPage();
+        fireEvent.click(filter()!);
+        await withPopoverOn('A');
+        withFocusAlreadyOut();
+        fireEvent.click(tileButton('A', 'Archive project'));
+        expect(tileOf('A')).toHaveClass('pt-archived');
+        expect(popover()).toBeNull();
+      });
+
       it.each([
         ['Edit project', 'Edit Project'],
         ['Delete project', 'Delete Project'],
@@ -745,6 +785,10 @@ describe('archive and tile colour on the page', () => {
       const select = await picker(label);
       expect(select).toHaveValue('A');
       expect(optionNames(select)).toEqual(['A', 'C']);
+      // A select shows its first option for a value it does not list, so the
+      // releases on show are what prove the selection moved.
+      expect(await screen.findByText('A release')).toBeInTheDocument();
+      expect(screen.queryByText('B release')).toBeNull();
     });
 
     it('with every project archived, the Releases tab says so', async () => {

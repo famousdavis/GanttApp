@@ -677,6 +677,18 @@ describe('detectImportConflicts (v0.24.0)', () => {
     expect(conflicts[0].existingProject.id).toBe('p1');
   });
 
+  it('reports ID conflict with an archived project', () => {
+    const existing: AppData = {
+      ...makeExisting([{ id: 'p1', name: 'Alpha' }]),
+      projectPrefs: { p1: { archived: true } },
+    };
+    const incoming = makeIncoming([{ id: 'p1', name: 'Renamed Alpha' }]);
+    const conflicts = detectImportConflicts(incoming, existing);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].type).toBe('id');
+    expect(conflicts[0].existingProject.id).toBe('p1');
+  });
+
   it('reports name conflict when names match case-insensitively but IDs differ', () => {
     const existing = makeExisting([{ id: 'p1', name: 'Alpha' }]);
     const incoming = makeIncoming([{ id: 'p2', name: '  alpha ' }]);

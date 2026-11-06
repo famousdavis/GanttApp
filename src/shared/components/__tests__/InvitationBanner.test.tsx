@@ -216,5 +216,15 @@ describe('InvitationBanner', () => {
       rerender(<InvitationBanner />);
       expect(mockUseInvitationLanding).toHaveBeenLastCalledWith({ localProjectCount: 2, appDataLoading: false });
     });
+
+    it('counts an archived project, so that it holds back the switch too', () => {
+      const projects = [{ id: 'p1', name: 'Alpha' }];
+      mockUseAppData.mockReturnValue({
+        data: { projects, releases: [], projectPrefs: { p1: { archived: true } } },
+        loading: false,
+      });
+      renderBanner();
+      expect(mockUseInvitationLanding).toHaveBeenLastCalledWith({ localProjectCount: 1, appDataLoading: false });
+    });
   });
 });

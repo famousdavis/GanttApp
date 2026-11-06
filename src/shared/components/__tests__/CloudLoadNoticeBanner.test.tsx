@@ -75,6 +75,15 @@ describe('CloudLoadNoticeBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('names an archived project', () => {
+    mockUseAppData.mockReturnValue({
+      data: { projects: [{ id: 'p1', name: 'Alpha' }], releases: [], projectPrefs: { p1: { archived: true } } },
+    });
+    render(<CloudLoadNoticeBanner />);
+    act(() => noteCloudSetAside('p1', 'release-dates'));
+    expect(screen.getByRole('status')).toHaveTextContent('Some saved data could not be read in project “Alpha”.');
+  });
+
   it('closes on "Got it", and does not name that project again this session', () => {
     render(<CloudLoadNoticeBanner />);
     act(() => noteCloudSetAside('p1', 'release-dates'));

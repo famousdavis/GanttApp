@@ -1356,5 +1356,38 @@ describe('owner of a new project or a copy, before any reload', () => {
       expect(result.current.data.projects).toHaveLength(4);
       expect(result.current.data.projectPrefs).toEqual({ p2: { color: 'pink' } });
     });
+
+    it('a clone skips a name an archived project holds', async () => {
+      seedData({
+        projects: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'One - Copy (1)' }],
+        releases: [],
+        projectPrefs: { p2: { archived: true } },
+      });
+      const { result } = await ready();
+
+      await act(async () => { await result.current.cloneProject('p1'); });
+
+      expect(result.current.data.projects.map(p => p.name)).toEqual([
+        'One',
+        'One - Copy (2)',
+        'One - Copy (1)',
+      ]);
+    });
+
+    it('Load Sample skips a name an archived project holds', async () => {
+      seedData({
+        projects: [{ id: 'p1', name: 'Mobile App Launch (Sample)' }],
+        releases: [],
+        projectPrefs: { p1: { archived: true } },
+      });
+      const { result } = await ready();
+
+      act(() => { result.current.addSampleProject(new Date(2026, 10, 2)); });
+
+      expect(result.current.data.projects.map(p => p.name)).toEqual([
+        'Mobile App Launch (Sample)',
+        'Mobile App Launch (Sample 2)',
+      ]);
+    });
   });
 });

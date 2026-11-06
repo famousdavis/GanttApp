@@ -132,7 +132,7 @@ describe('reading an entry', () => {
   it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
     'finds no entry on the prototype for a project with the id %s, which is not archived',
     (id) => {
-      expect(projectPrefOf({ p1: { color: 'teal' } }, id)).toEqual({});
+      expect(Object.getOwnPropertyNames(projectPrefOf({ p1: { color: 'teal' } }, id))).toEqual([]);
       expect(isProjectArchived({ p1: { archived: true } }, id)).toBe(false);
     },
   );

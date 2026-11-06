@@ -829,10 +829,13 @@ describe('archive and tile colour on the page', () => {
       { archived: ['A', 'B'], selected: 'C', where: 'past the first two' },
       { archived: ['B'], selected: 'A', where: 'the first is not archived' },
     ])('the selection starts on the first unarchived project: $where', async ({ archived, selected }) => {
-      seed(['A', 'B', 'C'], archived);
+      seed(['A', 'B', 'C'], archived, {}, releasesFor(['A', 'B', 'C']));
       await renderPage();
       fireEvent.click(tab('Releases'));
       expect(await picker(RELEASES_PICKER)).toHaveValue(selected);
+      // A select shows its first option for a value it does not list, so the
+      // releases on show are what prove the selection.
+      expect(await screen.findByText(`${selected} release`)).toBeInTheDocument();
     });
 
     it.each(PICKERS)('archiving the selected project moves the selection on the %s tab', async (_name, label, tabName) => {

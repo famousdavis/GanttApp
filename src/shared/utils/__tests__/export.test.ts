@@ -1256,6 +1256,14 @@ describe('parseImportedData — tile colours and archived projects', () => {
       .toEqual({ p2: { color: 'blue' } });
   });
 
+  it('finds an entry through a project id that sanitising changes', () => {
+    const appData = parseImportedData(JSON.stringify({
+      projects: [{ id: 'p.1', name: 'One' }], releases: [], projectPrefs: { 'p.1': { color: 'pink' } },
+    }))?.appData;
+    expect(appData?.projects.map(p => p.id)).toEqual(['p1']);
+    expect(appData?.projectPrefs).toEqual({ p1: { color: 'pink' } });
+  });
+
   it('leaves the field out when the file has none, or none survives', () => {
     expect(parseImportedData(content(undefined))?.appData).not.toHaveProperty('projectPrefs');
     expect(parseImportedData(content({ stranger: { color: 'blue' } }))?.appData).not.toHaveProperty('projectPrefs');
@@ -1297,6 +1305,13 @@ describe('applyImportDecisions — tile colours and archived projects', () => {
     const merged = merge(existing, incoming([{ id: 'p1', name: 'One' }], { p1: { color: 'pink' } }), [['p1', 'copy']]);
     expect(merged.projects.map(p => p.id)).toEqual(['p1', 'minted']);
     expect(merged.projectPrefs).toEqual({ p1: { archived: true }, minted: { color: 'pink' } });
+  });
+
+  it('a copied project the file has no entry for has none, and the original keeps its own', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { archived: true } } };
+    const merged = merge(existing, incoming([{ id: 'p1', name: 'One' }]), [['p1', 'copy']]);
+    expect(merged.projects.map(p => p.id)).toEqual(['p1', 'minted']);
+    expect(merged.projectPrefs).toEqual({ p1: { archived: true } });
   });
 
   it('a project replaced by id is exactly what the file says', () => {

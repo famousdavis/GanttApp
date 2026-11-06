@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  MAX_PROJECT_PREFS,
   PROJECT_COLORS,
   isProjectArchived,
   moveAmongShown,
@@ -87,10 +86,14 @@ describe('sanitizeProjectPrefs', () => {
     // JSON.parse makes `__proto__` an own key, as a tampered file would.
     const tampered = (key: string) => JSON.parse(`{"keep":{"color":"blue"},"${key}":{"archived":true}}`);
 
-    it.each(['__proto__', 'constructor', '__reserved__', '__p.roto__'])('refuses %s, and keeps the rest', (key) => {
+    it.each(['__proto__', 'constructor', '__reserved__', '__p.roto__', '____', 'con.structor', '.__a__'])('refuses %s, and keeps the rest', (key) => {
       const prefs = sanitizeProjectPrefs(tampered(key));
       expect(prefs).toEqual({ keep: { color: 'blue' } });
       expect(Object.keys(prefs!)).toEqual(['keep']);
+    });
+
+    it.each(['__a__b', 'a__b__', '__a'])('keeps %s, which is neither reserved nor on the prototype', (key) => {
+      expect(sanitizeProjectPrefs(tampered(key))).toEqual({ keep: { color: 'blue' }, [key]: { archived: true } });
     });
 
     it('does not touch any prototype', () => {
@@ -107,12 +110,12 @@ describe('sanitizeProjectPrefs', () => {
 
   it('caps the map', () => {
     const raw = Object.fromEntries(
-      Array.from({ length: MAX_PROJECT_PREFS + 1 }, (_, i) => [`p${i}`, { color: 'blue' }]),
+      Array.from({ length: 1001 }, (_, i) => [`p${i}`, { color: 'blue' }]),
     );
     const prefs = sanitizeProjectPrefs(raw)!;
-    expect(Object.keys(prefs)).toHaveLength(MAX_PROJECT_PREFS);
-    expect(prefs[`p${MAX_PROJECT_PREFS - 1}`]).toEqual({ color: 'blue' });
-    expect(prefs[`p${MAX_PROJECT_PREFS}`]).toBeUndefined();
+    expect(Object.keys(prefs)).toHaveLength(1000);
+    expect(prefs.p999).toEqual({ color: 'blue' });
+    expect(prefs.p1000).toBeUndefined();
   });
 });
 

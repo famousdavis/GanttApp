@@ -406,6 +406,35 @@ describe('switchToCloudMode — tile colours and archived projects', () => {
     });
   });
 
+  it('replaces a stale cloud entry under an id being uploaded with the local project\'s own', async () => {
+    cloudHolds({
+      [SETTINGS_PATH]: { projectPrefs: { 'proj-1': { color: 'blue', archived: true }, 'shared-1': { color: 'slate' } } },
+    });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({
+      'proj-1': { color: 'teal' },
+      'proj-2': { archived: true },
+      'shared-1': { color: 'slate' },
+    });
+  });
+
+  it('clears a stale cloud entry under an id being uploaded when the local project has none', async () => {
+    local.data = {
+      projects: [{ id: 'proj-1', name: 'Project One' }, { id: 'proj-2', name: 'Project Two' }],
+      releases: [],
+      projectPrefs: { 'proj-1': { color: 'teal' } },
+    };
+    cloudHolds({
+      [SETTINGS_PATH]: { projectPrefs: { 'proj-2': { color: 'pink', archived: true }, 'shared-1': { archived: true } } },
+    });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({ 'proj-1': { color: 'teal' }, 'shared-1': { archived: true } });
+  });
+
   it('keeps every cloud entry when every project was skipped', async () => {
     const member = { name: 'Held', members: { 'user-123': 'owner' } };
     cloudHolds({

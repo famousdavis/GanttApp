@@ -50,6 +50,7 @@ const fake = vi.hoisted(() => {
     readDelayMs: 0,
     commitDelayMs: 0,
     denySettingsRead: false,
+    settingsReadsAllowed: 0,
     denyMissingProjectGet: true,
     snapshots: 'never' as 'never' | 'cache-first',
     failCommits: null as unknown, // while set, every batch commit rejects with it
@@ -95,7 +96,10 @@ const fake = vi.hoisted(() => {
     getDoc: async (ref: Ref) => {
       await pause(config.readDelayMs);
       const exists = state.docs.has(ref.path);
-      if (config.denySettingsRead && ref.path.startsWith('ganttapp_settings/')) throw denied();
+      if (config.denySettingsRead && ref.path.startsWith('ganttapp_settings/')) {
+        if (config.settingsReadsAllowed <= 0) throw denied();
+        config.settingsReadsAllowed--;
+      }
       // The production rules refuse to read a project document that does not exist.
       if (!exists && config.denyMissingProjectGet && /^ganttapp_projects\/[^/]+$/.test(ref.path)) throw denied();
       return { exists: () => exists, data: () => (exists ? structuredClone(state.docs.get(ref.path)) : undefined) };
@@ -145,7 +149,7 @@ const fake = vi.hoisted(() => {
     state.docs.clear();
     state.writes.length = 0;
     Object.assign(config, {
-      readDelayMs: 0, commitDelayMs: 0, denySettingsRead: false, denyMissingProjectGet: true,
+      readDelayMs: 0, commitDelayMs: 0, denySettingsRead: false, settingsReadsAllowed: 0, denyMissingProjectGet: true,
       snapshots: 'never', failCommits: null,
     });
   };
@@ -440,6 +444,7 @@ async function confirmUploadWithFailedCloudLoad() {
   localStorage.setItem(MODE_KEY, 'cloud');
   localStorage.setItem('ganttAppData', JSON.stringify(LOCAL_COPIES));
   fake.config.denySettingsRead = true;
+  fake.config.settingsReadsAllowed = 1; // the upload's own read, so the load is what fails
   renderApp();
   fireEvent.click(await screen.findByRole('button', { name: 'Upload to Cloud' }));
   await settleAfterFailedLoad();

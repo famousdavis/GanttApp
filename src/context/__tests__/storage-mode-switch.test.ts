@@ -65,7 +65,7 @@ vi.mock('../../shared/utils/firestore-converters', () => ({
 }));
 
 import { switchToCloudMode } from '../storage-mode-switch';
-import { snapshotToFirestore } from '../../shared/utils/firestore-converters';
+import { appDataToUserSettings, snapshotToFirestore } from '../../shared/utils/firestore-converters';
 
 const mockUser = {
   uid: 'user-123',
@@ -146,7 +146,10 @@ describe('switchToCloudMode', () => {
     // permission-denied — doc doesn't exist or user not authorized
     const permError = new Error('Permission denied');
     (permError as unknown as { code: string }).code = 'permission-denied';
-    mockGetDoc.mockRejectedValue(permError);
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (ref.path.startsWith('ganttapp_settings/')) return { exists: () => false };
+      throw permError;
+    });
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(NEW_ID_1).mockReturnValueOnce(NEW_ID_2);
 
     const result = await switchToCloudMode(mockFirestore, mockUser);
@@ -279,6 +282,7 @@ describe('switchToCloudMode — which projects it uploaded and which it skipped'
       'ganttapp_projects/proj-4': { name: 'Someone Else', members: { 'user-999': 'owner' } },
     };
     mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (ref.path.startsWith('ganttapp_settings/')) return { exists: () => false };
       if (!(ref.path in cloudDocs)) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
       return { exists: () => true, data: () => cloudDocs[ref.path] };
     });
@@ -295,5 +299,142 @@ describe('switchToCloudMode — which projects it uploaded and which it skipped'
       { id: 'proj-3', localName: 'Same Name', cloudName: 'Same Name' },
     ]);
     expect(projectDocsWritten()).toEqual([`ganttapp_projects/${NEW_ID_1}`, `ganttapp_projects/${NEW_ID_2}`]);
+  });
+});
+
+describe('switchToCloudMode — tile colours and archived projects', () => {
+  const SETTINGS_PATH = 'ganttapp_settings/user-123';
+  /** Answers by path; a project not listed does not exist. */
+  const cloudHolds = (docs: Record<string, unknown>) => {
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => ({
+      exists: () => ref.path in docs,
+      data: () => docs[ref.path],
+    }));
+  };
+  const uploadedPrefs = () => vi.mocked(appDataToUserSettings).mock.calls[0][0].projectPrefs;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    batches.length = 0;
+    cloud.constructed.length = 0;
+    local.snapshots = [];
+    local.data = {
+      projects: [{ id: 'proj-1', name: 'Project One' }, { id: 'proj-2', name: 'Project Two' }],
+      releases: [],
+      projectPrefs: { 'proj-1': { color: 'teal' }, 'proj-2': { archived: true }, stale: { color: 'pink' } },
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reads the settings once, before anything is written', async () => {
+    cloudHolds({});
+    const order: string[] = [];
+    const read = mockGetDoc.getMockImplementation()!;
+    mockGetDoc.mockImplementation((ref: { path: string }) => { order.push(`read ${ref.path}`); return read(ref); });
+    mockWriteBatch.mockImplementationOnce(() => {
+      order.push('batch');
+      const batch = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      batches.push(batch);
+      return batch;
+    });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(order.filter((step) => step === `read ${SETTINGS_PATH}`)).toHaveLength(1);
+    expect(order.indexOf(`read ${SETTINGS_PATH}`)).toBeLessThan(order.indexOf('batch'));
+    expect(order.indexOf('read ganttapp_projects/proj-2')).toBeLessThan(order.indexOf(`read ${SETTINGS_PATH}`));
+  });
+
+  it.each([
+    ['refused', 'permission-denied'],
+    ['unavailable', 'unavailable'],
+  ])('stops the upload, with nothing written, when the read is %s', async (_label, code) => {
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (ref.path === SETTINGS_PATH) throw Object.assign(new Error('grpc detail'), { code });
+      return { exists: () => false };
+    });
+
+    await expect(switchToCloudMode(mockFirestore, mockUser)).rejects.toThrow(/^Failed to read your cloud settings: /);
+    expect(batches).toEqual([]);
+  });
+
+  it('gives no raw Firebase text in that message', async () => {
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (ref.path === SETTINGS_PATH) throw Object.assign(new Error('grpc detail'), { code: 'unavailable' });
+      return { exists: () => false };
+    });
+
+    await expect(switchToCloudMode(mockFirestore, mockUser)).rejects.not.toThrow(/grpc detail/);
+  });
+
+  it('puts an uploaded project\'s entry under the new id when another owner holds its id', async () => {
+    cloudHolds({ 'ganttapp_projects/proj-1': { members: { 'user-999': 'owner' } } });
+    vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(NEW_ID_1);
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({ [NEW_ID_1]: { color: 'teal' }, 'proj-2': { archived: true } });
+  });
+
+  it('puts an uploaded project\'s entry under the new id when the check is refused', async () => {
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => {
+      if (ref.path === 'ganttapp_projects/proj-2') throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+      return { exists: () => false };
+    });
+    vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(NEW_ID_1);
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({ 'proj-1': { color: 'teal' }, [NEW_ID_1]: { archived: true } });
+  });
+
+  it('takes the union: the cloud\'s entries, plus those of the projects uploaded, and a skipped project keeps its own', async () => {
+    cloudHolds({
+      'ganttapp_projects/proj-1': { name: 'One', members: { 'user-123': 'owner' } },
+      [SETTINGS_PATH]: { projectPrefs: { 'proj-1': { archived: true }, 'shared-1': { color: 'slate' } } },
+    });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({
+      'proj-1': { archived: true },
+      'shared-1': { color: 'slate' },
+      'proj-2': { archived: true },
+    });
+  });
+
+  it('keeps every cloud entry when every project was skipped', async () => {
+    const member = { name: 'Held', members: { 'user-123': 'owner' } };
+    cloudHolds({
+      'ganttapp_projects/proj-1': member,
+      'ganttapp_projects/proj-2': member,
+      [SETTINGS_PATH]: { projectPrefs: { 'proj-2': { color: 'slate' }, 'shared-1': { archived: true } } },
+    });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({ 'proj-2': { color: 'slate' }, 'shared-1': { archived: true } });
+  });
+
+  it('sanitises what it reads from the cloud', async () => {
+    cloudHolds({ [SETTINGS_PATH]: { projectPrefs: { 'shared-1': { color: 'red' }, 'shared-2': { color: 'blue' } } } });
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(uploadedPrefs()).toEqual({
+      'proj-1': { color: 'teal' }, 'proj-2': { archived: true }, 'shared-2': { color: 'blue' },
+    });
+  });
+
+  it('reads and writes no settings with no local projects', async () => {
+    local.data = { projects: [], releases: [], projectPrefs: { stale: { color: 'pink' } } };
+
+    await switchToCloudMode(mockFirestore, mockUser);
+
+    expect(mockGetDoc).not.toHaveBeenCalled();
+    expect(batches).toEqual([]);
   });
 });

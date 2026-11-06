@@ -50,7 +50,10 @@ export function settingsChanged(prev: AppData | null, curr: AppData): boolean {
     prev.preparedBy !== curr.preparedBy ||
     prev.showPreparedBy !== curr.showPreparedBy ||
     JSON.stringify(prev.exportAttribution) !== JSON.stringify(curr.exportAttribution) ||
-    JSON.stringify(prev.globalWorkDays) !== JSON.stringify(curr.globalWorkDays)
+    JSON.stringify(prev.globalWorkDays) !== JSON.stringify(curr.globalWorkDays) ||
+    // Without this a tile colour or an archive alone never reaches Firestore:
+    // nothing else in `data` changed, so nothing would be written.
+    JSON.stringify(prev.projectPrefs) !== JSON.stringify(curr.projectPrefs)
   );
 }
 

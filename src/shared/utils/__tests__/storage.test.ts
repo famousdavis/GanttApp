@@ -330,6 +330,38 @@ describe('storage utilities', () => {
     });
   });
 
+  describe('tile colours and archived projects', () => {
+    const load = (projectPrefs: unknown) => {
+      localStorage.setItem('ganttAppData', JSON.stringify({ projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs }));
+      return loadData();
+    };
+
+    it('survive a save and a load', () => {
+      saveData({ projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { color: 'teal', archived: true } } });
+      expect(loadData()?.projectPrefs).toEqual({ p1: { color: 'teal', archived: true } });
+    });
+
+    it('keep an entry for a project not in the list: it can come back', () => {
+      expect(load({ gone: { color: 'pink' } })?.projectPrefs).toEqual({ gone: { color: 'pink' } });
+    });
+
+    it('are sanitised on load', () => {
+      expect(load({ p1: { color: 'red' }, p2: { archived: 'true' }, p3: { archived: true } })?.projectPrefs)
+        .toEqual({ p3: { archived: true } });
+    });
+
+    it('are left out when absent or when nothing survives', () => {
+      expect(load(undefined)).not.toHaveProperty('projectPrefs');
+      expect(load({ p1: { color: 'red' } })).not.toHaveProperty('projectPrefs');
+    });
+
+    it('cannot reach the prototype from tampered storage', () => {
+      localStorage.setItem('ganttAppData', '{"projects":[],"releases":[],"projectPrefs":{"__proto__":{"archived":true},"p1":{"color":"blue"}}}');
+      expect(loadData()?.projectPrefs).toEqual({ p1: { color: 'blue' } });
+      expect(({} as { archived?: boolean }).archived).toBeUndefined();
+    });
+  });
+
   describe('owner field preservation (v0.20.1)', () => {
     it('preserves project owner through validateLoadedData', () => {
       const data = makeTestData({

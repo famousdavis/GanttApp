@@ -113,4 +113,32 @@ describe('exportAllProjects', () => {
     expect(mockStorage.loadAppData).not.toHaveBeenCalled();
     expect(mockStorage.readAppData).toHaveBeenCalledOnce();
   });
+
+  it('carries the entries of the projects it exports, and none for a project no longer held', async () => {
+    await exportAllProjects({
+      readAppData: vi.fn().mockResolvedValue({
+        projects: [{ id: 'p1', name: 'Project 1' }],
+        releases: [],
+        projectPrefs: { p1: { color: 'teal' }, gone: { archived: true } },
+      }),
+      loadSnapshots: vi.fn().mockResolvedValue([]),
+    });
+
+    const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+    expect(JSON.parse(await blob.text()).projectPrefs).toEqual({ p1: { color: 'teal' } });
+  });
+
+  it('leaves the field out when no exported project has an entry', async () => {
+    await exportAllProjects({
+      readAppData: vi.fn().mockResolvedValue({
+        projects: [{ id: 'p1', name: 'Project 1' }],
+        releases: [],
+        projectPrefs: { gone: { archived: true } },
+      }),
+      loadSnapshots: vi.fn().mockResolvedValue([]),
+    });
+
+    const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+    expect(JSON.parse(await blob.text())).not.toHaveProperty('projectPrefs');
+  });
 });

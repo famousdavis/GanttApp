@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   parseImportedData,
+  exportData,
   exportSingleProject,
   exportSelectedProjects,
   detectImportConflicts,
@@ -1181,5 +1182,165 @@ describe('applyImportDecisions (v0.24.0)', () => {
     const conflicts = detectImportConflicts(incoming, existing);
     const result = applyImportDecisions(existing, incoming, [], new Map(), conflicts);
     expect(result.mergedData.preparedBy).toBe('preserved');
+  });
+});
+
+// ============================================================================
+// Tile colours and archived projects in files
+// ============================================================================
+
+describe('tile colours and archived projects in exported files', () => {
+  const data: AppData = {
+    projects: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }, { id: 'p3', name: 'Three' }],
+    releases: [],
+    preparedBy: 'Sam',
+    projectPrefs: { p1: { color: 'teal' }, p2: { archived: true }, gone: { color: 'pink' } },
+  };
+  const storage = { loadSnapshots: async () => [] };
+  const file = () => JSON.parse(lastBlobContent!);
+
+  it('exportData carries the entries of the projects it exports, and none for a project no longer held', () => {
+    exportData(data);
+    expect(file().projectPrefs).toEqual({ p1: { color: 'teal' }, p2: { archived: true } });
+  });
+
+  it('exportData leaves the field out when no exported project has an entry', () => {
+    exportData({ ...data, projectPrefs: { gone: { color: 'pink' } } });
+    expect(file()).not.toHaveProperty('projectPrefs');
+    expect(file().preparedBy).toBe('Sam');
+  });
+
+  it('exportSingleProject carries that project\'s entry alone, and no other setting', async () => {
+    await exportSingleProject('p1', data, storage);
+    expect(file().projectPrefs).toEqual({ p1: { color: 'teal' } });
+    expect(file()).not.toHaveProperty('preparedBy');
+  });
+
+  it('exportSingleProject leaves the field out for a project with no entry', async () => {
+    await exportSingleProject('p3', data, storage);
+    expect(file()).not.toHaveProperty('projectPrefs');
+  });
+
+  it('exportSelectedProjects carries the entries of the selected projects alone, and no other setting', async () => {
+    await exportSelectedProjects(['p2', 'p3'], data, storage);
+    expect(file().projectPrefs).toEqual({ p2: { archived: true } });
+    expect(file()).not.toHaveProperty('preparedBy');
+  });
+
+  it('exportSelectedProjects leaves the field out when no selected project has an entry', async () => {
+    await exportSelectedProjects(['p3'], data, storage);
+    expect(file()).not.toHaveProperty('projectPrefs');
+  });
+});
+
+describe('parseImportedData — tile colours and archived projects', () => {
+  const content = (projectPrefs: unknown, exportType?: string) => JSON.stringify({
+    ...(exportType && { _exportType: exportType }),
+    projects: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+    releases: [],
+    projectPrefs,
+  });
+
+  it.each([undefined, 'ganttapp-all-projects', 'ganttapp-project-export'])('keeps the file\'s own entries (type %s)', (type) => {
+    expect(parseImportedData(content({ p1: { color: 'pink' }, p2: { archived: true } }, type))?.appData.projectPrefs)
+      .toEqual({ p1: { color: 'pink' }, p2: { archived: true } });
+  });
+
+  it('keeps only ids among the file\'s projects', () => {
+    expect(parseImportedData(content({ p1: { color: 'pink' }, stranger: { archived: true } }))?.appData.projectPrefs)
+      .toEqual({ p1: { color: 'pink' } });
+  });
+
+  it('sanitises each entry', () => {
+    expect(parseImportedData(content({ p1: { color: 'red' }, p2: { color: 'blue', archived: 1 } }))?.appData.projectPrefs)
+      .toEqual({ p2: { color: 'blue' } });
+  });
+
+  it('leaves the field out when the file has none, or none survives', () => {
+    expect(parseImportedData(content(undefined))?.appData).not.toHaveProperty('projectPrefs');
+    expect(parseImportedData(content({ stranger: { color: 'blue' } }))?.appData).not.toHaveProperty('projectPrefs');
+    expect(parseImportedData(content('blue'))?.appData).not.toHaveProperty('projectPrefs');
+  });
+
+  it('a tampered file loses its own entry, the project stays, and no prototype is touched', () => {
+    const raw = '{"projects":[{"id":"__proto__","name":"Odd"},{"id":"constructor","name":"Odder"},{"id":"p1","name":"One"}],"releases":[],'
+      + '"projectPrefs":{"__proto__":{"archived":true},"constructor":{"archived":true},"p1":{"color":"blue"}}}';
+    const parsed = parseImportedData(raw)!;
+    expect(parsed.appData.projects.map(p => p.id)).toEqual(['__proto__', 'constructor', 'p1']);
+    expect(parsed.appData.projectPrefs).toEqual({ p1: { color: 'blue' } });
+    expect(({} as { archived?: boolean }).archived).toBeUndefined();
+  });
+});
+
+describe('applyImportDecisions — tile colours and archived projects', () => {
+  const nextId = () => 'minted';
+  const incoming = (projects: Project[], projectPrefs?: AppData['projectPrefs']): ImportResult => ({
+    appData: { projects, releases: [], ...(projectPrefs && { projectPrefs }) },
+    exportType: 'ganttapp-project-export',
+  });
+  const merge = (existing: AppData, file: ImportResult, actions: [string, ConflictAction][] = []) =>
+    applyImportDecisions(existing, file, [], new Map(actions), detectImportConflicts(file, existing), nextId).mergedData;
+
+  it('an added project takes what the file carries', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { color: 'teal' } } };
+    const merged = merge(existing, incoming([{ id: 'p2', name: 'Two' }], { p2: { archived: true } }));
+    expect(merged.projectPrefs).toEqual({ p1: { color: 'teal' }, p2: { archived: true } });
+  });
+
+  it('an added project the file has no entry for has none, and clears a stale one under its id', () => {
+    const existing: AppData = { projects: [], releases: [], projectPrefs: { p2: { archived: true } } };
+    expect(merge(existing, incoming([{ id: 'p2', name: 'Two' }]))).not.toHaveProperty('projectPrefs');
+  });
+
+  it('a copied project takes the file\'s entry under its new id, in either storage mode', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { archived: true } } };
+    const merged = merge(existing, incoming([{ id: 'p1', name: 'One' }], { p1: { color: 'pink' } }), [['p1', 'copy']]);
+    expect(merged.projects.map(p => p.id)).toEqual(['p1', 'minted']);
+    expect(merged.projectPrefs).toEqual({ p1: { archived: true }, minted: { color: 'pink' } });
+  });
+
+  it('a project replaced by id is exactly what the file says', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { color: 'teal', archived: true } } };
+    const merged = merge(existing, incoming([{ id: 'p1', name: 'One' }], { p1: { color: 'pink' } }), [['p1', 'replace']]);
+    expect(merged.projectPrefs).toEqual({ p1: { color: 'pink' } });
+  });
+
+  it('a project replaced by id loses its entry when the file has none', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { archived: true } } };
+    expect(merge(existing, incoming([{ id: 'p1', name: 'One' }]), [['p1', 'replace']])).not.toHaveProperty('projectPrefs');
+  });
+
+  it('a project replaced by name: its old id loses its entry, and the file\'s lands under the id the slot takes', () => {
+    const existing: AppData = {
+      projects: [{ id: 'old', name: 'Same' }], releases: [],
+      projectPrefs: { old: { archived: true }, other: { color: 'slate' } },
+    };
+    const merged = merge(existing, incoming([{ id: 'new', name: 'Same' }], { new: { color: 'pink' } }), [['new', 'replace']]);
+    expect(merged.projects.map(p => p.id)).toEqual(['new']);
+    expect(merged.projectPrefs).toEqual({ other: { color: 'slate' }, new: { color: 'pink' } });
+  });
+
+  it('a skipped project is untouched', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], projectPrefs: { p1: { archived: true } } };
+    const merged = merge(existing, incoming([{ id: 'p1', name: 'One' }], { p1: { color: 'pink' } }), [['p1', 'skip']]);
+    expect(merged.projectPrefs).toEqual({ p1: { archived: true } });
+  });
+
+  it('a replace downgraded because its slot was taken counts as skipped: its entry goes nowhere', () => {
+    const existing: AppData = { projects: [{ id: 'old', name: 'Same' }], releases: [], projectPrefs: { old: { archived: true } } };
+    const file = incoming(
+      [{ id: 'first', name: 'Same' }, { id: 'second', name: 'Same' }],
+      { first: { color: 'teal' }, second: { color: 'pink' } },
+    );
+    const merged = merge(existing, file, [['first', 'replace'], ['second', 'replace']]);
+    expect(merged.projects.map(p => p.id)).toEqual(['first']);
+    expect(merged.projectPrefs).toEqual({ first: { color: 'teal' } });
+  });
+
+  it('keeps the map of projects the file does not name, and the other settings', () => {
+    const existing: AppData = { projects: [{ id: 'p1', name: 'One' }], releases: [], preparedBy: 'Sam', projectPrefs: { p1: { color: 'teal' } } };
+    const merged = merge(existing, incoming([{ id: 'p2', name: 'Two' }]));
+    expect(merged.projectPrefs).toEqual({ p1: { color: 'teal' } });
+    expect(merged.preparedBy).toBe('Sam');
   });
 });

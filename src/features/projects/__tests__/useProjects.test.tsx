@@ -1263,4 +1263,98 @@ describe('owner of a new project or a copy, before any reload', () => {
     else expect('owner' in projects[1]).toBe(false);
     expect(projects[0].owner).toBe(SOURCE_OWNER_UID);
   });
+
+  describe('tile colours and archived projects', () => {
+    const seeded = () => ({
+      projects: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+      releases: [],
+    });
+    const storedPrefs = () => JSON.parse(localStorage.getItem('ganttAppData') ?? '{}').projectPrefs;
+
+    async function ready() {
+      const hook = renderProjectsHook();
+      await waitFor(() => expect(hook.result.current.data.projects.length).toBeGreaterThan(0));
+      return hook;
+    }
+
+    it('sets and clears a colour, and saves it', async () => {
+      seedData(seeded());
+      const { result } = await ready();
+
+      let applied = false;
+      act(() => { applied = result.current.setProjectColor('p1', 'purple'); });
+      expect(applied).toBe(true);
+      expect(result.current.data.projectPrefs).toEqual({ p1: { color: 'purple' } });
+      await waitFor(() => expect(storedPrefs()).toEqual({ p1: { color: 'purple' } }));
+
+      act(() => { result.current.setProjectColor('p1', null); });
+      expect(result.current.data).not.toHaveProperty('projectPrefs');
+      await waitFor(() => expect(storedPrefs()).toBeUndefined());
+    });
+
+    it('archives and unarchives, and saves it', async () => {
+      seedData(seeded());
+      const { result } = await ready();
+
+      act(() => { result.current.setProjectArchived('p2', true); });
+      expect(result.current.data.projectPrefs).toEqual({ p2: { archived: true } });
+      await waitFor(() => expect(storedPrefs()).toEqual({ p2: { archived: true } }));
+
+      act(() => { result.current.setProjectArchived('p2', false); });
+      expect(result.current.data).not.toHaveProperty('projectPrefs');
+    });
+
+    it.each(['blue', 'teal', 'slate', 'purple', 'pink'] as const)('a clone takes the source\'s %s tile', async (color) => {
+      seedData({ ...seeded(), projectPrefs: { p1: { color } } });
+      const { result } = await ready();
+
+      await act(() => result.current.cloneProject('p1'));
+
+      const copy = result.current.data.projects.find(p => p.name.includes('Copy'))!;
+      expect(result.current.data.projectPrefs).toEqual({ p1: { color }, [copy.id]: { color } });
+    });
+
+    it('a clone of an archived project is not archived', async () => {
+      seedData({ ...seeded(), projectPrefs: { p1: { color: 'teal', archived: true } } });
+      const { result } = await ready();
+
+      await act(() => result.current.cloneProject('p1'));
+
+      const copy = result.current.data.projects.find(p => p.name.includes('Copy'))!;
+      expect(result.current.data.projectPrefs).toEqual({
+        p1: { color: 'teal', archived: true },
+        [copy.id]: { color: 'teal' },
+      });
+    });
+
+    it('a clone of a project with no entry adds none', async () => {
+      seedData({ ...seeded(), projectPrefs: { p2: { archived: true } } });
+      const { result } = await ready();
+
+      await act(() => result.current.cloneProject('p1'));
+
+      expect(result.current.data.projectPrefs).toEqual({ p2: { archived: true } });
+    });
+
+    it('a delete takes the project\'s entry with it, and leaves the others', async () => {
+      seedData({ ...seeded(), projectPrefs: { p1: { archived: true }, p2: { color: 'pink' } } });
+      const { result } = await ready();
+
+      await act(() => result.current.deleteProject('p1', 'p2', () => {}));
+
+      expect(result.current.data.projectPrefs).toEqual({ p2: { color: 'pink' } });
+    });
+
+    it('Load Sample and New Project add no entry', async () => {
+      seedData({ ...seeded(), projectPrefs: { p2: { color: 'pink' } } });
+      const { result } = await ready();
+
+      act(() => { result.current.addSampleProject(); });
+      act(() => { result.current.setProjectName('Fresh'); });
+      act(() => { result.current.addProject('p1', () => {}); });
+
+      expect(result.current.data.projects).toHaveLength(4);
+      expect(result.current.data.projectPrefs).toEqual({ p2: { color: 'pink' } });
+    });
+  });
 });

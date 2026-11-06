@@ -894,6 +894,19 @@ describe('ProjectsTab', () => {
       expect(screen.getByText('Custom work week (Mon–Wed)')).toBeTruthy();
     });
 
+    it('lists the days of a custom work week with a gap in it', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [1, 2, 4, 5] })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+      expect(screen.getByText('Custom work week (Mon, Tue, Thu, Fri)')).toBeTruthy();
+    });
+
     it('lists the days of a custom work week that is not a run of three or more', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [0, 6] })],

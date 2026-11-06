@@ -5,12 +5,12 @@
 // Projects CRUD operations hook
 
 import { useState } from 'react';
-import { Project } from '../../shared/types';
+import { Project, ProjectColor } from '../../shared/types';
 import type { Snapshot } from '../../shared/types/snapshots';
 import { useAppData } from '../../context/AppDataContext';
 import { useStorage } from '../../context/StorageContext';
 import { useAuth } from '../../context/AuthContext';
-import { generateId } from '../../shared/utils';
+import { generateId, projectPrefOf, withProjectPref, withoutProjectPrefs } from '../../shared/utils';
 import { sanitizeString, sanitizeFirebaseError, MAX_NAME_LENGTH } from '../../shared/utils/validation';
 import { MAX_SNAPSHOTS_TOTAL } from '../../shared/storage/snapshot-limits';
 import { cloudRefusal, isCloudDataNotLoadedError } from '../../shared/storage/cloud-data-not-loaded';
@@ -20,6 +20,9 @@ import { buildSampleProject } from './sampleProject';
 
 const NOT_DELETED = 'This project was not deleted.';
 const NOT_COPIED = 'This project was not copied.';
+const NOT_COLORED = "This project's tile color was not changed.";
+const NOT_ARCHIVED = 'This project was not archived.';
+const NOT_UNARCHIVED = 'This project was not unarchived.';
 const SNAPSHOTS_NOT_COPIED = 'Project cloned, but its snapshots could not be copied.';
 
 /** The alert when a copy's snapshot step fails, in words that are true for each cause. */
@@ -170,7 +173,7 @@ export function useProjects() {
       projects: data.projects.filter(p => p.id !== id),
       releases: data.releases.filter(r => r.projectId !== id)
     };
-    updateData(newData);
+    updateData(withoutProjectPrefs(newData, [id]));
     // Cascade delete: remove all snapshots for this project.
     // v0.28.10: updateData above already removed the project from state, so a
     // failure here is partial. Say what actually survived rather than implying
@@ -266,11 +269,12 @@ export function useProjects() {
       ...data.projects.slice(sourceIndex + 1),
     ];
 
-    updateData({
-      ...data,
-      projects: newProjects,
-      releases: [...data.releases, ...clonedReleases],
-    });
+    // The copy takes the source's tile colour, never its archived state.
+    updateData(withProjectPref(
+      { ...data, projects: newProjects, releases: [...data.releases, ...clonedReleases] },
+      clonedProject.id,
+      { color: projectPrefOf(data.projectPrefs, projectId).color },
+    ));
 
     // Snapshot block: load existing, build cloned, write all in one batch.
     // Strict: the write replaces every snapshot with this list, so a list
@@ -310,6 +314,31 @@ export function useProjects() {
     }
   };
 
+  /**
+   * This person's tile colour for a project; null clears it. It is theirs
+   * alone, so any member may set it, a viewer included. Returns whether it was
+   * applied: refused before the screen changes when nothing can be saved, as
+   * deleteProject is, or it would be gone on reload.
+   */
+  const setProjectColor = (projectId: string, color: ProjectColor | null): boolean => {
+    if (!storage.canWrite()) {
+      alert(cloudRefusal(NOT_COLORED));
+      return false;
+    }
+    updateData(withProjectPref(data, projectId, { color }));
+    return true;
+  };
+
+  /** Archive or unarchive a project for this person alone, as setProjectColor. */
+  const setProjectArchived = (projectId: string, archived: boolean): boolean => {
+    if (!storage.canWrite()) {
+      alert(cloudRefusal(archived ? NOT_ARCHIVED : NOT_UNARCHIVED));
+      return false;
+    }
+    updateData(withProjectPref(data, projectId, { archived }));
+    return true;
+  };
+
   return {
     projectName,
     setProjectName,
@@ -324,6 +353,8 @@ export function useProjects() {
     deleteProject,
     startEditProject,
     cancelEditProject,
-    cloneProject
+    cloneProject,
+    setProjectColor,
+    setProjectArchived
   };
 }

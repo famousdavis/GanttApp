@@ -40,6 +40,7 @@ const fake = vi.hoisted(() => {
     commitDelayMs: 0,
     /** A read of the settings document is denied: this is how a cloud load fails. */
     denySettingsRead: false,
+    settingsReadsAllowed: 0,
     /** The production rule: a read of a project document that does not exist is denied. */
     denyMissingProjectGet: true,
     /** 'cache-first': each listener fires once from the cache ~5 ms after it opens. */
@@ -83,7 +84,10 @@ const fake = vi.hoisted(() => {
   const readDoc = (path: string) => {
     failIfArmed();
     const exists = state.docs.has(path);
-    if (config.denySettingsRead && path.startsWith('ganttapp_settings/')) throw coded('permission-denied');
+    if (config.denySettingsRead && path.startsWith('ganttapp_settings/')) {
+      if (config.settingsReadsAllowed <= 0) throw coded('permission-denied');
+      config.settingsReadsAllowed--;
+    }
     if (!exists && config.denyMissingProjectGet && /^ganttapp_projects\/[^/]+$/.test(path)) {
       throw coded('permission-denied');
     }
@@ -410,7 +414,7 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
     fake.state.writes.length = 0;
     fake.state.signedIn = true;
     Object.assign(fake.config, {
-      readDelayMs: 5, commitDelayMs: 0, denySettingsRead: false, denyMissingProjectGet: true,
+      readDelayMs: 5, commitDelayMs: 0, denySettingsRead: false, settingsReadsAllowed: 0, denyMissingProjectGet: true,
       snapshots: 'never', failReads: 0, listenerDenialMs: 0,
     });
     events.length = 0;
@@ -442,6 +446,7 @@ describe('cloud loads that fail or are set aside, switches to Local, and control
       seedRelease('p1', 'r1', 'Kickoff', 0);
       seedLocal([{ id: 'p1', name: 'Alpha (this browser)' }], [localRelease('p1', 'r1', 'Kickoff')]);
       fake.config.denySettingsRead = true;
+      fake.config.settingsReadsAllowed = 1; // the upload's own read, so the load is what fails
       await chooseCloud();
       await wait(600);
 

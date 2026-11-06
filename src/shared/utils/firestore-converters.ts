@@ -33,6 +33,7 @@ import {
   cloudPreparedBy,
   optionalCloudDate,
 } from './cloud-load-guards';
+import { projectPrefsField, sanitizeProjectPrefs } from './projectPrefs';
 
 // --- Flat AppData → Firestore ---
 
@@ -94,6 +95,8 @@ export function appDataToUserSettings(data: AppData): FirestoreUserSettings {
     ...(data.showPreparedBy !== undefined && { showPreparedBy: data.showPreparedBy }),
     ...(data.exportAttribution && { exportAttribution: data.exportAttribution }),
     ...(data.globalWorkDays && data.globalWorkDays.length > 0 && { globalWorkDays: data.globalWorkDays }),
+    // Left out when empty: the write is a full set(), so that clears the stored map.
+    ...projectPrefsField(data.projectPrefs),
   };
 }
 
@@ -178,6 +181,7 @@ export function userSettingsToAppData(settings: FirestoreUserSettings): Partial<
     ...(settings.showPreparedBy !== undefined && { showPreparedBy: settings.showPreparedBy }),
     ...(settings.exportAttribution && { exportAttribution: settings.exportAttribution }),
     ...(sanitizedGlobalWorkDays && { globalWorkDays: sanitizedGlobalWorkDays }),
+    ...projectPrefsField(sanitizeProjectPrefs(settings.projectPrefs)),
   };
 }
 

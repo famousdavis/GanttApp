@@ -588,6 +588,56 @@ describe('switching to the cloud with projects in this browser, end to end', () 
     expect(localSnapshots()).toContainEqual(['ls1', 'p1']);
   });
 
+  describe('tile colours and archived projects', () => {
+    const CLOUD_PREFS = { p1: { archived: true }, 'shared-1': { color: 'slate' } };
+    const cloudSettings = () => fake.state.docs.get('ganttapp_settings/u1') as Record<string, unknown>;
+    const localData = () => JSON.parse(localStorage.getItem('ganttAppData') ?? 'null');
+    const addLocalPrefs = (projectPrefs: unknown) =>
+      localStorage.setItem('ganttAppData', JSON.stringify({ ...localData(), projectPrefs }));
+
+    it('an upload with a skipped project: the cloud\'s entries stay, and the uploaded project\'s arrive under its cloud id', async () => {
+      seedCloudPlan();
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: CLOUD_PREFS });
+      storeLocally(MIXED);
+      addLocalPrefs({ p1: { color: 'pink' }, L1: { color: 'teal', archived: true }, stale: { color: 'blue' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(localProjects()).toEqual([['p1', 'Local Plan']]), { timeout: 3000 });
+
+      const uploadedId = cloudProjects().find((p) => p.name === 'Fresh Plan')!.id;
+      expect(uploadedId).not.toBe('L1');
+      expect(cloudSettings().projectPrefs).toEqual({ ...CLOUD_PREFS, [uploadedId]: { color: 'teal', archived: true } });
+      // This browser's settings still go up, as before.
+      expect(cloudSettings().preparedBy).toBe('Local Person');
+      // The uploaded project's local entry goes with its copy; the skipped one's stays with its copy.
+      expect(localData().projectPrefs).toEqual({ p1: { color: 'pink' }, stale: { color: 'blue' } });
+    });
+
+    it('an upload that skips every project: every cloud entry stays', async () => {
+      seedCloudPlan();
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: CLOUD_PREFS });
+      storeLocally({ ...MIXED, projects: [MIXED.projects[0]], releases: [MIXED.releases[0]], snapshots: [] });
+      addLocalPrefs({ p1: { color: 'pink' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudSettings().preparedBy).toBe('Local Person'), { timeout: 3000 });
+
+      expect(cloudSettings().projectPrefs).toEqual(CLOUD_PREFS);
+    });
+
+    it('an upload with nothing in the cloud: the uploaded project\'s entry is all there is', async () => {
+      storeLocally(NORTH);
+      addLocalPrefs({ N1: { color: 'purple' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudProjectNames()).toContain('North Plan'), { timeout: 3000 });
+      await waitFor(() => expect(localStorage.getItem('ganttAppData')).toBeNull(), { timeout: 3000 });
+
+      const uploadedId = cloudProjects().find((p) => p.name === 'North Plan')!.id;
+      expect(cloudSettings().projectPrefs).toEqual({ [uploadedId]: { color: 'purple' } });
+    });
+  });
+
   it('every project uploaded: no question, a status line saying so, and no copies left in this browser', async () => {
     // Fails when the switch cleanup is removed: today's question about
     // clearing local data appears instead, and the copies stay.

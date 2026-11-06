@@ -340,6 +340,7 @@ import { FullWrapper } from '../../../test/FullWrapper';
 import { SettingsTab } from '../../settings/SettingsTab';
 import { ProjectsTab } from '../ProjectsTab';
 import { useAppData } from '../../../context/AppDataContext';
+import { useProjects } from '../useProjects';
 import { useSnapshots } from '../../chart/useSnapshots';
 import { FirestoreGanttStorageServiceImpl } from '../../../shared/storage/firestore-gantt-storage-service';
 import { DEFAULT_CHART_COLORS } from '../../../shared/utils';
@@ -458,6 +459,8 @@ type ProbeApi = {
   renameProjectAndRelease: (projectId: string, projectName: string, releaseId: string, releaseName: string) => void;
   moveToTop: (id: string) => void;
   saveSnapshotOfNewest: () => Promise<void>;
+  setProjectColor: ReturnType<typeof useProjects>['setProjectColor'];
+  setProjectArchived: ReturnType<typeof useProjects>['setProjectArchived'];
 };
 const probe: { current: ProbeApi | null } = { current: null };
 /** The project App has selected, after every commit. */
@@ -465,6 +468,7 @@ const selection: { current: string | null } = { current: null };
 
 function Probe() {
   const { data, updateData } = useAppData();
+  const { setProjectColor, setProjectArchived } = useProjects();
   const newest = data.projects[data.projects.length - 1]?.id ?? '';
   const snapshots = useSnapshots(newest);
   const withReleases = (map: (r: AppData['releases'][number]) => AppData['releases'][number]) =>
@@ -491,6 +495,8 @@ function Probe() {
       legendLabels: { solidBar: 'Planned', hatchedBar: 'Uncertain' },
       preparedBy: '',
     }),
+    setProjectColor,
+    setProjectArchived,
   };
   // After every commit, so each action sees the data on screen; act() flushes it.
   useLayoutEffect(() => { probe.current = api; });
@@ -1432,6 +1438,59 @@ describe('a project created in a cloud session that loaded normally, end to end'
   });
 
   // ---- §3.4 The viewer guard (R45, R48), and R53's message
+
+  describe('tile colours and archived projects reach this user\'s own settings document', () => {
+    const SETTINGS = 'ganttapp_settings/u1';
+    const commitsUnder = (projectId: string) =>
+      fake.state.writes.filter((w) => w.path.startsWith(`ganttapp_projects/${projectId}`));
+
+    it('a colour alone is written there, and nothing is written under the project', async () => {
+      seed();
+      await openCloud();
+      fake.state.writes.length = 0;
+
+      act$(() => { probe.current!.setProjectColor('p1', 'teal'); });
+      await wait(600);
+
+      expect(cloudDoc(SETTINGS)?.projectPrefs).toEqual({ p1: { color: 'teal' } });
+      expect(commitsUnder('p1')).toEqual([]);
+      expect(syncErrorNow()).toBeNull();
+    });
+
+    it('the last entry going clears the stored map, so it does not come back', async () => {
+      seed();
+      await openCloud();
+      act$(() => { probe.current!.setProjectArchived('p1', true); });
+      await wait(600);
+      expect(cloudDoc(SETTINGS)?.projectPrefs).toEqual({ p1: { archived: true } });
+
+      act$(() => { probe.current!.setProjectArchived('p1', false); });
+      await wait(600);
+
+      expect(cloudDoc(SETTINGS)).not.toHaveProperty('projectPrefs');
+    });
+
+    it('a viewer\'s colour and archive are saved there, with no message, and later saves succeed', async () => {
+      seed({ viewer: true });
+      await openCloud();
+      fake.state.writes.length = 0;
+      const viewerMessage = watchText(/You can only view/);
+
+      act$(() => { probe.current!.setProjectColor('p4', 'pink'); });
+      await wait(600);
+      act$(() => { probe.current!.setProjectArchived('p4', true); });
+      await wait(600);
+
+      expect(cloudDoc(SETTINGS)?.projectPrefs).toEqual({ p4: { color: 'pink', archived: true } });
+      expect(commitsUnder('p4')).toEqual([]);
+      expect(viewerMessage()).toBe(false);
+      expect(syncErrorNow()).toBeNull();
+
+      act$(() => probe.current!.renameRelease('r1', 'Later edit'));
+      await wait(600);
+      expect(cloudReleaseName('p1', 'r1')).toBe('Later edit');
+    });
+  });
 
   it('VW1: deleting a project listed above a viewer\'s project: the delete is saved, and later saves succeed', async () => {
     // Fails under: V's project-document part.

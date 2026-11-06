@@ -11,6 +11,7 @@ import type { Snapshot } from '../types/snapshots';
 import { LocalStorageDriver } from './local-storage-driver';
 import { validateLoadedData } from '../utils/storage';
 import { validateSnapshot } from '../utils/snapshots';
+import { withoutProjectPrefs } from '../utils/projectPrefs';
 import { MAX_SNAPSHOTS_TOTAL, MAX_SNAPSHOTS_PER_PROJECT } from './snapshot-limits';
 
 const APP_DATA_KEY = 'ganttAppData';
@@ -47,7 +48,10 @@ export async function removeLocalProjectCopies(projectIds: string[]): Promise<vo
     clearLocalProjectData();
     return;
   }
-  await local.saveAppData({ ...data, projects, releases: data.releases.filter(r => !remove.has(r.projectId)) });
+  await local.saveAppData(withoutProjectPrefs(
+    { ...data, projects, releases: data.releases.filter(r => !remove.has(r.projectId)) },
+    projectIds,
+  ));
   const snapshots = await local.loadSnapshots();
   const kept = snapshots.filter(s => !remove.has(s.projectId));
   if (kept.length !== snapshots.length) await local.saveSnapshots(kept);

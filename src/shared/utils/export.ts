@@ -10,6 +10,7 @@ import { Snapshot } from '../types/snapshots';
 import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES, MAX_NAME_LENGTH } from './validation';
 import { validateSnapshot } from './snapshots';
 import { generateId } from './dates';
+import { pickProjectPrefs, projectPrefsField, sanitizeProjectPrefs, withPlacedPrefs } from './projectPrefs';
 
 // Maximum limits for imported data to prevent DoS via large files
 const MAX_PROJECTS = 50;
@@ -42,6 +43,14 @@ export interface ImportResult {
  */
 function stripCloudIdentity(projects: Project[]): Project[] {
   return projects.map(({ owner: _owner, ...rest }) => rest);
+}
+
+/**
+ * The tile colours and archived projects of the projects going into a file:
+ * an entry for a project no longer held stays behind.
+ */
+function exportedPrefs(prefs: AppData['projectPrefs'], projects: Project[]): { projectPrefs?: AppData['projectPrefs'] } {
+  return projectPrefsField(pickProjectPrefs(prefs, projects.map(p => p.id)));
 }
 
 /**
@@ -85,7 +94,12 @@ function slugifyProjectName(name: string): string {
 export function exportData(data: AppData, snapshots?: Snapshot[], options?: { storageMode?: string; uid?: string }): void {
   // Build export object with optional attribution metadata.
   // v0.22.2 (S5): strip cloud-user owner UID from each project record.
-  const baseObj: Record<string, unknown> = { ...data, projects: stripCloudIdentity(data.projects) };
+  const { projectPrefs, ...settings } = data;
+  const baseObj: Record<string, unknown> = {
+    ...settings,
+    ...exportedPrefs(projectPrefs, data.projects),
+    projects: stripCloudIdentity(data.projects),
+  };
   if (snapshots && snapshots.length > 0) {
     baseObj.snapshots = snapshots;
   }
@@ -247,6 +261,10 @@ export function parseImportedData(fileContent: string): ImportResult | null {
       if (sanitized) sanitizedData.globalWorkDays = sanitized;
     }
 
+    // Sanitize optional tile colours and archived projects: this file's own projects only
+    const importedPrefs = pickProjectPrefs(sanitizeProjectPrefs(imported.projectPrefs), sanitizedProjects.map(p => p.id));
+    if (importedPrefs) sanitizedData.projectPrefs = importedPrefs;
+
     // Determine export type discriminator from the file's _exportType field (v19.0).
     let exportType: ImportResult['exportType'];
     if (imported._exportType === 'ganttapp-all-projects') {
@@ -300,8 +318,10 @@ export async function exportAllProjects(
   const snapshots = await storage.loadSnapshots();
 
   // v0.22.2 (S5): strip cloud-user owner UID from each project record.
+  const { projectPrefs, ...settings } = appData;
   const exportObj: Record<string, unknown> = {
-    ...appData,
+    ...settings,
+    ...exportedPrefs(projectPrefs, appData.projects),
     projects: stripCloudIdentity(appData.projects),
     _exportedAt: new Date().toISOString(),
     _exportType: 'ganttapp-all-projects',
@@ -329,6 +349,7 @@ export async function exportAllProjects(
  * Contains the project record + its releases + (optionally) its snapshots only.
  * Excludes all global settings (chartColors, displaySettings, attribution, etc.) so
  * importing into another workspace does not clobber the recipient's configuration.
+ * The project's own tile colour and archived state travel with it.
  *
  * Tagged `_exportType: 'ganttapp-project-export'` so `parseImportedData()` can
  * route it to the additive merge path on import.
@@ -362,6 +383,7 @@ export async function exportSingleProject(
   const exportObj: Record<string, unknown> = {
     projects: stripCloudIdentity([project]),
     releases,
+    ...exportedPrefs(data.projectPrefs, [project]),
     _exportType: 'ganttapp-project-export',
     _exportedAt: new Date().toISOString(),
   };
@@ -423,6 +445,7 @@ export async function exportSelectedProjects(
   const exportObj: Record<string, unknown> = {
     projects: stripCloudIdentity(projects),
     releases,
+    ...exportedPrefs(data.projectPrefs, projects),
     _exportType: 'ganttapp-project-export',
     _exportedAt: new Date().toISOString(),
   };
@@ -599,6 +622,11 @@ export function conflictsEqual(a: ImportConflict[], b: ImportConflict[]): boolea
  *
  * Global settings (chartColors, legendLabels, displaySettings, etc.) are
  * preserved untouched from `existing`.
+ *
+ * Tile colours and archived projects: a replaced, copied or added project's
+ * entry is exactly what the file says, under the id it ends up with, and a
+ * name-conflict replace's old id loses its entry. A skipped project keeps its
+ * entry, and so does a replace downgraded to a skip.
  */
 export function applyImportDecisions(
   existing: AppData,
@@ -639,6 +667,8 @@ export function applyImportDecisions(
   let copied = 0;
   let replaced = 0;
   const replacedIdMap = new Map<string, string>();
+  // Each imported project's id in the file, and the id it has here.
+  const placed: { fromId: string; id: string }[] = [];
 
   // Pass 1: pre-compute the winning-replace map.
   // First-wins is determined by incoming.appData.projects array order, NOT
@@ -678,6 +708,7 @@ export function applyImportDecisions(
       }
       mergedProjects.push(substituted);
       removedExistingProjectIds.add(existingProject.id);
+      placed.push({ fromId: winner.id, id: winner.id });
 
       const conflict = conflictByIncomingId.get(winner.id);
       if (conflict && conflict.type === 'name') {
@@ -745,6 +776,7 @@ export function applyImportDecisions(
     // Do NOT set owner on copy.
     delete copyProject.owner;
     mergedProjects.push(copyProject);
+    placed.push({ fromId: incomingProject.id, id: newId });
 
     // Releases: regenerate every id; update projectId.
     const srcReleases = incomingReleasesByProjectId.get(incomingProject.id) ?? [];
@@ -772,6 +804,7 @@ export function applyImportDecisions(
   for (const incomingProject of incoming.appData.projects) {
     if (resolvedOutcome(incomingProject.id) !== 'added') continue;
     mergedProjects.push(incomingProject);
+    placed.push({ fromId: incomingProject.id, id: incomingProject.id });
     const srcReleases = incomingReleasesByProjectId.get(incomingProject.id) ?? [];
     for (const r of srcReleases) mergedReleases.push(r);
     const srcSnaps = incomingSnapshotsByProjectId.get(incomingProject.id) ?? [];
@@ -790,11 +823,12 @@ export function applyImportDecisions(
   }
 
   return {
-    mergedData: {
-      ...existing,
-      projects: mergedProjects,
-      releases: mergedReleases,
-    },
+    mergedData: withPlacedPrefs(
+      { ...existing, projects: mergedProjects, releases: mergedReleases },
+      incoming.appData.projectPrefs,
+      placed,
+      Array.from(removedExistingProjectIds),
+    ),
     mergedSnapshots,
     result: { added, skipped, copied, replaced, replacedIdMap },
   };

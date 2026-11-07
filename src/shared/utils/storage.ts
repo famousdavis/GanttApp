@@ -6,6 +6,7 @@
 
 import { AppData } from '../types/app';
 import { sanitizeString, sanitizeId, isValidDateFormat, sanitizeChartColors, sanitizeDisplaySettings, sanitizeRelease, sanitizeLegendLabels, sanitizeExportAttribution, sanitizeWorkDays, sanitizeProjectLegendLabels, VALID_PRESET_NAMES } from './validation';
+import { sanitizeProjectPrefs } from './projectPrefs';
 
 const STORAGE_KEY = 'ganttAppData';
 
@@ -132,6 +133,11 @@ export function validateLoadedData(data: unknown): AppData | null {
     const sanitized = sanitizeWorkDays(d.globalWorkDays);
     if (sanitized) result.globalWorkDays = sanitized;
   }
+
+  // Validate optional tile colours and archived projects. Entries for projects
+  // not in this list stay: a project can leave and come back.
+  const projectPrefs = sanitizeProjectPrefs(d.projectPrefs);
+  if (projectPrefs) result.projectPrefs = projectPrefs;
 
   return result;
 }

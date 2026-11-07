@@ -314,6 +314,34 @@ describe('CloudStorageModal', () => {
       expect(ctx.switchMode).toHaveBeenCalledTimes(1);
       expect(ctx.switchMode).toHaveBeenCalledWith('cloud', 3);
     });
+
+    it('asks to upload when every local project is archived', () => {
+      const ctx = setup({
+        user,
+        mode: 'local',
+        data: { projects: [{ id: 'p1', name: 'Alpha' }], releases: [], projectPrefs: { p1: { archived: true } } },
+      });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByDisplayValue('cloud'));
+      expect(
+        screen.getByText('You have local projects. Upload them to the cloud?')
+      ).toBeInTheDocument();
+      expect(ctx.switchMode).not.toHaveBeenCalled();
+    });
+
+    it('confirming the upload counts an archived project', async () => {
+      const ctx = setup({
+        user,
+        mode: 'local',
+        data: { ...threeProjects, projectPrefs: { p2: { archived: true } } },
+      });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByDisplayValue('cloud'));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Upload to Cloud' }));
+      });
+      expect(ctx.switchMode).toHaveBeenCalledWith('cloud', 3);
+    });
   });
 
   describe('State 3: signed in + cloud', () => {
@@ -347,6 +375,17 @@ describe('CloudStorageModal', () => {
       render(<CloudStorageModal open onClose={ctx.onClose} />);
       const localRadio = screen.getByDisplayValue('local') as HTMLInputElement;
       fireEvent.click(localRadio);
+      expect(ctx.switchMode).toHaveBeenCalledWith('local', 2);
+    });
+
+    it('clicking Local radio counts an archived project', () => {
+      const ctx = setup({
+        user,
+        mode: 'cloud',
+        data: { ...twoProjects, projectPrefs: { p2: { archived: true } } },
+      });
+      render(<CloudStorageModal open onClose={ctx.onClose} />);
+      fireEvent.click(screen.getByDisplayValue('local'));
       expect(ctx.switchMode).toHaveBeenCalledWith('local', 2);
     });
 

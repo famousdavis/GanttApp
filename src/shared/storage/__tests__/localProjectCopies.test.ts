@@ -45,6 +45,18 @@ describe('removeLocalProjectCopies', () => {
     expect(ids(stored('ganttAppSnapshots'))).toEqual(['s3']);
   });
 
+  it('drops the removed projects\' tile colours and archives, and keeps the others\'', async () => {
+    const data = stored('ganttAppData');
+    localStorage.setItem('ganttAppData', JSON.stringify({
+      ...data,
+      projectPrefs: { p1: { color: 'teal' }, p2: { archived: true }, p3: { color: 'pink' } },
+    }));
+
+    await removeCopies(['p1', 'p2']);
+
+    expect(stored('ganttAppData').projectPrefs).toEqual({ p3: { color: 'pink' } });
+  });
+
   it('clears the local project data entirely when no project is left', async () => {
     await removeCopies(['p1', 'p2', 'p3']);
 

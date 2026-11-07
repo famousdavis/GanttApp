@@ -1,5 +1,31 @@
 # Change Log
 
+## Version 0.31.0 (2026-11-06)
+
+### Added: tile colours and archived projects
+
+Both are yours alone. They are saved with your own settings, not with the project, so on a shared project the other members see neither, and any member, viewers included, can colour or archive a project for themselves. Nothing is added to a project or a release, and files exported by earlier versions import as before.
+
+- **Tile colours.** A new Tile color button among a tile's icons opens a small list of six choices: Blue, Teal, Slate, Purple, Pink and No color. The whole tile takes the colour. A mouse click on a choice applies it and closes the list. An arrow key applies a choice at once, and Enter or Escape closes the list. Focus goes back to the button. Tab or a click outside also closes the list.
+- **Archive.** A new Archive project button among a tile's icons takes the project off your Projects tab, and focus moves to the next tile, or the previous one, or New Project.
+- **Show archived.** While you have archived projects, a "Show archived (N)" box under the toolbar lists them again. It is not remembered: it is unticked each time you come back to the tab, and it goes away when no archived project is left.
+- **An archived tile** has an "Archived" badge, a dashed border and, if it has a colour, half its tint. Its Archive button becomes Unarchive, which is always shown. Delete, Share, Export, Edit, Clone, Tile color and Move work as on any tile.
+- **A click on an archived tile unarchives the project and opens its Releases tab.** The tile's tooltip says so.
+- **Archived projects leave the project pickers on the Releases and Gantt Chart tabs.** If the project you had selected is archived, those tabs show the first project that is not. If every project is archived, they say "All projects are archived. Unarchive one on the Projects tab to see it here.", and the Projects tab says "All projects are archived. Select "Show archived (N)" to see them." Settings' Export Projects still lists every project, and Export All still includes every project.
+- **Reordering works on the tiles you can see.** With archived projects hidden, Move earlier, Move later and dragging change the order of the tiles shown, the position in the message counts those tiles, and a hidden project keeps its place in the list.
+- **A copy takes its source's colour, and is never archived.** Load Sample and New Project add a project with no colour, not archived.
+- **Exports carry them.** Export All, a project's own export and Settings' Export Projects each carry the colours and archives of the projects in the file. Replace All replaces yours with the file's, so a file with none clears them. In a merge, a project you replace, add or copy takes what the file says, and a project you skip keeps yours.
+- **Uploading local projects to the cloud keeps the colours and archives you already hold there.** If your cloud settings cannot be read, the upload stops before anything is written.
+- **If your cloud data did not load, a colour or archive is refused with a message**, as a delete is, and the tile does not change. If a save fails later, the tile keeps the change and Settings shows a cloud sync error, as for any other edit.
+
+**Corrections to v0.30.0's notes.** The shared icon buttons' darker resting grey applies to the light theme only, and their Delete and Edit hover colours are unchanged in the light theme. Escape closes the modal confirmation dialogs; the two inline cloud upload prompts are not modal and do not take it. The two guards on the disabled Move buttons were not measured in a browser: the automated tests cannot reach them, and whether a browser test could was not tried.
+
+### Tested
+
+- 2,763 automated tests in 124 files. Each new or changed test was checked by breaking the code it guards, one behaviour at a time, and confirming that the test then fails. Where a break passed every test, a test was added or changed until it failed, except for eleven breaks that cannot change what the app does. Six tests of the Colour button's spoken name were not checked this way.
+- In Chrome 154, headless, over the DevTools protocol, against the app in local mode, 220 checks, none failed: every tile tint, the Tile color button's dot and archived tiles, in light and dark themes; the grid at 1280, 1024 and 768 pixels wide in both themes, with no horizontal scrolling at 1024 and wider; the list's place on the page at 1280, 1024, 768 and 375 pixels wide; choosing a colour by real key and mouse events; archiving and the Show archived box; the icons appearing on hover, on keyboard focus and, in the light theme, with touch emulated (no hover); a reload keeping a colour and an archive; both pickers, and what each tab says with every project archived; and a re-check of version 0.30.0's grid, New Project dialog and keyboard handling. Forty breaks to the stylesheet each failed one of those checks. A separate review, in the same browser, ran 131 more checks, none failed: dragging tiles with the mouse past hidden projects, with Show archived off and on; Export All, clearing the site's data, importing the file, and Replace All; and a reload with the selected project archived and with every project archived.
+- Cloud mode, a change refused because cloud data did not load, and shared projects were tested by automated tests only, not in a browser. Firefox, Safari and real touch screens were not tried.
+
 ## Version 0.30.0 (2026-11-01)
 
 ### Added: the Projects tab is a grid of project tiles, with a New Project dialog

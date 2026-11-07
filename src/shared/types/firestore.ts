@@ -4,7 +4,7 @@
 
 // Firestore document schemas for cloud storage mode
 
-import type { ProjectLegendLabels } from './models';
+import type { ProjectLegendLabels, ProjectPrefs } from './models';
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
 
@@ -116,6 +116,7 @@ export interface FirestoreUserSettings {
   showPreparedBy?: boolean;
   exportAttribution?: { name: string; identifier: string };
   globalWorkDays?: number[];            // Optional global work-week setting (v15.0), array of 0..6
+  projectPrefs?: ProjectPrefs;          // This user's tile colours and archived projects, by project id
 }
 
 export interface ExportAttribution {

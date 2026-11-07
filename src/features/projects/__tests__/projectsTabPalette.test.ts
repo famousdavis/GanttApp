@@ -83,6 +83,31 @@ describe('projectsTabPalette', () => {
     expect(short).toEqual([]);
   });
 
+  it.each([
+    ['blue', '#3b82f6', '#e0ebfe', '#1e3667'],
+    ['teal', '#14b8a6', '#d9f4f1', '#164255'],
+    ['slate', '#64748b', '#e6e9ec', '#27334f'],
+    ['purple', '#a855f7', '#f1e4fe', '#362c67'],
+    ['pink', '#ec4899', '#fce2ef', '#452a52'],
+  ] as const)('%s: one swatch in both themes and a tint for each, each passed to the stylesheet', (color, swatch, light, dark) => {
+    const style = (theme: 'light' | 'dark') => paletteStyle(projectsTabPalette(theme)) as Record<string, string>;
+    expect(style('light')[`--pt-sw-${color}`]).toBe(swatch);
+    expect(style('dark')[`--pt-sw-${color}`]).toBe(swatch);
+    expect(style('light')[`--pt-tint-${color}`]).toBe(light);
+    expect(style('dark')[`--pt-tint-${color}`]).toBe(dark);
+  });
+
+  it.each([
+    ['light', '#e5e7eb', '#374151', '#dddddd', 'rgba(0, 0, 0, 0.25)'],
+    ['dark', '#2d3748', '#e2e8f0', '#4a5568', 'rgba(255, 255, 255, 0.35)'],
+  ] as const)('in %s mode gives the stylesheet the badge, the archived border and the dot ring', (theme, badgeBg, badgeText, border, dot) => {
+    const style = paletteStyle(projectsTabPalette(theme)) as Record<string, string>;
+    expect(style['--pt-badge-bg']).toBe(badgeBg);
+    expect(style['--pt-badge-text']).toBe(badgeText);
+    expect(style['--pt-archived-border']).toBe(border);
+    expect(style['--pt-dot-border']).toBe(dot);
+  });
+
   it.each(['light', 'dark'] as const)('in %s mode asks the browser to draw native controls in the same scheme', (theme) => {
     expect(paletteStyle(projectsTabPalette(theme)).colorScheme).toBe(theme);
   });

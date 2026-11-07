@@ -18,6 +18,10 @@ import { useStorage } from '../../context/StorageContext';
 import {
   exportData as exportDataUtil,
   exportSingleProject,
+  isProjectArchived,
+  moveAmongShown,
+  projectPrefOf,
+  shownProjects,
 } from '../../shared/utils';
 import { ImportPreviewSection } from './ImportPreviewSection';
 import { useImportState } from './hooks/useImportState';
@@ -32,11 +36,14 @@ interface ProjectsTabProps {
   setActiveTab: (tab: TabType) => void;
   draggedProjectId: string | null;
   onProjectDragStart: (id: string) => void;
-  onProjectDragOver: (e: React.DragEvent, id: string) => void;
+  /** `shownIds`: the tiles on screen, in order. A drag moves among those, past any hidden project. */
+  onProjectDragOver: (e: React.DragEvent, id: string, shownIds: string[]) => void;
   onProjectDragEnd: () => void;
   onReplaceSnapshots: (snapshots: Snapshot[]) => Promise<void>;
   /** Told what Load Sample added, after it has opened the Gantt Chart tab. */
   onSampleLoaded?: (message: string) => void;
+  /** Says something after this tab has gone: its own status region goes with it. */
+  onAnnounce?: (message: string) => void;
 }
 
 type DialogState = { mode: 'new' } | { mode: 'edit'; projectId: string } | null;
@@ -44,7 +51,7 @@ type DialogState = { mode: 'new' } | { mode: 'edit'; projectId: string } | null;
 /** Where focus goes once the tiles have re-rendered. */
 type PendingFocus =
   | { kind: 'open'; projectId: string }
-  | { kind: 'delete'; projectId: string }
+  | { kind: 'icon'; projectId: string; label: 'Delete project' | 'Archive project' | 'Unarchive project' }
   | { kind: 'move'; projectId: string; direction: 'earlier' | 'later' }
   | { kind: 'new' };
 
@@ -168,7 +175,7 @@ function focusTarget(root: HTMLElement, pending: PendingFocus, newProject: HTMLE
   const tile = root.querySelector(`[data-project-tile="${pending.projectId}"]`);
   if (!tile) return null;
   if (pending.kind === 'open') return tile.querySelector<HTMLElement>('.pt-open');
-  if (pending.kind === 'delete') return tile.querySelector<HTMLElement>('button[aria-label="Delete project"]');
+  if (pending.kind === 'icon') return tile.querySelector<HTMLElement>(`button[aria-label="${pending.label}"]`);
   // The pressed Move button keeps focus; at an end it is disabled, so its partner takes it.
   const pressed = tile.querySelector<HTMLButtonElement>(`button[data-move="${pending.direction}"]`);
   if (pressed && !pressed.disabled) return pressed;
@@ -176,10 +183,10 @@ function focusTarget(root: HTMLElement, pending: PendingFocus, newProject: HTMLE
   return tile.querySelector<HTMLElement>(`button[data-move="${partner}"]`);
 }
 
-/** Where focus goes after a delete: the next tile, else the previous, else New Project. */
-function focusAfterDelete(projects: Project[], deletedId: string): PendingFocus {
-  const i = projects.findIndex(p => p.id === deletedId);
-  const neighbour = projects[i + 1] ?? projects[i - 1];
+/** Where focus goes when a tile leaves: the next shown tile, else the previous, else New Project. */
+function focusAfterTileLeaves(shown: Project[], leavingId: string): PendingFocus {
+  const i = shown.findIndex(p => p.id === leavingId);
+  const neighbour = shown[i + 1] ?? shown[i - 1];
   return neighbour ? { kind: 'open', projectId: neighbour.id } : { kind: 'new' };
 }
 
@@ -193,6 +200,7 @@ export function ProjectsTab({
   onProjectDragEnd,
   onReplaceSnapshots,
   onSampleLoaded,
+  onAnnounce,
 }: ProjectsTabProps) {
   const { data, updateData, globalWorkDays, loading: appDataLoading } = useAppData();
   const { colors, resolvedTheme } = useTheme();
@@ -201,6 +209,7 @@ export function ProjectsTab({
   const baseFieldId = useId();
   const importIdPrefix = `${baseFieldId}-import`;
   const headingId = `${baseFieldId}-heading`;
+  const showArchivedId = `${baseFieldId}-show-archived`;
   const palette = projectsTabPalette(resolvedTheme);
   const tabColors = patchedColors(colors, palette);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -209,7 +218,9 @@ export function ProjectsTab({
   const [dialog, setDialog] = useState<DialogState>(null);
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null);
-  const [moveStatus, setMoveStatus] = useState('');
+  const [status, setStatus] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [colorPopoverFor, setColorPopoverFor] = useState<string | null>(null);
   const isCloudMode = storage.mode === 'cloud';
   const isOwner = (project: Project) => Boolean(user && project.owner === user.uid);
   const {
@@ -225,8 +236,23 @@ export function ProjectsTab({
     deleteProject,
     startEditProject,
     cancelEditProject,
-    cloneProject
+    cloneProject,
+    setProjectColor,
+    setProjectArchived
   } = useProjects();
+
+  const prefs = data.projectPrefs;
+  const archivedCount = data.projects.filter(p => isProjectArchived(prefs, p.id)).length;
+  if (showArchived && archivedCount === 0) setShowArchived(false);
+  // What this person sees. Reordering, focus and counts on this tab read this
+  // list; a save always gets the full one.
+  const shown = shownProjects(data.projects, prefs, showArchived);
+
+  // A dialog takes over, or the tile has gone: the popover must not come back with it.
+  const dialogOpen = Boolean(dialog || shareProjectId || deleteConfirmProjectId);
+  if (colorPopoverFor && (dialogOpen || !shown.some(p => p.id === colorPopoverFor))) {
+    setColorPopoverFor(null);
+  }
 
   // Focus moves the tiles cannot make themselves: after a delete or a move,
   // once the list has re-rendered.
@@ -314,23 +340,51 @@ export function ProjectsTab({
     return newProjectRef.current;
   };
 
-  // A reorder rearranges the whole project list by id, never a filtered subset.
-  const moveProject = (projectId: string, direction: -1 | 1) => {
-    const from = data.projects.findIndex(p => p.id === projectId);
-    const to = from + direction;
-    if (from < 0 || to < 0 || to >= data.projects.length) return;
-    const projects = [...data.projects];
-    [projects[from], projects[to]] = [projects[to], projects[from]];
+  // A reorder moves a tile among the shown ones and saves the whole list; a
+  // hidden project keeps its slot.
+  const moveProject = (project: Project, direction: -1 | 1) => {
+    const shownIds = shown.map(p => p.id);
+    const to = shownIds.indexOf(project.id) + direction;
+    const projects = moveAmongShown(data.projects, shownIds, project.id, to);
+    if (projects === data.projects) return;
+    setColorPopoverFor(null);
     updateData({ ...data, projects });
-    pendingFocusRef.current = { kind: 'move', projectId, direction: direction < 0 ? 'earlier' : 'later' };
-    setMoveStatus(`"${projects[to].name}" moved to position ${to + 1} of ${projects.length}.`);
+    pendingFocusRef.current = { kind: 'move', projectId: project.id, direction: direction < 0 ? 'earlier' : 'later' };
+    setStatus(`"${project.name}" moved to position ${to + 1} of ${shownIds.length}.`);
+  };
+
+  const openProject = (project: Project) => {
+    if (isProjectArchived(prefs, project.id)) {
+      if (!setProjectArchived(project.id, false)) return;
+      onAnnounce?.(`Unarchived "${project.name}" and opened its releases.`);
+    }
+    setSelectedProjectId(project.id);
+    setActiveTab('releases');
+  };
+
+  const archiveProject = (project: Project) => {
+    if (!setProjectArchived(project.id, true)) return;
+    setColorPopoverFor(null);
+    if (showArchived) {
+      pendingFocusRef.current = { kind: 'icon', projectId: project.id, label: 'Unarchive project' };
+      setStatus(`Archived "${project.name}".`);
+      return;
+    }
+    pendingFocusRef.current = focusAfterTileLeaves(shown, project.id);
+    setStatus(`Archived "${project.name}". Show archived (${archivedCount + 1}) lists it.`);
+  };
+
+  const unarchiveProject = (project: Project) => {
+    if (!setProjectArchived(project.id, false)) return;
+    pendingFocusRef.current = { kind: 'icon', projectId: project.id, label: 'Archive project' };
+    setStatus(`Unarchived "${project.name}".`);
   };
 
   const confirmDelete = (projectId: string) => {
     // A refused delete (nothing can be saved) leaves the project; focus goes back to its Delete.
     pendingFocusRef.current = storage.canWrite()
-      ? focusAfterDelete(data.projects, projectId)
-      : { kind: 'delete', projectId };
+      ? focusAfterTileLeaves(shown, projectId)
+      : { kind: 'icon', projectId, label: 'Delete project' };
     // v0.28.10 backstop — see pages/index.tsx.
     deleteProject(projectId, selectedProjectId, setSelectedProjectId)
       .catch(err => console.error('Delete project failed:', err));
@@ -366,6 +420,21 @@ export function ProjectsTab({
         />
       </div>
 
+      {archivedCount > 0 && (
+        <div className="pt-filter">
+          <label className="pt-check" htmlFor={showArchivedId}>
+            <input
+              type="checkbox"
+              id={showArchivedId}
+              name="showArchived"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+            />
+            Show archived ({archivedCount})
+          </label>
+        </div>
+      )}
+
       {/* v0.24.0 — Smart Import preview, rendered between toolbar and project list. */}
       {importPreview && (
         <ImportPreviewSection
@@ -396,29 +465,31 @@ export function ProjectsTab({
         />
       )}
 
-      <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{moveStatus}</p>
+      <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{status}</p>
 
-      {data.projects.length === 0 ? (
-        <p className="pt-empty">No projects yet.</p>
-      ) : (
+      {data.projects.length === 0 && <p className="pt-empty">No projects yet.</p>}
+      {data.projects.length > 0 && shown.length === 0 && (
+        <p className="pt-empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
+      )}
+      {shown.length > 0 && (
         <div className="pt-area">
           <ul className="pt-grid" aria-labelledby={headingId}>
-            {data.projects.map((project, index) => (
+            {shown.map((project, index) => (
               <ProjectTile
                 key={project.id}
                 project={project}
                 index={index}
-                count={data.projects.length}
+                count={shown.length}
                 releaseCount={data.releases.filter(r => r.projectId === project.id).length}
                 globalWorkDays={globalWorkDays}
+                color={projectPrefOf(prefs, project.id).color}
+                archived={isProjectArchived(prefs, project.id)}
+                colorOpen={colorPopoverFor === project.id}
                 // In cloud mode only the owner may delete or share a project.
                 canDelete={!isCloudMode || isOwner(project)}
                 canShare={isCloudMode && isOwner(project)}
                 dragging={draggedProjectId === project.id}
-                onOpen={() => {
-                  setSelectedProjectId(project.id);
-                  setActiveTab('releases');
-                }}
+                onOpen={() => openProject(project)}
                 onDelete={() => setDeleteConfirmProjectId(project.id)}
                 onShare={() => setShareProjectId(project.id)}
                 onExport={() => handleExportProject(project.id)}
@@ -428,9 +499,13 @@ export function ProjectsTab({
                   cloneProject(project.id)
                     .catch(err => console.error('Clone project failed:', err));
                 }}
-                onMove={(direction) => moveProject(project.id, direction)}
+                onArchive={() => archiveProject(project)}
+                onUnarchive={() => unarchiveProject(project)}
+                onColorOpenChange={(open) => setColorPopoverFor(open ? project.id : null)}
+                onPickColor={(color) => setProjectColor(project.id, color)}
+                onMove={(direction) => moveProject(project, direction)}
                 onDragStart={() => onProjectDragStart(project.id)}
-                onDragOver={(e) => onProjectDragOver(e, project.id)}
+                onDragOver={(e) => onProjectDragOver(e, project.id, shown.map(p => p.id))}
                 onDragEnd={onProjectDragEnd}
               />
             ))}

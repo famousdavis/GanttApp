@@ -11,6 +11,7 @@ import { ChartColors, TabType } from '../src/shared/types';
 import { ProjectLegendLabels } from '../src/shared/types/models';
 import { DEFAULT_LEGEND_LABELS, resolveLabel } from '../src/shared/utils/validation';
 import { getEffectiveWorkDays } from '../src/shared/utils/validation';
+import { moveAmongShown, shownProjects } from '../src/shared/utils/projectPrefs';
 import { Tabs } from '../src/shared/components/Tabs';
 import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
 import { InvitationBanner } from '../src/shared/components/InvitationBanner';
@@ -20,7 +21,7 @@ import { ErrorBoundary } from '../src/shared/components/ErrorBoundary';
 import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
 import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
-import { ReleasesTab } from '../src/features/releases/ReleasesTab';
+import { ReleasesTab, ALL_ARCHIVED_MESSAGE } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
 import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
 import { SettingsTab } from '../src/features/settings/SettingsTab';
@@ -76,10 +77,13 @@ function AppContent() {
   const [announcement, setAnnouncement] = useState('');
   const focusChartPickerRef = useRef(false);
 
-  // Auto-select first project when none is selected
-  const selectedProjectId = (selectedProjectIdRaw && data.projects.some(p => p.id === selectedProjectIdRaw))
+  // What the pickers list: this person's archived projects leave them.
+  const unarchivedProjects = shownProjects(data.projects, data.projectPrefs, false);
+
+  // Auto-select the first project when none is selected, or the one selected is archived
+  const selectedProjectId = (selectedProjectIdRaw && unarchivedProjects.some(p => p.id === selectedProjectIdRaw))
     ? selectedProjectIdRaw
-    : (data.projects.length > 0 ? data.projects[0].id : '');
+    : (unarchivedProjects.length > 0 ? unarchivedProjects[0].id : '');
 
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
@@ -107,18 +111,12 @@ function AppContent() {
   // Project drag and drop
   const handleProjectDragStart = (id: string) => setDraggedProjectId(id);
 
-  const handleProjectDragOver = (e: React.DragEvent, targetId: string) => {
+  const handleProjectDragOver = (e: React.DragEvent, targetId: string, shownIds: string[]) => {
     e.preventDefault();
     if (!draggedProjectId || draggedProjectId === targetId) return;
 
-    const draggedIndex = data.projects.findIndex(p => p.id === draggedProjectId);
-    const targetIndex = data.projects.findIndex(p => p.id === targetId);
-
-    const newProjects = [...data.projects];
-    const [removed] = newProjects.splice(draggedIndex, 1);
-    newProjects.splice(targetIndex, 0, removed);
-
-    updateData({ ...data, projects: newProjects });
+    const projects = moveAmongShown(data.projects, shownIds, draggedProjectId, shownIds.indexOf(targetId));
+    if (projects !== data.projects) updateData({ ...data, projects });
   };
 
   const handleProjectDragEnd = () => setDraggedProjectId(null);
@@ -342,6 +340,7 @@ function AppContent() {
               onProjectDragEnd={handleProjectDragEnd}
               onReplaceSnapshots={snapshotState.replaceAllSnapshots}
               onSampleLoaded={handleSampleLoaded}
+              onAnnounce={setAnnouncement}
             />
           )}
 
@@ -360,7 +359,7 @@ function AppContent() {
             <GanttChart
               releases={effective.releases}
               projectFinishDate={effective.finishDate}
-              projects={data.projects}
+              projects={unarchivedProjects}
               selectedProjectId={selectedProjectId}
               setSelectedProjectId={setSelectedProjectId}
               editing={chartEditing}
@@ -408,6 +407,10 @@ function AppContent() {
               workDays={getEffectiveWorkDays(selectedProject, globalWorkDays)}
               todayDateOverride={effective.todayDateOverride}
             />
+          )}
+
+          {activeTab === 'chart' && !selectedProject && data.projects.length > 0 && (
+            <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>{ALL_ARCHIVED_MESSAGE}</p>
           )}
 
           {activeTab === 'settings' && <SettingsTab />}

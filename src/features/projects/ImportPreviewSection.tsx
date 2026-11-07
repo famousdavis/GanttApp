@@ -233,7 +233,7 @@ export function ImportPreviewSection({
               files that carry global settings (ganttapp-all-projects / legacy). */}
           {isModeToggleable && (
             <p style={hintStyle}>
-              Workspace settings (colors, attribution) are not imported in Merge mode. Switch to Replace All to restore them.
+              Workspace settings (chart colors, attribution) are not imported in Merge mode. Switch to Replace All to restore them.
             </p>
           )}
 

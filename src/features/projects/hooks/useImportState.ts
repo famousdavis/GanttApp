@@ -21,6 +21,8 @@ import {
   sanitizeFirebaseError,
   readFileAsText,
   generateId,
+  projectPrefsField,
+  rekeyProjectPrefs,
 } from '../../../shared/utils';
 import type {
   ImportResult,
@@ -97,7 +99,7 @@ export function withImportOwners(imported: AppData, workspace: AppData, ownerUid
  * such as the original of a project someone else exported: kept, the import's
  * first save would update that project, which the rules refuse to a
  * non-member, and every later save would carry it. A project the workspace
- * holds keeps its id. Conflicts are found on the file's ids first; the
+ * holds keeps its id. Tile colours and archived projects follow the new ids. Conflicts are found on the file's ids first; the
  * conflicts and decisions passed in follow the new ids. Local mode passes no
  * uid: nothing changes.
  */
@@ -120,6 +122,7 @@ export function withFreshImportIds(
       ...imported,
       appData: {
         ...imported.appData,
+        ...projectPrefsField(rekeyProjectPrefs(imported.appData.projectPrefs, fresh)),
         projects: imported.appData.projects.map((p) => ({ ...p, id: fresh(p.id) })),
         releases: imported.appData.releases.map(renew),
       },

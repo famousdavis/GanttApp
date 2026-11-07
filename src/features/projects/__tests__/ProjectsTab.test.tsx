@@ -894,6 +894,19 @@ describe('ProjectsTab', () => {
       expect(screen.getByText('Custom work week (Mon–Wed)')).toBeTruthy();
     });
 
+    it('lists the days of a custom work week with a gap in it', async () => {
+      seedData({
+        projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [1, 2, 4, 5] })],
+        releases: [],
+      });
+
+      renderProjectsTab();
+      await waitFor(() => {
+        expect(screen.getByText('Alpha')).toBeTruthy();
+      });
+      expect(screen.getByText('Custom work week (Mon, Tue, Thu, Fri)')).toBeTruthy();
+    });
+
     it('lists the days of a custom work week that is not a run of three or more', async () => {
       seedData({
         projects: [makeProject({ id: 'p1', name: 'Alpha', workDays: [0, 6] })],
@@ -1185,6 +1198,28 @@ describe('ProjectsTab tiles, toolbar and dialogs (local mode)', () => {
     expect(within(tile).queryByRole('button', { name: 'Share project' })).toBeNull();
   });
 
+  it('reports the shown tiles with a drag, leaving hidden projects out', async () => {
+    seedData({
+      projects: [
+        makeProject({ id: 'p1', name: 'Alpha' }),
+        makeProject({ id: 'p2', name: 'Beta' }),
+        makeProject({ id: 'p3', name: 'Gamma' }),
+      ],
+      releases: [],
+      projectPrefs: { p2: { archived: true } },
+    });
+    const onProjectDragOver = vi.fn();
+    renderProjectsTab({ onProjectDragOver });
+    await waitFor(() => expect(screen.getByText('Gamma')).toBeTruthy());
+
+    fireEvent.dragOver(tileOf('Gamma'));
+    expect(onProjectDragOver.mock.calls[0].slice(1)).toEqual(['p3', ['p1', 'p3']]);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show archived (1)' }));
+    fireEvent.dragOver(tileOf('Gamma'));
+    expect(onProjectDragOver.mock.calls[1].slice(1)).toEqual(['p3', ['p1', 'p2', 'p3']]);
+  });
+
   it("Import's file input is a tab stop between Export All and Load Sample, labelled by the Import control", async () => {
     seedData({ projects: [makeProject({ id: 'p1', name: 'Alpha' })], releases: [] });
     renderProjectsTab();
@@ -1405,6 +1440,44 @@ describe('ProjectsTab in cloud mode, with its contexts stood in', () => {
     };
     return { storage, updateData, projectsBecome };
   }
+
+  it('a viewer or an editor sees Archive and Colour, and each saves to their own settings', () => {
+    const { updateData } = renderCloudTab([{ id: 'p1', name: 'Alpha', owner: 'someone-else' }]);
+    const tile = tileOf('Alpha');
+    expect(within(tile).queryByRole('button', { name: 'Delete project' })).toBeNull();
+    expect(within(tile).queryByRole('button', { name: 'Share project' })).toBeNull();
+
+    fireEvent.click(within(tile).getByRole('button', { name: 'Tile color: No color' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Slate' }));
+    expect(updateData).toHaveBeenLastCalledWith(expect.objectContaining({ projectPrefs: { p1: { color: 'slate' } } }));
+
+    fireEvent.click(within(tile).getByRole('button', { name: 'Archive project' }));
+    expect(updateData).toHaveBeenLastCalledWith(expect.objectContaining({ projectPrefs: { p1: { archived: true } } }));
+  });
+
+  it('on an owned project in cloud mode the icons read Share, Export, Edit, Clone, Archive, Colour', () => {
+    renderCloudTab([{ id: 'p1', name: 'Alpha', owner: OWNER_UID }]);
+    const labels = within(tileOf('Alpha')).getAllByRole('button').map(b => b.getAttribute('aria-label'));
+    expect(labels).toEqual([
+      'Open releases for Alpha', 'Delete project', 'Share project', 'Export project', 'Edit project', 'Clone project',
+      'Archive project', 'Tile color: No color', 'Move earlier', 'Move later',
+    ]);
+  });
+
+  it('Share closes the colour popover, and it does not come back with the dialog', async () => {
+    renderCloudTab([{ id: 'p1', name: 'Alpha', owner: OWNER_UID }, { id: 'p2', name: 'Beta', owner: OWNER_UID }]);
+    fireEvent.click(within(tileOf('Beta')).getByRole('button', { name: 'Tile color: No color' }));
+    expect(screen.getByRole('dialog', { name: 'Tile color' })).toBeTruthy();
+    // No blur is left to close it: only the tab can.
+    (document.activeElement as HTMLElement).blur();
+
+    await openShareFor('Alpha', 'p1');
+    expect(screen.queryByRole('dialog', { name: 'Tile color' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByText('Share Project')).toBeNull());
+    expect(screen.queryByRole('dialog', { name: 'Tile color' })).toBeNull();
+  });
 
   async function openShareFor(name: string, projectId: string) {
     fireEvent.click(within(tileOf(name)).getByRole('button', { name: 'Share project' }));

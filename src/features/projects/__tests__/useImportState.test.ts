@@ -1122,6 +1122,75 @@ describe('withImportOwners', () => {
   });
 });
 
+describe('tile colours and archived projects on import', () => {
+  const file = (projectPrefs?: unknown) => makeFile({
+    _exportType: 'ganttapp-all-projects',
+    projects: [{ id: 'p2', name: 'New' }],
+    releases: [],
+    ...(projectPrefs ? { projectPrefs } : {}),
+  });
+
+  async function replaceAll(data: AppData, payload: File) {
+    const { result, updateData } = setup({ data });
+    await act(async () => { await result.current.handleImport(makeChangeEvent(payload)); });
+    act(() => { result.current.openReplaceAllConfirm(); });
+    await act(async () => { result.current.handleConfirmReplaceAll(); });
+    return vi.mocked(updateData).mock.calls[0][0];
+  }
+
+  it('Replace All replaces the map', async () => {
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }], projectPrefs: { p1: { archived: true } } });
+    expect((await replaceAll(data, file({ p2: { color: 'pink' } }))).projectPrefs).toEqual({ p2: { color: 'pink' } });
+  });
+
+  it('Replace All with a file that has none clears it', async () => {
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }], projectPrefs: { p1: { archived: true } } });
+    expect(await replaceAll(data, file())).not.toHaveProperty('projectPrefs');
+  });
+
+  it('a merge keeps the workspace\'s map and adds the file\'s entry', async () => {
+    const data = makeAppData({ projects: [{ id: 'p1', name: 'Existing' }], projectPrefs: { p1: { archived: true } } });
+    const { result, updateData } = setup({ data });
+    await act(async () => { await result.current.handleImport(makeChangeEvent(file({ p2: { color: 'pink' } }))); });
+    await act(async () => { result.current.handleConfirmMerge(); });
+
+    expect(vi.mocked(updateData).mock.calls[0][0].projectPrefs).toEqual({ p1: { archived: true }, p2: { color: 'pink' } });
+  });
+
+  it('in cloud mode, an imported project\'s entry follows its new id, and a held project\'s keeps its id', () => {
+    const workspace = makeAppData({ projects: [{ id: 'p-held', name: 'Held' }] });
+    const imported: ImportResult = {
+      exportType: 'ganttapp-all-projects',
+      appData: makeAppData({
+        projects: [{ id: 'p-new', name: 'New' }, { id: 'p-held', name: 'Held' }],
+        projectPrefs: { 'p-new': { color: 'teal' }, 'p-held': { archived: true } },
+      }),
+    };
+
+    const out = withFreshImportIds(imported, workspace, 'uid-me').imported.appData;
+
+    const newId = out.projects[0].id;
+    expect(newId).not.toBe('p-new');
+    expect(out.projectPrefs).toEqual({ [newId]: { color: 'teal' }, 'p-held': { archived: true } });
+  });
+
+  it('in cloud mode, a file with no map gets none', () => {
+    const imported: ImportResult = {
+      exportType: 'ganttapp-all-projects',
+      appData: makeAppData({ projects: [{ id: 'p-new', name: 'New' }] }),
+    };
+    expect(withFreshImportIds(imported, makeAppData(), 'uid-me').imported.appData).not.toHaveProperty('projectPrefs');
+  });
+
+  it('in local mode, the file\'s ids and map stay as they are', () => {
+    const imported: ImportResult = {
+      exportType: 'ganttapp-all-projects',
+      appData: makeAppData({ projects: [{ id: 'p-new', name: 'New' }], projectPrefs: { 'p-new': { color: 'teal' } } }),
+    };
+    expect(withFreshImportIds(imported, makeAppData(), undefined).imported).toBe(imported);
+  });
+});
+
 describe('withFreshImportIds', () => {
   it('in cloud mode, gives each release and snapshot of a project the workspace does not hold an id of its own', () => {
     const release = (id: string, projectId: string) => ({

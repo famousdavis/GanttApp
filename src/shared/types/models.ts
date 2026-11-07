@@ -6,6 +6,18 @@
 
 export type ReleaseStatus = 'not-started' | 'in-progress' | 'complete';
 
+/** A project tile's tint. */
+export type ProjectColor = 'blue' | 'teal' | 'slate' | 'purple' | 'pink';
+
+/** One person's own choices for a project. Absent means no colour and not archived. */
+export interface ProjectPref {
+  color?: ProjectColor;
+  archived?: true;
+}
+
+/** One person's choices, by project id. Kept in their settings, never on a project. */
+export type ProjectPrefs = Record<string, ProjectPref>;
+
 export interface ProjectLegendLabels {
   solidBar?: string;
   hatchedBar?: string;

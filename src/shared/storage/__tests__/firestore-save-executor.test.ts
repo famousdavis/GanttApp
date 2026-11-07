@@ -35,6 +35,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import { executeFirestoreSave, releaseChanged, settingsChanged } from '../firestore-save-executor';
+import type { ViewerSkip } from '../firestore-save-executor';
 import type { Release, Project } from '../../types/models';
 import type { AppData } from '../../types/app';
 import type { Firestore } from 'firebase/firestore';
@@ -208,6 +209,31 @@ describe('firestore-save-executor', () => {
   // the executor passed every test. A missing comparison throws nothing: the
   // edit saves locally, never reaches Firestore, and is gone on the next load
   // (v12.5 reorder, v15.0 workDays and v16.1 legendLabels were all this bug).
+  describe('settingsChanged — tile colours and archived projects', () => {
+    const base: AppData = { projects: [], releases: [] };
+    const coloured: AppData = { ...base, projectPrefs: { p1: { color: 'blue' } } };
+
+    it('sees a first entry added', () => {
+      expect(settingsChanged(base, coloured)).toBe(true);
+    });
+
+    it('sees a colour changed', () => {
+      expect(settingsChanged(coloured, { ...base, projectPrefs: { p1: { color: 'teal' } } })).toBe(true);
+    });
+
+    it('sees an archive added to an entry', () => {
+      expect(settingsChanged(coloured, { ...base, projectPrefs: { p1: { color: 'blue', archived: true } } })).toBe(true);
+    });
+
+    it('sees the last entry removed', () => {
+      expect(settingsChanged(coloured, base)).toBe(true);
+    });
+
+    it('sees no change in an equal map', () => {
+      expect(settingsChanged(coloured, structuredClone(coloured))).toBe(false);
+    });
+  });
+
   describe('executeFirestoreSave', () => {
     const db = {} as Firestore;
     const UID = 'editor-uid';
@@ -456,6 +482,41 @@ describe('firestore-save-executor', () => {
   });
 });
 
+describe('executeFirestoreSave — tile colours and archived projects', () => {
+  const db = {} as Firestore;
+  const project: Project = { id: 'p1', name: 'Mine', owner: 'me' };
+  const settingsWrites = () => fs.log.filter((e) => e.op === 'set' && e.path === 'ganttapp_settings/me');
+
+  beforeEach(() => {
+    fs.reset();
+    fs.getDoc.mockReset();
+  });
+
+  it('writes a colour alone to the settings document, and nothing else', async () => {
+    const prev: AppData = { projects: [project], releases: [] };
+    await executeFirestoreSave(db, 'me', { ...prev, projectPrefs: { p1: { color: 'pink' } } }, prev);
+
+    expect(settingsWrites()).toHaveLength(1);
+    expect(settingsWrites()[0].data).toMatchObject({ projectPrefs: { p1: { color: 'pink' } } });
+    expect(fs.log.filter((e) => e.op === 'set')).toHaveLength(1);
+  });
+
+  it('replaces a full map with none when the last entry goes, so it does not come back on reload', async () => {
+    const curr: AppData = { projects: [project], releases: [] };
+    await executeFirestoreSave(db, 'me', curr, { ...curr, projectPrefs: { p1: { archived: true } } });
+
+    expect(settingsWrites()).toHaveLength(1);
+    expect(settingsWrites()[0].data).not.toHaveProperty('projectPrefs');
+  });
+
+  it('writes no settings when the map did not change', async () => {
+    const prev: AppData = { projects: [project], releases: [], projectPrefs: { p1: { color: 'pink' } } };
+    await executeFirestoreSave(db, 'me', structuredClone(prev), prev);
+
+    expect(settingsWrites()).toEqual([]);
+  });
+});
+
 describe('executeFirestoreSave — the baseline is required', () => {
   // The guard here is the type check (npm run typecheck): without what the
   // cloud last held, a save would write every project as new and every setting
@@ -499,6 +560,33 @@ describe('executeFirestoreSave — the viewer guard (V)', () => {
     fs.stored.set('ganttapp_projects/p1', meta(UID, 'owner'));
     fs.stored.set('ganttapp_projects/pv', meta('them', 'viewer'));
     fs.stored.set('ganttapp_projects/pe', meta('them', 'editor'));
+  });
+
+  it('writes a viewer\'s tile colour to their own settings, and nothing under the project', async () => {
+    const skipped: ViewerSkip[] = [];
+    const prev: AppData = { projects: [viewed], releases: [] };
+    await executeFirestoreSave(db, UID, { ...prev, projectPrefs: { pv: { color: 'teal' } } }, prev, skipped);
+
+    expect(writesUnder('pv')).toEqual([]);
+    expect(skipped).toEqual([]);
+    const settings = fs.log.filter((e) => e.op === 'set' && e.path === `ganttapp_settings/${UID}`);
+    expect(settings).toHaveLength(1);
+    expect(settings[0].data).toMatchObject({ projectPrefs: { pv: { color: 'teal' } } });
+  });
+
+  it('still writes a viewer\'s archive when a skipped order change comes with it', async () => {
+    const skipped: ViewerSkip[] = [];
+    await executeFirestoreSave(
+      db, UID,
+      { projects: [viewed, mine], releases: [], projectPrefs: { pv: { archived: true } } },
+      { projects: [mine, viewed], releases: [] },
+      skipped,
+    );
+
+    expect(writesUnder('pv')).toEqual([]);
+    expect(skipped.map((s) => s.projectId)).toEqual(['pv']);
+    const settings = fs.log.find((e) => e.op === 'set' && e.path === `ganttapp_settings/${UID}`);
+    expect(settings?.data).toMatchObject({ projectPrefs: { pv: { archived: true } } });
   });
 
   it('writes no update of a viewer\'s project document when its content changed', async () => {

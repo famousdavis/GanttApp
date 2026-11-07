@@ -8,9 +8,11 @@
 // so a click anywhere on the tile opens the project's releases and a click on
 // an icon (drawn above it) does not. Delete is always shown; the other icons
 // are revealed by hover or by focus inside the tile (styles/projects-tab.css).
+// An archived tile shows Unarchive at rest, and the same click brings the
+// project back and opens it.
 
 import type { DragEvent } from 'react';
-import type { Project } from '../../shared/types';
+import type { Project, ProjectColor } from '../../shared/types';
 import { formatDateMDY, getEffectiveWorkDays, getWorkDayWarning } from '../../shared/utils';
 import { parseDateLocal } from '../../shared/utils/dates';
 import { DragHandle } from '../../shared/components/DragHandle';
@@ -20,6 +22,8 @@ import { ExportIconButton } from '../../shared/components/ExportIconButton';
 import { CloneIconButton } from '../../shared/components/CloneIconButton';
 import { ShareIconButton } from '../../shared/components/ShareIconButton';
 import { MoveIconButton } from '../../shared/components/MoveIconButton';
+import { ArchiveIconButton } from '../../shared/components/ArchiveIconButton';
+import { ProjectColorControl } from './ProjectColorControl';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -49,6 +53,9 @@ export interface ProjectTileProps {
   count: number;
   releaseCount: number;
   globalWorkDays: number[] | undefined;
+  color: ProjectColor | undefined;
+  archived: boolean;
+  colorOpen: boolean;
   canDelete: boolean;
   canShare: boolean;
   dragging: boolean;
@@ -58,6 +65,10 @@ export interface ProjectTileProps {
   onExport: () => void;
   onEdit: () => void;
   onClone: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
+  onColorOpenChange: (open: boolean) => void;
+  onPickColor: (color: ProjectColor | null) => boolean;
   onMove: (direction: -1 | 1) => void;
   onDragStart: () => void;
   onDragOver: (e: DragEvent) => void;
@@ -70,6 +81,9 @@ export function ProjectTile({
   count,
   releaseCount,
   globalWorkDays,
+  color,
+  archived,
+  colorOpen,
   canDelete,
   canShare,
   dragging,
@@ -79,6 +93,10 @@ export function ProjectTile({
   onExport,
   onEdit,
   onClone,
+  onArchive,
+  onUnarchive,
+  onColorOpenChange,
+  onPickColor,
   onMove,
   onDragStart,
   onDragOver,
@@ -91,11 +109,15 @@ export function ProjectTile({
   const warning = project.finishDate ? finishWarningText(project.finishDate, effectiveDays) : '';
   const customWeek = project.workDays && project.workDays.length > 0 ? project.workDays : null;
   const describedBy = [metaId, warning && warnId, customWeek && weekId].filter(Boolean).join(' ');
+  const tileClass = ['pt-tile', archived && 'pt-archived', colorOpen && 'pt-pop-open', dragging && 'pt-dragging']
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <li
-      className={`pt-tile${dragging ? ' pt-dragging' : ''}`}
+      className={tileClass}
       data-project-tile={project.id}
+      data-color={color ?? 'none'}
       onDragOver={onDragOver}
     >
       <div className="pt-name-row">
@@ -122,13 +144,14 @@ export function ProjectTile({
             type="button"
             className="pt-open"
             onClick={onOpen}
-            aria-label={`Open releases for ${project.name}`}
+            aria-label={`${archived ? 'Unarchive and open' : 'Open'} releases for ${project.name}`}
             aria-describedby={describedBy}
-            title="Open releases"
+            title={archived ? 'Unarchive and open releases' : 'Open releases'}
           >
             {project.name}
           </button>
         </h3>
+        {archived && <span className="pt-badge">Archived</span>}
         {canDelete && (
           <TrashIconButton onClick={onDelete} ariaLabel="Delete project" title="Delete project" />
         )}
@@ -158,10 +181,21 @@ export function ProjectTile({
           <ExportIconButton onClick={onExport} ariaLabel="Export project" title="Export project" />
           <PencilIconButton onClick={onEdit} ariaLabel="Edit project" title="Edit project" />
           <CloneIconButton onClick={onClone} ariaLabel="Clone project" title="Clone project" />
+          {!archived && <ArchiveIconButton variant="archive" onClick={onArchive} />}
+          <ProjectColorControl
+            projectId={project.id}
+            color={color}
+            open={colorOpen}
+            onOpenChange={onColorOpenChange}
+            onPick={onPickColor}
+          />
         </div>
-        <div className="pt-act-group pt-reveal">
-          <MoveIconButton direction="earlier" onClick={() => onMove(-1)} disabled={index === 0} />
-          <MoveIconButton direction="later" onClick={() => onMove(1)} disabled={index === count - 1} />
+        <div className="pt-act-group">
+          {archived && <ArchiveIconButton variant="unarchive" onClick={onUnarchive} />}
+          <span className="pt-move-pair pt-reveal">
+            <MoveIconButton direction="earlier" onClick={() => onMove(-1)} disabled={index === 0} />
+            <MoveIconButton direction="later" onClick={() => onMove(1)} disabled={index === count - 1} />
+          </span>
         </div>
       </div>
     </li>

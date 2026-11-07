@@ -114,7 +114,53 @@ describe('ReleasesTab', () => {
   });
 
   describe('rendering', () => {
-    it('shows message when no projects exist', () => {
+    describe('with archived projects', () => {
+    const projects = [makeProject({ id: 'p1', name: 'Alpha' }), makeProject({ id: 'p2', name: 'Beta' }), makeProject({ id: 'p3', name: 'Gamma' })];
+
+    it.each([
+      { archived: ['p1'], shown: ['Beta', 'Gamma'], selected: 'p2' },
+      { archived: ['p2'], shown: ['Alpha', 'Gamma'], selected: 'p1' },
+      { archived: ['p3'], shown: ['Alpha', 'Beta'], selected: 'p1' },
+      { archived: ['p1', 'p3'], shown: ['Beta'], selected: 'p2' },
+    ])('the picker leaves out $archived', async ({ archived, shown, selected }) => {
+      seedData({
+        projects,
+        releases: [],
+        projectPrefs: Object.fromEntries(archived.map(id => [id, { archived: true as const }])),
+      });
+      renderReleasesTab({ selectedProjectId: selected });
+      const picker = await screen.findByRole('combobox', { name: 'Project shown on the Releases tab' });
+      expect(within(picker).getAllByRole('option').map(o => o.textContent)).toEqual(shown);
+    });
+
+    it('a colour does not take a project out of the picker', async () => {
+      seedData({ projects, releases: [], projectPrefs: { p1: { color: 'blue' } } });
+      renderReleasesTab();
+      const picker = await screen.findByRole('combobox', { name: 'Project shown on the Releases tab' });
+      expect(within(picker).getAllByRole('option')).toHaveLength(3);
+    });
+
+    it('says so when every project is archived, and offers no form', async () => {
+      seedData({
+        projects,
+        releases: [],
+        projectPrefs: { p1: { archived: true }, p2: { archived: true }, p3: { archived: true } },
+      });
+      renderReleasesTab({ selectedProjectId: '' });
+      expect(await screen.findByText('All projects are archived. Unarchive one on the Projects tab to see it here.')).toBeTruthy();
+      expect(screen.queryByRole('combobox', { name: 'Project shown on the Releases tab' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Add Release' })).toBeNull();
+    });
+
+    it('with no projects at all it says what it always did', async () => {
+      seedData({ projects: [], releases: [], projectPrefs: { gone: { archived: true } } });
+      renderReleasesTab({ selectedProjectId: '' });
+      expect(await screen.findByText('No projects yet. Create a project first!')).toBeTruthy();
+      expect(screen.queryByText(/All projects are archived/)).toBeNull();
+    });
+  });
+
+  it('shows message when no projects exist', () => {
       renderReleasesTab();
       expect(screen.getByText(/No projects yet/)).toBeTruthy();
     });

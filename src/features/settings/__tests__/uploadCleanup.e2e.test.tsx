@@ -102,7 +102,9 @@ const fake = vi.hoisted(() => {
     writeBatch: () => {
       const ops: Write[] = [];
       return {
-        set: (ref: Ref, data: Data) => { ops.push({ op: 'set', path: ref.path, data: structuredClone(data) }); },
+        set: (ref: Ref, data: Data, options?: { merge?: boolean }) => {
+          ops.push({ op: 'set', path: ref.path, data: structuredClone(options?.merge ? { ...state.docs.get(ref.path), ...data } : data) });
+        },
         delete: (ref: Ref) => { ops.push({ op: 'delete', path: ref.path }); },
         commit: async () => {
           await pause(config.commitDelayMs);
@@ -586,6 +588,81 @@ describe('switching to the cloud with projects in this browser, end to end', () 
 
     expect(localProjects()).toContainEqual(['p1', 'Local Plan']);
     expect(localSnapshots()).toContainEqual(['ls1', 'p1']);
+  });
+
+  describe('tile colours and archived projects', () => {
+    const CLOUD_PREFS = { p1: { archived: true }, 'shared-1': { color: 'slate' } };
+    const cloudSettings = () => fake.state.docs.get('ganttapp_settings/u1') as Record<string, unknown>;
+    const localData = () => JSON.parse(localStorage.getItem('ganttAppData') ?? 'null');
+    const addLocalPrefs = (projectPrefs: unknown) =>
+      localStorage.setItem('ganttAppData', JSON.stringify({ ...localData(), projectPrefs }));
+
+    it('an upload with a skipped project: the cloud\'s entries stay, and the uploaded project\'s arrive under its cloud id', async () => {
+      seedCloudPlan();
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: CLOUD_PREFS });
+      storeLocally(MIXED);
+      addLocalPrefs({ p1: { color: 'pink' }, L1: { color: 'teal', archived: true }, stale: { color: 'blue' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(localProjects()).toEqual([['p1', 'Local Plan']]), { timeout: 3000 });
+
+      const uploadedId = cloudProjects().find((p) => p.name === 'Fresh Plan')!.id;
+      expect(uploadedId).not.toBe('L1');
+      expect(cloudSettings().projectPrefs).toEqual({ ...CLOUD_PREFS, [uploadedId]: { color: 'teal', archived: true } });
+      // This browser's settings still go up, as before.
+      expect(cloudSettings().preparedBy).toBe('Local Person');
+      // The uploaded project's local entry goes with its copy; the skipped one's stays with its copy.
+      expect(localData().projectPrefs).toEqual({ p1: { color: 'pink' }, stale: { color: 'blue' } });
+    });
+
+    it('an upload that skips every project: every cloud entry stays', async () => {
+      seedCloudPlan();
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: CLOUD_PREFS });
+      storeLocally({ ...MIXED, projects: [MIXED.projects[0]], releases: [MIXED.releases[0]], snapshots: [] });
+      addLocalPrefs({ p1: { color: 'pink' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudSettings().preparedBy).toBe('Local Person'), { timeout: 3000 });
+
+      expect(cloudSettings().projectPrefs).toEqual(CLOUD_PREFS);
+    });
+
+    it('an upload with nothing in the cloud: the uploaded project\'s entry is all there is', async () => {
+      storeLocally(NORTH);
+      addLocalPrefs({ N1: { color: 'purple' } });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudProjectNames()).toContain('North Plan'), { timeout: 3000 });
+      await waitFor(() => expect(localStorage.getItem('ganttAppData')).toBeNull(), { timeout: 3000 });
+
+      const uploadedId = cloudProjects().find((p) => p.name === 'North Plan')!.id;
+      expect(cloudSettings().projectPrefs).toEqual({ [uploadedId]: { color: 'purple' } });
+    });
+
+    it('an upload writes the settings document whole: a stale entry under the uploaded id goes, and the map with it', async () => {
+      // The project keeps its id only where the cloud lets a missing project be read.
+      fake.config.denyMissingProjectGet = false;
+      fake.state.docs.set('ganttapp_settings/u1', { ...structuredClone(SETTINGS), projectPrefs: { N1: { color: 'blue' } } });
+      storeLocally(NORTH);
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudProjectNames()).toContain('North Plan'), { timeout: 3000 });
+
+      expect(cloudProjects().find((p) => p.name === 'North Plan')!.id).toBe('N1');
+      expect(cloudSettings().preparedBy).toBe('Local Person');
+      expect(cloudSettings()).not.toHaveProperty('projectPrefs');
+    });
+
+    it('an upload that skips every project still writes the settings document whole', async () => {
+      seedCloudPlan();
+      storeLocally({ ...MIXED, projects: [MIXED.projects[0]], releases: [MIXED.releases[0]], snapshots: [] });
+      await openSettings();
+      await chooseCloudAndUpload();
+      await waitFor(() => expect(cloudSettings().preparedBy).toBe('Local Person'), { timeout: 3000 });
+
+      // Held by the cloud and not by this browser.
+      expect(cloudSettings()).not.toHaveProperty('exportAttribution');
+    });
   });
 
   it('every project uploaded: no question, a status line saying so, and no copies left in this browser', async () => {

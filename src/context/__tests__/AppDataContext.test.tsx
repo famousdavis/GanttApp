@@ -57,6 +57,33 @@ describe('AppDataContext', () => {
     });
   });
 
+  describe('tile colours and archived projects', () => {
+    const seeded = {
+      projects: [{ id: 'p1', name: 'One' }],
+      releases: [],
+      projectPrefs: { p1: { color: 'teal' as const }, gone: { archived: true as const } },
+    };
+
+    it('load with the rest of the data, an entry for a project no longer held included', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify(seeded));
+      const { result } = renderHook(() => useAppData(), { wrapper });
+
+      await waitFor(() => expect(result.current.data.projects).toHaveLength(1));
+
+      expect(result.current.data.projectPrefs).toEqual(seeded.projectPrefs);
+    });
+
+    it('go with the rest of the user\'s data on sign-out', async () => {
+      localStorage.setItem('ganttAppData', JSON.stringify(seeded));
+      const { result } = renderHook(() => useAppData(), { wrapper });
+      await waitFor(() => expect(result.current.data.projects).toHaveLength(1));
+
+      act(() => { result.current.clearAllData(); });
+
+      expect(result.current.data).toEqual({ projects: [], releases: [] });
+    });
+  });
+
   describe('useAppData outside provider', () => {
     it('throws error when used outside AppDataProvider', () => {
       // Suppress console.error for this test

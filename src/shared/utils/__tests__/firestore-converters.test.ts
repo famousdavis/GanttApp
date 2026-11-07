@@ -582,6 +582,44 @@ describe('firestore-converters', () => {
     });
   });
 
+  describe('tile colours and archived projects in the settings document', () => {
+    const data: AppData = { projects: [], releases: [] };
+
+    it('writes the map', () => {
+      expect(appDataToUserSettings({ ...data, projectPrefs: { p1: { color: 'blue', archived: true } } }).projectPrefs)
+        .toEqual({ p1: { color: 'blue', archived: true } });
+    });
+
+    it('leaves out an empty map and no map, so the full set() clears what is stored', () => {
+      expect(appDataToUserSettings({ ...data, projectPrefs: {} })).not.toHaveProperty('projectPrefs');
+      expect(appDataToUserSettings(data)).not.toHaveProperty('projectPrefs');
+    });
+
+    it('reads the map back', () => {
+      expect(userSettingsToAppData({ projectPrefs: { p1: { color: 'slate' }, p2: { archived: true } } }).projectPrefs)
+        .toEqual({ p1: { color: 'slate' }, p2: { archived: true } });
+    });
+
+    it('reads a tampered document as losing its own entries and no more', () => {
+      const settings = JSON.parse(
+        '{"preparedBy":"Sam","projectPrefs":{"p1":{"color":"red","archived":"yes"},"__proto__":{"archived":true},"constructor":{"archived":true},"p2":{"color":"teal"}}}',
+      ) as FirestoreUserSettings;
+      const read = userSettingsToAppData(settings);
+      expect(read.projectPrefs).toEqual({ p2: { color: 'teal' } });
+      expect(read.preparedBy).toBe('Sam');
+    });
+
+    it('leaves the field out when no entry survives, or there is none', () => {
+      expect(userSettingsToAppData({ projectPrefs: { p1: { color: 'red' } } as never })).not.toHaveProperty('projectPrefs');
+      expect(userSettingsToAppData({})).not.toHaveProperty('projectPrefs');
+    });
+
+    it('comes through the whole document', () => {
+      const flat = firestoreToFlatAppData([], new Map(), { projectPrefs: { gone: { archived: true } } });
+      expect(flat.projectPrefs).toEqual({ gone: { archived: true } });
+    });
+  });
+
   describe('appDataToUserSettings — globalWorkDays', () => {
     it('includes globalWorkDays when set', () => {
       const data: AppData = { projects: [], releases: [], globalWorkDays: [1, 2, 3, 4, 5] };

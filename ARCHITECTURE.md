@@ -281,6 +281,14 @@ interface ChartDisplaySettings {
   rowSpacing: '20' | '25' | '30';
 }
 
+// One person's own choices for a project. Absent means no colour and not archived.
+type ProjectColor = 'blue' | 'teal' | 'slate' | 'purple' | 'pink';
+interface ProjectPref {
+  color?: ProjectColor;
+  archived?: true;
+}
+type ProjectPrefs = Record<string, ProjectPref>;  // keyed by project id
+
 // Export attribution (v11.0)
 interface ExportAttribution {
   name: string;
@@ -323,6 +331,10 @@ interface AppData {
   showPreparedBy?: boolean;
   exportAttribution?: ExportAttribution; // v11.0
   globalWorkDays?: number[];  // Optional global work-week setting (v15.0). Same encoding as Project.workDays. Undefined = feature not configured.
+  // v0.31.0 — this person's tile colours and archived projects. Left out when empty.
+  // Logic in src/shared/utils/projectPrefs.ts. Read entries with projectPrefOf(), which
+  // checks own properties: a project id can be the name of a prototype member.
+  projectPrefs?: ProjectPrefs;
 }
 ```
 
@@ -402,7 +414,7 @@ ganttapp_projects/{projectId}/   ← one document per project (name, owner, memb
   releases/{releaseId}           ← one doc per release with explicit `order` field
   snapshots/{snapshotId}         ← embedded releases array (same shape as local)
 ganttapp_profiles/{uid}          ← displayName, email, createdAt, lastLogin
-ganttapp_settings/{uid}          ← chartColors, displaySettings, toggles, legendLabels, preparedBy, globalWorkDays
+ganttapp_settings/{uid}          ← chartColors, displaySettings, toggles, legendLabels, preparedBy, globalWorkDays, projectPrefs
 ```
 
 Top-level collections use underscore-separated names (`ganttapp_projects`, not `ganttapp/projects`) because Firestore's `doc()` requires an even number of path segments.
@@ -422,6 +434,7 @@ Defined in `spert-landing-page/firestore.rules` — this repo keeps no copy. See
 - **2-phase batch commit:** Parent project documents must be committed before subcollection documents because security rules use `get()` on the parent. See `StorageContext.switchMode()` (3 phases) and `executeSave()` (2 phases).
 - **Conditional spread for optional fields:** Firestore rejects explicit `undefined` — use `...(value && { field: value })` in converters.
 - **Memory cache:** Uses `memoryLocalCache()` (not persistent) to avoid stale security rule cache in IndexedDB.
+- **Nothing per-user goes on a project.** A person's own choices about a project, such as `projectPrefs` (tile colour, archived), live in `AppData`: inside `ganttAppData` in local mode, and in that person's `ganttapp_settings/{uid}` in cloud mode, keyed by project id. They never go on the project document, a release or a snapshot, so no other member sees them, and any member, viewers included, can set them: the project-write checks that stop a viewer do not reach the settings write. An archive hides a project from that person's Projects tab and pickers only; the Show archived count, every count that decides an upload or a prompt, name checks and import conflicts read the whole of `data.projects`, never the shown list; only a tile's position and the Move message count the shown list. The settings write is a full `set`, so an empty map can replace a full one, and two open tabs or devices are last-write-wins for this field, as for every other setting. Uploading local projects overwrites that document too, so `switchToCloudMode` reads it first and writes the cloud's entries, with each uploaded project's replaced by exactly what the local project says, so an uploaded project with no local entry has none. A failed read stops the upload.
 
 ### Sign-Out Cleanup Sequence (v16.6, extended v0.27.0)
 

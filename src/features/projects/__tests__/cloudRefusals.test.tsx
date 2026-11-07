@@ -87,6 +87,33 @@ describe('projects in a cloud session whose data never loaded', () => {
     expect(alertSpy).toHaveBeenCalledWith(`This project was not copied. ${REASON}`);
   });
 
+  it.each([
+    ['a tile color', (r: ReturnType<typeof useProjects>) => r.setProjectColor('p1', 'teal'), "This project's tile color was not changed."],
+    ['an archive', (r: ReturnType<typeof useProjects>) => r.setProjectArchived('p1', true), 'This project was not archived.'],
+    ['an unarchive', (r: ReturnType<typeof useProjects>) => r.setProjectArchived('p1', false), 'This project was not unarchived.'],
+  ])('refuses %s before anything changes', (_label, act$, message) => {
+    ctx.storage = cloudStorage(false);
+    const { result } = renderHook(() => useProjects());
+
+    expect(act$(result.current)).toBe(false);
+
+    expect(ctx.updateData).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(`${message} ${REASON}`);
+  });
+
+  it.each([
+    ['a tile color', (r: ReturnType<typeof useProjects>) => r.setProjectColor('p1', 'teal')],
+    ['an archive', (r: ReturnType<typeof useProjects>) => r.setProjectArchived('p1', true)],
+  ])('lets %s through once something can be saved', (_label, act$) => {
+    ctx.storage = cloudStorage(true);
+    const { result } = renderHook(() => useProjects());
+
+    expect(act$(result.current)).toBe(true);
+
+    expect(ctx.updateData).toHaveBeenCalledTimes(1);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
   it('says a delete did not happen when the snapshot delete is refused', async () => {
     ctx.storage = cloudStorage(true, { deleteSnapshotsForProject: vi.fn(async () => { throw refusal(); }) });
     const { result } = renderHook(() => useProjects());

@@ -17,7 +17,10 @@ import {
   appDataToUserSettings,
   snapshotToFirestore,
 } from '../shared/utils/firestore-converters';
+import { sanitizeProjectPrefs, withPlacedPrefs } from '../shared/utils/projectPrefs';
 import { sanitizeString, sanitizeFirebaseError } from '../shared/utils/validation';
+import type { FirestoreUserSettings } from '../shared/types/firestore';
+import type { ProjectPrefs } from '../shared/types/models';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 
 /** By its LOCAL id; its cloud copy may have another (see the existence check). */
@@ -45,6 +48,20 @@ export interface SwitchToCloudResult {
 function cloudNameOf(data: { name?: unknown }, localName: string): string {
   const name = typeof data.name === 'string' ? sanitizeString(data.name) : '';
   return name || localName;
+}
+
+/**
+ * This user's tile colours and archived projects in the cloud. The upload
+ * replaces the whole settings document, so without them it would wipe every
+ * choice held on cloud projects: any failure here stops it, before it writes.
+ */
+async function readCloudPrefs(firestore: Firestore, uid: string): Promise<ProjectPrefs | undefined> {
+  try {
+    const settings = await getDoc(doc(firestore, `ganttapp_settings/${uid}`));
+    return settings.exists() ? sanitizeProjectPrefs((settings.data() as FirestoreUserSettings).projectPrefs) : undefined;
+  } catch (error) {
+    throw new Error(`Failed to read your cloud settings: ${sanitizeFirebaseError(error)}`);
+  }
 }
 
 /**
@@ -118,6 +135,17 @@ export async function switchToCloudMode(
       projectsToUpload.push({ project, targetId });
     }
 
+    // The settings to upload: this browser's, with the cloud's tile colours and
+    // archived projects plus those of the projects uploaded, under their cloud
+    // ids. A skipped project keeps its cloud entry.
+    const cloudPrefs = await readCloudPrefs(firestore, user.uid);
+    const uploadedSettings = appDataToUserSettings(withPlacedPrefs(
+      { ...localData, projectPrefs: cloudPrefs },
+      localData.projectPrefs,
+      projectsToUpload.map(({ project, targetId }) => ({ fromId: project.id, id: targetId })),
+      [],
+    ));
+
     // Phase 1: Create project documents + user settings (no subcollections).
     // Subcollection security rules use get() on the parent project doc, so the
     // parent must exist before subcollection writes are evaluated.
@@ -130,10 +158,7 @@ export async function switchToCloudMode(
       });
 
       // Upload user settings (same batch — no subcollection dependency)
-      projectBatch.set(
-        doc(firestore, `ganttapp_settings/${user.uid}`),
-        appDataToUserSettings(localData)
-      );
+      projectBatch.set(doc(firestore, `ganttapp_settings/${user.uid}`), uploadedSettings);
 
       await projectBatch.commit();
 
@@ -179,10 +204,7 @@ export async function switchToCloudMode(
     } else if (skipped > 0) {
       // All projects were skipped (already in cloud), but still upload settings
       const settingsBatch: WriteBatch = writeBatch(firestore);
-      settingsBatch.set(
-        doc(firestore, `ganttapp_settings/${user.uid}`),
-        appDataToUserSettings(localData)
-      );
+      settingsBatch.set(doc(firestore, `ganttapp_settings/${user.uid}`), uploadedSettings);
       await settingsBatch.commit();
     }
   }

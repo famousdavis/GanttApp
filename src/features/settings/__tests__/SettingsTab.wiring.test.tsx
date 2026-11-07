@@ -13,6 +13,7 @@ import type { User } from 'firebase/auth';
 import { SettingsTab } from '../SettingsTab';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import { TOS_VERSION } from '../../../lib/version';
+import type { ProjectPrefs } from '../../../shared/types/models';
 
 const mockUseAuth = vi.fn();
 const mockUseStorage = vi.fn();
@@ -66,6 +67,7 @@ interface SetupOptions {
   user?: User | null;
   mode?: 'local' | 'cloud';
   projects?: { id: string; name: string }[];
+  projectPrefs?: ProjectPrefs;
   globalWorkDays?: number[];
   switchError?: string | null;
   signInWithGoogle?: ReturnType<typeof vi.fn>;
@@ -76,6 +78,7 @@ function setup({
   user = null,
   mode = 'local',
   projects = [],
+  projectPrefs,
   globalWorkDays = [1, 2, 3, 4, 5],
   switchError = null,
   signInWithGoogle = vi.fn().mockResolvedValue(undefined),
@@ -109,7 +112,7 @@ function setup({
     confirmDiscardCloudData: vi.fn(),
   });
   mockUseAppData.mockReturnValue({
-    data: { projects, releases: [] },
+    data: { projects, releases: [], projectPrefs },
     exportAttribution: undefined,
     setExportAttribution: vi.fn(),
     globalWorkDays,
@@ -229,6 +232,35 @@ describe('SettingsTab wiring', () => {
 
       expect(ctx.switchMode).toHaveBeenCalledTimes(1);
       expect(ctx.switchMode).toHaveBeenCalledWith('local', 3);
+    });
+
+    it('counts an archived project when switching to local storage', async () => {
+      const ctx = setup({
+        user: signedInUser,
+        mode: 'cloud',
+        projects: threeProjects,
+        projectPrefs: { p2: { archived: true } },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('radio', { name: /Local \(browser only\)/ }));
+      });
+
+      expect(ctx.switchMode).toHaveBeenCalledWith('local', 3);
+    });
+
+    it('asks to upload before going to the cloud when every local project is archived', () => {
+      const ctx = setup({
+        user: signedInUser,
+        mode: 'local',
+        projects: [{ id: 'p1', name: 'Alpha' }],
+        projectPrefs: { p1: { archived: true } },
+      });
+
+      fireEvent.click(screen.getByRole('radio', { name: /Cloud \(sync across devices\)/ }));
+
+      expect(screen.getByText('You have local projects. Upload them to the cloud?')).toBeInTheDocument();
+      expect(ctx.switchMode).not.toHaveBeenCalled();
     });
 
     it('shows the error from a failed storage switch', () => {

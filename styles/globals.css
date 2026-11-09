@@ -130,3 +130,15 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 .chart-project-picker:focus { outline: none; }
 .chart-project-picker:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }
 [data-theme="dark"] .chart-project-picker:focus-visible { outline-color: #60a5fa; }
+
+/* The space between a tab's content and the footer. <main> is a flex item
+   (it grows so the footer sits at the bottom of the window), and a flex item
+   keeps its children's margins inside it, so a margin on the footer would ADD
+   to a tab's trailing margin instead of overlapping it. This empty box is
+   main's last child, so its 4rem overlaps that trailing margin as the old
+   footer margin did, and every tab keeps the gap it had. */
+.app-main::after {
+  content: '';
+  display: block;
+  margin-top: 4rem;
+}

@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.1',
+    date: 'November 9, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; The footer sits at the bottom of the window, as in the other SPERT&reg; Suite apps. Nothing about how projects are stored has changed.</>,
+      <><strong>Changed</strong> &mdash; The footer now sits at the bottom of the window when a tab is shorter than the window, for example the Projects tab with only a few projects. Before, it sat just under the tab&apos;s content, partway up the window. On a tab taller than the window it still follows the content, with the same space above it as before. The footer&apos;s contents and look are unchanged.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,765 automated tests in 124 files, none changed. No automated test covers where the footer sits, because the test environment does not lay out the page.</>,
+      <><strong>Note</strong> &mdash; Tested in the browser pane of the Claude desktop app (the app&apos;s development build, local mode, light theme): the new layout was compared with the old one on every tab at 1024 by 768 pixels, with no projects and with the sample project, and on the Projects, Releases and About tabs at 375 by 812. On tabs taller than the window, every measured position, the page&apos;s height and the Gantt chart&apos;s width were the same in both. On shorter tabs the footer reached the bottom of the window, inside the page&apos;s usual 2rem margin, and no scrollbar appeared. There was no horizontal scrolling at 375 pixels. The dark theme, cloud mode, Firefox and Safari were not tried.</>,
+    ],
+  },
+  {
     version: '0.32.0',
     date: 'November 8, 2026',
     items: [

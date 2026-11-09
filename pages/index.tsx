@@ -270,8 +270,11 @@ function AppContent() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
+    // A full-height column whose <main> takes the spare height, so
+    // the footer sits at the bottom of the window when a tab is short, as in
+    // the other SPERT® apps. A long tab still pushes it below the content.
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
         <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -328,7 +331,7 @@ function AppContent() {
 
         <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
 
-        <main>
+        <main className="app-main" style={{ flex: 1 }}>
           {/* v0.29.10: an error in one view leaves the rest of the app up.
               Keyed on the tab; a change of the selected project clears an
               error without restarting a healthy tab (v0.29.11). */}
@@ -423,8 +426,9 @@ function AppContent() {
           </ErrorBoundary>
         </main>
 
+        {/* No top margin here: the gap above the footer is .app-main::after
+            in styles/globals.css. */}
         <footer style={{
-          marginTop: '4rem',
           paddingTop: '2rem',
           borderTop: `2px solid ${colors.border}`,
           textAlign: 'center',

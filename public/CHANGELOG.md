@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 0.32.1 (2026-11-09)
+
+### Changed: the footer sits at the bottom of the window
+
+This brings GanttApp into line with the other SPERT® Suite apps. Nothing about how projects are stored has changed.
+
+- **The footer now sits at the bottom of the window** when a tab is shorter than the window, for example the Projects tab with only a few projects. Before, it sat just under the tab's content, partway up the window. On a tab taller than the window it still follows the content, with the same space above it as before. The footer's contents and look are unchanged.
+
+### Tested
+
+- 2,765 automated tests in 124 files, none changed. No automated test covers where the footer sits, because the test environment does not lay out the page.
+- In the browser pane of the Claude desktop app (the app's development build, local mode, light theme), the new layout was compared with the old one on every tab at 1024 by 768 pixels, with no projects and with the sample project, and on the Projects, Releases and About tabs at 375 by 812. On tabs taller than the window, every measured position, the page's height and the Gantt chart's width were the same in both. On shorter tabs the footer reached the bottom of the window, inside the page's usual 2rem margin, and no scrollbar appeared. There was no horizontal scrolling at 375 pixels. The dark theme, cloud mode, Firefox and Safari were not tried.
+
 ## Version 0.32.0 (2026-11-08)
 
 ### Changed: Export All stays in the toolbar, and the notices sit below the tabs

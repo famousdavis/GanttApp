@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 0.32.0 (2026-11-08)
+
+### Changed: Export All stays in the toolbar, and the notices sit below the tabs
+
+These bring GanttApp into line with the other SPERT® Suite apps. Nothing about how projects are stored has changed.
+
+- **Export All is always in the toolbar.** With no projects it is greyed out and does nothing, where before it was hidden. The four buttons, Export All, Import, Load Sample and New Project, now keep the same places whether or not you have projects. A screen reader announces Export All as unavailable while it is greyed out. This reverses an earlier decision, made for version 0.30.0 in its build instructions (Brief 19, §4 and §4.9) and its mock-up report (Brief 18, item 3), to hide Export All when there are no projects.
+- **The app-wide notices now sit below the tabs**, above each tab's own content, instead of between the header and the tabs. Their order is unchanged: an invitation, if you have one; the notice about the Terms of Service and Privacy Policy; the caution that your data is stored only in this browser; and the notice about cloud data that could not be read. Their wording, and how each is dismissed, are unchanged.
+
+### Tested
+
+- 2,765 automated tests in 124 files. The tests changed or added for this release were each checked by putting back the old behaviour, Export All hidden or always enabled, and the notices above the tabs, and confirming that they then fail. Three tests of cloud timing failed in some runs while this machine was heavily loaded and passed when rerun; they do not touch the toolbar or the notices.
+- In a browser (the app's development build, local mode) at 1280 and 375 pixels wide, in light and dark themes, with no projects and with the sample project: the toolbar's order and the greyed-out Export All, the two notices below the tabs on a first visit, and no horizontal scrolling. Cloud mode was tested by automated tests only.
+
 ## Version 0.31.0 (2026-11-06)
 
 ### Added: tile colours and archived projects

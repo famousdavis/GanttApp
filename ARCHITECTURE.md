@@ -717,7 +717,8 @@ Any editor of a shared project can write its documents, so the cloud read path d
 ```
 index.tsx (AppContent)
 ├── Tabs (navigation: Projects | Releases | Gantt Chart | Settings | About)
-├── ProjectsTab (heading row + toolbar: Export All · Import · Load Sample · New Project; v0.30.0)
+├── App-wide notices, below the tabs (v0.32.0): InvitationBanner · FirstRunBanner · LocalStorageWarningBanner · CloudLoadNoticeBanner
+├── ProjectsTab (heading row + toolbar: Export All · Import · Load Sample · New Project; v0.30.0; Export All disabled, not hidden, with no projects, v0.32.0)
 │   ├── useProjects (CRUD hook + cascade snapshot delete)
 │   ├── ProjectTile (one per project, in a grid of up to three columns, v0.30.0)
 │   ├── ProjectDialog (New Project / Edit Project, modal; the page behind is inert, v0.30.0)

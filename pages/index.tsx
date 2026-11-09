@@ -314,13 +314,17 @@ function AppContent() {
           </div>
         </header>
 
+        <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
+
+        <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+        {/* v0.32.0: the app-wide notices sit below the header and the tabs,
+            above every tab's own content, in this order (as in the other
+            SPERT® apps). */}
         <InvitationBanner />
         <FirstRunBanner />
         <LocalStorageWarningBanner />
         <CloudLoadNoticeBanner />
-        <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
-
-        <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
 

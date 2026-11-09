@@ -198,11 +198,12 @@ describe('ProjectsTab', () => {
       });
     });
 
-    it('renders Import button at zero projects (Export All hidden)', () => {
+    it('renders Import at zero projects, with Export All shown but disabled (v0.32.0)', () => {
       renderProjectsTab();
-      // v19.0 — Import always visible, Export All hidden when no projects.
+      // v0.32.0 — every toolbar button is always rendered; Export All is
+      // disabled, not hidden, with no projects (v19.0 hid it).
       expect(screen.getByText(/Import/)).toBeTruthy();
-      expect(screen.queryByText(/Export All/)).toBeNull();
+      expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
     });
 
     it('renders Export All and Import in toolbar when projects exist (v19.0)', async () => {
@@ -429,10 +430,18 @@ describe('ProjectsTab', () => {
   });
 
   describe('export', () => {
-    it('hides Export All button entirely when no projects exist (v19.0)', () => {
+    it('disables Export All when no projects exist, and a click downloads nothing (v0.32.0)', async () => {
+      const files = captureDownloads();
       renderProjectsTab();
-      // v19.0 — semantic shift: button is no longer rendered (was previously rendered & disabled).
-      expect(screen.queryByText(/Export All/)).toBeNull();
+      // v0.32.0 — rendered and disabled (v19.0 to v0.31.0 hid it): it keeps its
+      // place in the toolbar, and assistive tech hears that it is unavailable.
+      const exportAll = screen.getByRole('button', { name: 'Export all projects as JSON' });
+      expect(exportAll).toBeDisabled();
+      expect(exportAll).toHaveTextContent('Export All');
+      await act(async () => {
+        fireEvent.click(exportAll);
+      });
+      expect(files).toHaveLength(0);
     });
 
     it('renders Export All button when projects exist', async () => {
@@ -446,6 +455,7 @@ describe('ProjectsTab', () => {
         expect(screen.getByText('Alpha')).toBeTruthy();
       });
       expect(screen.getByText(/Export All/)).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeEnabled();
     });
 
     // v19.0 — per-tile ExportIconButton on each project tile

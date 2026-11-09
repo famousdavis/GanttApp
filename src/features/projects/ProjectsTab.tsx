@@ -82,18 +82,24 @@ interface ToolbarProps {
 
 // Export All · Import · Load Sample · New Project. Import stays a <label>
 // around a visually hidden file input, so the native picker opens on a click
-// and keyboard users can still reach the input.
+// and keyboard users can still reach the input. Every button is always
+// rendered, so none moves with the project count (v0.32.0): with no projects
+// Export All is disabled, not hidden.
 function ProjectsToolbar({
   hasProjects, applying, newProjectRef, onExportAll, onImport, onLoadSample, onNewProject,
 }: ToolbarProps) {
   return (
     <div className="pt-toolbar">
-      {hasProjects && (
-        <button type="button" className="pt-btn" onClick={onExportAll} aria-label="Export all projects as JSON">
-          <ToolbarIcon d={ICON_PATHS.export} />
-          Export All
-        </button>
-      )}
+      <button
+        type="button"
+        className="pt-btn"
+        onClick={onExportAll}
+        disabled={!hasProjects}
+        aria-label="Export all projects as JSON"
+      >
+        <ToolbarIcon d={ICON_PATHS.export} />
+        Export All
+      </button>
       <label className="pt-btn" aria-label="Import projects from JSON" aria-disabled={applying}>
         <ToolbarIcon d={ICON_PATHS.import} />
         Import

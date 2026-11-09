@@ -104,6 +104,39 @@ describe('the Projects tab on the page', () => {
     });
   });
 
+  describe('the app-wide notices (v0.32.0)', () => {
+    const before = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    it('on a first visit sit below the header and the tabs, terms notice first, above the Projects heading', async () => {
+      await renderPage();
+      const header = document.querySelector('header')!;
+      const projectsTab = screen.getByRole('button', { name: 'Projects' });
+      const terms = await screen.findByText(/SPERT® Suite web apps are free to use/);
+      const caution = await screen.findByText('Your data exists only in this browser');
+      const heading = screen.getByRole('heading', { name: 'Projects', level: 2 });
+      expect(before(header, projectsTab)).toBe(true);
+      expect(before(projectsTab, terms)).toBe(true);
+      expect(before(terms, caution)).toBe(true);
+      expect(before(caution, heading)).toBe(true);
+      expect(screen.getAllByRole('button', { name: 'Got it' })).toHaveLength(2);
+    });
+
+    it("the caution's Got it lasts across a tab switch; the terms notice's is stored", async () => {
+      await renderPage();
+      const caution = (await screen.findByText('Your data exists only in this browser')).closest('div')!;
+      fireEvent.click(within(caution).getByRole('button', { name: 'Got it' }));
+      const terms = (await screen.findByText(/SPERT® Suite web apps are free to use/)).closest('div')!;
+      fireEvent.click(within(terms).getByRole('button', { name: 'Got it' }));
+      expect(localStorage.getItem('spert_firstRun_seen')).toBe('true');
+      fireEvent.click(screen.getByRole('button', { name: 'Releases' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+      await screen.findByRole('heading', { name: 'Projects', level: 2 });
+      expect(screen.queryByText('Your data exists only in this browser')).toBeNull();
+      expect(screen.queryByText(/SPERT® Suite web apps are free to use/)).toBeNull();
+    });
+  });
+
   describe('the toolbar', () => {
     it('reads Export All, Import, Load Sample, New Project, on the heading row', async () => {
       seed({ projects: projects('Alpha') });
@@ -113,10 +146,14 @@ describe('the Projects tab on the page', () => {
       expect(names).toEqual(['Export all projects as JSON', 'Import projects from JSON', 'Load Sample', 'New Project']);
     });
 
-    it('with no projects: Import, Load Sample, New Project and one line, and nothing opens', async () => {
+    it('with no projects: Export All disabled, Import, Load Sample, New Project and one line, and nothing opens', async () => {
       await renderPage();
       expect(screen.getByText('No projects yet.')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Export all projects as JSON' })).toBeNull();
+      // v0.32.0: disabled in its place, not hidden (v0.30.0 and v0.31.0 hid it).
+      expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
+      const head = screen.getByRole('heading', { name: 'Projects', level: 2 }).parentElement!;
+      const names = Array.from(head.querySelectorAll('button, label')).map(el => el.getAttribute('aria-label') ?? el.textContent?.trim());
+      expect(names).toEqual(['Export all projects as JSON', 'Import projects from JSON', 'Load Sample', 'New Project']);
       expect(screen.getByLabelText('Import projects from JSON')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Load Sample' })).toBeInTheDocument();
       expect(screen.queryByRole('list', { name: 'Projects' })).toBeNull();

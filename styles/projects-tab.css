@@ -36,7 +36,8 @@
   white-space: nowrap;
 }
 .pt-btn svg { color: var(--pt-meta); flex: none; }
-.pt-btn:hover { background: var(--pt-hover-bg); }
+.pt-btn:hover:not(:disabled) { background: var(--pt-hover-bg); }
+.pt-btn:disabled,
 .pt-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .pt-btn-primary {
   background: var(--pt-primary);

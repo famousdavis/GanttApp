@@ -46,7 +46,10 @@
   font-weight: 600;
 }
 .pt-btn-primary svg { color: #ffffff; }
-.pt-btn-primary:hover { background: var(--pt-primary-hover); border-color: var(--pt-primary-hover); }
+/* Must match the specificity of `.pt-btn:hover:not(:disabled)` above and come
+   after it, or a hovered primary button loses its blue. Guarded by
+   src/lib/__tests__/control-styles.test.ts. */
+.pt-btn-primary:hover:not(:disabled) { background: var(--pt-primary-hover); border-color: var(--pt-primary-hover); }
 
 /* Visible keyboard focus on every control this tab draws. The first rule also
    covers the controls of the dialogs drawn inside the tab (Delete Project,

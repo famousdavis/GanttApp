@@ -6,8 +6,8 @@
 
 Nothing about how projects are stored has changed.
 
-- **The New Project button, and the Create button in the New Project dialog, keep their blue when you point at them.** Since version 0.32.0 they turned light grey under the pointer (dark grey in the dark theme), behind white text that was hard to read. They now turn a darker blue. The Load Sample and Cancel buttons still turn grey under the pointer, and a greyed-out Export All still does not change.
-- **Buttons and fields across the app now use the same font as the rest of the page.** Before, most of them used the browser's own font for controls: in Chrome on a Mac, Arial, and a fixed-width font for date fields. That included the tabs, the notices' Got it buttons, the Releases tab's form and status buttons, the Chart Settings controls, and the Settings tab's fields and work-week buttons. Only the typeface has changed: every size and weight is as before. Buttons are at most 5 pixels wider or narrower than before. In a window 375 pixels wide, the five legend-label fields on the Settings tab are 16 pixels wider.
+- **The New Project button, and the Create button in the New Project dialog, keep their blue when you point at them.** Since version 0.32.0, in the light theme they turned light grey (#f5f5f5) under the pointer, behind white text that was hard to read; in the dark theme they turned dark grey (#2d3748). They now turn a darker blue. The Load Sample and Cancel buttons still turn grey under the pointer, and a greyed-out Export All still does not change.
+- **Buttons and fields across the app now use the same font as the rest of the page.** Before, most of them used the browser's own font for controls: in Chrome on a Mac, Arial, and a fixed-width font for date fields. That included the tabs, the notices' Got it buttons, the Releases tab's form and status buttons, the Chart Settings controls, and the Settings tab's fields and work-week buttons. Only the typeface has changed: every font size and weight is as before. Buttons are at most 5 pixels wider or narrower than before. In a window 375 pixels wide, the five legend-label fields on the Settings tab are 16 pixels wider.
 
 ### Tested
 

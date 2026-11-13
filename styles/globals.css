@@ -54,6 +54,18 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Form controls take the browser's own font unless told otherwise (Arial for
+   buttons and fields, monospace for date fields in Chrome). Give them the
+   page's family. Only the family: `font: inherit` would also reset the sizes
+   and weights the browser gives controls. Guarded by
+   src/lib/__tests__/control-styles.test.ts. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 a {
   color: inherit;
   text-decoration: none;

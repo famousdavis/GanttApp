@@ -1,5 +1,22 @@
 # Change Log
 
+## Version 0.32.2 (2026-11-12)
+
+### Fixed: the New Project and Create buttons keep their blue, and buttons and fields use the page's font
+
+Nothing about how projects are stored has changed.
+
+- **The New Project button, and the Create button in the New Project dialog, keep their blue when you point at them.** Since version 0.32.0, in the light theme they turned light grey (#f5f5f5) under the pointer, behind white text that was hard to read; in the dark theme they turned dark grey (#2d3748). They now turn a darker blue. The Load Sample and Cancel buttons still turn grey under the pointer, and a greyed-out Export All still does not change.
+- **Buttons and fields across the app now use the same font as the rest of the page.** Before, most of them used the browser's own font for controls: in Chrome on a Mac, Arial, and a fixed-width font for date fields. That included the tabs, the notices' Got it buttons, the Releases tab's form and status buttons, the Chart Settings controls, and the Settings tab's fields and work-week buttons. Only the typeface has changed: every font size and weight is as before. Buttons are at most 5 pixels wider or narrower than before. In a window 375 pixels wide, the five legend-label fields on the Settings tab are 16 pixels wider.
+
+### Tested
+
+- 2,773 automated tests in 125 files. A new test reads the app's two stylesheets. It checks that the primary button's hover rule wins over the general button hover rule, deciding between them as the browser does (by importance, specificity and order), and that buttons, fields, drop-down lists and text areas take the page's font family. It was checked by breaking each fix in eight ways, one at a time, and confirming that the test then fails: putting back the old hover rule, making the general hover rule more specific, moving the primary rule above it, marking the general rule important, deleting the font rule, narrowing it to buttons alone, adding a later rule giving date fields a fixed-width font, and setting the whole font instead of the family.
+- In Chrome 154 on a Mac, headless, against the app's development build in local mode, before and after the change. Under a real pointer, the New Project and Create buttons were light grey (#f5f5f5) in the light theme and dark grey (#2d3748) in the dark theme before the change, and blue (#005bc4) in both themes after it, with a border of the same blue. At rest they are unchanged.
+- Every visible button and field was read on all five tabs with the sample project loaded, and again with the project dialog, a release's edit form, the chart's date editor and Chart Settings open. This was done at 1280 pixels wide in both themes and at 375 pixels wide in the light theme: 840 readings in all. Before the change, 732 of them were Arial and 30 a fixed-width font. After it, all 840 were the page's system font. No control's text overflows its box that did not already, and no control has moved past the edge of the window.
+- At 375 pixels the page was already wider than the window before this change: the Settings and About tabs, and the right-hand parts of the Releases, Gantt Chart and Settings tabs, are cut off at the right edge. This change does not fix that.
+- Firefox, Safari, Windows, real phones and cloud mode were not tried.
+
 ## Version 0.32.1 (2026-11-09)
 
 ### Changed: the footer sits at the bottom of the window

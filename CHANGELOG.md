@@ -1,5 +1,24 @@
 # Change Log
 
+## Version 0.32.4 (2026-11-14)
+
+### Changed: development tooling only
+
+Nothing changes in how the app looks or works, and nothing about how projects are stored has changed.
+
+- **The Firebase command-line tools were removed from the development dependencies.** Nothing in this project ran them. This removes 562 packages from the development install.
+- **Several development-only packages were updated to versions with fixes:** brace-expansion, browserslist, undici, fast-uri and js-yaml.
+- **With browserslist, the browser-support data that Next.js reads when it builds the app (caniuse-lite) was updated too.** Built from the same app code, the app's JavaScript files came out 676 bytes smaller in total.
+- **Next.js's development server no longer writes its own instructions file for AI coding tools (AGENTS.md) into the project folder** when such a tool runs it.
+
+### Tested
+
+- 2,773 automated tests in 125 files, none changed.
+- The production build lists the same pages as before, with no warnings.
+- In Chrome 154 on a Mac, headless, against the app's production build in local mode, before and after the update: the sample project was loaded, each of the five tabs was opened, and a full-page screenshot of each was taken at 1280 pixels wide in the light theme. The chart showed the same five release bars both times. With the version number left unchanged, the five screenshots were the same, byte for byte. The browser reported no errors or warnings, and no request failed.
+- The development server was run under an AI coding tool before and after the new setting. Before, it created AGENTS.md; after, it did not. An AGENTS.md without Next.js's own section was left byte for byte as it was. From one that had Next.js's section, it removed that section and left the rest as it was.
+- Firefox, Safari, Windows, real phones, the dark theme and cloud mode were not tried.
+
 ## Version 0.32.3 (2026-11-14)
 
 ### Security: Next.js 16.4.1, and fixed versions of the libraries that come with it

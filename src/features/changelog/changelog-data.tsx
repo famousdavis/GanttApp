@@ -15,6 +15,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.4',
+    date: 'November 14, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; Development tooling only. Nothing changes in how the app looks or works, and nothing about how projects are stored has changed.</>,
+      <><strong>Changed</strong> &mdash; The Firebase command-line tools were removed from the development dependencies. Nothing in this project ran them. This removes 562 packages from the development install.</>,
+      <><strong>Changed</strong> &mdash; Several development-only packages were updated to versions with fixes: brace-expansion, browserslist, undici, fast-uri and js-yaml.</>,
+      <><strong>Changed</strong> &mdash; With browserslist, the browser-support data that Next.js reads when it builds the app (caniuse-lite) was updated too. Built from the same app code, the app&apos;s JavaScript files came out 676 bytes smaller in total.</>,
+      <><strong>Changed</strong> &mdash; Next.js&apos;s development server no longer writes its own instructions file for AI coding tools (AGENTS.md) into the project folder when such a tool runs it.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,773 automated tests in 125 files, none changed.</>,
+      <><strong>Note</strong> &mdash; The production build lists the same pages as before, with no warnings.</>,
+      <><strong>Note</strong> &mdash; Tested in Chrome 154 on a Mac, headless, against the app&apos;s production build in local mode, before and after the update: the sample project was loaded, each of the five tabs was opened, and a full-page screenshot of each was taken at 1280 pixels wide in the light theme. The chart showed the same five release bars both times. With the version number left unchanged, the five screenshots were the same, byte for byte. The browser reported no errors or warnings, and no request failed.</>,
+      <><strong>Note</strong> &mdash; The development server was run under an AI coding tool before and after the new setting. Before, it created AGENTS.md; after, it did not. An AGENTS.md without Next.js&apos;s own section was left byte for byte as it was. From one that had Next.js&apos;s section, it removed that section and left the rest as it was.</>,
+      <><strong>Note</strong> &mdash; Firefox, Safari, Windows, real phones, the dark theme and cloud mode were not tried.</>,
+    ],
+  },
+  {
     version: '0.32.3',
     date: 'November 14, 2026',
     items: [

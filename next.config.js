@@ -5,6 +5,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Stops Next's dev server writing its own instructions into AGENTS.md when an AI coding agent runs it.
+  agentRules: false,
   async headers() {
     return [
       {

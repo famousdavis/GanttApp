@@ -1,5 +1,24 @@
 # Change Log
 
+## Version 0.32.5 (2026-11-14)
+
+### Changed: React 19.3.0
+
+Nothing changes in how the app looks or works, and nothing about how projects are stored has changed. This is a routine update: it fixes no security advisory.
+
+- **The app now runs on React 19.3.0** (was 19.2.5), with React DOM 19.3.0 (was 19.2.5). React's scheduler, which comes with React DOM, is now 0.28.0 (was 0.27.0).
+- **The testing libraries were updated to match:** React Testing Library 16.3.3 (was 16.3.2), DOM Testing Library 10.4.2 (was 10.4.1), and React's type definitions 19.3.0 (were 19.2.14 for React and 19.2.3 for React DOM).
+- **ESLint, which checks the code, is now 9.39.5** (was 9.39.4), along with three small packages it uses.
+
+### Tested
+
+- 2,773 automated tests in 125 files, none changed. The type check and the code check report the same results as before.
+- The production build lists the same pages as before, with no warnings.
+- In Chrome 154 on a Mac, headless, against the app's production build in local mode, the same script ran before and after the update. It loaded the sample project and opened each of the five tabs. It created a project in the New Project dialog, added a release to it, and changed the release's late finish date on the chart. It deleted the release, then the project, through their confirmation dialogs. It saved a snapshot, viewed it, and went back to the current plan. It set the theme to System and had the browser report a dark, then a light, then a dark system preference; the app's theme followed each time. It then reloaded the page: the sample project, the snapshot and the System setting were all still there. All 37 checks passed both times. The browser reported no console messages of any kind and no page errors, and no request failed.
+- Full-page screenshots of each tab were taken at 1280 pixels wide in the light and the dark theme, with the version number left unchanged. The five light-theme screenshots and two of the dark ones were the same, byte for byte, before and after the update. The other three dark ones differed in 6 pixels each, by one step in one colour, at the rounded ends of the header's Local only · Sign in button. The same 6 pixels also differ between two runs of the app before the update.
+- The development server was started before and after the update, and the page loaded with the same console messages both times.
+- Firefox, Safari, Windows, real phones and cloud mode were not tried.
+
 ## Version 0.32.4 (2026-11-14)
 
 ### Changed: development tooling only

@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.3',
+    date: 'November 14, 2026',
+    items: [
+      <><strong>Security</strong> &mdash; Next.js 16.4.1, and fixed versions of the libraries that come with it. This is a security update. Nothing changes in how the app looks or works, and nothing about how projects are stored has changed.</>,
+      <><strong>Security</strong> &mdash; The app now runs on Next.js 16.4.1 (was 16.2.11). The new version fixes security advisories published against the version the app used.</>,
+      <><strong>Security</strong> &mdash; The image library sharp, which Next.js installs alongside it, is now 0.35.5 (was 0.35.3). It too fixes published security advisories. The app itself does not use sharp.</>,
+      <><strong>Security</strong> &mdash; Three smaller libraries that Next.js uses when it builds the app were updated to versions with fixes: nanoid 3.3.19 (was 3.3.16), source-map-js 1.2.2 (was 1.2.1) and baseline-browser-mapping 2.11.23 (was 2.10.38).</>,
+      <><strong>Note</strong> &mdash; Tested in 2,773 automated tests in 125 files, none changed.</>,
+      <><strong>Note</strong> &mdash; The production build lists the same pages as before, with no warnings. The files it produces for the browser come to 1,512 KB, against 2,119 KB before.</>,
+      <><strong>Note</strong> &mdash; Tested in Chrome 154 on a Mac, headless, against the app&apos;s production build in local mode, before and after the update: the sample project was loaded, each of the five tabs was opened, and a full-page screenshot of each was taken at 1280 pixels wide in the light theme. The chart showed the same five release bars both times. With the version number left unchanged, the five screenshots were the same, byte for byte, before and after the update. The browser reported no errors or warnings, and no request failed.</>,
+      <><strong>Note</strong> &mdash; The development server was also started before and after the update, and the page loaded both times. Under Next.js 16.4.1 the browser console shows one new warning there, from Next.js&apos;s own development tools; the production build does not show it.</>,
+      <><strong>Note</strong> &mdash; Firefox, Safari, Windows, real phones, the dark theme and cloud mode were not tried.</>,
+    ],
+  },
+  {
     version: '0.32.2',
     date: 'November 12, 2026',
     items: [

@@ -1,5 +1,23 @@
 # Change Log
 
+## Version 0.32.3 (2026-11-14)
+
+### Security: Next.js 16.4.1, and fixed versions of the libraries that come with it
+
+This is a security update. Nothing changes in how the app looks or works, and nothing about how projects are stored has changed.
+
+- **The app now runs on Next.js 16.4.1** (was 16.2.11). The new version fixes security advisories published against the version the app used.
+- **The image library sharp, which Next.js installs alongside it, is now 0.35.5** (was 0.35.3). It too fixes published security advisories. The app itself does not use sharp.
+- **Three smaller libraries that Next.js uses when it builds the app were updated to versions with fixes:** nanoid 3.3.19 (was 3.3.16), source-map-js 1.2.2 (was 1.2.1) and baseline-browser-mapping 2.11.23 (was 2.10.38).
+
+### Tested
+
+- 2,773 automated tests in 125 files, none changed.
+- The production build lists the same pages as before, with no warnings. The files it produces for the browser come to 1,512 KB, against 2,119 KB before.
+- In Chrome 154 on a Mac, headless, against the app's production build in local mode, before and after the update: the sample project was loaded, each of the five tabs was opened, and a full-page screenshot of each was taken at 1280 pixels wide in the light theme. The chart showed the same five release bars both times. With the version number left unchanged, the five screenshots were the same, byte for byte, before and after the update. The browser reported no errors or warnings, and no request failed.
+- The development server was also started before and after the update, and the page loaded both times. Under Next.js 16.4.1 the browser console shows one new warning there, from Next.js's own development tools; the production build does not show it.
+- Firefox, Safari, Windows, real phones, the dark theme and cloud mode were not tried.
+
 ## Version 0.32.2 (2026-11-12)
 
 ### Fixed: the New Project and Create buttons keep their blue, and buttons and fields use the page's font

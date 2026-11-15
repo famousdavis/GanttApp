@@ -1,5 +1,25 @@
 # Change Log
 
+## Version 0.32.7 (2026-11-14)
+
+### Changed: Firebase 12.19.0
+
+Apart from one detail in an error message, described below, nothing changes in how the app looks or works, and nothing about how projects are stored has changed.
+
+- **The app now uses Firebase 12.19.0** (was 12.12.1), the library behind sign-in and cloud storage. The parts of it that the app uses are now: Firestore, the database, 4.17.2 (was 4.14.0); Authentication 1.13.6 (was 1.13.0); Cloud Functions 0.14.0 (was 0.13.3); and Firebase's core 0.16.2 (was 0.14.11).
+- **It also includes re2js 2.8.7**, a library that Firebase's database code now uses, at a version that fixes a published security advisory. Firebase 12.19.0 on its own would have brought in re2js 2.8.6, which the advisory covers.
+- **The one detail:** when the Share dialog cannot match an invitation error to one of its own messages, it shows a general message followed by the reason Firebase gives. That reason now ends with a number in brackets, the server's status code, for example "[500]".
+- **The app's JavaScript files are larger:** 1,753,102 bytes in all, up from 1,541,548, an increase of about 207 KB. All of the increase is in the file that holds Firebase.
+
+### Tested
+
+- 2,779 automated tests in 125 files, none changed. The type check and the code check report the same results as before.
+- The production build lists the same pages as before, with no warnings.
+- In Chrome 154 on a Mac, headless, against the app's production build in local mode, the same script ran before and after the update. It loaded the sample project and opened each of the five tabs. It created a project in the New Project dialog, added a release to it, and changed the release's late finish date on the chart. It deleted the release, then the project, through their confirmation dialogs. It saved a snapshot, viewed it, and went back to the current plan. It set the theme to System and had the browser report a dark, then a light, then a dark system preference; the app's theme followed each time. It then reloaded the page: the sample project, the snapshot and the System setting were all still there. All 37 checks passed both times. The browser reported no console messages of any kind and no page errors, and no request failed.
+- Full-page screenshots of each tab were taken at 1280 pixels wide in the light and the dark theme, with the version number left unchanged. The five light-theme screenshots and three of the dark ones were the same, byte for byte, before and after the update. The other two dark ones differed in 6 pixels each, by one step in one colour, at the rounded ends of the header's Local only · Sign in button. The same 6 pixels also differed between two runs of version 0.32.4, when that version was tested.
+- Cloud mode was tested in the same browser against Firebase's own emulators for Authentication and Firestore, running on this computer with the production security rules, three times before and three times after the update. Each run signed in as a test user and loaded the sample project, then switched storage to Cloud in Settings, which uploaded it. It changed a release's late finish date on the chart, renamed a release on the chart, saved a snapshot, and deleted a release through its confirmation dialog, and after each change it read the database to check that the change had arrived. It reloaded the page and checked that the plan on screen matched the database. A second browser, signed in as the same user, renamed a release, and the first browser showed the new name without reloading. Finally it signed out from the account button in the header: the app went back to local mode, and the cloud project left the screen. All 40 checks passed in every run, neither browser reported a console message or a page error, and every request the page made stayed on this computer apart from one deliberate test request, which was blocked.
+- Not tried: signing in with a real Google or Microsoft account, Firebase's live servers, sending invitations (they need the live server), Firefox, Safari, Windows and real phones.
+
 ## Version 0.32.6 (2026-11-14)
 
 ### Fixed: invitation errors show their own message

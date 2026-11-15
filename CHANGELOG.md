@@ -1,5 +1,23 @@
 # Change Log
 
+## Version 0.32.6 (2026-11-14)
+
+### Fixed: invitation errors show their own message
+
+This affects sharing a project in cloud mode. Nothing about how projects are stored has changed.
+
+- **When the server turns down an invitation, the Share dialog now says why.** For example, after the daily limit of 25 invitations it says "You've reached today's invitation limit (25). Try again tomorrow." Before, every such error showed a generic message instead: "Failed to send invitations.", "Failed to resend invitation." or "Failed to revoke invitation.", followed by the server's own text.
+- **Sending:** the daily limit, sharing a project you do not own, an email address that could not be verified (such as a Microsoft personal account), a project that cannot be found, and being signed out each have their own message.
+- **Resending and revoking:** the limit of 5 resends per invitation, an invitation that can no longer be resent or revoked, an invitation that only the person who sent it can change, and an invitation that cannot be found each have their own message.
+- These messages were added in version 18.0.0 but never appeared. Firebase names these errors with a "functions/" prefix, as in "functions/resource-exhausted", and the app looked for the names without it.
+- If reloading the list of pending invitations fails just after a resend or revoke, the dialog no longer reports it as the server refusing the resend or revoke (for example "Only the original inviter can resend this invitation."). It shows the generic message with the reason, which still begins "Failed to resend invitation." or "Failed to revoke invitation." even though the resend or revoke went through.
+
+### Tested
+
+- 2,779 automated tests in 125 files. The tests of these messages now build their errors with Firebase's own error classes, the ones the app receives, instead of hand-made copies. Against the previous version, 16 tests fail: 15 of the message tests, and a new test of the Share dialog that has a resend turned down for its limit and checks that the dialog shows the resend-limit message. All of them pass now.
+- The fix was checked by breaking it one way at a time. Putting the resend limit's error name back without the prefix makes three tests fail, including the resend-limit test. Letting names without the prefix match again makes the two tests fail that cover the list-reload case above. Writing an error name without the prefix also fails the type check.
+- Not tried against the live server: these errors need a signed-in cloud account and the server's own limits, so the dialog was not opened in a browser.
+
 ## Version 0.32.5 (2026-11-14)
 
 ### Changed: React 19.3.0

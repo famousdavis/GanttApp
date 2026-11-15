@@ -8,6 +8,7 @@ import { ShareDialog } from '../ShareDialog';
 import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import type { CloudGanttStorageService } from '../../../shared/storage';
 import { projectsTabPalette } from '../projectsTabPalette';
+import { FunctionsError } from 'firebase/functions';
 
 // Create a mock cloud storage service
 function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): CloudGanttStorageService {
@@ -389,5 +390,34 @@ describe("ShareDialog's colours, by theme", () => {
 
     expect(await screen.findByText("Couldn't load sharing details. Refresh the page to try again."))
       .toHaveStyle({ color: projectsTabPalette(theme).error });
+  });
+});
+
+describe("ShareDialog's invitation errors", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const invite = {
+    tokenId: 't1', appId: 'ganttapp', modelId: 'p1', modelName: 'Test', inviteeEmail: 'one@example.com', inviterUid: 'u1', role: 'editor',
+    status: 'pending', createdAt: 0, expiresAt: 0, lastEmailSentAt: 0, emailSendCount: 1, updatedAt: 0,
+  };
+
+  // The callable rejects with the real FunctionsError class, whose code is
+  // 'functions/resource-exhausted'. From v18.0.0 the mapper's own tests used a
+  // look-alike { code: 'resource-exhausted' }, which hid that no specific
+  // message ever reached the screen.
+  it('shows the resend-limit message when the resend callable reports resource-exhausted', async () => {
+    renderDialog(createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite]),
+      resendInvite: vi.fn().mockRejectedValue(new FunctionsError('resource-exhausted', 'Resend limit reached.')),
+    }));
+
+    const row = (await screen.findByText('one@example.com')).closest('div[style]')?.parentElement as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Resend' }));
+
+    expect(await screen.findByText('This invitation has reached its resend limit (5). Revoke and re-invite to start over.'))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/Failed to resend invitation/)).not.toBeInTheDocument();
   });
 });

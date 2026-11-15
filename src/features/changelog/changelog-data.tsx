@@ -15,6 +15,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.6',
+    date: 'November 14, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; Invitation errors show their own message. This affects sharing a project in cloud mode. Nothing about how projects are stored has changed.</>,
+      <><strong>Fixed</strong> &mdash; When the server turns down an invitation, the Share dialog now says why. For example, after the daily limit of 25 invitations it says &ldquo;You&apos;ve reached today&apos;s invitation limit (25). Try again tomorrow.&rdquo; Before, every such error showed a generic message instead: &ldquo;Failed to send invitations.&rdquo;, &ldquo;Failed to resend invitation.&rdquo; or &ldquo;Failed to revoke invitation.&rdquo;, followed by the server&apos;s own text.</>,
+      <><strong>Fixed</strong> &mdash; Sending: the daily limit, sharing a project you do not own, an email address that could not be verified (such as a Microsoft personal account), a project that cannot be found, and being signed out each have their own message.</>,
+      <><strong>Fixed</strong> &mdash; Resending and revoking: the limit of 5 resends per invitation, an invitation that can no longer be resent or revoked, an invitation that only the person who sent it can change, and an invitation that cannot be found each have their own message.</>,
+      <><strong>Fixed</strong> &mdash; These messages were added in version 18.0.0 but never appeared. Firebase names these errors with a &ldquo;functions/&rdquo; prefix, as in &ldquo;functions/resource-exhausted&rdquo;, and the app looked for the names without it.</>,
+      <><strong>Changed</strong> &mdash; If reloading the list of pending invitations fails just after a resend or revoke, the dialog no longer reports it as the server refusing the resend or revoke (for example &ldquo;Only the original inviter can resend this invitation.&rdquo;). It shows the generic message with the reason, which still begins &ldquo;Failed to resend invitation.&rdquo; or &ldquo;Failed to revoke invitation.&rdquo; even though the resend or revoke went through.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,779 automated tests in 125 files. The tests of these messages now build their errors with Firebase&apos;s own error classes, the ones the app receives, instead of hand-made copies. Against the previous version, 16 tests fail: 15 of the message tests, and a new test of the Share dialog that has a resend turned down for its limit and checks that the dialog shows the resend-limit message. All of them pass now.</>,
+      <><strong>Note</strong> &mdash; The fix was checked by breaking it one way at a time. Putting the resend limit&apos;s error name back without the prefix makes three tests fail, including the resend-limit test. Letting names without the prefix match again makes the two tests fail that cover the list-reload case above. Writing an error name without the prefix also fails the type check.</>,
+      <><strong>Note</strong> &mdash; Not tried against the live server: these errors need a signed-in cloud account and the server&apos;s own limits, so the dialog was not opened in a browser.</>,
+    ],
+  },
+  {
     version: '0.32.5',
     date: 'November 14, 2026',
     items: [

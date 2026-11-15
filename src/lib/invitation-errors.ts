@@ -2,6 +2,8 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
+import type { FunctionsErrorCode } from 'firebase/functions';
+
 /**
  * Context discriminator for mapInvitationError.
  * Firebase HttpsError codes are a small shared enum — 'resource-exhausted'
@@ -10,6 +12,20 @@
  */
 export type InvitationErrorContext = 'send' | 'resend' | 'revoke';
 
+/**
+ * Turn an invitation callable's error into text the user can act on.
+ *
+ * httpsCallable rejects with a FunctionsError whose code carries a
+ * 'functions/' prefix ('functions/resource-exhausted'), so that is the only
+ * form matched here, as in spert-ahp, spert-cfd and spert-story-map. Typing
+ * each comparison as FunctionsErrorCode makes a bare code a type error.
+ *
+ * Bare codes are deliberately NOT matched. ShareDialog's resend and revoke
+ * handlers also await a Firestore read (listPendingInvites) in the same try,
+ * and Firestore errors carry bare codes ('permission-denied'). Matching them
+ * would report a failed list refresh as the callable refusing the request.
+ * They fall through to the generic text with the error's own message.
+ */
 export function mapInvitationError(
   err: unknown,
   context: InvitationErrorContext = 'send',
@@ -19,26 +35,27 @@ export function mapInvitationError(
   const errObj = (err && typeof err === 'object') ? err as { code?: string; message?: string } : {};
   const code    = errObj.code ?? '';
   const message = errObj.message ?? '';
+  const is = (expected: FunctionsErrorCode) => code === expected;
 
   if (context === 'send') {
-    if (code === 'resource-exhausted')  return "You've reached today's invitation limit (25). Try again tomorrow.";
-    if (code === 'permission-denied')   return 'Only the project owner can send invitations.';
-    if (code === 'failed-precondition') return 'Could not verify your email address. Microsoft personal accounts (@outlook.com, @hotmail.com) are not supported — use a work or school account, or sign in with Google.';
-    if (code === 'not-found')           return 'Project not found or you no longer have access.';
-    if (code === 'unauthenticated')     return 'Sign in to send invitations.';
+    if (is('functions/resource-exhausted'))  return "You've reached today's invitation limit (25). Try again tomorrow.";
+    if (is('functions/permission-denied'))   return 'Only the project owner can send invitations.';
+    if (is('functions/failed-precondition')) return 'Could not verify your email address. Microsoft personal accounts (@outlook.com, @hotmail.com) are not supported — use a work or school account, or sign in with Google.';
+    if (is('functions/not-found'))           return 'Project not found or you no longer have access.';
+    if (is('functions/unauthenticated'))     return 'Sign in to send invitations.';
     return `Failed to send invitations. ${message}`.trim();
   }
   if (context === 'resend') {
-    if (code === 'resource-exhausted')  return 'This invitation has reached its resend limit (5). Revoke and re-invite to start over.';
-    if (code === 'failed-precondition') return 'This invitation can no longer be resent.';
-    if (code === 'permission-denied')   return 'Only the original inviter can resend this invitation.';
-    if (code === 'not-found')           return 'Invitation not found.';
+    if (is('functions/resource-exhausted'))  return 'This invitation has reached its resend limit (5). Revoke and re-invite to start over.';
+    if (is('functions/failed-precondition')) return 'This invitation can no longer be resent.';
+    if (is('functions/permission-denied'))   return 'Only the original inviter can resend this invitation.';
+    if (is('functions/not-found'))           return 'Invitation not found.';
     return `Failed to resend invitation. ${message}`.trim();
   }
   if (context === 'revoke') {
-    if (code === 'failed-precondition') return 'This invitation can no longer be revoked.';
-    if (code === 'permission-denied')   return 'Only the original inviter can revoke this invitation.';
-    if (code === 'not-found')           return 'Invitation not found.';
+    if (is('functions/failed-precondition')) return 'This invitation can no longer be revoked.';
+    if (is('functions/permission-denied'))   return 'Only the original inviter can revoke this invitation.';
+    if (is('functions/not-found'))           return 'Invitation not found.';
     return `Failed to revoke invitation. ${message}`.trim();
   }
   return `Unexpected error. ${message}`.trim();

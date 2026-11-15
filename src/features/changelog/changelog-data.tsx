@@ -15,6 +15,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.7',
+    date: 'November 14, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; Firebase 12.19.0. Apart from one detail in an error message, described below, nothing changes in how the app looks or works, and nothing about how projects are stored has changed.</>,
+      <><strong>Changed</strong> &mdash; The app now uses Firebase 12.19.0 (was 12.12.1), the library behind sign-in and cloud storage. The parts of it that the app uses are now: Firestore, the database, 4.17.2 (was 4.14.0); Authentication 1.13.6 (was 1.13.0); Cloud Functions 0.14.0 (was 0.13.3); and Firebase&apos;s core 0.16.2 (was 0.14.11).</>,
+      <><strong>Security</strong> &mdash; It also includes re2js 2.8.7, a library that Firebase&apos;s database code now uses, at a version that fixes a published security advisory. Firebase 12.19.0 on its own would have brought in re2js 2.8.6, which the advisory covers.</>,
+      <><strong>Changed</strong> &mdash; The one detail: when the Share dialog cannot match an invitation error to one of its own messages, it shows a general message followed by the reason Firebase gives. That reason now ends with a number in brackets, the server&apos;s status code, for example &ldquo;[500]&rdquo;.</>,
+      <><strong>Changed</strong> &mdash; The app&apos;s JavaScript files are larger: 1,753,102 bytes in all, up from 1,541,548, an increase of about 207 KB. All of the increase is in the file that holds Firebase.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,779 automated tests in 125 files, none changed. The type check and the code check report the same results as before. The production build lists the same pages as before, with no warnings.</>,
+      <><strong>Note</strong> &mdash; In Chrome 154 on a Mac, headless, against the app&apos;s production build in local mode, the same script ran before and after the update: the sample project and all five tabs; a new project with a release whose late finish date was changed on the chart; deleting the release and the project; a snapshot; the System theme following the browser&apos;s dark and light preference; and a reload. All 37 checks passed both times, with no console messages, no page errors and no failed requests. Of the ten full-page screenshots, eight were the same byte for byte; the other two differed in 6 pixels each at the rounded ends of the header&apos;s Local only &middot; Sign in button, the same pixels that also differed between two runs of version 0.32.4.</>,
+      <><strong>Note</strong> &mdash; Cloud mode was tested in the same browser against local copies of Firebase&apos;s sign-in service and database (Firebase&apos;s own emulators, running on this computer with the production security rules), 30 times on the previous version and 30 times on this one. Each run signed in as a test user, loaded the sample project and switched storage to Cloud in Settings, which uploaded it. It changed a release&apos;s late finish date on the chart, renamed a release on the chart, saved a snapshot and deleted a release through its confirmation dialog, reading the database after each change to check that it had arrived. It reloaded the page and checked the plan on screen against the database. A second browser, signed in as the same user, renamed a release, and the first browser showed the new name without reloading. It then signed out from the account button: the app went back to local mode and the cloud project left the screen.</>,
+      <><strong>Note</strong> &mdash; All 30 runs on the previous version passed every check. On this version, 29 of 30 passed. In the one that failed, sign-in succeeded, but the database refused the account&apos;s requests from the first one, so the project was never uploaded, and the run did not recover. It did not happen again in 20 further runs on each version that recorded the sign-in in detail: in all 40, every request that opened a connection to the database carried the account&apos;s credentials. Its cause is not known.</>,
+      <><strong>Note</strong> &mdash; In every run that passed, neither browser showed a console message or a page error, apart from the database&apos;s own detailed log, which was turned on for the 40 detailed runs. In all 60 runs, every request the page made stayed on this computer, apart from one deliberate test request, which was blocked.</>,
+      <><strong>Note</strong> &mdash; Not tried: signing in with a real Google or Microsoft account, Firebase&apos;s live servers, sending invitations (they need the live server), Firefox, Safari, Windows and real phones.</>,
+    ],
+  },
+  {
     version: '0.32.6',
     date: 'November 14, 2026',
     items: [

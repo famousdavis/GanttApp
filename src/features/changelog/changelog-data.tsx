@@ -15,6 +15,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.33.0',
+    date: 'November 16, 2026',
+    items: [
+      <><strong>Added</strong> &mdash; A Help Center link at the end of the tab bar opens the SPERT&reg; Suite Help Center, with the GanttApp guide, in a new tab.</>,
+      <><strong>Added</strong> &mdash; The link sits at the right-hand end of the tab bar, after About. It opens GanttApp&apos;s page in the SPERT&reg; Suite Help Center, https://spertsuite.com/help/ganttapp, in a new browser tab, and GanttApp stays open in the tab you were using. That page lists the GanttApp guide, points back to the About tab, and says how to get help. The Quick Reference Guide is still on the About tab, as before.</>,
+      <><strong>Added</strong> &mdash; It is a link, not a sixth tab. The five tabs (Projects, Releases, Gantt Chart, Settings, About) are unchanged. The link is smaller grey text with a small &#8599; arrow, apart from the tabs at the far end of the bar, and it is underlined when you point at it or move to it with the keyboard. It never takes the blue fill of the active tab, and it stays in the same place whichever tab is open. The left and right arrow keys still move through the five tabs only. Pressing Tab moves through the five tabs and then to the link.</>,
+      <><strong>Added</strong> &mdash; Screen readers announce it as &ldquo;Help Center (opens in a new tab)&rdquo;. The arrow is hidden from them, and the words &ldquo;(opens in a new tab)&rdquo; are read aloud but not shown. The link opens with <code>rel=&quot;noopener noreferrer&quot;</code>, so the Help Center page gets no hold on the GanttApp tab and is not told which page you came from.</>,
+      <><strong>Security</strong> &mdash; The app now runs on Next.js 16.4.6 (was 16.4.1). This part is a security update: nothing changes in how the app looks or works because of it, and nothing about how projects are stored has changed. Version 16.4.1 is covered by a published security advisory, GHSA-mfr8-8qww-v76h (moderate), about information disclosure when a <code>&apos;use cache&apos;</code> function is called through <code>unstable_cache()</code>. It affects Next.js 16.3.0 to 16.4.4. The app uses neither, but Next.js 16.4.1 now refuses to build it.</>,
+      <><strong>Security</strong> &mdash; Only Next.js itself moved: <code>next</code>, <code>@next/env</code> and the eight platform builds of its compiler, each from 16.4.1 to 16.4.6. No other installed library changed. The security audit lists 26 issues, down from 27, with this advisory cleared.</>,
+      <><strong>Security</strong> &mdash; Taken inside the usual 60-day waiting period for new versions: 16.4.6 was published on 2026-11-09. William approved it for this release.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,804 automated tests in 126 files, 13 of them new, in <code>Tabs.help-center.test.tsx</code>. They check the exact address, the new tab, the name a screen reader reads, and that the link comes directly after About as the bar&apos;s last item, with each tab active in turn. They also check that the link is not a tab: the bar holds exactly five buttons, the five tabs in order. The older tab test reads the first five buttons and never counts them, so it could not see a sixth. One new test checks that the arrow keys step through exactly the five tabs, in order. Nothing checked that before.</>,
+      <><strong>Note</strong> &mdash; Each new test was seen to fail on purpose. The changes tried were: a wrong address; the new-tab setting removed; <code>noreferrer</code> removed; the screen-reader words removed; the screen-reader words made visible; the arrow not hidden from screen readers; the link moved to the other side of the tabs; the link turned into a sixth tab, both instead of the link and beside it; a sixth tab added to the arrow-key order; and two tabs swapped in that order. Each one turned the new tests red, and none of the older tab tests failed.</>,
+      <><strong>Note</strong> &mdash; Checked in a browser, in the light and dark themes, with each tab active in turn. The link&apos;s text contrast measured 5.74:1 on the light background and 7.56:1 on the dark one, above the 4.5:1 that WCAG AA asks for. The browser used for this does not let an automated click open a new tab, so the new tab itself was not seen there.</>,
+      <><strong>Note</strong> &mdash; A note for whoever adds a guide: a comment at the top of the new test file, <code>static-assets.test.ts</code> and <code>AboutTab.test.tsx</code> says to add any new guide in <code>public/</code> to the Help Center&apos;s guide list as well.</>,
+    ],
+  },
+  {
     version: '0.32.8',
     date: 'November 16, 2026',
     items: [

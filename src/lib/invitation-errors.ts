@@ -13,6 +13,17 @@ import type { FunctionsErrorCode } from 'firebase/functions';
 export type InvitationErrorContext = 'send' | 'resend' | 'revoke';
 
 /**
+ * The server's own words from a callable error, for the generic messages.
+ * Since firebase 12.19.0 (@firebase/functions 0.14.0) the SDK appends the
+ * HTTP status to a callable's message ("… [400]"), which means nothing to
+ * the user. Only callable errors are touched; any other error's message is
+ * shown as it is.
+ */
+function serverText(code: string, message: string): string {
+  return /^functions\//.test(code) ? message.replace(/ \[\d{3}\]$/, '') : message;
+}
+
+/**
  * Turn an invitation callable's error into text the user can act on.
  *
  * httpsCallable rejects with a FunctionsError whose code carries a
@@ -20,11 +31,12 @@ export type InvitationErrorContext = 'send' | 'resend' | 'revoke';
  * form matched here, as in spert-ahp, spert-cfd and spert-story-map. Typing
  * each comparison as FunctionsErrorCode makes a bare code a type error.
  *
- * Bare codes are deliberately NOT matched. ShareDialog's resend and revoke
- * handlers also await a Firestore read (listPendingInvites) in the same try,
- * and Firestore errors carry bare codes ('permission-denied'). Matching them
- * would report a failed list refresh as the callable refusing the request.
- * They fall through to the generic text with the error's own message.
+ * Bare codes are deliberately NOT matched. A bare code comes from another
+ * Firebase service — Firestore's errors carry them ('permission-denied') —
+ * and the messages here say the callable refused the request, which such an
+ * error does not mean. They fall through to the generic text with the
+ * error's own message. (Until v0.32.8 a failed list reload after a resend or
+ * revoke reached this function that way; ShareDialog now handles it itself.)
  */
 export function mapInvitationError(
   err: unknown,
@@ -34,7 +46,7 @@ export function mapInvitationError(
   // error-handling helper — robustness matters more than a clean cast.
   const errObj = (err && typeof err === 'object') ? err as { code?: string; message?: string } : {};
   const code    = errObj.code ?? '';
-  const message = errObj.message ?? '';
+  const message = serverText(code, errObj.message ?? '');
   const is = (expected: FunctionsErrorCode) => code === expected;
 
   if (context === 'send') {

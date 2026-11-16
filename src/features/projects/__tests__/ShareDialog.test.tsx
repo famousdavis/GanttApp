@@ -9,6 +9,15 @@ import { ThemeWrapper } from '../../../test/ThemeWrapper';
 import type { CloudGanttStorageService } from '../../../shared/storage';
 import { projectsTabPalette } from '../projectsTabPalette';
 import { FunctionsError } from 'firebase/functions';
+import { FirestoreError } from 'firebase/firestore';
+import { getSendInvitationEmail } from '../../../lib/firebase';
+
+// Only the send callable's getter is replaced, so a test can see what reaches
+// the server; it returns null (no Firebase config) unless a test says otherwise.
+vi.mock('../../../lib/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../lib/firebase')>()),
+  getSendInvitationEmail: vi.fn(() => null),
+}));
 
 // Create a mock cloud storage service
 function createMockCloudStorage(overrides?: Partial<CloudGanttStorageService>): CloudGanttStorageService {
@@ -419,5 +428,101 @@ describe("ShareDialog's invitation errors", () => {
     expect(await screen.findByText('This invitation has reached its resend limit (5). Revoke and re-invite to start over.'))
       .toBeInTheDocument();
     expect(screen.queryByText(/Failed to resend invitation/)).not.toBeInTheDocument();
+  });
+
+  // The list reload after a resend or revoke is a Firestore read, and a real
+  // FirestoreError (private constructor in the typings) is what it throws.
+  const listReloadError = () =>
+    new (FirestoreError as unknown as new (code: string, message: string) => Error)(
+      'permission-denied', 'Missing or insufficient permissions.');
+
+  it.each([
+    ['resend', 'Invitation resent'],
+    ['revoke', 'Invitation revoked'],
+  ] as const)('after a %s that worked, a failed list reload says it worked', async (action, done) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValueOnce([invite]).mockRejectedValueOnce(listReloadError()),
+    });
+    renderDialog(storage);
+
+    const row = (await screen.findByText('one@example.com')).closest('div[style]')?.parentElement as HTMLElement;
+    if (action === 'resend') {
+      fireEvent.click(within(row).getByRole('button', { name: 'Resend' }));
+    } else {
+      fireEvent.click(within(row).getByRole('button', { name: 'Revoke invitation' }));
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'Revoke Invitation' })).getByRole('button', { name: 'Revoke' }));
+    }
+
+    expect(await screen.findByText(`${done}, but the list below could not be updated. Close and reopen this dialog to see the latest.`))
+      .toBeInTheDocument();
+    expect(storage[action === 'resend' ? 'resendInvite' : 'revokeInvite']).toHaveBeenCalledWith('t1');
+    expect(storage.listPendingInvites).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/^Failed to/)).not.toBeInTheDocument();
+  });
+
+  it('a resend the server refuses shows its reason and does not reload the list', async () => {
+    const storage = createMockCloudStorage({
+      listPendingInvites: vi.fn().mockResolvedValue([invite]),
+      resendInvite: vi.fn().mockRejectedValue(new FunctionsError('failed-precondition', 'This invitation can no longer be resent.')),
+    });
+    renderDialog(storage);
+
+    const row = (await screen.findByText('one@example.com')).closest('div[style]')?.parentElement as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Resend' }));
+
+    expect(await screen.findByText('This invitation can no longer be resent.')).toBeInTheDocument();
+    expect(storage.listPendingInvites).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ShareDialog's limit of 25 addresses per send", () => {
+  // The server rejects more than 25 addresses in one call (PER_CALL_CAP in
+  // spert-landing-page/functions/src/sendInvitationEmail.tsx) with a message
+  // written for developers. The dialog checks first.
+  const addresses = (n: number) => Array.from({ length: n }, (_, i) => `person${i + 1}@example.com`);
+  const callable = vi.fn();
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    callable.mockReset().mockRejectedValue(
+      new FunctionsError('resource-exhausted', "You've reached today's invitation limit (25). Try again tomorrow."));
+    vi.mocked(getSendInvitationEmail).mockReturnValue(callable as unknown as ReturnType<typeof getSendInvitationEmail>);
+  });
+
+  const send = (text: string) => {
+    renderDialog(createMockCloudStorage());
+    const box = screen.getByLabelText('Email addresses');
+    fireEvent.change(box, { target: { value: text } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send Invitations' }));
+    return box;
+  };
+
+  it.each([
+    [26, 'Remove 1 address and try again.'],
+    [28, 'Remove 3 addresses and try again.'],
+  ])('with %i addresses, sends nothing, keeps the text and says how many to remove', async (n, tail) => {
+    const text = addresses(n).join('\n');
+    const box = send(text);
+
+    expect(await screen.findByText(`You can invite at most 25 people at a time. ${tail}`)).toBeInTheDocument();
+    expect(callable).not.toHaveBeenCalled();
+    expect(box).toHaveValue(text);
+  });
+
+  it('sends exactly 25 addresses', async () => {
+    send(addresses(25).join(', '));
+
+    expect(await screen.findByText("You've reached today's invitation limit (25). Try again tomorrow.")).toBeInTheDocument();
+    expect(callable).toHaveBeenCalledTimes(1);
+    expect(callable.mock.calls[0][0].emails).toHaveLength(25);
+  });
+
+  it('counts each address once: 26 entries with one repeated are sent', async () => {
+    const list = addresses(25);
+    send([...list, list[0].toUpperCase()].join('\n'));
+
+    expect(await screen.findByText("You've reached today's invitation limit (25). Try again tomorrow.")).toBeInTheDocument();
+    expect(callable.mock.calls[0][0].emails).toHaveLength(25);
   });
 });

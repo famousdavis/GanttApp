@@ -1,5 +1,30 @@
 # Change Log
 
+## Version 0.33.0 (2026-11-16)
+
+### Added: a Help Center link
+
+A Help Center link at the end of the tab bar opens the SPERT® Suite Help Center, with the GanttApp guide, in a new tab.
+
+- **Where it is.** The link sits at the right-hand end of the tab bar, after About. It opens GanttApp's page in the SPERT® Suite Help Center, https://spertsuite.com/help/ganttapp, in a new browser tab, and GanttApp stays open in the tab you were using. That page lists the GanttApp guide, points back to the About tab, and says how to get help. The Quick Reference Guide is still on the About tab, as before.
+- **It is a link, not a sixth tab.** The five tabs (Projects, Releases, Gantt Chart, Settings, About) are unchanged. The link is smaller grey text with a small ↗ arrow, apart from the tabs at the far end of the bar, and it is underlined when you point at it or move to it with the keyboard. It never takes the blue fill of the active tab, and it stays in the same place whichever tab is open. The left and right arrow keys still move through the five tabs only. Pressing Tab moves through the five tabs and then to the link.
+- **Screen readers announce it as "Help Center (opens in a new tab)".** The arrow is hidden from them, and the words "(opens in a new tab)" are read aloud but not shown. The link opens with `rel="noopener noreferrer"`, so the Help Center page gets no hold on the GanttApp tab and is not told which page you came from.
+
+### Security: Next.js 16.4.6
+
+This part is a security update. Nothing changes in how the app looks or works because of it, and nothing about how projects are stored has changed.
+
+- **The app now runs on Next.js 16.4.6** (was 16.4.1). Version 16.4.1 is covered by a published security advisory, GHSA-mfr8-8qww-v76h (moderate), about information disclosure when a `'use cache'` function is called through `unstable_cache()`. It affects Next.js 16.3.0 to 16.4.4. The app uses neither, but Next.js 16.4.1 now refuses to build it.
+- **Only Next.js itself moved:** `next`, `@next/env` and the eight platform builds of its compiler, each from 16.4.1 to 16.4.6. No other installed library changed. The security audit lists 26 issues, down from 27, with this advisory cleared.
+- **Taken inside the usual 60-day waiting period** for new versions: 16.4.6 was published on 2026-11-09. William approved it for this release.
+
+### Tested
+
+- 2,804 automated tests in 126 files, 13 of them new, in `Tabs.help-center.test.tsx`. They check the exact address, the new tab, the name a screen reader reads, and that the link comes directly after About as the bar's last item, with each tab active in turn. They also check that the link is not a tab: the bar holds exactly five buttons, the five tabs in order. The older tab test reads the first five buttons and never counts them, so it could not see a sixth. One new test checks that the arrow keys step through exactly the five tabs, in order. Nothing checked that before.
+- Each new test was seen to fail on purpose. The changes tried were: a wrong address; the new-tab setting removed; `noreferrer` removed; the screen-reader words removed; the screen-reader words made visible; the arrow not hidden from screen readers; the link moved to the other side of the tabs; the link turned into a sixth tab, both instead of the link and beside it; a sixth tab added to the arrow-key order; and two tabs swapped in that order. Each one turned the new tests red, and none of the older tab tests failed.
+- Checked in a browser, in the light and dark themes, with each tab active in turn. The link's text contrast measured 5.74:1 on the light background and 7.56:1 on the dark one, above the 4.5:1 that WCAG AA asks for. The browser used for this does not let an automated click open a new tab, so the new tab itself was not seen there.
+- A note for whoever adds a guide: a comment at the top of the new test file, `static-assets.test.ts` and `AboutTab.test.tsx` says to add any new guide in `public/` to the Help Center's guide list as well.
+
 ## Version 0.32.8 (2026-11-16)
 
 ### Fixed: clearer messages when sharing a project

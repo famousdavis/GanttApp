@@ -7,6 +7,12 @@
 import { TabType } from '../types';
 import { useTheme } from '../../context/ThemeContext';
 
+// This app's page in the SPERT® Suite Help Center. Module-local: the link below
+// is its only consumer, and the app's other spertsuite.com addresses are inline
+// literals too. Deliberately not exported, so the tests compare the address as a
+// literal and a wrong address here cannot satisfy them.
+const HELP_CENTER_URL = 'https://spertsuite.com/help/ganttapp';
+
 interface TabsProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
@@ -61,6 +67,38 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
           {tab.label}
         </button>
       ))}
+      {/* Help Center: a LINK that leaves the app, never a tab. So it is not in
+          `tabs`, not a <button>, and not in pages/index.tsx's arrow-key tabOrder.
+          It sits after About, at the bar's right-hand end, as quiet muted text
+          with none of the tabs' fill, radius or bottom border. The arrow is
+          decoration, hidden from assistive technology; the visually hidden text
+          gives the accessible name "Help Center (opens in a new tab)".
+          ⚠️ The spaces are their own text nodes, OUTSIDE the spans: a space inside
+          a span is trimmed by the accessible-name computation, giving
+          "Help Center(opens in a new tab)". */}
+      <a
+        href={HELP_CENTER_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          marginLeft: 'auto',
+          alignSelf: 'center',
+          color: colors.textSecondary,
+          fontSize: '0.875rem',
+          whiteSpace: 'nowrap',
+          textDecoration: 'none'
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+        onMouseLeave={(e) => {
+          if (document.activeElement !== e.currentTarget) e.currentTarget.style.textDecoration = 'none';
+        }}
+        onFocus={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+        onBlur={(e) => {
+          if (!e.currentTarget.matches(':hover')) e.currentTarget.style.textDecoration = 'none';
+        }}
+      >
+        Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="pt-sr-only">(opens in a new tab)</span>
+      </a>
     </div>
   );
 }

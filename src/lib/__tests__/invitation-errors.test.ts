@@ -2,10 +2,33 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from 'vitest';
-import { FunctionsError, type FunctionsErrorCodeCore } from 'firebase/functions';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { deleteApp, initializeApp } from 'firebase/app';
+import { FunctionsError, getFunctions, httpsCallable, type FunctionsErrorCodeCore } from 'firebase/functions';
 import { FirestoreError } from 'firebase/firestore';
 import { mapInvitationError } from '../invitation-errors';
+
+/**
+ * The error the real SDK throws when the deployed callable answers with
+ * `status` and an HttpsError body. Only fetch is replaced, so the message
+ * format is whatever this firebase version makes of the server's text.
+ */
+async function callableRejection(name: string, status: number, error: { status: string; message: string }) {
+  const app = initializeApp({ apiKey: 'test', projectId: 'demo-test', appId: 'test' }, `callable-${name}-${status}`);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status, json: async () => ({ error }) }));
+  try {
+    await httpsCallable(getFunctions(app), name)({});
+  } catch (err) {
+    return err as FunctionsError;
+  } finally {
+    await deleteApp(app);
+  }
+  throw new Error(`${name} did not reject`);
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 // Every error here is built with the class the app really receives, never a
 // look-alike object. httpsCallable rejects with a FunctionsError, whose code
@@ -130,11 +153,11 @@ describe('mapInvitationError', () => {
   });
 
   describe('bare codes are not callable errors', () => {
-    // The resend and revoke handlers in ShareDialog also await a Firestore
-    // read (listPendingInvites) inside the same try, and Firestore errors carry
-    // bare codes. Mapping a bare 'permission-denied' would tell the user the
-    // callable refused ("Only the original inviter…") when the resend worked
-    // and only the list refresh failed.
+    // Firestore errors carry bare codes. Mapping a bare 'permission-denied'
+    // would tell the user the callable refused ("Only the original inviter…")
+    // for an error the callable never raised. (Until v0.32.8 this happened
+    // when the list reload after a successful resend failed; ShareDialog's
+    // own tests now cover that case.)
     it('a FirestoreError permission-denied gets the generic resend message, not the inviter message', () => {
       const result = mapInvitationError(
         firestoreErr('permission-denied', 'Missing or insufficient permissions.'),
@@ -146,6 +169,43 @@ describe('mapInvitationError', () => {
     it('a FirestoreError not-found gets the generic revoke message, not "Invitation not found."', () => {
       expect(mapInvitationError(firestoreErr('not-found', 'No document.'), 'revoke'))
         .toBe('Failed to revoke invitation. No document.');
+    });
+  });
+
+  describe('the HTTP status firebase adds to the server message', () => {
+    // firebase 12.19.0 (@firebase/functions 0.14.0) turns the server's
+    // "emails must be …" into "emails must be … [400]". The generic text
+    // shows the server's words, not the status.
+    it('a real callable rejection ends its message with the HTTP status', async () => {
+      const err = await callableRejection('sendInvitationEmail', 400,
+        { status: 'INVALID_ARGUMENT', message: 'role must be "editor" or "viewer".' });
+      expect(err.code).toBe('functions/invalid-argument');
+      expect(err.message).toBe('role must be "editor" or "viewer". [400]');
+    });
+
+    it('the generic send text drops the status', async () => {
+      const err = await callableRejection('sendInvitationEmail', 400,
+        { status: 'INVALID_ARGUMENT', message: 'role must be "editor" or "viewer".' });
+      expect(mapInvitationError(err, 'send')).toBe('Failed to send invitations. role must be "editor" or "viewer".');
+    });
+
+    it('the generic resend text drops the status', async () => {
+      const err = await callableRejection('resendInvite', 500,
+        { status: 'INTERNAL', message: 'Could not resend the invitation right now. Please try again.' });
+      expect(mapInvitationError(err, 'resend'))
+        .toBe('Failed to resend invitation. Could not resend the invitation right now. Please try again.');
+    });
+
+    it('a mapped code still shows its own message', async () => {
+      const err = await callableRejection('resendInvite', 429,
+        { status: 'RESOURCE_EXHAUSTED', message: 'This invitation has reached its resend limit (5). Revoke and re-invite to start over.' });
+      expect(mapInvitationError(err, 'resend'))
+        .toBe('This invitation has reached its resend limit (5). Revoke and re-invite to start over.');
+    });
+
+    it('leaves a bracketed number alone in an error that is not from a callable', () => {
+      expect(mapInvitationError(firestoreErr('unavailable', 'Backend unavailable [503]'), 'revoke'))
+        .toBe('Failed to revoke invitation. Backend unavailable [503]');
     });
   });
 

@@ -61,6 +61,19 @@ interface SendResult {
   failed: { email: string; reason: string }[];
 }
 
+// The server takes at most 25 addresses in one call and rejects more with a
+// message written for developers (PER_CALL_CAP in spert-landing-page's
+// functions/src/sendInvitationEmail.tsx). Keep the two numbers equal.
+const MAX_INVITES_PER_SEND = 25;
+
+/** The message for a send over the limit, or null when the count is allowed. */
+function overLimitMessage(count: number): string | null {
+  if (count <= MAX_INVITES_PER_SEND) return null;
+  const extra = count - MAX_INVITES_PER_SEND;
+  return `You can invite at most ${MAX_INVITES_PER_SEND} people at a time. ` +
+    `Remove ${extra} ${extra === 1 ? 'address' : 'addresses'} and try again.`;
+}
+
 export function ShareDialog({ projectId, projectName, cloudStorage, onClose }: ShareDialogProps) {
   const { colors, palette } = useShareColors();
 
@@ -362,6 +375,12 @@ function InvitationSection({
         : 'Enter one or more email addresses.');
       return;
     }
+    // Too many → no CF call, no textarea clear, so the user can trim the list.
+    const overLimit = overLimitMessage(valid.length);
+    if (overLimit) {
+      setInviteError(overLimit);
+      return;
+    }
     setInviteError(null);
     setSendResult(null);
     setBulkSending(true);
@@ -396,33 +415,41 @@ function InvitationSection({
     }
   };
 
-  const handleResend = async (tokenId: string) => {
+  // Resend and revoke call the server, then reload the pending list. The two
+  // fail separately: a failed call changed nothing, so its error is mapped;
+  // a failed reload comes after the change was made, so it must not read as
+  // the call failing.
+  const runInviteAction = async (
+    tokenId: string,
+    context: 'resend' | 'revoke',
+    action: (id: string) => Promise<void>,
+    done: string,
+  ) => {
     setInviteError(null);
     setActionBusy(tokenId);
+    let actionSucceeded = false;
     try {
-      await cloudStorage.resendInvite(tokenId);
-      const updated = await cloudStorage.listPendingInvites(projectId);
-      setPendingInvites(updated);
+      await action(tokenId);
+      actionSucceeded = true;
+      setPendingInvites(await cloudStorage.listPendingInvites(projectId));
     } catch (err) {
-      setInviteError(mapInvitationError(err, 'resend'));
+      if (actionSucceeded) {
+        console.warn('[ShareDialog] pending refresh failed:', err);
+        setInviteError(`${done}, but the list below could not be updated. Close and reopen this dialog to see the latest.`);
+      } else {
+        setInviteError(mapInvitationError(err, context));
+      }
     } finally {
       setActionBusy(null);
     }
   };
 
-  const handleRevoke = async (tokenId: string) => {
-    setInviteError(null);
+  const handleResend = (tokenId: string) =>
+    runInviteAction(tokenId, 'resend', (id) => cloudStorage.resendInvite(id), 'Invitation resent');
+
+  const handleRevoke = (tokenId: string) => {
     setRevokeConfirmToken(null);
-    setActionBusy(tokenId);
-    try {
-      await cloudStorage.revokeInvite(tokenId);
-      const updated = await cloudStorage.listPendingInvites(projectId);
-      setPendingInvites(updated);
-    } catch (err) {
-      setInviteError(mapInvitationError(err, 'revoke'));
-    } finally {
-      setActionBusy(null);
-    }
+    return runInviteAction(tokenId, 'revoke', (id) => cloudStorage.revokeInvite(id), 'Invitation revoked');
   };
 
   return (

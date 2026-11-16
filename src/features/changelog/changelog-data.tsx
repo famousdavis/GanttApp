@@ -15,6 +15,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.32.8',
+    date: 'November 16, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; Clearer messages when sharing a project. This affects sharing a project in cloud mode. Nothing about how projects are stored has changed.</>,
+      <><strong>Fixed</strong> &mdash; A resend or revoke that worked is no longer reported as failed. After you resend or revoke an invitation, the Share dialog reloads its list of pending invitations. If that reload failed, the dialog said &ldquo;Failed to resend invitation.&rdquo; or &ldquo;Failed to revoke invitation.&rdquo;, although the resend or revoke had gone through. It now says &ldquo;Invitation resent, but the list below could not be updated. Close and reopen this dialog to see the latest.&rdquo;, or &ldquo;Invitation revoked, &hellip;&rdquo; for a revoke.</>,
+      <><strong>Fixed</strong> &mdash; More than 25 addresses at once are caught before anything is sent. The server accepts at most 25 addresses in one send. With more, the dialog used to send them anyway and pass on the server&apos;s reply, which was written for developers: &ldquo;Failed to send invitations. emails must be a non-empty array of at most 25 entries.&rdquo; Now it sends nothing, keeps what you typed, and says, for example, &ldquo;You can invite at most 25 people at a time. Remove 3 addresses and try again.&rdquo; An address entered twice counts once.</>,
+      <><strong>Fixed</strong> &mdash; Messages passed on from the server no longer end with a number in brackets. Since version 0.32.7, they ended with the server&apos;s status code, such as &ldquo; [400]&rdquo; or &ldquo; [500]&rdquo;. It is now left off.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,791 automated tests in 125 files, 12 of them new. Against the previous version, 6 of the new tests fail; the other 6 check things that already worked and must keep working, such as sending exactly 25 addresses.</>,
+      <><strong>Note</strong> &mdash; One new test passes a request through Firebase&apos;s own code, with only the network replaced, and checks that the message it produces ends with the status code. If a later Firebase version changes that format, this test fails.</>,
+      <><strong>Note</strong> &mdash; Each change was broken on purpose, one way at a time, and each time the tests written for it failed: never removing the status code; removing it from errors that do not come from the server; reporting a failed reload as a failed resend or revoke; treating a resend as done before the server answered; refusing exactly 25 addresses; and dropping the 25-address check.</>,
+      <><strong>Note</strong> &mdash; Not tried in a browser or against the live server: the Share dialog needs a signed-in cloud account.</>,
+    ],
+  },
+  {
     version: '0.32.7',
     date: 'November 14, 2026',
     items: [

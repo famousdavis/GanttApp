@@ -1,5 +1,22 @@
 # Change Log
 
+## Version 0.32.8 (2026-11-16)
+
+### Fixed: clearer messages when sharing a project
+
+This affects sharing a project in cloud mode. Nothing about how projects are stored has changed.
+
+- **A resend or revoke that worked is no longer reported as failed.** After you resend or revoke an invitation, the Share dialog reloads its list of pending invitations. If that reload failed, the dialog said "Failed to resend invitation." or "Failed to revoke invitation.", although the resend or revoke had gone through. It now says "Invitation resent, but the list below could not be updated. Close and reopen this dialog to see the latest.", or "Invitation revoked, …" for a revoke.
+- **More than 25 addresses at once are caught before anything is sent.** The server accepts at most 25 addresses in one send. With more, the dialog used to send them anyway and pass on the server's reply, which was written for developers: "Failed to send invitations. emails must be a non-empty array of at most 25 entries." Now it sends nothing, keeps what you typed, and says, for example, "You can invite at most 25 people at a time. Remove 3 addresses and try again." An address entered twice counts once.
+- **Messages passed on from the server no longer end with a number in brackets.** Since version 0.32.7, they ended with the server's status code, such as " [400]" or " [500]". It is now left off.
+
+### Tested
+
+- 2,791 automated tests in 125 files, 12 of them new. Against the previous version, 6 of the new tests fail; the other 6 check things that already worked and must keep working, such as sending exactly 25 addresses.
+- One new test passes a request through Firebase's own code, with only the network replaced, and checks that the message it produces ends with the status code. If a later Firebase version changes that format, this test fails.
+- Each change was broken on purpose, one way at a time, and each time the tests written for it failed: never removing the status code; removing it from errors that do not come from the server; reporting a failed reload as a failed resend or revoke; treating a resend as done before the server answered; refusing exactly 25 addresses; and dropping the 25-address check.
+- Not tried in a browser or against the live server: the Share dialog needs a signed-in cloud account.
+
 ## Version 0.32.7 (2026-11-14)
 
 ### Changed: Firebase 12.19.0

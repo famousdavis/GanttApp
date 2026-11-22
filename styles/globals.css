@@ -71,6 +71,31 @@ a {
   text-decoration: none;
 }
 
+/* The header title (pages/index.tsx) is a gradient clipped to its text, set inline, so it falls back to solid
+   text in two cases. Inline styles beat a stylesheet's normal rules, so every declaration here is !important.
+   The rules select the <h1> alone: its TM <sup> keeps its own inline #bbb.
+   - More contrast (prefers-contrast: more): the theme's own text colour, theme.ts `colors.text` (#333 light,
+     #e2e8f0 dark), which the <h1> sets inline as --hdr26-title-contrast.
+   - Print: LIGHT_THEME.text, #333, in both themes. A gradient title prints blank when the browser leaves out
+     background graphics, which is its default.
+   The print rule comes second so that it wins when both match: a system set to more contrast prints too, and
+   the dark theme's near-white text would not show on paper. Guarded by src/lib/__tests__/title-gradient.test.ts. */
+@media (prefers-contrast: more) {
+  .hdr26-title {
+    background-image: none !important;
+    color: var(--hdr26-title-contrast) !important;
+    -webkit-text-fill-color: var(--hdr26-title-contrast) !important;
+  }
+}
+
+@media print {
+  .hdr26-title {
+    background-image: none !important;
+    color: #333 !important;
+    -webkit-text-fill-color: #333 !important;
+  }
+}
+
 /* Style date input placeholders to match text input placeholders */
 /* Default: show placeholder parts in muted color */
 input[type="date"]::-webkit-datetime-edit-month-field,

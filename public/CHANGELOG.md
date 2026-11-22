@@ -1,5 +1,27 @@
 # Change Log
 
+## Version 0.33.1 (2026-11-21)
+
+### Changed: the GanttApp title in GanttApp's own teal
+
+The name at the top of the page, GanttApp™, is now drawn in GanttApp's own teal, the colour of its icon, as a gradient from a lighter teal on the left to a deeper teal on the right. It was a blue gradient. Its size, weight and place are unchanged, and so is the small ™ beside it. Nothing about how projects are stored has changed.
+
+- **It now meets the contrast bar in both themes.** At every point along the gradient, the title has at least 3:1 contrast against the page behind it: 3.02:1 at its weakest on the light theme's white page, and 3.12:1 on the dark theme's page. The old blue fell below that, at 2.99:1 on white and 2.47:1 on the dark page. The title is large, bold text (33.6 pixels), and 3:1 is the bar WCAG sets for large text.
+- **It prints.** Browsers leave out background graphics when printing unless you turn them on, and a gradient title is drawn as one, so the old title printed as a blank space. In print, the title is now solid dark grey, in both themes.
+- **It follows a "more contrast" setting.** If your system asks apps for more contrast (on a Mac, "Increase contrast" in the Accessibility settings), the title is drawn as solid text in the theme's own text colour: dark grey in the light theme and near-white in the dark theme. The ™ keeps its own light grey either way.
+
+### Internal
+
+- **A known limitation in print.** If you print in the dark theme with "Background graphics" turned on, the page prints dark, and the solid dark-grey title on it measures 1.35:1, which is hard to read. The old blue title measured 2.47:1 there. This was accepted rather than changing how the page prints. With background graphics off, the browser's default, the title prints dark on white in both themes.
+- **How the gradient is set.** The title's gradient is chosen by theme and set as `backgroundImage`, never through the `background` shorthand. React re-applies only the style values that change, and setting the shorthand resets how the background is clipped, so a theme-chosen shorthand would turn the title into a solid bar the first time the theme was switched. The two gradients are whole strings in one object, `TITLE_GRADIENT` in `pages/index.tsx`.
+- **How the fallbacks are set.** They are two rules for the title's class, `hdr26-title`, in `styles/globals.css`, marked `!important` because the gradient is an inline style. The more-contrast rule reads the theme's text colour from a CSS variable that the title sets, so it switches together with the gradient. The print rule comes second, so it wins on a system set to more contrast, which also prints.
+
+### Tested
+
+- 2,819 automated tests in 128 files, 15 of them new, in two files. `title-gradient.test.ts` (14 tests) reads the two gradients from the page's source and checks their end colours, and that each keeps at least 3:1 at all 41 points sampled along it, in two colour spaces, on the page background. It also checks that those backgrounds are still `#ffffff` and `#1a1a2e` in `theme.ts`, that the title sets its gradient as `backgroundImage` and never through the shorthand, that both fallbacks are present and in that order, and that the ™ keeps its colour. `title-gradient.page.test.tsx` (1 test) renders the whole page, switches the theme with its own button from System to Light to Dark and back to System, and checks after each switch that the title is still clipped to its text, in that theme's gradient.
+- Each check was seen to fail on purpose, one change at a time, while every other test passed. The changes were: the old blue put back in the light theme, and in the dark theme; the dark page background changed by one step; the gradient written with the `background` shorthand; the more-contrast rule removed, and separately pointed at another class; and the print rule moved above the more-contrast rule. With the shorthand, both new files failed, and the page test failed the way the bug would show: after the switch to dark, the title was no longer clipped to its text.
+- Checked in Chrome against the previous version, without a "more contrast" preference. In both themes, at 1,024 and 800 pixels wide, the title has the same text, weight, width and ™ position, and is drawn in the new gradient on the expected background. Switching the theme without reloading, both with the theme button and by changing the system's light or dark setting, gave the right gradient each time, and the browser console showed nothing new. With more contrast requested, the title was solid #333 (12.63:1) in the light theme and #e2e8f0 (13.83:1) in the dark theme. Printed to PDF, the title was solid #333 in both themes, with background graphics off and on; the previous version printed it blank with them off.
+
 ## Version 0.33.0 (2026-11-16)
 
 ### Added: a Help Center link

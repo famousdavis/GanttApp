@@ -30,6 +30,17 @@ import { useChartEditing } from '../src/features/chart/useChartEditing';
 import { useSnapshots } from '../src/features/chart/useSnapshots';
 import { useEffectiveChartProps } from '../src/features/chart/useEffectiveChartProps';
 
+/**
+ * The header title's gradient in each theme, in GanttApp's own teal (the favicon's #0891b2), light end on the left.
+ * Every point of each gradient keeps at least 3:1 against that theme's page background, LIGHT_THEME.background
+ * #ffffff and DARK_THEME.background #1a1a2e (theme.ts); the title is 33.6 px bold, so 3:1 is the bar.
+ * src/lib/__tests__/title-gradient.test.ts reads these two strings from this file, so keep each one a whole literal.
+ */
+const TITLE_GRADIENT = {
+  light: 'linear-gradient(90deg, #449fbc 0%, #00657d 100%)',
+  dark: 'linear-gradient(90deg, #54adca 0%, #00738e 100%)',
+} as const;
+
 // Main App Component
 function AppContent() {
   const {
@@ -284,14 +295,20 @@ function AppContent() {
                 alt="GanttApp icon"
                 style={{ marginRight: '0.5rem', height: '1.75rem', width: '1.75rem', borderRadius: '8px' }}
               />
-              <h1 style={{
+              {/* The gradient is set as backgroundImage, never with the `background` shorthand. React re-applies
+                  only the style keys that change, and setting the shorthand resets background-clip, so a
+                  theme-chosen shorthand would turn the title into a solid bar on the first live theme switch.
+                  The class carries the print and increased-contrast fallbacks in styles/globals.css; the
+                  increased-contrast one reads the theme's text colour from --hdr26-title-contrast. */}
+              <h1 className="hdr26-title" style={{
                 fontSize: '2.1rem',
                 marginBottom: '0.25rem',
-                background: 'linear-gradient(90deg, #0099ff 0%, #0051cc 100%)',
+                backgroundImage: TITLE_GRADIENT[resolvedTheme],
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
+                backgroundClip: 'text',
+                '--hdr26-title-contrast': colors.text
+              } as React.CSSProperties}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
             </div>
             <p style={{ color: colors.textSecondary, fontSize: '0.875rem', fontStyle: 'italic' }}>
               Visualize release date uncertainty in your project timeline

@@ -168,6 +168,13 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 .chart-project-picker:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }
 [data-theme="dark"] .chart-project-picker:focus-visible { outline-color: #60a5fa; }
 
+/* The header's account chip (StorageStatusChip): a visible ring on keyboard focus only (FRAME26 stage 0,
+   v0.33.2). The chip sets no inline outline, which would beat these rules. #2563eb is 5.17:1 on #ffffff and
+   #60a5fa is 6.71:1 on #1a1a2e: the frame contract's focus colours. */
+.storage-status-chip:focus { outline: none; }
+.storage-status-chip:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+[data-theme="dark"] .storage-status-chip:focus-visible { outline-color: #60a5fa; }
+
 /* The space between a tab's content and the footer. <main> is a flex item
    (it grows so the footer sits at the bottom of the window), and a flex item
    keeps its children's margins inside it, so a margin on the footer would ADD

@@ -29,11 +29,20 @@ function CloudIcon() {
   );
 }
 
-function LockIcon() {
+// FRAME26 stage 0 (v0.33.2): the chip's own colours, keyed by the resolved theme. The chip is transparent, so
+// its ground is the page: theme.ts's `background`, #ffffff and #1a1a2e. Text needs 4.5:1 there; the lock needs
+// 3:1 (WCAG 1.4.11), because in the signed-in-local variant it is the only sign of the storage mode.
+//   CHIP_MUTED: "Local only" and the lock. Light #6a7282 = 4.84 (was #9CA3AF = 2.54); dark #9ca3af = 6.72.
+//   CHIP_LINK:  "Sign in". Light #0070f3 = 4.55; dark #51a2ff = 6.47 (was #0070f3 = 3.75).
+// Guarded by src/shared/components/__tests__/StorageStatusChip.frame26.test.tsx.
+export const CHIP_MUTED = { light: '#6a7282', dark: '#9ca3af' } as const;
+export const CHIP_LINK = { light: '#0070f3', dark: '#51a2ff' } as const;
+
+function LockIcon({ stroke }: { stroke: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="11" width="18" height="11" rx="2" stroke="#9CA3AF" strokeWidth="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke={stroke} strokeWidth="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -41,7 +50,8 @@ function LockIcon() {
 export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
   const { mode } = useStorage();
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { colors, resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
   const isSignedInLocal = mode === 'local' && !!user;
@@ -67,7 +77,8 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
     cursor: 'pointer',
     appearance: 'none',
     WebkitAppearance: 'none',
-    outline: 'none',
+    // No inline `outline` (FRAME26 stage 0, v0.33.2): an inline value beats the stylesheet, and
+    // .storage-status-chip in styles/globals.css draws the keyboard focus ring.
   };
 
   const dividerStyle: React.CSSProperties = {
@@ -96,6 +107,7 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
       <button
         type="button"
         onClick={onOpenModal}
+        className="storage-status-chip"
         style={pillButtonStyle}
         title={`Signed in as ${user?.email ?? 'cloud user'}`}
         aria-haspopup="dialog"
@@ -128,6 +140,7 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
       <button
         type="button"
         onClick={onOpenModal}
+        className="storage-status-chip"
         style={pillButtonStyle}
         title={`Signed in as ${user?.email ?? 'local user'}`}
         aria-haspopup="dialog"
@@ -149,7 +162,7 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
           }}
           aria-hidden="true"
         >
-          <LockIcon />
+          <LockIcon stroke={CHIP_MUTED[theme]} />
         </span>
       </button>
     );
@@ -160,14 +173,15 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
     <button
       type="button"
       onClick={onOpenModal}
+      className="storage-status-chip"
       style={pillButtonStyle}
       title="Using local storage"
       aria-haspopup="dialog"
       aria-label="Sign in"
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px' }}>
-        <LockIcon />
-        <span style={{ fontSize: '13px', color: '#9CA3AF' }}>Local only</span>
+        <LockIcon stroke={CHIP_MUTED[theme]} />
+        <span style={{ fontSize: '13px', color: CHIP_MUTED[theme] }}>Local only</span>
       </span>
       <span style={dividerStyle} aria-hidden="true" />
       <span
@@ -179,7 +193,7 @@ export function StorageStatusChip({ onOpenModal }: StorageStatusChipProps) {
         }}
         aria-hidden="true"
       >
-        <span style={{ fontSize: '12px', fontWeight: 500, color: '#0070f3' }}>Sign in</span>
+        <span style={{ fontSize: '12px', fontWeight: 500, color: CHIP_LINK[theme] }}>Sign in</span>
       </span>
     </button>
   );

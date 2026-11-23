@@ -413,9 +413,9 @@ export function ProjectsTab({
 
       <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{status}</p>
 
-      {data.projects.length === 0 && <p className="pt-empty">No projects yet.</p>}
+      {data.projects.length === 0 && <p className="pt-empty" data-sf="empty">No projects yet.</p>}
       {data.projects.length > 0 && shown.length === 0 && (
-        <p className="pt-empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
+        <p className="pt-empty" data-sf="empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
       )}
       {shown.length > 0 && (
         <ul className="sf-tiles" data-sf="tiles" aria-labelledby={headingId}>

@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.34.1',
+    date: 'November 23, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; The Help Center link still underlines when you point at it, now drawn by the SPERT&reg; Suite&apos;s shared stylesheet, the same way in every SPERT&reg; app. Pressing Tab to it shows the frame&apos;s focus ring, as on every other control in the tab row; it no longer also underlines on keyboard focus.</>,
+      <><strong>Internal</strong> &mdash; The frame&apos;s stylesheet, <code>styles/spert-frame.css</code>, is re-vendored at version 2, byte for byte from <code>spert-suite-docs</code>; its one new rule underlines <code>.sf-help</code> on hover. <code>Tabs.tsx</code> no longer sets the link&apos;s underline in JavaScript: its four hover and focus handlers are gone, and the link carries no inline style.</>,
+      <><strong>Internal</strong> &mdash; &ldquo;No projects yet.&rdquo; and the &ldquo;All projects are archived&rdquo; line carry the frame&apos;s empty-collection hook, <code>data-sf=&quot;empty&quot;</code>, so the suite&apos;s frame-check measures a first visit. Their look and place are unchanged.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,887 automated tests in 138 files, all passing (2,883 before). The new tests cover the two empty panels, a shown project with no empty panel beside its grid, and the Help Center link with no handlers and no inline style after a hover or a focus. Each was seen to fail with its change undone. Checked with the suite&apos;s frame-check tool on a production build: no unregistered deviations on Projects, Projects on a first visit, and the Gantt Chart.</>,
+    ],
+  },
+  {
     version: '0.34.0',
     date: 'November 23, 2026',
     items: [

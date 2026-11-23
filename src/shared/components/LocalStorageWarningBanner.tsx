@@ -4,17 +4,17 @@
 
 // LocalStorageWarningBanner — amber caution banner shown on every app load
 // when storage mode is 'local' and the user hasn't suppressed it via Settings.
-// Session-only dismiss via ×; permanent suppression via Settings > Notifications.
+// Session-only dismiss via "Got it"; permanent suppression via Settings > Notifications.
+// The frame's caution notice (FRAME26, v0.34.0): `.sf-notice--caution` sets its ground, border and text colours, and
+// `.sf-notice-dismiss` draws "Got it". No inline style: an inline value would beat the frame's.
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
 import { useStorage } from '../../context/StorageContext';
 
 const SUPPRESS_KEY = 'ganttapp-suppress-local-warning';
 
 export function LocalStorageWarningBanner() {
   const { mode } = useStorage();
-  const { colors, resolvedTheme } = useTheme();
   const [visible, setVisible] = useState(false);
 
   // SSR hydration + mode-dependent: must start false (matching server render), then evaluate
@@ -30,44 +30,13 @@ export function LocalStorageWarningBanner() {
 
   if (!visible) return null;
 
-  const bgColor = resolvedTheme === 'dark' ? '#3a2a10' : '#fff8e6';
-  const borderColor = resolvedTheme === 'dark' ? '#6b5a2a' : '#f5c842';
-
   return (
-    <div style={{
-      background: bgColor,
-      border: `1px solid ${borderColor}`,
-      borderRadius: '8px',
-      padding: '1rem 1.25rem',
-      marginBottom: '1rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '1rem',
-    }}>
-      <p style={{
-        color: colors.text,
-        fontSize: '0.9rem',
-        lineHeight: '1.5',
-        margin: 0,
-      }}>
+    <div className="sf-notice sf-notice--caution">
+      <p>
         <strong>Your data exists only in this browser</strong> and can be lost without warning.
         Export at the end of every session to protect your work.
       </p>
-      <button
-        onClick={handleDismiss}
-        style={{
-          background: 'transparent',
-          color: '#b8860b',
-          border: '1px solid #b8860b',
-          borderRadius: '4px',
-          padding: '0.4rem 1rem',
-          fontWeight: '600',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          fontSize: '0.85rem',
-        }}
-      >
+      <button type="button" className="sf-notice-dismiss" onClick={handleDismiss}>
         Got it
       </button>
     </div>

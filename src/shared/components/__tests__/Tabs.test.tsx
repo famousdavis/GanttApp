@@ -69,11 +69,14 @@ describe('Tabs', () => {
     expect(freshMock).not.toHaveBeenCalled();
   });
 
-  it('highlights the active tab with blue background', () => {
+  // FRAME26 (v0.34.0): the current tab is marked by aria-current="page", which the frame's stylesheet draws as the
+  // accent underline at the same weight (it was a filled blue pill). No tab sets an inline style.
+  it('marks the active tab with aria-current="page", and no other', () => {
     render(<Tabs activeTab="projects" onTabChange={mockOnTabChange} />, { wrapper: ThemeWrapper });
     const projectsTab = screen.getByText('Projects');
-    expect(projectsTab.style.color).toBe('white');
-    // jsdom converts hex to rgb
-    expect(projectsTab.style.background).toContain('0, 112, 243');
+    expect(projectsTab.getAttribute('aria-current')).toBe('page');
+    expect(projectsTab.className).toBe('sf-tab');
+    expect(projectsTab.getAttribute('style')).toBeNull();
+    expect(screen.getByText('Releases').hasAttribute('aria-current')).toBe(false);
   });
 });

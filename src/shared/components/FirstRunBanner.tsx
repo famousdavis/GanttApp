@@ -4,14 +4,14 @@
 
 // FirstRunBanner — dismissible informational banner shown on first app load.
 // Non-blocking: no functionality is gated. Uses localStorage key 'spert_firstRun_seen'.
+// The frame's info notice (FRAME26, v0.34.0): `.sf-notice--info` sets its ground, border, text and link colours,
+// and `.sf-notice-dismiss` draws "Got it". No inline style: an inline value would beat the frame's.
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
 
 const FIRST_RUN_KEY = 'spert_firstRun_seen';
 
 export function FirstRunBanner() {
-  const { colors, resolvedTheme } = useTheme();
   const [visible, setVisible] = useState(false);
 
   // SSR hydration pattern: must start false (matching server render), then check localStorage on client.
@@ -30,34 +30,15 @@ export function FirstRunBanner() {
 
   if (!visible) return null;
 
-  const bgColor = resolvedTheme === 'dark' ? '#1a2e44' : '#e6f2ff';
-  const borderColor = resolvedTheme === 'dark' ? '#2a4a6b' : '#b3d4fc';
-
   return (
-    <div style={{
-      background: bgColor,
-      border: `1px solid ${borderColor}`,
-      borderRadius: '8px',
-      padding: '1rem 1.25rem',
-      marginBottom: '1rem',
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: '1rem',
-    }}>
-      <p style={{
-        color: colors.text,
-        fontSize: '0.9rem',
-        lineHeight: '1.5',
-        margin: 0,
-      }}>
+    <div className="sf-notice sf-notice--info">
+      <p>
         SPERT&reg; Suite web apps are free to use. No account is required to use them. By
         accessing or using this app, you agree to our{' '}
         <a
           href="https://spertsuite.com/TOS.pdf"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#0070f3', textDecoration: 'none' }}
         >
           Terms of Service
         </a>
@@ -66,26 +47,12 @@ export function FirstRunBanner() {
           href="https://spertsuite.com/PRIVACY.pdf"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#0070f3', textDecoration: 'none' }}
         >
           Privacy Policy
         </a>. If you choose to enable optional Cloud Storage, you&apos;ll be asked to
         explicitly confirm your agreement.
       </p>
-      <button
-        onClick={handleDismiss}
-        style={{
-          background: 'transparent',
-          color: '#0070f3',
-          border: '1px solid #0070f3',
-          borderRadius: '4px',
-          padding: '0.4rem 1rem',
-          fontWeight: '600',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          fontSize: '0.85rem',
-        }}
-      >
+      <button type="button" className="sf-notice-dismiss" onClick={handleDismiss}>
         Got it
       </button>
     </div>

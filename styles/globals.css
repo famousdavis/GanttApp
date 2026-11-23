@@ -15,8 +15,10 @@
   --input-border: #ddd;
 }
 
+/* The dark page ground is the SPERT® Suite frame's, #101828 (FRAME26, v0.34.0), the same as spert-frame.css's
+   --sf-page. body paints it too, so an overscroll or the instant before .sf-app paints shows the same ground. */
 [data-theme="dark"] {
-  --bg: #1a1a2e;
+  --bg: #101828;
   --surface: #16213e;
   --text: #e2e8f0;
   --text-secondary: #a0aec0;
@@ -71,29 +73,15 @@ a {
   text-decoration: none;
 }
 
-/* The header title (pages/index.tsx) is a gradient clipped to its text, set inline, so it falls back to solid
-   text in two cases. Inline styles beat a stylesheet's normal rules, so every declaration here is !important.
-   The rules select the <h1> alone: its TM <sup> keeps its own inline #bbb.
-   - More contrast (prefers-contrast: more): the theme's own text colour, theme.ts `colors.text` (#333 light,
-     #e2e8f0 dark), which the <h1> sets inline as --hdr26-title-contrast.
-   - Print: LIGHT_THEME.text, #333, in both themes. A gradient title prints blank when the browser leaves out
-     background graphics, which is its default.
-   The print rule comes second so that it wins when both match: a system set to more contrast prints too, and
-   the dark theme's near-white text would not show on paper. Guarded by src/lib/__tests__/title-gradient.test.ts. */
-@media (prefers-contrast: more) {
-  .hdr26-title {
-    background-image: none !important;
-    color: var(--hdr26-title-contrast) !important;
-    -webkit-text-fill-color: var(--hdr26-title-contrast) !important;
-  }
-}
-
-@media print {
-  .hdr26-title {
-    background-image: none !important;
-    color: #333 !important;
-    -webkit-text-fill-color: #333 !important;
-  }
+/* The header title's gradient (HDR26, v0.33.1; on the frame's .sf-grad since v0.34.0): GanttApp's own teal, light end
+   on the left. styles/spert-frame.css paints .sf-grad from these two ramps, chooses the dark one on
+   :root[data-theme="dark"], and carries both fallbacks (solid --sf-heading under prefers-contrast: more, solid black in
+   print). Every point of each ramp keeps at least 3:1 on its page ground (#ffffff, #101828), because the title is
+   24 px bold, which is large text. Guarded by src/lib/__tests__/title-gradient.test.ts, which reads these two
+   declarations: keep each one a whole literal. */
+:root {
+  --app-grad-light: linear-gradient(90deg, #449fbc 0%, #00657d 100%);
+  --app-grad-dark: linear-gradient(90deg, #54adca 0%, #00738e 100%);
 }
 
 /* Style date input placeholders to match text input placeholders */
@@ -167,22 +155,3 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 .chart-project-picker:focus { outline: none; }
 .chart-project-picker:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }
 [data-theme="dark"] .chart-project-picker:focus-visible { outline-color: #60a5fa; }
-
-/* The header's account chip (StorageStatusChip): a visible ring on keyboard focus only (FRAME26 stage 0,
-   v0.33.2). The chip sets no inline outline, which would beat these rules. #2563eb is 5.17:1 on #ffffff and
-   #60a5fa is 6.71:1 on #1a1a2e: the frame contract's focus colours. */
-.storage-status-chip:focus { outline: none; }
-.storage-status-chip:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-[data-theme="dark"] .storage-status-chip:focus-visible { outline-color: #60a5fa; }
-
-/* The space between a tab's content and the footer. <main> is a flex item
-   (it grows so the footer sits at the bottom of the window), and a flex item
-   keeps its children's margins inside it, so a margin on the footer would ADD
-   to a tab's trailing margin instead of overlapping it. This empty box is
-   main's last child, so its 4rem overlaps that trailing margin as the old
-   footer margin did, and every tab keeps the gap it had. */
-.app-main::after {
-  content: '';
-  display: block;
-  margin-top: 4rem;
-}

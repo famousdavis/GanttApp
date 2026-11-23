@@ -4,6 +4,10 @@
 
 import '@/styles/globals.css';
 import '@/styles/projects-tab.css';
+// The SPERT® Suite app frame (FRAME26, v0.34.0): vendored byte for byte, never edited here (md5 pinned by
+// src/lib/__tests__/frame-stylesheet.test.ts). Imported LAST on purpose: .sf-btn and .pt-btn are one class each, so
+// source order decides, and the frame's 36 px / 14 px / 500 must win on the toolbar buttons.
+import '@/styles/spert-frame.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import { AuthProvider } from '../src/context/AuthContext';

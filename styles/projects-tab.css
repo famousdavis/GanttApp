@@ -7,15 +7,9 @@
    @container or @media (hover: none), so these live here. Colours come in as
    --pt-* custom properties, set inline from the theme by projectsTabPalette(). */
 
-.pt-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
-  margin-bottom: 1rem;
-}
-.pt-head h2 { font-size: 1.5rem; color: var(--pt-text); }
+/* The heading row is the frame's .sf-headrow (FRAME26, v0.34.0); this keeps only its 16 px to what follows (the
+   archived filter, the import preview, the tile grid, whose own 16 px top margin collapses with it). */
+.pt-head { margin-bottom: 1rem; }
 
 .pt-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
@@ -81,18 +75,8 @@
 }
 .pt-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--pt-primary); }
 
-/* The grid: one, two or three columns by the width it has. */
-.pt-area { container-type: inline-size; }
-.pt-grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr);
-}
-@container (min-width: 560px) { .pt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@container (min-width: 860px) { .pt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* The tile grid is the frame's .sf-tiles (FRAME26, v0.34.0): repeat(auto-fill, minmax(340px, 1fr)), gap 16, so
+   three columns at 1280 and 1440 and four at 1920. The tile itself is styled below and did not change. */
 
 .pt-tile {
   position: relative;

@@ -14,9 +14,13 @@ describe('ChangelogTab', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('renders the Changelog heading', () => {
+  // FRAME26 (v0.34.0): "Changelog" is the page's h1, drawn by pages/index.tsx's heading row outside the tab's error
+  // boundary (src/lib/__tests__/frame-pages.test.tsx), so the tab no longer draws a heading of its own.
+  it('renders no page heading of its own: "Changelog" is the frame\'s h1', () => {
     render(<ChangelogTab />, { wrapper: ThemeWrapper });
-    expect(screen.getByText('Changelog')).toBeTruthy();
+    expect(screen.queryByText('Changelog')).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
   it('renders Version 5.7 entry', () => {

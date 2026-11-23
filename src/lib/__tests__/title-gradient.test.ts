@@ -11,34 +11,36 @@ import { LIGHT_THEME, DARK_THEME } from '../../shared/utils/theme';
 
 /**
  * The header's GanttApp™ is drawn as a gradient in GanttApp's favicon teal, #0891b2 (HDR26, v0.33.1), and every
- * point of it stays readable on the page behind it, in both themes.
+ * point of it stays readable on the page behind it, in both themes. Since v0.34.0 (FRAME26) it is drawn by the SPERT®
+ * Suite frame: one `.sf-grad` span, painted by styles/spert-frame.css from `--app-grad-light` / `--app-grad-dark` in
+ * styles/globals.css, on the frame's page ground `--sf-page`. This guard was re-pinned on purpose for that move:
+ * the ramps are byte for byte v0.33.1's, the dark ground moved from #1a1a2e to #101828 (so the dark ramp's weakest
+ * point rose, 3.12 → 3.24), and the fallbacks are the frame's.
  *
- * ⚠️ jsdom has no paint, so nothing here is measured from a render. The gradient strings are read from
- * `pages/index.tsx`'s source, the page backgrounds come from `theme.ts`, and the contrast is computed here from the
- * WCAG 2.x definition. The rendered page was measured in Chrome when this was written: the first opaque background
- * behind the title is the page's root <div>, which paints `colors.background`.
+ * ⚠️ jsdom has no paint, so nothing here is measured from a render. The ramps are read from globals.css, the ground
+ * and the title's size and fallbacks from the vendored stylesheet, the markup from AppHeader.tsx, and the contrast is
+ * computed here from the WCAG 2.x definition. The rendered page is measured in Chrome by frame-check
+ * (`contrast.title`, `ground.*`, `title.more-*`).
  *
- * The bar is 3 : 1 at every point of each ramp: the title is 33.6 px bold at every width, which is large text. Both
- * ramps clear the bar by hundredths, on purpose, so the backgrounds are pinned below: a change to either one has to
- * come through here.
+ * The bar is 3 : 1 at every point of each ramp: the title is 24 px bold, which is large text. Both ramps clear the
+ * bar by hundredths or tenths, so the grounds are pinned below: a change to either one has to come through here.
  *
- * The title's gradient is set as `backgroundImage`, never through the `background` shorthand. React re-applies only
- * the style keys that change, and setting the shorthand resets `background-clip`, so a theme-chosen shorthand turns
- * the title into a solid bar on the first live theme switch while every other check stays green. That trap is
- * checked here by the source's shape, and by behaviour in `title-gradient.page.test.tsx`.
+ * The old trap (v0.33.1): React re-applies only the style keys that change, and a theme-chosen `background` shorthand
+ * resets `background-clip`. It cannot bite now: the title has NO inline style, and the stylesheet chooses the ramp
+ * by theme. That is checked here by the markup's shape, and by behaviour in `title-gradient.page.test.tsx`.
  *
  * The colour maths is the HDR26 plan's Appendix A, typed. It is copied, not shared.
  */
+const HEADER = join(process.cwd(), 'src', 'shared', 'components', 'AppHeader.tsx');
 const PAGE = join(process.cwd(), 'pages', 'index.tsx');
 const GLOBALS_CSS = join(process.cwd(), 'styles', 'globals.css');
+const FRAME_CSS = join(process.cwd(), 'styles', 'spert-frame.css');
 
 const BAR = 3;
-/** The page's background in each theme: theme.ts, measured in Chrome behind the title (`getComputedStyle`). */
-const PREMISE = { light: '#ffffff', dark: '#1a1a2e' } as const;
+/** The page ground in each theme: the frame's `--sf-page`, measured in Chrome behind the title by frame-check. */
+const PREMISE = { light: '#ffffff', dark: '#101828' } as const;
 /** The approved ends (HDR26 plan §2), light end first. A change to any of them goes back to the owner with a proof. */
 const ENDS = { light: ['#449fbc', '#00657d'], dark: ['#54adca', '#00738e'] } as const;
-const TITLE_CLASS = 'hdr26-title';
-const CONTRAST_PROPERTY = '--hdr26-title-contrast';
 
 // ---- Appendix A (HDR26 plan v5), typed ----------------------------------------------------------------------------
 
@@ -140,19 +142,65 @@ function weakest(e1: string, e2: string, ground: string, space: 'oklab' | 'srgb'
 
 // ---- Reading the source -------------------------------------------------------------------------------------------
 
-const page = () => readFileSync(PAGE, 'utf8');
-const css = () => readFileSync(GLOBALS_CSS, 'utf8');
+const header = () => readFileSync(HEADER, 'utf8');
+const globals = () => readFileSync(GLOBALS_CSS, 'utf8');
+const frame = () => readFileSync(FRAME_CSS, 'utf8');
+const noComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
 
-/** The `TITLE_GRADIENT = { light: '…', dark: '…' }` object: each theme's string, read as a whole literal. */
-function titleGradients(text: string): { light: string; dark: string } {
-  const block = /\bconst\s+TITLE_GRADIENT\s*=\s*\{([^}]*)\}/.exec(text);
-  if (!block) throw new Error('pages/index.tsx: no TITLE_GRADIENT object');
-  const read = (theme: 'light' | 'dark') => {
-    const hits = Array.from(block[1]!.matchAll(new RegExp(`\\b${theme}\\s*:\\s*'([^']*)'`, 'g')));
-    if (hits.length !== 1) throw new Error(`TITLE_GRADIENT.${theme}: found ${hits.length}, expected exactly 1`);
-    return hits[0]![1]!;
-  };
-  return { light: read('light'), dark: read('dark') };
+/** The text between the brace at `open` and its partner. */
+function braced(text: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}' && --depth === 0) return text.slice(open + 1, i);
+  }
+  throw new Error('unbalanced braces');
+}
+
+/** The top-level rules of a stylesheet (or of one @media block's body): selector → declarations, in order. */
+function rules(text: string): { selector: string; start: number; declarations: Map<string, string> }[] {
+  const css = noComments(text);
+  const out: { selector: string; start: number; declarations: Map<string, string> }[] = [];
+  let i = 0;
+  while (i < css.length) {
+    const open = css.indexOf('{', i);
+    if (open === -1) break;
+    const selector = css.slice(i, open).trim().replace(/\s+/g, ' ');
+    const body = braced(css, open);
+    if (!selector.startsWith('@')) {
+      const declarations = new Map<string, string>();
+      for (const d of body.split(';')) {
+        const k = d.indexOf(':');
+        if (k !== -1) declarations.set(d.slice(0, k).trim(), d.slice(k + 1).trim().replace(/\s+/g, ' '));
+      }
+      out.push({ selector, start: open, declarations });
+    }
+    i = open + body.length + 2;
+  }
+  return out;
+}
+
+/** The declarations of the one top-level rule with exactly this selector list. */
+function rule(text: string, selector: string): Map<string, string> {
+  const hits = rules(text).filter((r) => r.selector === selector);
+  if (hits.length !== 1) throw new Error(`${selector}: found ${hits.length} rules, expected exactly 1`);
+  return hits[0]!.declarations;
+}
+
+/** The body of the one `@media <query> { … }` block, and where it starts. */
+function media(text: string, query: string): { body: string; start: number } {
+  const css = noComments(text);
+  const hits = Array.from(css.matchAll(/@media\s+([^{]+?)\s*\{/g)).filter((m) => m[1]!.trim() === query);
+  if (hits.length !== 1) throw new Error(`@media ${query}: found ${hits.length} blocks, expected exactly 1`);
+  const open = hits[0]!.index! + hits[0]![0].length - 1;
+  return { body: braced(css, open), start: open };
+}
+
+/** `--app-grad-<theme>` from globals.css: exactly one declaration, a whole literal. */
+function appGrad(theme: 'light' | 'dark'): string {
+  const hits = Array.from(noComments(globals()).matchAll(new RegExp(`--app-grad-${theme}\\s*:\\s*([^;]+);`, 'g')));
+  if (hits.length !== 1) throw new Error(`--app-grad-${theme}: found ${hits.length} declarations, expected exactly 1`);
+  return hits[0]![1]!.trim();
 }
 
 /** A gradient string's two ends, light end first. Only the exact two-stop, left-to-right form is accepted. */
@@ -162,68 +210,19 @@ function endsOf(gradient: string): [string, string] {
   return [m[1]!.toLowerCase(), m[2]!.toLowerCase()];
 }
 
-/** Every JSX element in the page whose inline style clips its background to its text: its tag and opening tag. */
-function textClippedElements(text: string): { tag: string; openingTag: string }[] {
-  const found: { tag: string; openingTag: string }[] = [];
-  // Array.from: tsconfig targets es5 without downlevelIteration, so for…of over an iterator is a type error (TS2802).
-  for (const m of Array.from(text.matchAll(/\bbackgroundClip:\s*'text'/g))) {
-    const start = text.lastIndexOf('<', m.index);
-    // The style object's own closing brace (its values hold no braces), then the end of the opening tag.
-    const end = text.indexOf('>', text.indexOf('}', m.index));
-    const tag = /^<([A-Za-z][\w.]*)/.exec(text.slice(start));
-    if (start === -1 || end === -1 || !tag) throw new Error('pages/index.tsx: a backgroundClip outside a JSX tag');
-    found.push({ tag: tag[1]!, openingTag: text.slice(start, end + 1) });
-  }
-  return found;
-}
+/** The frame's page ground in each theme, read from the vendored stylesheet. */
+const sfPage = (theme: 'light' | 'dark') =>
+  parseCssColor(rule(frame(), theme === 'light' ? ':root' : ':root.dark, :root[data-theme="dark"]').get('--sf-page')!);
+const sfToken = (theme: 'light' | 'dark', name: string) =>
+  parseCssColor(rule(frame(), theme === 'light' ? ':root' : ':root.dark, :root[data-theme="dark"]').get(name)!);
 
-/** The title's inline style object, between `style={{` and its closing brace. */
-function titleStyle(text: string): string {
-  const [title] = textClippedElements(text);
-  if (!title) throw new Error('pages/index.tsx: no text-clipped title');
-  const m = /style=\{\{([^}]*)\}/.exec(title.openingTag);
-  if (!m) throw new Error('pages/index.tsx: the title has no inline style object');
-  return m[1]!;
-}
-
-/** The title element from its opening tag to `</h1>`, so its ™ <sup> can be read. */
-function titleElement(text: string): string {
-  const start = text.indexOf('<h1');
-  const end = text.indexOf('</h1>', start);
-  if (start === -1 || end === -1) throw new Error('pages/index.tsx: no <h1>');
+/** The brand link in AppHeader.tsx, from `<Link` to `</Link>`. */
+function brand(): string {
+  const text = header();
+  const start = text.indexOf('<Link href="/"');
+  const end = text.indexOf('</Link>', start);
+  if (start === -1 || end === -1) throw new Error('AppHeader.tsx: no brand <Link href="/">');
   return text.slice(start, end);
-}
-
-interface Rule {
-  start: number;
-  declarations: Map<string, string>;
-  selector: string;
-}
-
-/**
- * Every `@media <query> { <selector> { … } }` block in the stylesheet whose query matches `query` exactly: its
- * position, its one inner selector, and its declarations (name → value, `!important` kept in the value).
- */
-function mediaRules(text: string, query: string): Rule[] {
-  const rules: Rule[] = [];
-  const re = /@media\s+([^{]+?)\s*\{\s*([^{}]+?)\s*\{([^{}]*)\}\s*\}/g;
-  for (const m of Array.from(text.matchAll(re))) {
-    if (m[1]!.trim() !== query) continue;
-    const declarations = new Map<string, string>();
-    for (const d of m[3]!.split(';')) {
-      const i = d.indexOf(':');
-      if (i !== -1) declarations.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
-    }
-    rules.push({ start: m.index!, selector: m[2]!.trim(), declarations });
-  }
-  return rules;
-}
-
-/** The one rule for the title's class under this media query: exactly one, or it fails. */
-function fallback(query: string): Rule {
-  const hits = mediaRules(css(), query).filter((r) => r.selector.split(/[\s,]+/).includes(`.${TITLE_CLASS}`));
-  if (hits.length !== 1) throw new Error(`globals.css @media ${query}: found ${hits.length} title rules, expected 1`);
-  return hits[0]!;
 }
 
 // ---- The guard ----------------------------------------------------------------------------------------------------
@@ -255,48 +254,75 @@ describe("the header's GanttApp™: a gradient in GanttApp's teal, readable in b
     });
 
     it('the ramp sampler fails a known-bad: the old blue gradient is 2.99 : 1 on white and 2.47 : 1 on #1a1a2e', () => {
-      // Vacuity control: a sampler that always passed would pass every ramp test below.
+      // Vacuity control: a sampler that always passed would pass every ramp test below. (#1a1a2e is the old dark
+      // ground, kept here because the known-bad numbers were measured on it.)
       for (const space of ['oklab', 'srgb'] as const) {
-        expect(trunc(weakest('#0099ff', '#0051cc', PREMISE.light, space))).toBe('2.99');
-        expect(trunc(weakest('#0099ff', '#0051cc', PREMISE.dark, space))).toBe('2.47');
+        expect(trunc(weakest('#0099ff', '#0051cc', '#ffffff', space))).toBe('2.99');
+        expect(trunc(weakest('#0099ff', '#0051cc', '#1a1a2e', space))).toBe('2.47');
       }
+    });
+
+    it('the stylesheet reader finds what it must: the frame\'s own .sf-app and .sf-grad rules, and the two media blocks', () => {
+      // Must-find: a reader that found nothing would throw, but one that found the wrong rule would not.
+      expect(rule(frame(), '.sf-app').get('background')).toBe('var(--sf-page)');
+      expect(rule(frame(), '.sf-grad').get('background-image')).toBe('var(--app-grad-light)');
+      expect(rule(media(frame(), '(prefers-contrast: more)').body, '.sf-grad').size).toBe(3);
+      expect(rule(media(frame(), 'print').body, '.sf-grad').size).toBe(3);
+      expect(() => rule(frame(), '.no-such-rule')).toThrow(/found 0/);
     });
   });
 
-  it('exactly one element clips its background to its text, and it is the <h1> carrying the title class', () => {
+  it('exactly one element carries the gradient: one .sf-grad span, "GanttApp", inside the title', () => {
     // Must-find, and the census: a reader that found nothing would pass every row below.
-    const clipped = textClippedElements(page());
-    expect(clipped.map((e) => e.tag)).toEqual(['h1']);
-    expect(clipped[0]!.openingTag).toMatch(/WebkitBackgroundClip:\s*'text'/);
-    expect(clipped[0]!.openingTag).toMatch(/WebkitTextFillColor:\s*'transparent'/);
-    expect(clipped[0]!.openingTag).toMatch(new RegExp(`^<h1 className="${TITLE_CLASS}" style=\\{\\{`));
+    const b = brand();
+    expect(Array.from(header().matchAll(/className="[^"]*\bsf-grad\b/g))).toHaveLength(1);
+    expect(b).toMatch(/<span className="sf-title" data-sf="title">\s*<span className="sf-grad">GanttApp<\/span>/);
+    for (const file of [header(), readFileSync(PAGE, 'utf8')]) {
+      expect(file).not.toMatch(/\bbackgroundClip\b|\bWebkitBackgroundClip\b|\bbackgroundImage\b|\bTITLE_GRADIENT\b/);
+    }
   });
 
-  it('the gradient is set as backgroundImage from TITLE_GRADIENT by theme, never through the background shorthand', () => {
+  it('the title has no inline style at all, so a theme switch cannot reset its background-clip', () => {
     // React re-applies only the style keys that change; a changing `background` shorthand resets background-clip.
-    const style = titleStyle(page());
-    expect(style).not.toMatch(/(?:^|[\s,{])['"]?background['"]?\s*:/);
-    expect(style).toMatch(/\bbackgroundImage:\s*TITLE_GRADIENT\[resolvedTheme\],/);
+    // With no inline style, the stylesheet chooses the ramp by theme and React sets nothing.
+    const b = brand();
+    const title = b.slice(b.indexOf('<span className="sf-title"'));
+    expect(title).not.toMatch(/\bstyle=/);
+    // D7: no ground, opacity or hover of its own anywhere in the brand.
+    expect(b).not.toMatch(/\bstyle=|\bopacity\b|\bhover\b|\bbackground\b/i);
   });
 
-  it('the two gradient strings are whole literals in one object, and the page holds no other gradient', () => {
+  it('the two ramps are whole literals in globals.css, byte for byte v0.33.1\'s, and nothing else there is a gradient', () => {
     // R5: a colour string assembled at runtime from parts could not be read here.
-    const text = page();
-    const gradients = titleGradients(text);
-    expect(Array.from(text.matchAll(/linear-gradient\(/g))).toHaveLength(2);
-    expect(text.match(/\bTITLE_GRADIENT\b/g)).toHaveLength(2);
-    expect(endsOf(gradients.light)).toEqual(ENDS.light);
-    expect(endsOf(gradients.dark)).toEqual(ENDS.dark);
+    expect(Array.from(noComments(globals()).matchAll(/linear-gradient\(/g))).toHaveLength(2);
+    expect(appGrad('light')).toBe('linear-gradient(90deg, #449fbc 0%, #00657d 100%)');
+    expect(appGrad('dark')).toBe('linear-gradient(90deg, #54adca 0%, #00738e 100%)');
+    expect(endsOf(appGrad('light'))).toEqual(ENDS.light);
+    expect(endsOf(appGrad('dark'))).toEqual(ENDS.dark);
+    // The frame paints .sf-grad from them, and chooses the dark one on GanttApp's data-theme.
+    expect(rule(frame(), '.sf-grad').get('background-image')).toBe('var(--app-grad-light)');
+    expect(rule(frame(), ':root.dark .sf-grad, :root[data-theme="dark"] .sf-grad').get('background-image')).toBe('var(--app-grad-dark)');
   });
 
-  it("the page's background in each theme is the pinned premise", () => {
+  it("the page's ground in each theme is the pinned premise: the frame's --sf-page, which theme.ts and .sf-bar follow", () => {
+    expect(sfPage('light')).toBe(PREMISE.light);
+    expect(sfPage('dark')).toBe(PREMISE.dark);
     expect(parseCssColor(LIGHT_THEME.background)).toBe(PREMISE.light);
     expect(parseCssColor(DARK_THEME.background)).toBe(PREMISE.dark);
+    expect(rule(frame(), '.sf-bar').get('background')).toBe('var(--sf-page)');
+  });
+
+  it('the title is 24 px bold, so it is large text and the bar is 3 : 1', () => {
+    const font = rule(frame(), '.sf-title').get('font')!;
+    const m = /^(\d+) (\d+)px\/\d+px\b/.exec(font);
+    expect(m, font).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(700);
+    expect(Number(m![2])).toBeGreaterThanOrEqual(18.66);
   });
 
   for (const theme of ['light', 'dark'] as const) {
     it(`${theme}: every point of the ramp meets ${BAR} : 1 on the page, in Oklab and in sRGB`, () => {
-      const [from, to] = endsOf(titleGradients(page())[theme]);
+      const [from, to] = endsOf(appGrad(theme));
       for (const space of ['oklab', 'srgb'] as const) {
         const w = weakest(from, to, PREMISE[theme], space);
         expect(w, `${theme} ${from} → ${to} on ${PREMISE[theme]} (${space}): ${trunc(w)}`).toBeGreaterThanOrEqual(BAR);
@@ -304,38 +330,34 @@ describe("the header's GanttApp™: a gradient in GanttApp's teal, readable in b
     });
   }
 
-  it("falls back to solid text under prefers-contrast: more, in the theme's own text colour", () => {
-    const rule = fallback('(prefers-contrast: more)');
-    expect(rule.selector).toBe(`.${TITLE_CLASS}`);
-    expect(rule.declarations.get('background-image')).toBe('none !important');
-    expect(rule.declarations.get('color')).toBe(`var(${CONTRAST_PROPERTY}) !important`);
-    expect(rule.declarations.get('-webkit-text-fill-color')).toBe(`var(${CONTRAST_PROPERTY}) !important`);
-    // The <h1> sets the property from the theme's text colour, so it switches in the same render as the gradient.
-    expect(titleStyle(page())).toMatch(new RegExp(`'${CONTRAST_PROPERTY}':\\s*colors\\.text\\b`));
+  it("falls back to solid text under prefers-contrast: more, in the frame's heading colour", () => {
+    const more = rule(media(frame(), '(prefers-contrast: more)').body, '.sf-grad');
+    expect(more.get('background-image')).toBe('none !important');
+    expect(more.get('-webkit-text-fill-color')).toBe('currentColor !important');
+    expect(more.get('color')).toBe('var(--sf-heading) !important');
   });
 
-  it('falls back to solid near-black in print, LIGHT_THEME.text, and the print rule wins when both match', () => {
-    const print = fallback('print');
-    expect(print.selector).toBe(`.${TITLE_CLASS}`);
-    expect(print.declarations.get('background-image')).toBe('none !important');
-    for (const property of ['color', '-webkit-text-fill-color']) {
-      const value = print.declarations.get(property);
-      expect(value, property).toMatch(/ !important$/);
-      expect(parseCssColor(value!.replace(/ !important$/, '')), property).toBe(parseCssColor(LIGHT_THEME.text));
-    }
+  it('falls back to solid black in print, and the print rule wins when both match', () => {
+    const print = media(frame(), 'print');
+    const decl = rule(print.body, '.sf-grad');
+    expect(decl.get('background-image')).toBe('none !important');
+    expect(decl.get('-webkit-text-fill-color')).toBe('currentColor !important');
+    expect(decl.get('color')).toBe('#000 !important');
     // Equal specificity, so the later rule wins: printing from a system set to more contrast must still print dark.
-    expect(print.start).toBeGreaterThan(fallback('(prefers-contrast: more)').start);
+    expect(print.start).toBeGreaterThan(media(frame(), '(prefers-contrast: more)').start);
   });
 
-  it('the fallback colours meet the bar: each theme text on its page, and print on white paper', () => {
-    expect(contrast(parseCssColor(LIGHT_THEME.text), PREMISE.light)).toBeGreaterThanOrEqual(BAR);
-    expect(contrast(parseCssColor(DARK_THEME.text), PREMISE.dark)).toBeGreaterThanOrEqual(BAR);
+  it('the fallback colours meet the bar: the heading colour on each ground, and print on white paper', () => {
+    expect(contrast(sfToken('light', '--sf-heading'), PREMISE.light)).toBeGreaterThanOrEqual(BAR);
+    expect(contrast(sfToken('dark', '--sf-heading'), PREMISE.dark)).toBeGreaterThanOrEqual(BAR);
+    expect(contrast('#000000', '#ffffff')).toBeGreaterThanOrEqual(BAR);
   });
 
-  it('the ™ keeps its own colour: the <sup> sets #bbb as both colour and text fill', () => {
-    const sup = /<sup style=\{\{([^}]*)\}\}>TM<\/sup>/.exec(titleElement(page()));
-    expect(sup, 'the title has a TM <sup> with an inline style').not.toBeNull();
-    expect(sup![1]).toMatch(/\bcolor:\s*'#bbb'/);
-    expect(sup![1]).toMatch(/\bWebkitTextFillColor:\s*'#bbb'/);
+  it("the ™ is the frame's muted mark, the glyph, with no colour of its own, and it reads at 4.5 : 1", () => {
+    // v0.33.1 drew the letters "TM" in #bbb (1.91 : 1 on white). The frame's mark is muted: 4.84 / 6.82.
+    expect(brand()).toMatch(/<span className="sf-mark sf-mark--tm">™<\/span>/);
+    for (const theme of ['light', 'dark'] as const) {
+      expect(contrast(sfToken(theme, '--sf-text-muted'), PREMISE[theme]), theme).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

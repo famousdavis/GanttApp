@@ -74,7 +74,9 @@ function projects(...names: string[]): Project[] {
 
 async function renderPage() {
   render(<Home />, { wrapper: FullWrapper });
-  await screen.findByRole('button', { name: 'New Project' });
+  // FRAME26 (v0.34.0): the toolbar is on screen, every button disabled, while the data loads (contract §7), so
+  // its appearance no longer means the page has loaded. Wait for the loaded one: its controls are enabled.
+  await waitFor(() => expect(screen.getByRole('button', { name: 'New Project' })).toBeEnabled());
 }
 
 describe('the Projects tab on the page', () => {
@@ -114,7 +116,7 @@ describe('the Projects tab on the page', () => {
       const projectsTab = screen.getByRole('button', { name: 'Projects' });
       const terms = await screen.findByText(/SPERT® Suite web apps are free to use/);
       const caution = await screen.findByText('Your data exists only in this browser');
-      const heading = screen.getByRole('heading', { name: 'Projects', level: 2 });
+      const heading = screen.getByRole('heading', { name: 'Projects', level: 1 });
       expect(before(header, projectsTab)).toBe(true);
       expect(before(projectsTab, terms)).toBe(true);
       expect(before(terms, caution)).toBe(true);
@@ -131,7 +133,7 @@ describe('the Projects tab on the page', () => {
       expect(localStorage.getItem('spert_firstRun_seen')).toBe('true');
       fireEvent.click(screen.getByRole('button', { name: 'Releases' }));
       fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-      await screen.findByRole('heading', { name: 'Projects', level: 2 });
+      await screen.findByRole('heading', { name: 'Projects', level: 1 });
       expect(screen.queryByText('Your data exists only in this browser')).toBeNull();
       expect(screen.queryByText(/SPERT® Suite web apps are free to use/)).toBeNull();
     });
@@ -141,7 +143,7 @@ describe('the Projects tab on the page', () => {
     it('reads Export All, Import, Load Sample, New Project, on the heading row', async () => {
       seed({ projects: projects('Alpha') });
       await renderPage();
-      const head = screen.getByRole('heading', { name: 'Projects', level: 2 }).parentElement!;
+      const head = screen.getByRole('heading', { name: 'Projects', level: 1 }).parentElement!;
       const names = Array.from(head.querySelectorAll('button, label')).map(el => el.getAttribute('aria-label') ?? el.textContent?.trim());
       expect(names).toEqual(['Export all projects as JSON', 'Import projects from JSON', 'Load Sample', 'New Project']);
     });
@@ -151,7 +153,7 @@ describe('the Projects tab on the page', () => {
       expect(screen.getByText('No projects yet.')).toBeInTheDocument();
       // v0.32.0: disabled in its place, not hidden (v0.30.0 and v0.31.0 hid it).
       expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
-      const head = screen.getByRole('heading', { name: 'Projects', level: 2 }).parentElement!;
+      const head = screen.getByRole('heading', { name: 'Projects', level: 1 }).parentElement!;
       const names = Array.from(head.querySelectorAll('button, label')).map(el => el.getAttribute('aria-label') ?? el.textContent?.trim());
       expect(names).toEqual(['Export all projects as JSON', 'Import projects from JSON', 'Load Sample', 'New Project']);
       expect(screen.getByLabelText('Import projects from JSON')).toBeInTheDocument();
@@ -192,7 +194,7 @@ describe('the Projects tab on the page', () => {
         await renderPage();
         fireEvent.click(tileButton('Alpha', label));
         expect(onReleasesTab()).toBe(false);
-        expect(screen.getByRole('heading', { name: 'Projects', level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Projects', level: 1 })).toBeInTheDocument();
 
         fireEvent.keyDown(document.body, { key: 'Escape' });
         fireEvent.click(screen.getAllByRole('button', { name: /^Open releases for / })[0]);

@@ -2,15 +2,18 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// FRAME26 stage 0 (v0.33.2), through the REAL page (pages/index.tsx) inside the providers pages/_app.tsx uses, with
-// the theme switched live by the app's own theme button:
-//   GA-1  the footer's links and Version button take a theme colour that reaches 4.5:1 on that theme's page
-//         background. Before: #0070f3 in both themes, 3.75:1 on the dark ground.
-//   GA-3  the theme button's accessible name is "Theme: <mode>", not its emoji. Before: the name was "☀️".
+// FRAME26 stage 0 (v0.33.2), carried through the frame (v0.34.0), through the REAL page (pages/index.tsx) inside the
+// providers pages/_app.tsx uses, with the theme switched live by the app's own theme button:
+//   GA-1  the footer's links and Version button reach 4.5:1 on the page ground in each theme. Stage 0 did it with its
+//         own FOOTER_LINK colours; since v0.34.0 they are the frame's `--sf-link` (#155dfc 5.25:1 on #ffffff, #51a2ff
+//         6.72:1 on #101828), so no footer control carries a colour, a class or a style of its own (an inline value
+//         would beat the token). Before stage 0: #0070f3 in both themes, 3.75:1 on the old dark ground.
+//   GA-3  the theme button's accessible name is "Theme: <mode>", not its glyph. Before stage 0: the name was "☀️".
 //
-// ⚠️ jsdom has no layout and no paint, so this file cannot MEASURE contrast. It pins the colour each theme
-// applies and computes the WCAG ratio of that colour against theme.ts's background for the same theme, which is
-// the ground Chrome measured behind the footer (v0.33.2 PR). The live numbers are in the PR.
+// ⚠️ jsdom has no layout and no paint, so this file cannot MEASURE contrast. It injects the real stylesheets, checks
+// that each footer control's colour IS the `--sf-link` token and what that token resolves to in each theme, and
+// computes the WCAG ratio of that token against the frame's `--sf-page` for the same theme. Chrome measures the live
+// page: frame-check's `footer.link-colour` and `contrast.footer[…]`.
 //
 // matchMedia is mocked to "no match" in src/test/setup.ts, so "system" resolves to the light theme here.
 
@@ -18,7 +21,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, configure, within } from '@testing-library/react';
 import Home from '../../../pages/index';
 import { FullWrapper } from '../../test/FullWrapper';
-import { LIGHT_THEME, DARK_THEME } from '../../shared/utils/theme';
+import { contrast, frameRule, injectStylesheets, token } from '../../test/frameTokens';
 
 // The whole page renders: allow for a loaded machine.
 configure({ asyncUtilTimeout: 5000 });
@@ -62,23 +65,9 @@ vi.mock('firebase/firestore', () => ({
   writeBatch: vi.fn(),
 }));
 
-/** The approved footer link colours (FRAME26 stage 0 GA-1); light is unchanged from v0.33.1. */
-const FOOTER_LINK = { light: '#0070f3', dark: '#51a2ff' } as const;
-const GROUND = { light: LIGHT_THEME.background, dark: DARK_THEME.background } as const;
-
-const channels = (h: string) => [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16));
-const rgbOf = (h: string) => `rgb(${channels(h).join(', ')})`;
-const luminance = (h: string) => {
-  const [r, g, b] = channels(h).map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  }) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const contrast = (a: string, b: string) => {
-  const [x, y] = [luminance(a), luminance(b)];
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-};
+/** The frame's link colour in each theme (spert-frame.css `--sf-link`), pinned so a token change comes through here. */
+const LINK = { light: '#155dfc', dark: '#51a2ff' } as const;
+const GROUND = { light: '#ffffff', dark: '#101828' } as const;
 
 /** The footer's interactive elements: the Version button and the four links (SPERT® Suite, ToS, Privacy, License). */
 function footerControls(): HTMLElement[] {
@@ -88,37 +77,56 @@ function footerControls(): HTMLElement[] {
 }
 
 function expectFooterIn(theme: 'light' | 'dark') {
+  const footer = document.querySelector('footer')!;
+  expect(footer).toHaveClass('sf-footer');
+  expect(Array.from(footer.querySelectorAll(':scope > .sf-col > *'))).toHaveLength(2);
   const controls = footerControls();
-  // A control that must find something: the five footer controls of v0.33.1.
+  // A control that must find something: the five footer controls, unchanged since v0.33.1.
   expect(controls.map((c) => c.textContent?.trim().replace(/[\d.]+$/, ''))).toEqual([
     'Version ', 'SPERT® Suite', 'Terms of Service', 'Privacy Policy', 'License',
   ]);
   for (const c of controls) {
-    expect(c.style.color, `${theme}: ${c.textContent}`).toBe(rgbOf(FOOTER_LINK[theme]));
+    const name = `${theme}: ${c.textContent}`;
+    expect(c.getAttribute('style'), name).toBeNull();
+    expect(c.tagName === 'BUTTON' ? c.className : c.getAttribute('class'), name).toBe(c.tagName === 'BUTTON' ? 'sf-link' : null);
+    const cs = getComputedStyle(c);
+    expect(cs.color, name).toBe('var(--sf-link)');
+    expect(cs.getPropertyValue('--sf-link').trim().toLowerCase(), name).toBe(LINK[theme]);
   }
-  expect(contrast(FOOTER_LINK[theme], GROUND[theme]), `${theme}: footer link contrast`).toBeGreaterThanOrEqual(4.5);
+  expect(token(theme, '--sf-link')).toBe(LINK[theme]);
+  expect(token(theme, '--sf-page')).toBe(GROUND[theme]);
+  expect(contrast(LINK[theme], GROUND[theme]), `${theme}: footer link contrast`).toBeGreaterThanOrEqual(4.5);
 }
 
 function expectThemeButton(mode: 'light' | 'dark' | 'system') {
   const button = screen.getByRole('button', { name: `Theme: ${mode}` });
-  // The title keeps the hint; the glyph is hidden from the accessibility tree.
+  // The title keeps the hint; the icon is hidden from the accessibility tree, and it is an icon, not an emoji.
   expect(button).toHaveAttribute('title', `Theme: ${mode} (click to change)`);
-  const glyph = button.querySelector('span');
-  expect(glyph, `${mode}: the glyph sits in its own span`).not.toBeNull();
-  expect(glyph).toHaveAttribute('aria-hidden', 'true');
-  expect(within(button).queryByText(/☀️|🌙|🖥️/)).not.toBeNull();
+  const icon = button.querySelector('svg');
+  expect(icon, `${mode}: the icon`).not.toBeNull();
+  expect(icon).toHaveAttribute('aria-hidden', 'true');
+  expect(within(button).queryByText(/☀️|🌙|🖥️/)).toBeNull();
   return button;
 }
 
 describe('FRAME26 stage 0 through the real page: footer contrast (GA-1) and the theme button name (GA-3)', () => {
   beforeEach(() => {
     localStorage.clear();
+    injectStylesheets();
   });
 
-  it('the pinned colours clear the bar, and the old dark value did not', () => {
-    expect(contrast('#0070f3', GROUND.dark)).toBeLessThan(4.5); // the v0.33.1 defect, 3.75
-    expect(contrast(FOOTER_LINK.light, GROUND.light)).toBeCloseTo(4.55, 2);
-    expect(contrast(FOOTER_LINK.dark, GROUND.dark)).toBeCloseTo(6.47, 2);
+  it('the frame\'s link colours clear the bar on both grounds, with and without more contrast, and the old dark value did not', () => {
+    expect(contrast('#0070f3', '#1a1a2e')).toBeLessThan(4.5); // the v0.33.1 defect, 3.75
+    // The contract's 5.25 and 6.73 are rounded; truncated, as here, they read 5.24 and 6.72.
+    expect(contrast(LINK.light, GROUND.light)).toBe(5.24);
+    expect(contrast(LINK.dark, GROUND.dark)).toBe(6.72);
+    for (const theme of ['light', 'dark'] as const) {
+      expect(token(theme, '--sf-link', true), `${theme} +more`).toBe(LINK[theme]);
+      expect(token(theme, '--sf-page', true), `${theme} +more`).toBe(GROUND[theme]);
+    }
+    // Footer links underline on hover, and always under more contrast (contract §5).
+    expect(frameRule('.sf-footer a, .sf-footer .sf-link').get('color')).toBe('var(--sf-link)');
+    expect(frameRule('.sf-footer a:hover, .sf-footer .sf-link:hover').get('text-decoration')).toBe('underline');
   });
 
   it('system → light → dark → system: the footer takes each theme\'s colour and the button names the mode', async () => {

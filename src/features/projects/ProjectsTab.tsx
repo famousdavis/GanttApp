@@ -5,11 +5,13 @@
 // Projects Tab: the toolbar, the grid of project tiles, and the project dialog
 
 import { useEffect, useId, useRef, useState } from 'react';
-import type { ChangeEvent, RefObject } from 'react';
+import type { ChangeEvent } from 'react';
 import { useProjects } from './useProjects';
 import { ShareDialog } from './ShareDialog';
 import { ProjectDialog } from './ProjectDialog';
 import { ProjectTile } from './ProjectTile';
+import { ProjectsToolbar } from './ProjectsToolbar';
+import { HeadingRow } from '../../shared/components/HeadingRow';
 import { projectsTabPalette, paletteStyle, patchedColors } from './projectsTabPalette';
 import { useAppData } from '../../context/AppDataContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -54,75 +56,6 @@ type PendingFocus =
   | { kind: 'icon'; projectId: string; label: 'Delete project' | 'Archive project' | 'Unarchive project' }
   | { kind: 'move'; projectId: string; direction: 'earlier' | 'later' }
   | { kind: 'new' };
-
-const ICON_PATHS = {
-  export: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
-  import: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
-  sample: 'M9 3h6M10 3v6.5L4.6 18.8A1.5 1.5 0 0 0 5.9 21h12.2a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3M7.2 15h9.6',
-  plus: 'M12 5v14M5 12h14',
-} as const;
-
-function ToolbarIcon({ d }: { d: string }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d={d} stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-interface ToolbarProps {
-  hasProjects: boolean;
-  applying: boolean;
-  newProjectRef: RefObject<HTMLButtonElement | null>;
-  onExportAll: () => void;
-  onImport: (e: ChangeEvent<HTMLInputElement>) => void;
-  onLoadSample: () => void;
-  onNewProject: () => void;
-}
-
-// Export All · Import · Load Sample · New Project. Import stays a <label>
-// around a visually hidden file input, so the native picker opens on a click
-// and keyboard users can still reach the input. Every button is always
-// rendered, so none moves with the project count (v0.32.0): with no projects
-// Export All is disabled, not hidden.
-function ProjectsToolbar({
-  hasProjects, applying, newProjectRef, onExportAll, onImport, onLoadSample, onNewProject,
-}: ToolbarProps) {
-  return (
-    <div className="pt-toolbar">
-      <button
-        type="button"
-        className="pt-btn"
-        onClick={onExportAll}
-        disabled={!hasProjects}
-        aria-label="Export all projects as JSON"
-      >
-        <ToolbarIcon d={ICON_PATHS.export} />
-        Export All
-      </button>
-      <label className="pt-btn" aria-label="Import projects from JSON" aria-disabled={applying}>
-        <ToolbarIcon d={ICON_PATHS.import} />
-        Import
-        <input
-          type="file"
-          name="importJson"
-          accept=".json"
-          className="pt-sr-only"
-          disabled={applying}
-          onChange={onImport}
-        />
-      </label>
-      <button type="button" className="pt-btn" onClick={onLoadSample}>
-        <ToolbarIcon d={ICON_PATHS.sample} />
-        Load Sample
-      </button>
-      <button type="button" ref={newProjectRef} className="pt-btn pt-btn-primary" onClick={onNewProject}>
-        <ToolbarIcon d={ICON_PATHS.plus} />
-        New Project
-      </button>
-    </div>
-  );
-}
 
 interface ImportBannerProps {
   kind: 'error' | 'success';
@@ -413,18 +346,25 @@ export function ProjectsTab({
 
   return (
     <div ref={rootRef} className="pt-root" style={paletteStyle(palette)}>
-      <div className="pt-head">
-        <h2 id={headingId}>Projects</h2>
-        <ProjectsToolbar
-          hasProjects={data.projects.length > 0}
-          applying={applying}
-          newProjectRef={newProjectRef}
-          onExportAll={handleExport}
-          onImport={handleImport}
-          onLoadSample={loadSample}
-          onNewProject={openNewProject}
-        />
-      </div>
+      {/* The frame's heading row (FRAME26, v0.34.0): the page's h1 and the toolbar. It stays inside this tab, and so
+          inside the tab's error boundary, because the toolbar's state lives here. */}
+      <HeadingRow
+        id={headingId}
+        className="pt-head"
+        toolbar={
+          <ProjectsToolbar
+            hasProjects={data.projects.length > 0}
+            applying={applying}
+            newProjectRef={newProjectRef}
+            onExportAll={handleExport}
+            onImport={handleImport}
+            onLoadSample={loadSample}
+            onNewProject={openNewProject}
+          />
+        }
+      >
+        Projects
+      </HeadingRow>
 
       {archivedCount > 0 && (
         <div className="pt-filter">
@@ -478,45 +418,43 @@ export function ProjectsTab({
         <p className="pt-empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
       )}
       {shown.length > 0 && (
-        <div className="pt-area">
-          <ul className="pt-grid" aria-labelledby={headingId}>
-            {shown.map((project, index) => (
-              <ProjectTile
-                key={project.id}
-                project={project}
-                index={index}
-                count={shown.length}
-                releaseCount={data.releases.filter(r => r.projectId === project.id).length}
-                globalWorkDays={globalWorkDays}
-                color={projectPrefOf(prefs, project.id).color}
-                archived={isProjectArchived(prefs, project.id)}
-                colorOpen={colorPopoverFor === project.id}
-                // In cloud mode only the owner may delete or share a project.
-                canDelete={!isCloudMode || isOwner(project)}
-                canShare={isCloudMode && isOwner(project)}
-                dragging={draggedProjectId === project.id}
-                onOpen={() => openProject(project)}
-                onDelete={() => setDeleteConfirmProjectId(project.id)}
-                onShare={() => setShareProjectId(project.id)}
-                onExport={() => handleExportProject(project.id)}
-                onEdit={() => openEditProject(project)}
-                onClone={() => {
-                  // v0.28.10 backstop — see pages/index.tsx.
-                  cloneProject(project.id)
-                    .catch(err => console.error('Clone project failed:', err));
-                }}
-                onArchive={() => archiveProject(project)}
-                onUnarchive={() => unarchiveProject(project)}
-                onColorOpenChange={(open) => setColorPopoverFor(open ? project.id : null)}
-                onPickColor={(color) => setProjectColor(project.id, color)}
-                onMove={(direction) => moveProject(project, direction)}
-                onDragStart={() => onProjectDragStart(project.id)}
-                onDragOver={(e) => onProjectDragOver(e, project.id, shown.map(p => p.id))}
-                onDragEnd={onProjectDragEnd}
-              />
-            ))}
-          </ul>
-        </div>
+        <ul className="sf-tiles" data-sf="tiles" aria-labelledby={headingId}>
+          {shown.map((project, index) => (
+            <ProjectTile
+              key={project.id}
+              project={project}
+              index={index}
+              count={shown.length}
+              releaseCount={data.releases.filter(r => r.projectId === project.id).length}
+              globalWorkDays={globalWorkDays}
+              color={projectPrefOf(prefs, project.id).color}
+              archived={isProjectArchived(prefs, project.id)}
+              colorOpen={colorPopoverFor === project.id}
+              // In cloud mode only the owner may delete or share a project.
+              canDelete={!isCloudMode || isOwner(project)}
+              canShare={isCloudMode && isOwner(project)}
+              dragging={draggedProjectId === project.id}
+              onOpen={() => openProject(project)}
+              onDelete={() => setDeleteConfirmProjectId(project.id)}
+              onShare={() => setShareProjectId(project.id)}
+              onExport={() => handleExportProject(project.id)}
+              onEdit={() => openEditProject(project)}
+              onClone={() => {
+                // v0.28.10 backstop — see pages/index.tsx.
+                cloneProject(project.id)
+                  .catch(err => console.error('Clone project failed:', err));
+              }}
+              onArchive={() => archiveProject(project)}
+              onUnarchive={() => unarchiveProject(project)}
+              onColorOpenChange={(open) => setColorPopoverFor(open ? project.id : null)}
+              onPickColor={(color) => setProjectColor(project.id, color)}
+              onMove={(direction) => moveProject(project, direction)}
+              onDragStart={() => onProjectDragStart(project.id)}
+              onDragOver={(e) => onProjectDragOver(e, project.id, shown.map(p => p.id))}
+              onDragEnd={onProjectDragEnd}
+            />
+          ))}
+        </ul>
       )}
 
       {dialog && (

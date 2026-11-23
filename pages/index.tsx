@@ -6,7 +6,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useKeyboardShortcuts } from '../src/shared/hooks/useKeyboardShortcuts';
 import { useAppData } from '../src/context/AppDataContext';
 import { useTheme } from '../src/context/ThemeContext';
-import { APP_VERSION } from '../src/lib/version';
 import { ChartColors, TabType } from '../src/shared/types';
 import { ProjectLegendLabels } from '../src/shared/types/models';
 import { DEFAULT_LEGEND_LABELS, resolveLabel } from '../src/shared/utils/validation';
@@ -18,9 +17,13 @@ import { InvitationBanner } from '../src/shared/components/InvitationBanner';
 import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
 import { CloudLoadNoticeBanner } from '../src/shared/components/CloudLoadNoticeBanner';
 import { ErrorBoundary } from '../src/shared/components/ErrorBoundary';
-import { StorageStatusChip } from '../src/shared/components/StorageStatusChip';
+import { AppHeader } from '../src/shared/components/AppHeader';
+import { AppFooter } from '../src/shared/components/AppFooter';
+import { HeadingRow } from '../src/shared/components/HeadingRow';
+import { screenHeading } from '../src/shared/utils/screenHeading';
 import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
+import { ProjectsLoadingHeading } from '../src/features/projects/ProjectsToolbar';
 import { ReleasesTab, ALL_ARCHIVED_MESSAGE } from '../src/features/releases/ReleasesTab';
 import { AboutTab } from '../src/features/about/AboutTab';
 import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
@@ -29,24 +32,6 @@ import { GanttChart } from '../src/features/chart/GanttChart';
 import { useChartEditing } from '../src/features/chart/useChartEditing';
 import { useSnapshots } from '../src/features/chart/useSnapshots';
 import { useEffectiveChartProps } from '../src/features/chart/useEffectiveChartProps';
-
-/**
- * The header title's gradient in each theme, in GanttApp's own teal (the favicon's #0891b2), light end on the left.
- * Every point of each gradient keeps at least 3:1 against that theme's page background, LIGHT_THEME.background
- * #ffffff and DARK_THEME.background #1a1a2e (theme.ts); the title is 33.6 px bold, so 3:1 is the bar.
- * src/lib/__tests__/title-gradient.test.ts reads these two strings from this file, so keep each one a whole literal.
- */
-const TITLE_GRADIENT = {
-  light: 'linear-gradient(90deg, #449fbc 0%, #00657d 100%)',
-  dark: 'linear-gradient(90deg, #54adca 0%, #00738e 100%)',
-} as const;
-
-/**
- * The footer's links and its Version button, in each theme (FRAME26 stage 0, v0.33.2). Text needs 4.5:1 on the
- * page background: #0070f3 is 4.55 on #ffffff, but only 3.75 on #1a1a2e, so dark uses #51a2ff (6.47), the frame
- * contract's dark link colour. Guarded by src/lib/__tests__/frame26-stage0.page.test.tsx.
- */
-const FOOTER_LINK = { light: '#0070f3', dark: '#51a2ff' } as const;
 
 // Main App Component
 function AppContent() {
@@ -85,7 +70,7 @@ function AppContent() {
     updateData
   } = useAppData();
 
-  const { mode, setMode, resolvedTheme, colors } = useTheme();
+  const { colors } = useTheme();
 
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [selectedProjectIdRaw, setSelectedProjectId] = useState<string>('');
@@ -272,234 +257,146 @@ function AppContent() {
 
   useKeyboardShortcuts(shortcuts);
 
-  // Toggle theme
-  const cycleTheme = useCallback(() => {
-    if (mode === 'system') setMode('light');
-    else if (mode === 'light') setMode('dark');
-    else setMode('system');
-  }, [mode, setMode]);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: colors.background }}>
-        <div style={{ fontSize: '1.5rem', color: colors.textSecondary }}>Loading...</div>
-      </div>
-    );
-  }
+  // The frame (FRAME26, v0.34.0): the screen's h1 and its column. Releases and the Gantt Chart are named after the
+  // selected project, the one both pickers show; Settings, About and the Changelog are capped (contract §8, X4).
+  const heading = screenHeading(activeTab, selectedProject?.name);
+  const capped = activeTab === 'settings' || activeTab === 'about' || activeTab === 'changelog';
 
   return (
-    // A full-height column whose <main> takes the spare height, so
-    // the footer sits at the bottom of the window when a tab is short, as in
-    // the other SPERT® apps. A long tab still pushes it below the content.
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background, padding: '2rem', transition: 'background-color 0.2s ease' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '0 2rem' }}>
-        <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolvedTheme === 'dark' ? '/spert-favicon-ganttapp-dark.png' : '/spert-favicon-ganttapp.png'}
-                alt="GanttApp icon"
-                style={{ marginRight: '0.5rem', height: '1.75rem', width: '1.75rem', borderRadius: '8px' }}
-              />
-              {/* The gradient is set as backgroundImage, never with the `background` shorthand. React re-applies
-                  only the style keys that change, and setting the shorthand resets background-clip, so a
-                  theme-chosen shorthand would turn the title into a solid bar on the first live theme switch.
-                  The class carries the print and increased-contrast fallbacks in styles/globals.css; the
-                  increased-contrast one reads the theme's text colour from --hdr26-title-contrast. */}
-              <h1 className="hdr26-title" style={{
-                fontSize: '2.1rem',
-                marginBottom: '0.25rem',
-                backgroundImage: TITLE_GRADIENT[resolvedTheme],
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                '--hdr26-title-contrast': colors.text
-              } as React.CSSProperties}>GanttApp<sup style={{ fontSize: '0.3em', color: '#bbb', WebkitTextFillColor: '#bbb', fontWeight: 300, verticalAlign: 'super' }}>TM</sup></h1>
-            </div>
-            <p style={{ color: colors.textSecondary, fontSize: '0.875rem', fontStyle: 'italic' }}>
-              Visualize release date uncertainty in your project timeline
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <button
-              onClick={cycleTheme}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1.5rem',
-                padding: '0.5rem',
-                borderRadius: '8px',
-                transition: 'background-color 0.2s ease'
-              }}
-              title={`Theme: ${mode} (click to change)`}
-              aria-label={`Theme: ${mode}`}
-            >
-              {/* The glyph is decoration: the name is the aria-label (FRAME26 stage 0, v0.33.2). */}
-              <span aria-hidden="true">{mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}</span>
-            </button>
-            <StorageStatusChip onOpenModal={() => setCloudModalOpen(true)} />
-          </div>
-        </header>
+    // The SPERT® Suite app frame (contract FRAME-CONTRACT.md, styles/spert-frame.css): a full-height column of the
+    // brand row, the navigation row, the notices slot, <main> (which takes the spare height, so the footer sits at the
+    // bottom of the window when a tab is short) and the footer. Each band uses the frame's 1600 px column. The frame
+    // renders whether or not the data has loaded: only the body says "Loading..." (contract §7).
+    <div className="sf-app" data-sf="app">
+      <a className="sf-skip" href="#main" data-sf="skip">Skip to main content</a>
+      <AppHeader onNavigateHome={() => setActiveTab('projects')} onOpenAccount={() => setCloudModalOpen(true)} />
+      <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
-
-        <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-        {/* v0.32.0: the app-wide notices sit below the header and the tabs,
-            above every tab's own content, in this order (as in the other
-            SPERT® apps). */}
+      {/* The app-wide notices, in this order (v0.32.0, as in the other SPERT® apps). The slot hides itself when
+          every notice is absent, so nothing else may go in it: the live region below stays outside it. */}
+      <div className="sf-col sf-notices" data-sf="notices">
         <InvitationBanner />
         <FirstRunBanner />
         <LocalStorageWarningBanner />
         <CloudLoadNoticeBanner />
-
-        <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
-
-        <main className="app-main" style={{ flex: 1 }}>
-          {/* v0.29.10: an error in one view leaves the rest of the app up.
-              Keyed on the tab; a change of the selected project clears an
-              error without restarting a healthy tab (v0.29.11). */}
-          <ErrorBoundary key={activeTab} resetKey={selectedProjectId}>
-          {activeTab === 'projects' && (
-            <ProjectsTab
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              setActiveTab={setActiveTab}
-              draggedProjectId={draggedProjectId}
-              onProjectDragStart={handleProjectDragStart}
-              onProjectDragOver={handleProjectDragOver}
-              onProjectDragEnd={handleProjectDragEnd}
-              onReplaceSnapshots={snapshotState.replaceAllSnapshots}
-              onSampleLoaded={handleSampleLoaded}
-              onAnnounce={setAnnouncement}
-            />
-          )}
-
-          {activeTab === 'releases' && (
-            <ReleasesTab
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              draggedReleaseId={draggedReleaseId}
-              onReleaseDragStart={handleReleaseDragStart}
-              onReleaseDragOver={handleReleaseDragOver}
-              onReleaseDragEnd={handleReleaseDragEnd}
-            />
-          )}
-
-          {activeTab === 'chart' && selectedProject && (
-            <GanttChart
-              releases={effective.releases}
-              projectFinishDate={effective.finishDate}
-              projects={unarchivedProjects}
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              editing={chartEditing}
-              snapshot={{
-                snapshots: snapshotState.snapshots,
-                activeSnapshotId: snapshotState.activeSnapshotId,
-                onSelectSnapshot: snapshotState.setActiveSnapshotId,
-                onSaveSnapshot: handleSaveSnapshot,
-                onDeleteSnapshot: snapshotState.deleteSnapshot,
-                readOnly: isViewingSnapshot,
-                datePreparedOverride: effective.datePreparedOverride
-              }}
-              labels={{
-                solidBarLabel: effective.labels.solidBar,
-                hatchedBarLabel: effective.labels.hatchedBar,
-                finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel,
-                mostLikelyLineLabel: effective.labels.mostLikelyLine ?? mostLikelyLineLabel,
-                inProgressLabel: effective.labels.inProgress ?? inProgressLabel
-              }}
-              settings={{
-                displaySettings,
-                setDisplaySettings,
-                chartColors: effective.colors,
-                onColorsChange: updateChartColors,
-                activePreset,
-                showColorSettings,
-                setShowColorSettings,
-                showTodayLine,
-                setShowTodayLine,
-                liveTodayDateOverride: todayDateOverride,
-                setTodayDateOverride,
-                showFinishDateLine,
-                setShowFinishDateLine,
-                preparedBy: effective.preparedBy,
-                setPreparedBy,
-                showPreparedBy,
-                setShowPreparedBy,
-                showMostLikelyLine,
-                setShowMostLikelyLine,
-                showMonths,
-                setShowMonths
-              }}
-              projectLegendLabels={selectedProject?.legendLabels}
-              onClearProjectLabelOverride={handleClearProjectLabelOverride}
-              workDays={getEffectiveWorkDays(selectedProject, globalWorkDays)}
-              todayDateOverride={effective.todayDateOverride}
-            />
-          )}
-
-          {activeTab === 'chart' && !selectedProject && data.projects.length > 0 && (
-            <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>{ALL_ARCHIVED_MESSAGE}</p>
-          )}
-
-          {activeTab === 'settings' && <SettingsTab />}
-          {activeTab === 'about' && <AboutTab />}
-          {activeTab === 'changelog' && <ChangelogTab />}
-          </ErrorBoundary>
-        </main>
-
-        {/* No top margin here: the gap above the footer is .app-main::after
-            in styles/globals.css. */}
-        <footer style={{
-          paddingTop: '2rem',
-          borderTop: `2px solid ${colors.border}`,
-          textAlign: 'center',
-          color: colors.textSecondary,
-          fontSize: '0.875rem'
-        }}>
-          &copy; 2026 William W. Davis, MSPM, PMP |{' '}
-          <button
-            onClick={() => setActiveTab('changelog')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: FOOTER_LINK[resolvedTheme],
-              textDecoration: 'none',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              padding: 0
-            }}
-          >
-            Version {APP_VERSION}
-          </button>
-          {' '}| Licensed under GNU GPL v3
-          <div style={{ marginTop: '0.25rem' }}>
-            <a href="https://spertsuite.com" target="_blank" rel="noopener noreferrer"
-              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
-              SPERT&reg; Suite
-            </a>
-            {' '}|{' '}
-            <a href="https://spertsuite.com/TOS.pdf" target="_blank" rel="noopener noreferrer"
-              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
-              Terms of Service
-            </a>
-            {' '}|{' '}
-            <a href="https://spertsuite.com/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
-              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
-              Privacy Policy
-            </a>
-            {' '}|{' '}
-            <a href="https://github.com/famousdavis/GanttApp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"
-              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
-              License
-            </a>
-          </div>
-        </footer>
       </div>
+
+      <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
+
+      <main id="main" className={capped ? 'sf-col sf-main sf-main--capped' : 'sf-col sf-main'} data-sf="main">
+        {loading ? (
+          <>
+            {activeTab === 'projects'
+              ? <ProjectsLoadingHeading />
+              : <HeadingRow title={heading.title}>{heading.text}</HeadingRow>}
+            <p className="sf-below" style={{ color: colors.textSecondary }}>Loading...</p>
+          </>
+        ) : (
+          <>
+            {/* Every tab but Projects gets its heading row here, OUTSIDE the error boundary, so a view that throws
+                leaves the page's h1 in place. Projects draws its own, because its toolbar's state lives there. */}
+            {activeTab !== 'projects' && <HeadingRow title={heading.title}>{heading.text}</HeadingRow>}
+            <div className={activeTab === 'projects' ? undefined : 'sf-below'}>
+              {/* v0.29.10: an error in one view leaves the rest of the app up.
+                  Keyed on the tab; a change of the selected project clears an
+                  error without restarting a healthy tab (v0.29.11). */}
+              <ErrorBoundary key={activeTab} resetKey={selectedProjectId}>
+              {activeTab === 'projects' && (
+                <ProjectsTab
+                  selectedProjectId={selectedProjectId}
+                  setSelectedProjectId={setSelectedProjectId}
+                  setActiveTab={setActiveTab}
+                  draggedProjectId={draggedProjectId}
+                  onProjectDragStart={handleProjectDragStart}
+                  onProjectDragOver={handleProjectDragOver}
+                  onProjectDragEnd={handleProjectDragEnd}
+                  onReplaceSnapshots={snapshotState.replaceAllSnapshots}
+                  onSampleLoaded={handleSampleLoaded}
+                  onAnnounce={setAnnouncement}
+                />
+              )}
+
+              {activeTab === 'releases' && (
+                <ReleasesTab
+                  selectedProjectId={selectedProjectId}
+                  setSelectedProjectId={setSelectedProjectId}
+                  draggedReleaseId={draggedReleaseId}
+                  onReleaseDragStart={handleReleaseDragStart}
+                  onReleaseDragOver={handleReleaseDragOver}
+                  onReleaseDragEnd={handleReleaseDragEnd}
+                />
+              )}
+
+              {activeTab === 'chart' && selectedProject && (
+                <GanttChart
+                  releases={effective.releases}
+                  projectFinishDate={effective.finishDate}
+                  projects={unarchivedProjects}
+                  selectedProjectId={selectedProjectId}
+                  setSelectedProjectId={setSelectedProjectId}
+                  editing={chartEditing}
+                  snapshot={{
+                    snapshots: snapshotState.snapshots,
+                    activeSnapshotId: snapshotState.activeSnapshotId,
+                    onSelectSnapshot: snapshotState.setActiveSnapshotId,
+                    onSaveSnapshot: handleSaveSnapshot,
+                    onDeleteSnapshot: snapshotState.deleteSnapshot,
+                    readOnly: isViewingSnapshot,
+                    datePreparedOverride: effective.datePreparedOverride
+                  }}
+                  labels={{
+                    solidBarLabel: effective.labels.solidBar,
+                    hatchedBarLabel: effective.labels.hatchedBar,
+                    finishDateLabel: effective.labels.finishDateLine ?? finishDateLabel,
+                    mostLikelyLineLabel: effective.labels.mostLikelyLine ?? mostLikelyLineLabel,
+                    inProgressLabel: effective.labels.inProgress ?? inProgressLabel
+                  }}
+                  settings={{
+                    displaySettings,
+                    setDisplaySettings,
+                    chartColors: effective.colors,
+                    onColorsChange: updateChartColors,
+                    activePreset,
+                    showColorSettings,
+                    setShowColorSettings,
+                    showTodayLine,
+                    setShowTodayLine,
+                    liveTodayDateOverride: todayDateOverride,
+                    setTodayDateOverride,
+                    showFinishDateLine,
+                    setShowFinishDateLine,
+                    preparedBy: effective.preparedBy,
+                    setPreparedBy,
+                    showPreparedBy,
+                    setShowPreparedBy,
+                    showMostLikelyLine,
+                    setShowMostLikelyLine,
+                    showMonths,
+                    setShowMonths
+                  }}
+                  projectLegendLabels={selectedProject?.legendLabels}
+                  onClearProjectLabelOverride={handleClearProjectLabelOverride}
+                  workDays={getEffectiveWorkDays(selectedProject, globalWorkDays)}
+                  todayDateOverride={effective.todayDateOverride}
+                />
+              )}
+
+              {activeTab === 'chart' && !selectedProject && data.projects.length > 0 && (
+                <p style={{ color: colors.textMuted, fontStyle: 'italic' }}>{ALL_ARCHIVED_MESSAGE}</p>
+              )}
+
+              {activeTab === 'settings' && <SettingsTab />}
+              {activeTab === 'about' && <AboutTab />}
+              {activeTab === 'changelog' && <ChangelogTab />}
+              </ErrorBoundary>
+            </div>
+          </>
+        )}
+      </main>
+
+      <AppFooter onOpenChangelog={() => setActiveTab('changelog')} />
+
+      <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function InvitationBanner() {
     appDataLoading,
   });
   const { firebaseAvailable } = useAuth();
-  const { colors, resolvedTheme } = useTheme();
+  const { colors } = useTheme();
   // Live hook API: signIn(provider), authError, tosModalOpen, onTosAccept, onTosCancel.
   // onTosAccept is () => Promise<void>; TosConsentModal.onAccept is () => void.
   // TS return-type widening makes this safe — the modal does not await.
@@ -39,29 +39,11 @@ export function InvitationBanner() {
 
   if (!INVITATIONS_ENABLED || bannerState === 'idle') return null;
 
-  // Color palette mirrors FirstRunBanner — same blue tint and border radius
-  // because both banners can co-render briefly during sign-in. Layout
-  // intentionally diverges: FirstRunBanner is a passive info strip and
-  // spans the full content width; InvitationBanner is an active CTA and
-  // gets a 512 px max-width centered card so the sign-in buttons sit at
-  // the visual focus of the page (LESSONS-LEARNED §56).
-  const bgColor = resolvedTheme === 'dark' ? '#1a2e44' : '#e6f2ff';
-  const borderColor = resolvedTheme === 'dark' ? '#2a4a6b' : '#b3d4fc';
-  const bannerStyle = {
-    background: bgColor,
-    border: `1px solid ${borderColor}`,
-    borderRadius: '8px',
-    padding: '1rem 1.25rem',
-    marginBottom: '1rem',
-    maxWidth: '512px',
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    display: 'flex' as const,
-    alignItems: 'flex-start' as const,
-    justifyContent: 'space-between' as const,
-    gap: '1rem',
-  };
-
+  // The frame's notices (FRAME26, v0.34.0): pre-auth is `.sf-notice--info`, claimed `.sf-notice--success`. The
+  // frame sets the ground, border, radius, padding and text colour, and makes every notice full column width. Until
+  // v0.34.0 this was a 512 px centred card, so the sign-in buttons sat at the page's visual focus
+  // (LESSONS-LEARNED §56); the suite frame's one notice geometry replaced that. The "×" and the sign-in buttons keep
+  // their own look; only "Got it" buttons take `.sf-notice-dismiss`.
   const dismissButtonStyle = {
     background: 'transparent',
     color: colors.text,
@@ -98,12 +80,12 @@ export function InvitationBanner() {
             onCancel={onTosCancel}
           />
         )}
-        <div role="status" style={bannerStyle}>
+        <div role="status" className="sf-notice sf-notice--info">
           <div style={{ flex: 1 }}>
-            <p style={{ color: colors.text, fontSize: '0.95rem', margin: '0 0 0.5rem 0', fontWeight: 600 }}>
+            <p style={{ fontSize: '0.95rem', margin: '0 0 0.5rem 0', fontWeight: 600 }}>
               You&apos;ve been invited to a GanttApp&trade; project
             </p>
-            <p style={{ color: colors.text, fontSize: '0.875rem', margin: '0 0 0.75rem 0', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '0.875rem', margin: '0 0 0.75rem 0', lineHeight: '1.5' }}>
               Sign in with the email address that received this invitation.
             </p>
             {firebaseAvailable ? (
@@ -153,12 +135,12 @@ export function InvitationBanner() {
   const projectList = claimedProjectNames.join(', ');
   const isPlural = claimedProjectNames.length > 1;
   return (
-    <div role="status" style={bannerStyle}>
+    <div role="status" className="sf-notice sf-notice--success">
       <div style={{ flex: 1 }}>
-        <p style={{ color: colors.text, fontSize: '0.95rem', margin: '0 0 0.5rem 0', fontWeight: 600 }}>
+        <p style={{ fontSize: '0.95rem', margin: '0 0 0.5rem 0', fontWeight: 600 }}>
           You&apos;ve been added to: {projectList}
         </p>
-        <p style={{ color: colors.text, fontSize: '0.875rem', margin: 0, lineHeight: '1.5' }}>
+        <p style={{ fontSize: '0.875rem', margin: 0, lineHeight: '1.5' }}>
           The project{isPlural ? 's' : ''} should now appear in your project list.
         </p>
       </div>

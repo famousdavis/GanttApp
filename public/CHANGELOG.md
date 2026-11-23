@@ -1,5 +1,71 @@
 # Change Log
 
+## Version 0.34.0 (2026-11-23)
+
+### Changed: GanttApp now uses the SPERT® Suite's shared page frame
+
+- **The top of the page is two compact rows, laid out as in the other SPERT® apps.** The first row holds the GanttApp™ icon and title, the tagline, the theme button and the account button. The second holds the tabs: Projects, Releases and Gantt Chart on the left; Settings, About and Help Center on the right. The title is 24 pixels tall (it was 33.6) and keeps its teal gradient. The current tab is underlined in blue instead of filled.
+- **The icon and title are a link to the Projects tab.** Click it to go back to your projects from any tab. Ctrl-click or Cmd-click opens GanttApp in a new browser tab.
+- **The page is wider.** The content can now be up to 1,600 pixels wide, with 32-pixel margins (it was 1,200). On a 1,920-pixel-wide window the project tiles sit four to a row; at 1,280 and 1,440 they sit three to a row. Settings, About and the Changelog keep a narrower column, which is easier to read.
+- **Every screen has one heading in the same place.** It reads Projects, Settings, About This App or Changelog. On Releases and the Gantt Chart it is the selected project's name, or the tab's name when there is no project. The Releases tab's own "Releases for" picker and the Gantt Chart's project picker stay where they were. The chart's picker is still part of a copied chart image.
+- **The toolbar's buttons are all 36 pixels tall.** They keep their colours and their order: Export All, Import, Load Sample and New Project.
+- **The notices share one style.** The first-visit notice, the local-storage warning, the invitation and the cloud-loading notice sit under the tabs. They span the content's full width, and their "Got it" buttons are smaller and outlined. The invitation is now full width too: it was a narrow card in the middle of the page.
+- **The theme button shows a drawn sun, moon or screen in grey**, instead of a coloured emoji. Its name for screen readers is unchanged, "Theme: light", "Theme: dark" or "Theme: system". So is the order it cycles in.
+- **The dark theme's page is a slightly deeper navy**, the shade every SPERT® app uses. Every text colour on it gains a little contrast. The title's dark gradient now measures at least 3.24:1 (it was 3.12:1).
+- **The footer runs the full width of the window**, above a thin line. Its links are now the frame's blue: 5.25:1 on the white page, and 6.72:1 on the dark one. Its wording and links are unchanged, and Version still opens the Changelog.
+- **A "Skip to main content" link** appears at the top left when you first press Tab. It moves keyboard focus straight past the header and tabs.
+- **While your data loads**, the header, tabs and footer show at once, and only the content area says "Loading...". On Projects the four toolbar buttons are already in place, greyed out until the data arrives. Before, the whole page said "Loading..." on its own.
+- **The trademark sign after the title is now the ™ symbol**, in a readable grey, 4.84:1 on white. It was the letters "TM" in a pale grey that measured 1.91:1. Screen readers now read the link as "GanttApp™".
+
+Nothing about how projects are stored has changed.
+
+### Internal
+
+- The frame is the SPERT® Suite's shared stylesheet, `styles/spert-frame.css`, copied byte for byte from `spert-suite-docs` (md5 `6e1fa767…`) and never edited here. It is imported once, last, in `pages/_app.tsx`. `.sf-btn` and `.pt-btn` are one class each, so the import order decides which wins, and the frame's button size must win.
+- New components:
+  - `AppHeader` (the brand row);
+  - `AppFooter`;
+  - `HeadingRow`;
+  - `ThemeButton`;
+  - `ProjectsToolbar` (moved out of `ProjectsTab.tsx`, so the loading screen can show it);
+  - the pure `screenHeading()`.
+- `pages/index.tsx` is the frame's root, in this order:
+  - the skip link;
+  - the header;
+  - the tabs;
+  - the notices slot;
+  - `main`, holding the heading row and the tab;
+  - the footer.
+
+  The heading row of every tab but Projects sits outside the tab's error boundary, so a view that fails keeps its heading. Projects draws its own row, because its toolbar's state lives in that tab.
+- Retired, because the frame replaces them:
+  - `TITLE_GRADIENT` and the `.hdr26-title` fallbacks (the title is the frame's `.sf-grad`, with the same two ramps in `--app-grad-light` and `--app-grad-dark` in `globals.css`);
+  - `FOOTER_LINK`, `CHIP_MUTED` and `CHIP_LINK`;
+  - the `.storage-status-chip` focus ring;
+  - `.app-main::after`;
+  - the tile grid's container queries.
+- The dark ground `#101828` replaces `#1a1a2e` in three places whose job is the page: `theme.ts` `background`, `globals.css` `--bg`, and the Projects tab palette's `bg`. `theme.ts` `buttonBg` keeps `#1a1a2e`, because it is a button colour on darker panels and never sits on the page.
+- Help Center's hover underline is cleared afterwards rather than set to none. A leftover inline "none" would hide the underline that the frame adds under "more contrast".
+
+### Tested
+
+- 2,882 automated tests in 138 files, all passing (2,834 in 130 before).
+- **Eight new test files:**
+  - `frame-stylesheet` pins the copy's md5 and its single, last import;
+  - `Tabs.frame` checks the tab rows, the one current tab and Help Center's hover;
+  - `frame-pages` renders the real page: one heading on every screen, the narrow column, the skip link, the notices, a failing view, and the loading state;
+  - `AppHeader.brand` checks the brand link's name and its plain and modified clicks;
+  - `ThemeButton.icons` checks the drawn icons;
+  - `notices.frame` checks the four notices;
+  - `screenHeading` checks the heading for each screen;
+  - `dark-ground` checks the one dark ground.
+- **Rewritten onto the frame's colours:** `frame26-stage0.page` (the footer's link colours) and `StorageStatusChip.frame26` (the account button's text, icons, hover and focus ring). `title-gradient` and `title-gradient.page` were re-pinned to the new ground and the frame's fallbacks.
+- **Edited only where the page's markup changed:** the tab tests, the three tabs' heading tests, three page tests whose loaded signal was a toolbar button that now shows, disabled, while loading, and `control-styles`. Each is listed in the pull request.
+- Each new test was seen to fail with its fix undone, and to pass again once the file was put back and matched to its saved copy by hash (15 breaks).
+- Checked in Chrome with the suite's frame-check tool on a production build:
+  - 0 deviations on Projects and the Gantt Chart, at 1,280, 1,440 and 1,920 pixels, in both themes, with more contrast, and at 125% and 150% zoom;
+  - 0 on Releases, Settings, About, the Changelog, the Gantt Chart with Chart Settings open, and Projects with the notices showing.
+
 ## Version 0.33.2 (2026-11-23)
 
 ### Fixed: readable links and labels in the header and footer, and a visible keyboard focus on the account button

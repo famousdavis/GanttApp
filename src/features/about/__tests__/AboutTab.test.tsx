@@ -17,9 +17,13 @@ describe('AboutTab', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('renders the About This App heading', () => {
+  // FRAME26 (v0.34.0): "About This App" is the page's h1, drawn by pages/index.tsx's heading row outside the tab's
+  // error boundary (src/lib/__tests__/frame-pages.test.tsx), so the tab no longer draws a heading of its own.
+  it('renders no page heading of its own: "About This App" is the frame\'s h1', () => {
     render(<AboutTab />, { wrapper: ThemeWrapper });
-    expect(screen.getByText('About This App')).toBeTruthy();
+    expect(screen.queryByText('About This App')).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
   it('renders the Purpose section', () => {

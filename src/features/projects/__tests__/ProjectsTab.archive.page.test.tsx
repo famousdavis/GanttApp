@@ -7,7 +7,7 @@
 // on the other tabs, and everything refused when nothing can be saved.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, within, configure } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, configure } from '@testing-library/react';
 import Home from '../../../../pages/index';
 import { FullWrapper } from '../../../test/FullWrapper';
 import { LocalGanttStorageService } from '../../../shared/storage/local-gantt-storage-service';
@@ -106,7 +106,9 @@ const releasesFor = (names: string[]): Pick<AppData, 'releases'> => ({
 
 async function renderPage() {
   render(<Home />, { wrapper: FullWrapper });
-  await screen.findByRole('button', { name: 'New Project' });
+  // FRAME26 (v0.34.0): the toolbar is on screen, every button disabled, while the data loads (contract §7), so
+  // its appearance no longer means the page has loaded. Wait for the loaded one: its controls are enabled.
+  await waitFor(() => expect(screen.getByRole('button', { name: 'New Project' })).toBeEnabled());
 }
 
 const picker = (label: string) => screen.findByRole('combobox', { name: label });

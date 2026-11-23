@@ -100,7 +100,8 @@ const DARK: ProjectsTabPalette = {
   link: '#60a5fa',
   focus: '#60a5fa',
   surface: '#16213e',
-  bg: '#1a1a2e',
+  // The page: the frame's dark ground, --sf-page (FRAME26, v0.34.0; was #1a1a2e).
+  bg: '#101828',
   border: '#2d3748',
   btnBorder: '#8b9bb4',
   hoverBg: '#2d3748',

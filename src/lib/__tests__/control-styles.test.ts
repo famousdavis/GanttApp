@@ -321,7 +321,8 @@ describe('the stylesheets this test reads', () => {
     expect(specificity(':is(.a, #b) > c::before')).toEqual([1, 0, 2]);
     expect(specificity('.pt-btn[aria-disabled="true"]')).toEqual([0, 2, 0]);
     expect(specificity('input[type="date"]::-webkit-datetime-edit-text')).toEqual([0, 1, 2]);
-    expect(SHEETS).toEqual(['styles/globals.css', 'styles/projects-tab.css']);
+    // The SPERT® Suite frame's stylesheet is imported last (FRAME26, v0.34.0).
+    expect(SHEETS).toEqual(['styles/globals.css', 'styles/projects-tab.css', 'styles/spert-frame.css']);
   });
 });
 

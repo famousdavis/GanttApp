@@ -3,22 +3,26 @@
 // See LICENSE file in the project root for full license text.
 
 // The header title's gradient through the REAL page (pages/index.tsx), rendered inside the providers pages/_app.tsx
-// uses, while the theme is switched live with the app's own theme button (HDR26, v0.33.1).
+// uses, while the theme is switched live with the app's own theme button (HDR26, v0.33.1; re-pinned for FRAME26,
+// v0.34.0).
 //
-// Why a render test as well as the source scan in title-gradient.test.ts: React re-applies only the style keys that
-// change. Setting the `background` shorthand resets `background-clip`, so a title whose gradient were chosen by
-// theme through the shorthand would keep `backgroundClip: 'text'` in React's eyes while the browser drew a solid
-// bar, from the first live switch on. jsdom 29's CSS object resets background-clip on the shorthand the same way, so
-// this test catches that by behaviour, independently of how the source is written. It asserts that the <h1> is the
-// same element throughout: the trap only bites on an update, and a remount would set every key afresh and hide it.
+// The trap this guards: React re-applies only the style keys that change, and setting the `background` shorthand
+// resets `background-clip`, so a title whose gradient were chosen by theme through an inline shorthand would turn into
+// a solid bar on the first live switch. Since v0.34.0 the title has no inline style at all: the frame's `.sf-grad`
+// paints `var(--app-grad-light)` and, on `:root[data-theme="dark"]`, `var(--app-grad-dark)`. So this renders the page
+// with the real stylesheets injected (the vendored styles/spert-frame.css and styles/globals.css) and asserts, after
+// every click, on the SAME element: no inline style; computed `background-clip: text`; computed `background-image` is
+// that theme's `var(--app-grad-…)`; and the custom property resolves to that theme's pinned ramp. jsdom 29 resolves a
+// custom property on the element but leaves `var()` unresolved inside `background-image` (measured), hence the pair.
 //
 // matchMedia is mocked to "no match" in src/test/setup.ts, so "system" resolves to the light theme here.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
 import Home from '../../../pages/index';
 import { FullWrapper } from '../../test/FullWrapper';
-import { LIGHT_THEME, DARK_THEME } from '../../shared/utils/theme';
 
 // The whole page renders: allow for a loaded machine.
 configure({ asyncUtilTimeout: 5000 });
@@ -62,31 +66,43 @@ vi.mock('firebase/firestore', () => ({
   writeBatch: vi.fn(),
 }));
 
-/** The approved ends (HDR26 plan §2), light end first; also pinned in title-gradient.test.ts. */
-const ENDS = { light: ['#449fbc', '#00657d'], dark: ['#54adca', '#00738e'] } as const;
-const TEXT = { light: LIGHT_THEME.text, dark: DARK_THEME.text } as const;
+/** The two ramps (HDR26 plan §2), light end first; also pinned in title-gradient.test.ts. */
+const RAMP = {
+  light: 'linear-gradient(90deg, #449fbc 0%, #00657d 100%)',
+  dark: 'linear-gradient(90deg, #54adca 0%, #00738e 100%)',
+} as const;
+const squash = (v: string) => v.replace(/\s+/g, '').toLowerCase();
 
-/** A gradient as jsdom's CSS object serializes it: hex stops become rgb(). */
-const rgbOf = (h: string) => `rgb(${[1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16)).join(', ')})`;
-const serialized = (theme: 'light' | 'dark') =>
-  `linear-gradient(90deg, ${rgbOf(ENDS[theme][0])} 0%, ${rgbOf(ENDS[theme][1])} 100%)`;
+function injectStylesheets() {
+  for (const file of ['styles/globals.css', 'styles/spert-frame.css']) {
+    const style = document.createElement('style');
+    style.setAttribute('data-test-sheet', file);
+    style.textContent = readFileSync(join(process.cwd(), file), 'utf8');
+    document.head.appendChild(style);
+  }
+}
 
-function expectTitleIn(title: HTMLElement, theme: 'light' | 'dark') {
-  expect(title.style.backgroundImage, `${theme}: background-image`).toBe(serialized(theme));
-  expect(title.style.backgroundClip, `${theme}: background-clip`).toBe('text');
-  expect(title.style.getPropertyValue('--hdr26-title-contrast'), `${theme}: contrast colour`).toBe(TEXT[theme]);
+function expectTitleIn(grad: HTMLElement, theme: 'light' | 'dark') {
+  expect(document.documentElement.getAttribute('data-theme'), `${theme}: data-theme`).toBe(theme);
+  expect(grad.getAttribute('style'), `${theme}: no inline style`).toBeNull();
+  const cs = getComputedStyle(grad);
+  expect(cs.backgroundClip, `${theme}: background-clip`).toBe('text');
+  expect(cs.backgroundImage, `${theme}: background-image`).toBe(`var(--app-grad-${theme})`);
+  expect(squash(cs.getPropertyValue(`--app-grad-${theme}`)), `${theme}: the ramp`).toBe(squash(RAMP[theme]));
 }
 
 describe('the header title through the real page: its gradient survives a live theme switch (HDR26)', () => {
   beforeEach(() => {
     localStorage.clear();
+    document.head.querySelectorAll('style[data-test-sheet]').forEach((e) => e.remove());
+    injectStylesheets();
   });
 
   it("system → light → dark → system: after each click the title is still clipped to its text, in that theme's gradient", async () => {
     render(<Home />, { wrapper: FullWrapper });
-    const title = await screen.findByRole('heading', { level: 1 });
-    expect(title).toHaveTextContent('GanttAppTM');
-    expect(title).toHaveClass('hdr26-title');
+    const title = await screen.findByText('GanttApp', { selector: '[data-sf="title"] .sf-grad' });
+    expect(title.closest('[data-sf="title"]')).toHaveTextContent('GanttApp™');
+    expect(title.closest('a')).toHaveAttribute('href', '/');
     expect(screen.getByTitle('Theme: system (click to change)')).toBeInTheDocument();
     expectTitleIn(title, 'light');
 
@@ -98,8 +114,8 @@ describe('the header title through the real page: its gradient survives a live t
     for (const [mode, theme] of steps) {
       fireEvent.click(screen.getByTitle(/^Theme: /));
       await waitFor(() => expect(screen.getByTitle(`Theme: ${mode} (click to change)`)).toBeInTheDocument());
-      // The same element, updated in place: the case in which a changed shorthand would reset background-clip.
-      expect(screen.getByRole('heading', { level: 1 }), `${mode}: the <h1> was replaced`).toBe(title);
+      // The same element, updated in place: the case in which a changed inline shorthand would reset background-clip.
+      expect(screen.getByText('GanttApp', { selector: '[data-sf="title"] .sf-grad' }), `${mode}: the title was replaced`).toBe(title);
       expectTitleIn(title, theme);
     }
   });

@@ -45,8 +45,10 @@ function renderBar(activeTab: TabType = 'projects') {
     { wrapper: ThemeWrapper }
   );
   const link = screen.getByRole('link', { name: ACCESSIBLE_NAME });
-  const bar = link.parentElement as HTMLElement;
-  return { container, bar, link, unmount };
+  // FRAME26 (v0.34.0): the bar is the frame's <nav>; the link sits in its right-hand app zone.
+  const bar = link.closest('nav') as HTMLElement;
+  const zone = link.parentElement as HTMLElement;
+  return { container, bar, zone, link, unmount };
 }
 
 describe('Tabs — the Help Center link', () => {
@@ -78,13 +80,16 @@ describe('Tabs — the Help Center link', () => {
   it('is in the same bar as the tabs', () => {
     const { container, bar } = renderBar();
     expect(bar).toBe(container.firstElementChild);
+    expect(bar.querySelectorAll('button')).toHaveLength(5);
   });
 
   // ⚠️ Every active tab, not one: the link must not move when the tabs change.
   for (const active of ALL_TABS) {
     it(`sits directly after About, as the bar's last element, with ${active} active`, () => {
-      const { bar, link } = renderBar(active);
-      expect(bar.lastElementChild).toBe(link);
+      // FRAME26 (v0.34.0): the last element of the app zone, Settings · About · Help Center, which ends the bar.
+      const { bar, zone, link } = renderBar(active);
+      expect(zone).toBe(bar.querySelector('[data-sf="nav-app"]'));
+      expect(zone.lastElementChild).toBe(link);
       const before = link.previousElementSibling;
       expect(before?.tagName).toBe('BUTTON');
       expect(before?.textContent).toBe('About');
@@ -99,24 +104,28 @@ describe('Tabs — the Help Center link is not a tab', () => {
     expect(labels).toEqual(TAB_LABELS_IN_ORDER);
   });
 
-  it('is a plain <a>, with no role, aria-current or tabindex anywhere in the bar', () => {
+  // FRAME26 (v0.34.0): the current tab now carries aria-current="page" (contract §3 "Active item"). Exactly one,
+  // on the current tab's button, and never on the link.
+  it('is a plain <a>, never current, with no role or tabindex anywhere in the bar', () => {
     for (const active of ALL_TABS) {
       const { bar, link, unmount } = renderBar(active);
       expect(link.tagName).toBe('A');
       expect(link.hasAttribute('role')).toBe(false);
-      expect(bar.querySelectorAll('[aria-current]').length, `activeTab=${active}`).toBe(0);
+      expect(link.hasAttribute('aria-current')).toBe(false);
+      const current = Array.from(bar.querySelectorAll('[aria-current]'));
+      expect(current.map((e) => e.tagName + ' ' + e.getAttribute('aria-current')), `activeTab=${active}`).toEqual(['BUTTON page']);
       expect(bar.querySelectorAll('[tabindex]').length, `activeTab=${active}`).toBe(0);
       unmount();
     }
   });
 
-  it('never takes a tab’s fill, radius or bottom border', () => {
+  // FRAME26 (v0.34.0): the link is the frame's `.sf-help`, never a `.sf-tab`, with no inline style at rest (an inline
+  // value would beat the frame's, and an inline text-decoration would hide contrast-more's underline).
+  it('never takes a tab’s look: it is .sf-help, with no inline style at rest', () => {
     for (const active of ALL_TABS) {
       const { link, unmount } = renderBar(active);
-      expect(link.style.background, `activeTab=${active}`).toBe('');
-      expect(link.style.borderBottom, `activeTab=${active}`).toBe('');
-      expect(link.style.borderTopLeftRadius, `activeTab=${active}`).toBe('');
-      expect(link.style.marginLeft).toBe('auto');
+      expect(link.className, `activeTab=${active}`).toBe('sf-help');
+      expect(link.getAttribute('style'), `activeTab=${active}`).toBeNull();
       unmount();
     }
   });

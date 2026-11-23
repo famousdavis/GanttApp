@@ -66,7 +66,7 @@ export function SettingsTab() {
 
   return (
     <div style={{ maxWidth: '800px' }}>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text }}>Settings</h2>
+      {/* The heading, "Settings", is the frame's h1, in pages/index.tsx's heading row (FRAME26, v0.34.0). */}
 
       {gate.tosModalOpen && (
         <TosConsentModal

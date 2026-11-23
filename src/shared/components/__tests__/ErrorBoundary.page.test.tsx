@@ -144,8 +144,13 @@ const importedProjectFile = () =>
   exportFile('ganttapp-project-export', [IMPORTED_PROJECT], [IMPORTED_RELEASE], [IMPORTED_SNAPSHOT]);
 
 async function pickFile(file: File) {
-  const label = await screen.findByLabelText('Import projects from JSON');
-  const input = label.querySelector<HTMLInputElement>('input[type="file"]')!;
+  // FRAME26 (v0.34.0): the toolbar is on screen, every button disabled, while the data loads (contract §7), so
+  // its appearance no longer means the page has loaded. Wait for the loaded one: its controls are enabled.
+  const input = await waitFor(() => {
+    const el = screen.getByLabelText('Import projects from JSON').querySelector<HTMLInputElement>('input[type="file"]')!;
+    expect(el).toBeEnabled();
+    return el;
+  });
   fireEvent.change(input, { target: { files: [file] } });
 }
 

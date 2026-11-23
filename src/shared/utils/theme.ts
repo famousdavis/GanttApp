@@ -68,7 +68,8 @@ export const LIGHT_THEME: ThemeColors = {
 };
 
 export const DARK_THEME: ThemeColors = {
-  background: '#1a1a2e',
+  // The SPERT® Suite frame's dark ground, --sf-page in styles/spert-frame.css (FRAME26, v0.34.0; was #1a1a2e).
+  background: '#101828',
   surface: '#16213e',
   border: '#2d3748',
   borderLight: '#4a5568',
@@ -82,6 +83,8 @@ export const DARK_THEME: ThemeColors = {
   chartBorder: '#2d3748',
   svgText: '#e2e8f0',
   gridLine: '#4a5568',
+  // Not the page: a button's fill on `surface` (#16213e) panels, never on the page ground. So it kept the old
+  // ground's value when the page moved to #101828 (FRAME26, v0.34.0).
   buttonBg: '#1a1a2e',
   buttonBorder: '#3b82f6',
   buttonText: '#3b82f6',

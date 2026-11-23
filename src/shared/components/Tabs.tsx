@@ -5,7 +5,6 @@
 // Tab navigation component
 
 import { TabType } from '../types';
-import { useTheme } from '../../context/ThemeContext';
 
 // This app's page in the SPERT® Suite Help Center. Module-local: the link below
 // is its only consumer, and the app's other spertsuite.com addresses are inline
@@ -14,91 +13,77 @@ import { useTheme } from '../../context/ThemeContext';
 const HELP_CENTER_URL = 'https://spertsuite.com/help/ganttapp';
 
 interface TabsProps {
+  /** The tab shown. On the Changelog (reached from the footer's Version button) no navigation item is current. */
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
 }
 
-export function Tabs({ activeTab, onTabChange }: TabsProps) {
-  const { colors } = useTheme();
+// The frame's two zones (FRAME26, contract §3 "Navigation zones", v0.34.0): the app's work items on the left, then
+// Settings · About · Help Center on the right, always in that order.
+const WORK: { id: TabType; label: string }[] = [
+  { id: 'projects', label: 'Projects' },
+  { id: 'releases', label: 'Releases' },
+  { id: 'chart', label: 'Gantt Chart' },
+];
+const APP: { id: TabType; label: string }[] = [
+  { id: 'settings', label: 'Settings' },
+  { id: 'about', label: 'About' },
+];
 
-  const tabs: { id: TabType; label: string }[] = [
-    { id: 'projects', label: 'Projects' },
-    { id: 'releases', label: 'Releases' },
-    { id: 'chart', label: 'Gantt Chart' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'about', label: 'About' }
-  ];
+/**
+ * The frame's navigation row (FRAME26, contract §3, v0.34.0): a 44 px band with a 1 px rule. Each item is the frame's
+ * `.sf-tab`, with no inline style (an inline value would beat the frame's). The current item carries
+ * `aria-current="page"`, which the stylesheet marks with the accent underline at the same weight; every other item
+ * has no `aria-current` at all (React would render `false` as the string "false"). The Changelog is not a tab, so on
+ * it no item is current. The DOM order is today's, so the keyboard order and pages/index.tsx's arrow keys are too.
+ */
+export function Tabs({ activeTab, onTabChange }: TabsProps) {
+  const item = (tab: { id: TabType; label: string }) => (
+    <button
+      key={tab.id}
+      type="button"
+      className="sf-tab"
+      aria-current={activeTab === tab.id ? 'page' : undefined}
+      onClick={() => onTabChange(tab.id)}
+    >
+      {tab.label}
+    </button>
+  );
 
   return (
-    <div style={{
-      display: 'flex',
-      gap: '0.5rem',
-      borderBottom: `2px solid ${colors.border}`,
-      marginBottom: '2rem'
-    }}>
-      {tabs.map(tab => (
-        <button
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-          style={{
-            padding: '0.5rem 1.25rem',
-            background: activeTab === tab.id ? colors.accent : 'transparent',
-            color: activeTab === tab.id ? colors.accentText : colors.textSecondary,
-            border: 'none',
-            borderBottom: activeTab === tab.id ? `3px solid ${colors.accent}` : '3px solid transparent',
-            borderTopLeftRadius: '8px',
-            borderTopRightRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '1rem',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={(e) => {
-            if (activeTab !== tab.id) {
-              e.currentTarget.style.background = colors.hoverBg;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (activeTab !== tab.id) {
-              e.currentTarget.style.background = 'transparent';
-            }
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
-      {/* Help Center: a LINK that leaves the app, never a tab. So it is not in
-          `tabs`, not a <button>, and not in pages/index.tsx's arrow-key tabOrder.
-          It sits after About, at the bar's right-hand end, as quiet muted text
-          with none of the tabs' fill, radius or bottom border. The arrow is
-          decoration, hidden from assistive technology; the visually hidden text
-          gives the accessible name "Help Center (opens in a new tab)".
-          ⚠️ The spaces are their own text nodes, OUTSIDE the spans: a space inside
-          a span is trimmed by the accessible-name computation, giving
-          "Help Center(opens in a new tab)". */}
-      <a
-        href={HELP_CENTER_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          marginLeft: 'auto',
-          alignSelf: 'center',
-          color: colors.textSecondary,
-          fontSize: '0.875rem',
-          whiteSpace: 'nowrap',
-          textDecoration: 'none'
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-        onMouseLeave={(e) => {
-          if (document.activeElement !== e.currentTarget) e.currentTarget.style.textDecoration = 'none';
-        }}
-        onFocus={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-        onBlur={(e) => {
-          if (!e.currentTarget.matches(':hover')) e.currentTarget.style.textDecoration = 'none';
-        }}
-      >
-        Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="pt-sr-only">(opens in a new tab)</span>
-      </a>
-    </div>
+    <nav className="sf-nav" data-sf="nav">
+      <div className="sf-col sf-nav-row">
+        <div className="sf-nav-work" data-sf="nav-work">
+          {WORK.map(item)}
+        </div>
+        <div className="sf-nav-app" data-sf="nav-app">
+          {APP.map(item)}
+          {/* Help Center: a LINK that leaves the app, never a tab. So it is not in the tab lists, not a <button>,
+              and not in pages/index.tsx's arrow-key tabOrder. It is the app zone's last element, the frame's quiet
+              `.sf-help`. The arrow is decoration, hidden from assistive technology; the visually hidden text gives
+              the accessible name "Help Center (opens in a new tab)".
+              ⚠️ The spaces are their own text nodes, OUTSIDE the spans: a space inside a span is trimmed by the
+              accessible-name computation, giving "Help Center(opens in a new tab)".
+              The hover and focus underline is set and CLEARED inline (''), never set to 'none': an inline 'none'
+              would beat the frame's underline under prefers-contrast: more (FRAME26, v0.34.0). */}
+          <a
+            href={HELP_CENTER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sf-help"
+            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+            onMouseLeave={(e) => {
+              if (document.activeElement !== e.currentTarget) e.currentTarget.style.textDecoration = '';
+            }}
+            onFocus={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+            onBlur={(e) => {
+              if (!e.currentTarget.matches(':hover')) e.currentTarget.style.textDecoration = '';
+            }}
+          >
+            Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="pt-sr-only">(opens in a new tab)</span>
+          </a>
+        </div>
+      </div>
+    </nav>
   );
 }

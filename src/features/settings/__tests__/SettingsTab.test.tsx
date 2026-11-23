@@ -58,9 +58,12 @@ describe('SettingsTab', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('renders the Settings heading', () => {
+  // FRAME26 (v0.34.0): "Settings" is the page's h1, drawn by pages/index.tsx's heading row outside the tab's error
+  // boundary (src/lib/__tests__/frame-pages.test.tsx), so the tab no longer draws a heading of its own.
+  it('renders no page heading of its own: "Settings" is the frame\'s h1', () => {
     render(<SettingsTab />, { wrapper: FullWrapper });
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.queryByText('Settings')).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
   it('renders Storage section', () => {

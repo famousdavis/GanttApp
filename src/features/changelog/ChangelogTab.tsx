@@ -31,7 +31,7 @@ export function ChangelogTab() {
 
   return (
     <div style={{ maxWidth: '800px' }}>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: colors.text }}>Changelog</h2>
+      {/* The heading, "Changelog", is the frame's h1, in pages/index.tsx's heading row (FRAME26, v0.34.0). */}
       <p style={{ color: colors.textSecondary, marginBottom: '2rem' }}>
         Complete version history of GanttApp. Each version includes new features, improvements, and bug fixes.
       </p>

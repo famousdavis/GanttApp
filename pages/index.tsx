@@ -41,6 +41,13 @@ const TITLE_GRADIENT = {
   dark: 'linear-gradient(90deg, #54adca 0%, #00738e 100%)',
 } as const;
 
+/**
+ * The footer's links and its Version button, in each theme (FRAME26 stage 0, v0.33.2). Text needs 4.5:1 on the
+ * page background: #0070f3 is 4.55 on #ffffff, but only 3.75 on #1a1a2e, so dark uses #51a2ff (6.47), the frame
+ * contract's dark link colour. Guarded by src/lib/__tests__/frame26-stage0.page.test.tsx.
+ */
+const FOOTER_LINK = { light: '#0070f3', dark: '#51a2ff' } as const;
+
 // Main App Component
 function AppContent() {
   const {
@@ -327,8 +334,10 @@ function AppContent() {
                 transition: 'background-color 0.2s ease'
               }}
               title={`Theme: ${mode} (click to change)`}
+              aria-label={`Theme: ${mode}`}
             >
-              {mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}
+              {/* The glyph is decoration: the name is the aria-label (FRAME26 stage 0, v0.33.2). */}
+              <span aria-hidden="true">{mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🖥️'}</span>
             </button>
             <StorageStatusChip onOpenModal={() => setCloudModalOpen(true)} />
           </div>
@@ -458,7 +467,7 @@ function AppContent() {
             style={{
               background: 'none',
               border: 'none',
-              color: '#0070f3',
+              color: FOOTER_LINK[resolvedTheme],
               textDecoration: 'none',
               cursor: 'pointer',
               fontSize: '0.875rem',
@@ -470,22 +479,22 @@ function AppContent() {
           {' '}| Licensed under GNU GPL v3
           <div style={{ marginTop: '0.25rem' }}>
             <a href="https://spertsuite.com" target="_blank" rel="noopener noreferrer"
-              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
               SPERT&reg; Suite
             </a>
             {' '}|{' '}
             <a href="https://spertsuite.com/TOS.pdf" target="_blank" rel="noopener noreferrer"
-              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
               Terms of Service
             </a>
             {' '}|{' '}
             <a href="https://spertsuite.com/PRIVACY.pdf" target="_blank" rel="noopener noreferrer"
-              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
               Privacy Policy
             </a>
             {' '}|{' '}
             <a href="https://github.com/famousdavis/GanttApp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"
-              style={{ color: '#0070f3', textDecoration: 'none', fontSize: '0.875rem' }}>
+              style={{ color: FOOTER_LINK[resolvedTheme], textDecoration: 'none', fontSize: '0.875rem' }}>
               License
             </a>
           </div>

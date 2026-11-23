@@ -1,5 +1,29 @@
 # Change Log
 
+## Version 0.33.2 (2026-11-23)
+
+### Fixed: readable links and labels in the header and footer, and a visible keyboard focus on the account button
+
+- **The footer's links are readable in the dark theme.** Version, SPERT® Suite, Terms of Service, Privacy Policy and License were the same blue in both themes, which measured 3.75:1 against the dark page, below the 4.5:1 bar for text. In the dark theme they are now a lighter blue, at 6.47:1. In the light theme they are unchanged, at 4.55:1.
+- **"Local only" is readable in the light theme.** The grey words on the account button at the top right measured 2.54:1 on the white page. They are now a darker grey, at 4.84:1. The lock beside them, which is the only sign of local storage when you are signed in, is drawn in the same grey, so it now meets the 3:1 bar for icons. In the dark theme both keep their colour, at 6.72:1.
+- **"Sign in" on the same button is readable in the dark theme.** It measured 3.75:1 and is now 6.47:1, in the same lighter blue as the footer. In the light theme it is unchanged, at 4.55:1.
+- **The account button shows where keyboard focus is.** Moving to it with the Tab key now draws a blue ring around it, 2 pixels wide and 2 pixels out from its edge, in a lighter blue in the dark theme. Before, nothing showed. Clicking it with the mouse draws no ring.
+- **Screen readers name the theme button.** It was announced by its picture, as "sun", "crescent moon" or "desktop computer". It is now announced as "Theme: light", "Theme: dark" or "Theme: system". It looks and works as before, and the picture is hidden from screen readers.
+
+Nothing about how projects are stored has changed.
+
+### Internal
+
+- The footer's link colour is `FOOTER_LINK` in `pages/index.tsx`, chosen by the resolved theme. The account button's colours are `CHIP_MUTED` and `CHIP_LINK` in `StorageStatusChip.tsx`. The button is transparent, so its ground is the page: `#ffffff` and `#1a1a2e` in `theme.ts`.
+- The focus ring is the `storage-status-chip` class in `styles/globals.css`, on `:focus-visible` only. It uses the SPERT® Suite frame's focus colours, `#2563eb` and `#60a5fa`. The button used to set `outline: none` as an inline style, which beats any stylesheet rule, so that line is gone. All three forms of the button carry the class: signed out, signed in with local storage, and signed in with cloud storage.
+- The button has no hover background, so it has no hover colours to check.
+
+### Tested
+
+- 2,834 automated tests in 130 files, 15 of them new, in two files. `frame26-stage0.page.test.tsx` (2 tests) renders the whole page, switches the theme with its own button from System to Light to Dark and back to System, and checks after each switch that the five footer controls take that theme's colour, at 4.5:1 or more against `theme.ts`'s background, and that the theme button is named "Theme: <mode>" with its picture hidden. `StorageStatusChip.frame26.test.tsx` (13 tests) checks the colours of "Local only", "Sign in" and the lock in both themes and their contrast, that the cloud icon is unchanged, that all three forms of the button carry the focus-ring class and set no inline outline, and that `globals.css` has the ring's rules.
+- Each fix was undone on its own, and its check was seen to fail with the expected message while every other check passed: the footer's old dark blue; the old grey for "Local only"; the old blue for "Sign in"; the theme button's label removed; the inline `outline: none` put back; the ring's rule removed; and the lock's old grey. Each file was put back and matched to its saved copy by hash.
+- Checked in Chrome at 1,280 by 900 pixels against the previous version, in both themes. The footer, "Local only", "Sign in" and the lock measured the values above. Pressing Tab to the account button drew a solid 2-pixel ring in `#2563eb` (light) and `#60a5fa` (dark); a mouse click drew none, and closing the dialog with Escape returned focus to the button with its ring showing. The theme button's accessible name read "Theme: light", from its label.
+
 ## Version 0.33.1 (2026-11-21)
 
 ### Changed: the GanttApp title in GanttApp's own teal

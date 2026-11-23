@@ -64,21 +64,14 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
               the accessible name "Help Center (opens in a new tab)".
               ⚠️ The spaces are their own text nodes, OUTSIDE the spans: a space inside a span is trimmed by the
               accessible-name computation, giving "Help Center(opens in a new tab)".
-              The hover and focus underline is set and CLEARED inline (''), never set to 'none': an inline 'none'
-              would beat the frame's underline under prefers-contrast: more (FRAME26, v0.34.0). */}
+              The hover underline is the frame's own `.sf-help:hover` (stylesheet v2, v0.34.1); keyboard focus shows
+              the frame's focus ring. ⚠️ Give the link no inline style and no hover or focus handlers: an inline
+              text-decoration would beat the frame's underline under prefers-contrast: more. */}
           <a
             href={HELP_CENTER_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="sf-help"
-            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-            onMouseLeave={(e) => {
-              if (document.activeElement !== e.currentTarget) e.currentTarget.style.textDecoration = '';
-            }}
-            onFocus={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-            onBlur={(e) => {
-              if (!e.currentTarget.matches(':hover')) e.currentTarget.style.textDecoration = '';
-            }}
           >
             Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="pt-sr-only">(opens in a new tab)</span>
           </a>

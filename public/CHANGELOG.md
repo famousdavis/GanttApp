@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 0.34.1 (2026-11-23)
+
+### Changed: the Help Center link's underline comes from the shared frame
+
+- **The Help Center link still underlines when you point at it, now drawn by the SPERT® Suite's shared stylesheet**, the same way in every SPERT® app. Pressing Tab to it shows the frame's focus ring, as on every other control in the tab row; it no longer also underlines on keyboard focus.
+
+### Internal
+
+- **The frame's stylesheet, `styles/spert-frame.css`, is re-vendored at version 2** (md5 `69146fd77679c71e03d2f06cfea96cf1`), byte for byte from `spert-suite-docs`. Its one new rule is `.sf-help:hover { text-decoration: underline; }`. `frame-stylesheet.test.ts` pins the new md5 and version.
+- **`Tabs.tsx` no longer sets the Help Center link's underline in JavaScript.** The four handlers (`onMouseEnter`, `onMouseLeave`, `onFocus`, `onBlur`) that set and cleared an inline `textDecoration` are gone, and the link carries no inline style at any point.
+- **"No projects yet." and the "All projects are archived" line carry the frame's empty-collection hook, `data-sf="empty"`,** so the suite's frame-check measures a first visit instead of reporting a missing tile grid. Their look and place are unchanged.
+- **Tested in 2,887 automated tests in 138 files, all passing (2,883 before).** New: each empty panel is the one empty panel, inside the page's main area, with no tile grid; a shown project brings the grid with no empty panel beside it; and `Tabs.tsx` gives the link no hover or focus handlers. The hover test was rewritten: the link now has no style attribute after a hover, a focus, and leaving both. Each was seen to fail with its change undone, and to pass again once the file was put back and matched to its saved copy by hash.
+- **Checked in Chrome with the suite's frame-check tool on a production build:** no unregistered deviations on Projects with data, Projects on a first visit, and the Gantt Chart.
+
 ## Version 0.34.0 (2026-11-23)
 
 ### Changed: GanttApp now uses the SPERT® Suite's shared page frame

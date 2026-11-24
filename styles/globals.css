@@ -39,9 +39,11 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* No max-width here (v0.34.2). Chrome with classic scrollbars resolves 100vw on the root to the window minus the
+   scrollbar gutter twice, so the old create-next-app `max-width: 100vw` made html 15 px narrower than the page and
+   put the frame's header 7.5 px left of the other apps'. Guarded by src/lib/__tests__/page-width.test.ts. */
 html,
 body {
-  max-width: 100vw;
   overflow-x: hidden;
 }
 

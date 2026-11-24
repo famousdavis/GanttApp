@@ -15,6 +15,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.34.2',
+    date: 'November 23, 2026',
+    items: [
+      <><strong>Fixed</strong> &mdash; On a wide window with scrollbars that are always shown (a Mac with a mouse attached, or Windows, in Chrome and Edge), GanttApp&apos;s header and page sat 7.5 pixels left of where the other SPERT&reg; apps put theirs. A width cap left over from the app&apos;s first skeleton made the page narrower than the window by one scrollbar&apos;s width. The cap is gone, and the header now sits where the other apps&apos; does. With scrollbars that appear only while scrolling, nothing moves. The page still never scrolls sideways: a wide Gantt chart is clipped as before.</>,
+      <><strong>Internal</strong> &mdash; <code>styles/globals.css</code> drops <code>max-width: 100vw</code> from <code>html, body</code> and keeps <code>overflow-x: hidden</code>. The cap came with the create-next-app skeleton; nothing depended on it. New <code>page-width.test.ts</code> checks that <code>html</code> and <code>body</code> have no computed <code>max-width</code> and no width in viewport units, and that it can see such a cap when one is there.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,890 automated tests in 139 files, all passing (2,887 before). The new test was seen to fail with the old line put back. Checked in Chrome on a production build with scrollbars always shown: the header&apos;s left edge moved from 177 to 184.5 at 1,920 pixels and from 497 to 504.5 at 2,560, matching Forecaster, on short and long pages. At 1,024 pixels on the Gantt Chart with the sample project, the page did not scroll sideways. The suite&apos;s frame-check tool found no unregistered deviations.</>,
+    ],
+  },
+  {
     version: '0.34.1',
     date: 'November 23, 2026',
     items: [

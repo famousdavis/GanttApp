@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 0.34.2 (2026-11-23)
+
+### Fixed: the header lines up with the other SPERT® apps when scrollbars are always shown
+
+- **On a wide window with scrollbars that are always shown, GanttApp's header and page sat 7.5 pixels left of where the other SPERT® apps put theirs.** That happens on a Mac with a mouse attached, or on Windows, in Chrome and Edge. A 15-pixel width cap left over from the app's first skeleton (`max-width: 100vw` on the page's root) made the page narrower than the window by one scrollbar's width. The cap is gone, and the header now sits exactly where the other apps' does (184.5 pixels from the left at a 1,920-pixel window, 504.5 at 2,560). With scrollbars that appear only while scrolling, as on a trackpad, nothing moves. The page still never scrolls sideways: a wide Gantt chart is clipped as before.
+
+### Internal
+
+- **`styles/globals.css` drops `max-width: 100vw` from `html, body` and keeps `overflow-x: hidden`.** The cap came with the create-next-app skeleton (`7597cb6`); nothing depended on it.
+- **New `src/lib/__tests__/page-width.test.ts`** loads `globals.css` and the frame's stylesheet and checks that `html` and `body` have no computed `max-width` and no width in viewport units. A third test checks that it can see such a cap when one is there. It was seen to fail with the old line put back, and to pass again once the file was restored and matched to its saved copy by hash.
+- **Tested in 2,890 automated tests in 139 files, all passing (2,887 before).**
+- **Checked in Chrome on a production build, with scrollbars always shown:** the header's left edge was 177 before and 184.5 after at 1,920 pixels, and 497 before and 504.5 after at 2,560, on a short page and a long one, against Forecaster's 184.5 and 504.5. With overlay scrollbars both read 192 and 512 before and after. At 1,024 pixels on the Gantt Chart with the sample project, the page did not scroll sideways, before or after. The suite's frame-check tool found no unregistered deviations.
+
 ## Version 0.34.1 (2026-11-23)
 
 ### Changed: the Help Center link's underline comes from the shared frame

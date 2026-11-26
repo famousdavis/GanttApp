@@ -4,6 +4,7 @@
 
 // Chart settings panel with display options, colors, and presets
 
+import { useId } from 'react';
 import { ChartColors, ChartDisplaySettings } from '../../shared/types';
 import { useTheme } from '../../context/ThemeContext';
 import { ColorSwatchPicker, GrayscaleSwatchPicker, PresetButtonGroup } from '../../shared/components/ColorPickers';
@@ -82,6 +83,7 @@ export function ChartSettings({
   // user types a year ("0002-…", "0020-…"): committing per keystroke would
   // fight the typing. A committed value is either a valid date or ''; anything
   // else clears the override, having warned via the hint below.
+  const panelId = useId();
   const statusDateField = useBufferedField({
     storeValue: todayDateOverride,
     onCommit: setTodayDateOverride,
@@ -92,21 +94,30 @@ export function ChartSettings({
 
   return (
     <div style={{ marginTop: '2rem' }}>
+      {/* A real button inside the heading (FRAME26 clean-up, v0.35.0): it was an h3 with onClick, out of the Tab order.
+          The button takes the heading's font and colour, so its look is unchanged; the arrow is hidden from screen
+          readers, which hear "Chart Settings, collapsed / expanded". */}
       <h3
-        onClick={() => setShowColorSettings(!showColorSettings)}
         style={{
           fontSize: '1.2rem',
           marginBottom: '1rem',
           color: colors.text,
-          cursor: 'pointer',
           userSelect: 'none'
         }}
       >
-        Chart Settings {showColorSettings ? '▲' : '▼'}
+        <button
+          type="button"
+          className="chart-settings-toggle"
+          aria-expanded={showColorSettings}
+          aria-controls={panelId}
+          onClick={() => setShowColorSettings(!showColorSettings)}
+        >
+          Chart Settings <span aria-hidden="true">{showColorSettings ? '▲' : '▼'}</span>
+        </button>
       </h3>
 
       {showColorSettings && (
-        <div style={{ padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+        <div id={panelId} style={{ padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
           {/* Toggle Settings */}
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', gap: '2rem' }}>

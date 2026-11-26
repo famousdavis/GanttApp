@@ -51,7 +51,8 @@ export const LIGHT_THEME: ThemeColors = {
   borderLight: '#ddd',
   text: '#333',
   textSecondary: '#666',
-  textMuted: '#999',
+  // The frame's --sf-text-muted (FRAME26 clean-up, v0.35.0; was #999, 2.84:1 on white): 4.83 on white, 4.59 on surface.
+  textMuted: '#6a7282',
   inputBg: '#fff',
   inputBorder: '#ddd',
   hoverBg: '#f5f5f5',
@@ -75,7 +76,9 @@ export const DARK_THEME: ThemeColors = {
   borderLight: '#4a5568',
   text: '#e2e8f0',
   textSecondary: '#a0aec0',
-  textMuted: '#718096',
+  // The frame's --sf-text-muted (FRAME26 clean-up, v0.35.0; was #718096, 4.41:1 on the page): 6.82 on the page,
+  // 6.10 on surface, 5.57 on chartBg.
+  textMuted: '#99a1af',
   inputBg: '#2d3748',
   inputBorder: '#4a5568',
   hoverBg: '#2d3748',

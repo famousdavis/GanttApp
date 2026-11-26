@@ -274,8 +274,10 @@ export function GanttChart({
           </div>
         </div>
 
-        {/* SVG Chart */}
-        <div style={{ overflowX: 'hidden', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
+        {/* SVG Chart. The card hugs the chart (FRAME26 clean-up, v0.35.0: since the frame's 1,536 px column it had spanned
+            the column at 1920 while the chart stayed 1,100 px): fit-content, left-aligned, and never wider than the
+            column, where it clips as before. */}
+        <div style={{ width: 'fit-content', maxWidth: '100%', overflowX: 'hidden', background: 'white', padding: '2rem', borderRadius: '8px', border: '2px solid #eee' }}>
           <svg width={chartWidth} height={chartHeight}>
             {/* Quarterly gridlines */}
             {(() => {

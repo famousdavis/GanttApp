@@ -11,6 +11,7 @@ import { ShareDialog } from './ShareDialog';
 import { ProjectDialog } from './ProjectDialog';
 import { ProjectTile } from './ProjectTile';
 import { ProjectsToolbar } from './ProjectsToolbar';
+import { ProjectsWelcome } from './ProjectsWelcome';
 import { HeadingRow } from '../../shared/components/HeadingRow';
 import { projectsTabPalette, paletteStyle, patchedColors } from './projectsTabPalette';
 import { useAppData } from '../../context/AppDataContext';
@@ -48,7 +49,8 @@ interface ProjectsTabProps {
   onAnnounce?: (message: string) => void;
 }
 
-type DialogState = { mode: 'new' } | { mode: 'edit'; projectId: string } | null;
+// `fromWelcome`: opened from the Welcome panel's Create New Project, so focus goes back there while the panel stays.
+type DialogState = { mode: 'new'; fromWelcome?: boolean } | { mode: 'edit'; projectId: string } | null;
 
 /** Where focus goes once the tiles have re-rendered. */
 type PendingFocus =
@@ -248,9 +250,9 @@ export function ProjectsTab({
     ownerUid: isCloudMode ? user?.uid : undefined,
   });
 
-  const openNewProject = () => {
+  const openNewProject = (fromWelcome = false) => {
     cancelEditProject(); // start from an empty draft
-    setDialog({ mode: 'new' });
+    setDialog({ mode: 'new', fromWelcome });
   };
 
   const openEditProject = (project: Project) => {
@@ -275,6 +277,10 @@ export function ProjectsTab({
         `[data-project-tile="${dialog.projectId}"] button[aria-label="Edit project"]`,
       );
       if (edit) return edit;
+    }
+    if (dialog?.mode === 'new' && dialog.fromWelcome) {
+      const create = rootRef.current?.querySelector<HTMLElement>('[data-sf="empty"] .pt-btn-primary');
+      if (create) return create;
     }
     return newProjectRef.current;
   };
@@ -330,11 +336,12 @@ export function ProjectsTab({
     setDeleteConfirmProjectId(null);
   };
 
+  // The toolbar's Load Sample and the Welcome panel's Load Sample Project both call this (contract §7 "Load Sample").
   const loadSample = () => {
     const sample = addSampleProject();
     setSelectedProjectId(sample.id);
     setActiveTab('chart');
-    onSampleLoaded?.(`Added "${sample.name}" at the end of the project list and opened it on the Gantt Chart tab.`);
+    onSampleLoaded?.(`Added “${sample.name}” to your projects and opened it.`);
   };
 
   const deleteTarget = deleteConfirmProjectId
@@ -359,15 +366,16 @@ export function ProjectsTab({
             onExportAll={handleExport}
             onImport={handleImport}
             onLoadSample={loadSample}
-            onNewProject={openNewProject}
+            onNewProject={() => openNewProject()}
           />
         }
       >
         Projects
       </HeadingRow>
 
+      {/* The collection's filter row (contract §3, `data-sf="filters"`): 16 px below the heading row. */}
       {archivedCount > 0 && (
-        <div className="pt-filter">
+        <div className="sf-below" data-sf="filters">
           <label className="pt-check" htmlFor={showArchivedId}>
             <input
               type="checkbox"
@@ -413,9 +421,12 @@ export function ProjectsTab({
 
       <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{status}</p>
 
-      {data.projects.length === 0 && <p className="pt-empty" data-sf="empty">No projects yet.</p>}
+      {data.projects.length === 0 && (
+        <ProjectsWelcome onCreate={() => openNewProject(true)} onLoadSample={loadSample} />
+      )}
+      {/* Every project archived (contract §7): one plain line, 16 px below the filter row. Not the Welcome panel. */}
       {data.projects.length > 0 && shown.length === 0 && (
-        <p className="pt-empty" data-sf="empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
+        <p className="pt-empty sf-below" data-sf="empty">{`All projects are archived. Select "Show archived (${archivedCount})" to see them.`}</p>
       )}
       {shown.length > 0 && (
         <ul className="sf-tiles" data-sf="tiles" aria-labelledby={headingId}>

@@ -15,6 +15,7 @@ import { InvitationBanner } from '../InvitationBanner';
 import { LIGHT_THEME } from '../../utils/theme';
 import { TOS_VERSION } from '../../../lib/version';
 import type { InvitationBannerState } from '../../hooks/useInvitationLanding';
+import { contrast, token } from '../../../test/frameTokens';
 
 const mockUseInvitationLanding = vi.fn();
 const mockUseAuth = vi.fn();
@@ -135,6 +136,23 @@ describe('InvitationBanner', () => {
       expect(mockSignInWithMicrosoft).toHaveBeenCalledTimes(1);
       expect(mockSignInWithGoogle).not.toHaveBeenCalled();
       expect(screen.queryByText(TOS_HEADING)).not.toBeInTheDocument();
+    });
+
+    // FRAME26 clean-up G3 (v0.35.0): the error line was #e53e3e, 3.79 / 3.58:1 on the info notice's ground. It is the
+    // frame's --sf-error-text, which must reach 4.5:1 on --sf-info-bg in both themes.
+    it('draws a failed sign-in in the frame\'s error text, at 4.5:1 or more on the info ground in both themes', async () => {
+      localStorage.setItem(TOS_ACCEPTED_KEY, TOS_VERSION);
+      mockSignInWithGoogle.mockRejectedValue(
+        Object.assign(new Error('Firebase: Error (auth/popup-blocked).'), { code: 'auth/popup-blocked' }),
+      );
+      renderBanner();
+      await click(screen.getByRole('button', { name: GOOGLE }));
+      const line = await screen.findByText('Sign-in popup was blocked. Please allow popups for this site.');
+      expect(line.style.color).toBe('var(--sf-error-text)');
+      expect(line.closest('.sf-notice--info')).not.toBeNull();
+      for (const theme of ['light', 'dark'] as const) {
+        expect(contrast(token(theme, '--sf-error-text'), token(theme, '--sf-info-bg')), theme).toBeGreaterThanOrEqual(4.5);
+      }
     });
 
     it('shows a failed sign-in as the friendly message for its Firebase error code', async () => {

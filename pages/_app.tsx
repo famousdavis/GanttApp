@@ -14,6 +14,7 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { StorageProvider } from '../src/context/StorageContext';
 import { ThemeProvider } from '../src/context/ThemeContext';
 import { AppDataProvider } from '../src/context/AppDataContext';
+import { CrashScreen } from '../src/shared/components/CrashScreen';
 
 /**
  * Document head lives here, deliberately OUTSIDE the provider tree.
@@ -37,15 +38,18 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" type="image/png" href="/spert-favicon-ganttapp.png" />
       </Head>
-      <AuthProvider>
-        <StorageProvider>
-          <ThemeProvider>
-            <AppDataProvider>
-              <Component {...pageProps} />
-            </AppDataProvider>
-          </ThemeProvider>
-        </StorageProvider>
-      </AuthProvider>
+      {/* The outermost crash screen (v0.35.0): outside every provider and the frame, contract §7 "Errors". */}
+      <CrashScreen>
+        <AuthProvider>
+          <StorageProvider>
+            <ThemeProvider>
+              <AppDataProvider>
+                <Component {...pageProps} />
+              </AppDataProvider>
+            </ThemeProvider>
+          </StorageProvider>
+        </AuthProvider>
+      </CrashScreen>
     </>
   );
 }

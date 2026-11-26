@@ -62,9 +62,10 @@
   outline-offset: 2px;
 }
 
+/* The every-project-archived line (v0.35.0: the no-projects case is the frame's Welcome panel, ProjectsWelcome.tsx).
+   It and the filter row above it take the frame's `.sf-below`, 16 px each (contract §3, §7). */
 .pt-empty { color: var(--pt-meta); font-style: italic; }
 
-.pt-filter { margin: -0.25rem 0 1rem; }
 .pt-check {
   display: inline-flex;
   align-items: center;

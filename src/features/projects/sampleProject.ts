@@ -11,13 +11,20 @@ import { DEFAULT_WORK_DAYS } from '../../shared/utils/validation';
 
 export const SAMPLE_NAME_BASE = 'Mobile App Launch';
 
-/** "(Sample)" for the first, then "(Sample 2)", "(Sample 3)"…: the lowest free number. */
+/**
+ * The name Load Sample gives its project (contract §7 "Load Sample", FRAME26 clean-up, v0.35.0): "Sample: Mobile App
+ * Launch", or, when a project already has that exact name, "Sample: Mobile App Launch (2)", then (3)…, the lowest
+ * number free. `existingNames` is every project's name, archived ones included (archiving is a per-person setting;
+ * the project is still in the list). Names match exactly: no trimming, no case folding. Samples added before v0.35.0
+ * keep their old "Mobile App Launch (Sample)" names.
+ */
 export function sampleProjectName(existingNames: readonly string[]): string {
   const taken = new Set(existingNames);
-  const nameFor = (n: number) => `${SAMPLE_NAME_BASE} (Sample${n === 1 ? '' : ` ${n}`})`;
-  let n = 1;
-  while (taken.has(nameFor(n))) n += 1;
-  return nameFor(n);
+  const base = `Sample: ${SAMPLE_NAME_BASE}`;
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base} (${n})`)) n += 1;
+  return `${base} (${n})`;
 }
 
 const FINISH_OFFSET = 140;

@@ -46,9 +46,9 @@ export function AppHeader({ onNavigateHome, onOpenAccount }: AppHeaderProps) {
       <div className="sf-col sf-bar-row">
         <Link href="/" onClick={handleBrandClick} className="sf-brand" data-sf="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/spert-favicon-ganttapp.png" alt="" className="sf-icon sf-icon--light" data-sf="favicon" />
+          <img src="/spert-favicon-ganttapp.png" alt="" className="sf-icon sf-icon--light ga-favicon" data-sf="favicon" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/spert-favicon-ganttapp-dark.png" alt="" className="sf-icon sf-icon--dark" data-sf="favicon" />
+          <img src="/spert-favicon-ganttapp-dark.png" alt="" className="sf-icon sf-icon--dark ga-favicon" data-sf="favicon" />
           <span className="sf-title" data-sf="title">
             <span className="sf-grad">GanttApp</span><span className="sf-mark sf-mark--tm">™</span>
           </span>

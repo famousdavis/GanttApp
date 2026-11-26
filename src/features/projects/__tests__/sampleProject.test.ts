@@ -10,18 +10,35 @@ import { parseDateLocal } from '../../../shared/utils/dates';
 
 const dow = (iso: string) => new Date(parseDateLocal(iso)).getDay();
 
+// The name Load Sample gives (contract §7 "Load Sample", v0.35.0): "Sample: Mobile App Launch", then "(2)", "(3)"…, the
+// lowest number free, counted against every project's name. The six cases the FRAME26 clean-up brief names, plus the
+// gap a deleted copy leaves.
 describe('sampleProjectName', () => {
-  it('is "(Sample)" first, then the lowest free number', () => {
-    expect(sampleProjectName([])).toBe('Mobile App Launch (Sample)');
-    expect(sampleProjectName(['Other'])).toBe('Mobile App Launch (Sample)');
-    expect(sampleProjectName(['Mobile App Launch (Sample)'])).toBe('Mobile App Launch (Sample 2)');
-    expect(sampleProjectName(['Mobile App Launch (Sample)', 'Mobile App Launch (Sample 2)']))
-      .toBe('Mobile App Launch (Sample 3)');
-    // A gap is filled: "(Sample 2)" deleted, "(Sample 3)" kept.
-    expect(sampleProjectName(['Mobile App Launch (Sample)', 'Mobile App Launch (Sample 3)']))
-      .toBe('Mobile App Launch (Sample 2)');
-    // "(Sample)" deleted, "(Sample 2)" kept: the next is "(Sample)" again.
-    expect(sampleProjectName(['Mobile App Launch (Sample 2)'])).toBe('Mobile App Launch (Sample)');
+  const BASE = 'Sample: Mobile App Launch';
+  it('with no projects, is the base name', () => {
+    expect(sampleProjectName([])).toBe(BASE);
+    expect(sampleProjectName(['Other'])).toBe(BASE);
+  });
+  it('with the base taken, is "(2)"', () => {
+    expect(sampleProjectName([BASE])).toBe(`${BASE} (2)`);
+  });
+  it('with the base and "(2)" taken, is "(3)"', () => {
+    expect(sampleProjectName([BASE, `${BASE} (2)`])).toBe(`${BASE} (3)`);
+  });
+  it('with "(2)" taken but the base free, is the base: the base wins', () => {
+    expect(sampleProjectName([`${BASE} (2)`])).toBe(BASE);
+  });
+  it('counts an archived project: archiving is a per-person setting, so its name is in the list', () => {
+    // ProjectsTab passes every project's name, archived ones included (useProjects.addSampleProject).
+    const archived = { name: BASE, archived: true };
+    expect(sampleProjectName([archived.name])).toBe(`${BASE} (2)`);
+  });
+  it("counts a person's own project named like a sample, and fills the lowest gap", () => {
+    expect(sampleProjectName([BASE, `${BASE} (3)`])).toBe(`${BASE} (2)`);
+    expect(sampleProjectName([BASE, `${BASE} (2)`, `${BASE} (3)`])).toBe(`${BASE} (4)`);
+  });
+  it('matches names exactly, and ignores the pre-v0.35.0 names', () => {
+    expect(sampleProjectName(['sample: mobile app launch', ` ${BASE}`, 'Mobile App Launch (Sample)'])).toBe(BASE);
   });
 });
 
@@ -67,8 +84,8 @@ describe('buildSampleProject', () => {
   });
 
   it('has a finish date 140 days from the first work day, and five releases across the three statuses', () => {
-    const s = buildSampleProject(new Date(2026, 5, 12), [0, 1, 2, 3, 4], ['Mobile App Launch (Sample)']);
-    expect(s.name).toBe('Mobile App Launch (Sample 2)');
+    const s = buildSampleProject(new Date(2026, 5, 12), [0, 1, 2, 3, 4], ['Sample: Mobile App Launch']);
+    expect(s.name).toBe('Sample: Mobile App Launch (2)');
     expect(s.finishDate).toBe('2026-11-01'); // Sunday 2026-06-14 + 140 days
     expect(s.releases.map(r => [r.name, r.status])).toEqual([
       ['Discovery & Design', 'complete'],

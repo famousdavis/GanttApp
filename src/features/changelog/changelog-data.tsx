@@ -15,6 +15,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.35.0',
+    date: 'November 26, 2026',
+    items: [
+      <><strong>Added</strong> &mdash; With no projects, the Projects tab shows a Welcome panel, as in the other SPERT&reg; apps: &ldquo;Welcome to GanttApp&trade;&rdquo;, two lines about the app, the Create New Project and Load Sample Project buttons, and a note on what the sample holds. The buttons do what the toolbar&apos;s New Project and Load Sample do. Before, the tab showed &ldquo;No projects yet.&rdquo;</>,
+      <><strong>Added</strong> &mdash; The 404 page is inside the app&apos;s frame, with the header, the tabs and the footer: &ldquo;Page not found&rdquo;, &ldquo;There&apos;s no page at this address.&rdquo; and a link back to Projects.</>,
+      <><strong>Added</strong> &mdash; If GanttApp itself fails to start or draw, it shows &ldquo;Something went wrong&rdquo; with a Reload button, in your light or dark theme. Before, the framework&apos;s &ldquo;Application error&rdquo; page showed, with no way to reload.</>,
+      <><strong>Changed</strong> &mdash; Load Sample names the sample &ldquo;Sample: Mobile App Launch&rdquo;, then &ldquo;Sample: Mobile App Launch (2)&rdquo;, (3) and so on, the lowest number free; an archived project keeps its name, so the next sample skips it. Samples you already have keep their old names. A screen reader hears &lsquo;Added &ldquo;Sample: Mobile App Launch&rdquo; to your projects and opened it.&rsquo;, the same words as the other SPERT&reg; apps. It still opens the sample on the Gantt Chart tab.</>,
+      <><strong>Fixed</strong> &mdash; On a wide window the Gantt chart&apos;s white card is as wide as the chart (1,168 pixels), where since version 0.34.0 it stretched across the page while the chart stayed 1,100 pixels wide.</>,
+      <><strong>Fixed</strong> &mdash; The grey &ldquo;muted&rdquo; text (the empty-tab lines, the changelog&apos;s dates, About&apos;s storage note, Settings&apos; small print) is easier to read: 4.83:1 in the light theme and 6.82:1 in the dark, where it was 2.84:1 and 4.41:1. The invitation notice&apos;s red error line is too: 7.67:1 and 10.17:1, where it was 3.79:1 and 3.58:1.</>,
+      <><strong>Fixed</strong> &mdash; The Chart Settings heading can be reached with the keyboard: it is a button inside the heading, opened and closed with Enter or Space, and a screen reader says whether it is open. It looks the same.</>,
+      <><strong>Fixed</strong> &mdash; In the dark theme the page no longer shifts sideways between short and long pages. The page&apos;s own scrollbar was styled in the dark theme, which took 10 pixels from long pages only; the dark scrollbar now styles only GanttApp&apos;s own scrolling panels.</>,
+      <><strong>Fixed</strong> &mdash; The header&apos;s favicon has the faint white ring the other SPERT&reg; apps draw.</>,
+      <><strong>Internal</strong> &mdash; The SPERT&reg; frame&apos;s stylesheet is re-vendored at version 3 (md5 <code>b00d0759ec0a0a4d2db6ba10b16678f0</code>), which adds the Welcome panel&apos;s classes. New <code>ProjectsWelcome.tsx</code>, <code>CrashScreen.tsx</code>, <code>AppNotices.tsx</code>, <code>pages/404.tsx</code> and <code>tabLink.ts</code>. &ldquo;Show archived&rdquo; is the frame&apos;s filter row, 16 pixels below the heading row. <code>globals.css</code> scopes the dark scrollbar to <code>#__next</code> and drops its duplicate <code>scrollbar-gutter</code> rule.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,926 automated tests in 144 files, all passing (2,890 before); each new test was seen to fail with its change undone. Checked in Chrome on a production build: the suite&apos;s frame-check tool found no unregistered deviations on Projects, a first visit, the Gantt Chart and with classic scrollbars, nor over both Load Samples, every project archived, Releases, Settings, About, the Changelog and the 404. The Gantt Chart with Chart Settings open is 124 and 295 pixels too wide at 125 % and 150 % zoom, as in version 0.34.2; that is not changed here.</>,
+    ],
+  },
+  {
     version: '0.34.2',
     date: 'November 23, 2026',
     items: [

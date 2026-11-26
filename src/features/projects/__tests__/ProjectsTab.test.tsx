@@ -153,9 +153,9 @@ describe('ProjectsTab', () => {
   });
 
   describe('rendering', () => {
-    it('renders empty state when no projects exist', () => {
+    it('renders empty state when no projects exist: the Welcome panel (v0.35.0)', () => {
       renderProjectsTab();
-      expect(screen.getByText(/No projects yet/)).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: 'Welcome to GanttApp™' })).toBeTruthy();
     });
 
     it('renders project list when projects exist', async () => {
@@ -545,7 +545,7 @@ describe('ProjectsTab', () => {
 
         // Wait for AppDataContext to finish loading so !appDataLoading gate passes.
         await waitFor(() => {
-          expect(screen.getByText(/No projects yet/)).toBeTruthy();
+          expect(screen.getByRole('heading', { level: 2, name: 'Welcome to GanttApp™' })).toBeTruthy();
         });
 
         const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;

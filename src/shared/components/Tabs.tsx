@@ -13,8 +13,9 @@ import { TabType } from '../types';
 const HELP_CENTER_URL = 'https://spertsuite.com/help/ganttapp';
 
 interface TabsProps {
-  /** The tab shown. On the Changelog (reached from the footer's Version button) no navigation item is current. */
-  activeTab: TabType;
+  /** The tab shown. On the Changelog (reached from the footer's Version button) no navigation item is current; on
+   *  the 404 page (v0.35.0) there is no tab at all, so it is left out. */
+  activeTab?: TabType;
   onTabChange: (tab: TabType) => void;
 }
 

@@ -113,9 +113,9 @@ export function InvitationBanner() {
               </p>
             )}
             {authError && (
-              // #e53e3e mirrors StorageSection's hardcoded error red — ThemeColors
-              // has no error property, so this is the canonical literal.
-              <p style={{ color: '#e53e3e', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>{authError}</p>
+              // The frame's error text on its info ground (FRAME26 clean-up, v0.35.0): #9f0712 / #ffc9c9, 7.67 / 10.17.
+              // It was #e53e3e, 3.79 / 3.58 here.
+              <p style={{ color: 'var(--sf-error-text)', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>{authError}</p>
             )}
           </div>
           <button

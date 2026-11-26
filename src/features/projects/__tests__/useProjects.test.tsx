@@ -1257,7 +1257,7 @@ describe('owner of a new project or a copy, before any reload', () => {
     });
 
     const projects = committedProjects();
-    expect(projects.map(p => p.name)).toEqual(['Shared Source', 'Mobile App Launch (Sample)']);
+    expect(projects.map(p => p.name)).toEqual(['Shared Source', 'Sample: Mobile App Launch']);
     expect(projects[1]).toBe(returned);
     if (owner) expect(projects[1].owner).toBe(owner);
     else expect('owner' in projects[1]).toBe(false);
@@ -1376,7 +1376,7 @@ describe('owner of a new project or a copy, before any reload', () => {
 
     it('Load Sample skips a name an archived project holds', async () => {
       seedData({
-        projects: [{ id: 'p1', name: 'Mobile App Launch (Sample)' }],
+        projects: [{ id: 'p1', name: 'Sample: Mobile App Launch' }],
         releases: [],
         projectPrefs: { p1: { archived: true } },
       });
@@ -1385,8 +1385,8 @@ describe('owner of a new project or a copy, before any reload', () => {
       act(() => { result.current.addSampleProject(new Date(2026, 10, 2)); });
 
       expect(result.current.data.projects.map(p => p.name)).toEqual([
-        'Mobile App Launch (Sample)',
-        'Mobile App Launch (Sample 2)',
+        'Sample: Mobile App Launch',
+        'Sample: Mobile App Launch (2)',
       ]);
     });
   });

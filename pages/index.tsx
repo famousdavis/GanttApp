@@ -12,10 +12,8 @@ import { DEFAULT_LEGEND_LABELS, resolveLabel } from '../src/shared/utils/validat
 import { getEffectiveWorkDays } from '../src/shared/utils/validation';
 import { moveAmongShown, shownProjects } from '../src/shared/utils/projectPrefs';
 import { Tabs } from '../src/shared/components/Tabs';
-import { FirstRunBanner } from '../src/shared/components/FirstRunBanner';
-import { InvitationBanner } from '../src/shared/components/InvitationBanner';
-import { LocalStorageWarningBanner } from '../src/shared/components/LocalStorageWarningBanner';
-import { CloudLoadNoticeBanner } from '../src/shared/components/CloudLoadNoticeBanner';
+import { AppNotices } from '../src/shared/components/AppNotices';
+import { tabFromSearch, stripTabParam } from '../src/shared/utils/tabLink';
 import { ErrorBoundary } from '../src/shared/components/ErrorBoundary';
 import { AppHeader } from '../src/shared/components/AppHeader';
 import { AppFooter } from '../src/shared/components/AppFooter';
@@ -72,13 +70,23 @@ function AppContent() {
 
   const { colors } = useTheme();
 
-  const [activeTab, setActiveTab] = useState<TabType>('projects');
+  // "/?tab=<id>" (the 404 page's navigation, v0.35.0) opens that tab. Read once, at the first render: the page renders
+  // only on the client (ThemeProvider renders nothing until it has mounted), so there is no server render to differ.
+  const [activeTab, setActiveTab] = useState<TabType>(
+    () => (typeof window === 'undefined' ? null : tabFromSearch(window.location.search)) ?? 'projects',
+  );
   const [selectedProjectIdRaw, setSelectedProjectId] = useState<string>('');
   const [cloudModalOpen, setCloudModalOpen] = useState(false);
   // Load Sample opens the Gantt Chart tab: its message is read out here (the
   // Projects tab has gone), and focus moves to the chart's project picker.
   const [announcement, setAnnouncement] = useState('');
   const focusChartPickerRef = useRef(false);
+
+  // Then drop `?tab=` from the address, keeping every other parameter (`?invite=` among them).
+  useEffect(() => {
+    if (!tabFromSearch(window.location.search)) return;
+    window.history.replaceState(window.history.state, '', window.location.pathname + stripTabParam(window.location.search) + window.location.hash);
+  }, []);
 
   // What the pickers list: this person's archived projects leave them.
   const unarchivedProjects = shownProjects(data.projects, data.projectPrefs, false);
@@ -272,14 +280,8 @@ function AppContent() {
       <AppHeader onNavigateHome={() => setActiveTab('projects')} onOpenAccount={() => setCloudModalOpen(true)} />
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* The app-wide notices, in this order (v0.32.0, as in the other SPERT® apps). The slot hides itself when
-          every notice is absent, so nothing else may go in it: the live region below stays outside it. */}
-      <div className="sf-col sf-notices" data-sf="notices">
-        <InvitationBanner />
-        <FirstRunBanner />
-        <LocalStorageWarningBanner />
-        <CloudLoadNoticeBanner />
-      </div>
+      {/* The app-wide notices (AppNotices). The live region below stays outside the slot. */}
+      <AppNotices />
 
       <p className="pt-sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
 

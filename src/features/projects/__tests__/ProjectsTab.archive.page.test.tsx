@@ -197,18 +197,20 @@ describe('archive and tile colour on the page', () => {
       expect(shownNames()).toEqual(['B', 'C']);
     });
 
-    it('sits on its own row under the toolbar, above the tiles', async () => {
+    it('sits on its own row under the toolbar, above the tiles: the frame\'s filter row (v0.35.0)', async () => {
       seed(['A', 'B'], ['B']);
       await renderPage();
-      const row = filter()!.closest('.pt-filter')!;
+      const row = filter()!.closest('[data-sf="filters"]')!;
+      expect(row, 'the row carries the frame\'s filters hook').not.toBeNull();
+      expect(row.classList.contains('sf-below'), 'and its 16 px below the heading row').toBe(true);
       expect(document.querySelector('.pt-head')!.nextElementSibling).toBe(row);
     });
   });
 
   describe('the empty states', () => {
-    it('no projects: "No projects yet.", and no filter', async () => {
+    it('no projects: the Welcome panel, and no filter', async () => {
       await renderPage();
-      expect(screen.getByText('No projects yet.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Welcome to GanttApp™' })).toBeInTheDocument();
       expect(screen.queryByText(/All projects are archived/)).toBeNull();
       expect(filter()).toBeNull();
     });
@@ -220,7 +222,7 @@ describe('archive and tile colour on the page', () => {
       seed(names, names);
       await renderPage();
       expect(screen.getByText(`All projects are archived. Select "Show archived (${n})" to see them.`)).toBeInTheDocument();
-      expect(screen.queryByText('No projects yet.')).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Welcome to GanttApp™' })).toBeNull();
       expect(screen.queryByRole('list', { name: 'Projects' })).toBeNull();
       expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeInTheDocument();
     });
@@ -231,7 +233,7 @@ describe('archive and tile colour on the page', () => {
       fireEvent.click(filter()!);
       expect(shownNames()).toEqual(['A', 'B']);
       expect(screen.queryByText(/All projects are archived/)).toBeNull();
-      expect(screen.queryByText('No projects yet.')).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Welcome to GanttApp™' })).toBeNull();
     });
   });
 
@@ -243,10 +245,11 @@ describe('archive and tile colour on the page', () => {
     const tiles = () => document.querySelector('[data-sf="tiles"]');
     const inMain = (el: Element) => !!el.closest('[data-sf="main"]');
 
-    it('no projects: "No projects yet." is the one empty panel, in main, and there is no grid', async () => {
+    it('no projects: the Welcome panel is the one empty panel, in main, and there is no grid', async () => {
       await renderPage();
       expect(empties(), 'exactly one empty panel').toHaveLength(1);
-      expect(empties()[0].textContent).toBe('No projects yet.');
+      expect(empties()[0].classList.contains('sf-empty')).toBe(true);
+      expect(empties()[0].querySelector('h2')!.textContent).toBe('Welcome to GanttApp™');
       expect(inMain(empties()[0])).toBe(true);
       expect(tiles()).toBeNull();
     });
@@ -257,6 +260,10 @@ describe('archive and tile colour on the page', () => {
       expect(empties(), 'exactly one empty panel').toHaveLength(1);
       expect(empties()[0].textContent).toBe('All projects are archived. Select "Show archived (2)" to see them.');
       expect(inMain(empties()[0])).toBe(true);
+      // A plain line 16 px below the filter row, never the Welcome panel: the collection is not empty (v0.35.0).
+      expect(empties()[0].classList.contains('sf-below')).toBe(true);
+      expect(empties()[0].classList.contains('sf-empty')).toBe(false);
+      expect(empties()[0].previousElementSibling!.closest('[data-sf="filters"]') ?? document.querySelector('[data-sf="filters"]')).not.toBeNull();
       expect(tiles()).toBeNull();
     });
 
@@ -727,8 +734,8 @@ describe('archive and tile colour on the page', () => {
       seed(['A'], [], {}, releasesFor(['A']));
       await renderPage();
       fireEvent.click(tab('Gantt Chart'));
-      fireEvent.click(await screen.findByText(/^Chart Settings/));
-      expect(screen.getByText('Chart Settings ▲')).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole('button', { name: 'Chart Settings' }));
+      expect(screen.getByRole('button', { name: 'Chart Settings' })).toHaveAttribute('aria-expanded', 'true');
 
       fireEvent.click(tab('Projects'));
       await screen.findByRole('button', { name: 'New Project' });
@@ -736,7 +743,7 @@ describe('archive and tile colour on the page', () => {
       fireEvent.keyDown(screen.getByRole('radio', { name: 'No color' }), { key: 'Escape' });
 
       fireEvent.click(tab('Gantt Chart'));
-      expect(await screen.findByText('Chart Settings ▲')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Chart Settings' })).toHaveAttribute('aria-expanded', 'true');
     });
 
     describe('is not left stranded', () => {

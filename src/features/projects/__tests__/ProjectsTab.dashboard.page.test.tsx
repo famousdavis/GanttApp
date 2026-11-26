@@ -148,9 +148,9 @@ describe('the Projects tab on the page', () => {
       expect(names).toEqual(['Export all projects as JSON', 'Import projects from JSON', 'Load Sample', 'New Project']);
     });
 
-    it('with no projects: Export All disabled, Import, Load Sample, New Project and one line, and nothing opens', async () => {
+    it('with no projects: Export All disabled, Import, Load Sample, New Project and the Welcome panel, and nothing opens', async () => {
       await renderPage();
-      expect(screen.getByText('No projects yet.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Welcome to GanttApp™' })).toBeInTheDocument();
       // v0.32.0: disabled in its place, not hidden (v0.30.0 and v0.31.0 hid it).
       expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
       const head = screen.getByRole('heading', { name: 'Projects', level: 1 }).parentElement!;
@@ -313,17 +313,18 @@ describe('the Projects tab on the page', () => {
       await waitFor(() => expect(picker).toHaveFocus());
       const data = stored();
       const sample = data.projects[1];
-      expect(data.projects.map(p => p.name)).toEqual(['Alpha', 'Mobile App Launch (Sample)']);
+      expect(data.projects.map(p => p.name)).toEqual(['Alpha', 'Sample: Mobile App Launch']);
       expect(sample.finishDate).toBe('2026-11-01');
       expect(sample).not.toHaveProperty('owner');
       expect((picker as HTMLSelectElement).value).toBe(sample.id);
       const releases = data.releases.filter((r: Release) => r.projectId === sample.id);
       expect(releases.map(r => r.status)).toEqual(['complete', 'complete', 'in-progress', undefined, undefined]);
       expect(releases[0].startDate).toBe('2026-03-22');
-      expect(screen.getByText(/^Added "Mobile App Launch \(Sample\)"/)).toHaveAttribute('aria-live', 'polite');
+      // The suite's one wording (contract §7, v0.35.0), curly quotes and all.
+      expect(screen.getByText('Added \u201cSample: Mobile App Launch\u201d to your projects and opened it.')).toHaveAttribute('aria-live', 'polite');
     });
 
-    it('a second press adds "(Sample 2)"; with "(Sample)" deleted, the next is "(Sample)" again', async () => {
+    it('a second press adds "(2)"; with the base deleted, the next is the base again', async () => {
       seed({ projects: projects('Alpha') });
       await renderPage();
       fireEvent.click(screen.getByRole('button', { name: 'Load Sample' }));
@@ -331,17 +332,18 @@ describe('the Projects tab on the page', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Load Sample' }));
       await screen.findByRole('combobox', { name: CHART_PICKER });
-      expect(storedNames()).toEqual(['Alpha', 'Mobile App Launch (Sample)', 'Mobile App Launch (Sample 2)']);
+      expect(storedNames()).toEqual(['Alpha', 'Sample: Mobile App Launch', 'Sample: Mobile App Launch (2)']);
+      expect(screen.getByText('Added \u201cSample: Mobile App Launch (2)\u201d to your projects and opened it.')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-      fireEvent.click(await screen.findByRole('button', { name: 'Open releases for Mobile App Launch (Sample)' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Open releases for Sample: Mobile App Launch' }));
       fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-      fireEvent.click(tileButton('Mobile App Launch (Sample)', 'Delete project'));
+      fireEvent.click(tileButton('Sample: Mobile App Launch', 'Delete project'));
       fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
-      await waitFor(() => expect(storedNames()).toEqual(['Alpha', 'Mobile App Launch (Sample 2)']));
+      await waitFor(() => expect(storedNames()).toEqual(['Alpha', 'Sample: Mobile App Launch (2)']));
       fireEvent.click(screen.getByRole('button', { name: 'Load Sample' }));
       await screen.findByRole('combobox', { name: CHART_PICKER });
-      expect(storedNames()).toEqual(['Alpha', 'Mobile App Launch (Sample 2)', 'Mobile App Launch (Sample)']);
+      expect(storedNames()).toEqual(['Alpha', 'Sample: Mobile App Launch (2)', 'Sample: Mobile App Launch']);
     });
   });
 });

@@ -39,8 +39,8 @@ describe('the brand link', () => {
     const { brand } = renderHeader();
     const icons = Array.from(brand.querySelectorAll('img'));
     expect(icons.map((i) => [i.getAttribute('src'), i.getAttribute('alt'), i.className, i.getAttribute('data-sf')])).toEqual([
-      ['/spert-favicon-ganttapp.png', '', 'sf-icon sf-icon--light', 'favicon'],
-      ['/spert-favicon-ganttapp-dark.png', '', 'sf-icon sf-icon--dark', 'favicon'],
+      ['/spert-favicon-ganttapp.png', '', 'sf-icon sf-icon--light ga-favicon', 'favicon'],
+      ['/spert-favicon-ganttapp-dark.png', '', 'sf-icon sf-icon--dark ga-favicon', 'favicon'],
     ]);
     expect(screen.queryAllByRole('heading')).toEqual([]);
     expect(brand.querySelector('h1, h2, h3, [role="heading"]')).toBeNull();

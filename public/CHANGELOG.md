@@ -1,5 +1,36 @@
 # Change Log
 
+## Version 0.35.0 (2026-11-26)
+
+### Added: a Welcome panel on an empty Projects tab
+
+- **With no projects, the Projects tab now shows a Welcome panel**, in the same place and the same look as in the other SPERT® apps: "Welcome to GanttApp™", two lines about the app, the **Create New Project** and **Load Sample Project** buttons, and a note on what the sample holds. Create New Project does what the toolbar's New Project does, and Load Sample Project what its Load Sample does. Before, the tab showed one line, "No projects yet."
+- **The 404 page is now inside the app's frame**, with the header, the tabs and the footer: "Page not found", "There's no page at this address." and a link back to Projects. Before, an unknown address got the framework's plain "404 | This page could not be found."
+- **If GanttApp itself fails to start or draw, it now shows "Something went wrong"** with a Reload button, on the app's own background in the light or dark theme you chose. Before, such an error showed the framework's "Application error" page, in the system's colours and with no way to reload.
+
+### Changed: Load Sample
+
+- **The sample project is now named "Sample: Mobile App Launch"**, and a second one "Sample: Mobile App Launch (2)", then (3) and so on, the lowest number free. A project you have archived keeps its name, so the next sample skips it. Samples you already have keep their old names ("Mobile App Launch (Sample)").
+- **After Load Sample, a screen reader hears "Added “Sample: Mobile App Launch” to your projects and opened it."**, the same words as the other SPERT® apps. It still opens the sample on the Gantt Chart tab.
+
+### Fixed
+
+- **On a wide window, the Gantt chart's white card is as wide as the chart.** Since version 0.34.0 it had stretched across the whole page (1,536 pixels at a 1,920-pixel window) while the chart inside stayed 1,100 pixels wide. It now hugs the chart (1,168 pixels) and stays at the left.
+- **The grey "muted" text is easier to read**: the "No projects yet. Create a project first!" and "No releases" lines, the changelog's dates, About's storage note and Settings' small print. In the light theme it was #999, 2.84:1 against white, and in the dark theme #718096, 4.41:1; it is now #6a7282 and #99a1af, 4.83:1 and 6.82:1, the same grey as the rest of the SPERT® frame.
+- **The red error line on the invitation notice is easier to read**: 7.67:1 in the light theme and 10.17:1 in the dark, where it was 3.79:1 and 3.58:1.
+- **The Chart Settings heading can be reached with the keyboard.** It is a button inside the heading now: Tab reaches it, Enter or Space opens and closes the settings, and a screen reader says whether they are open. It looks the same as before.
+- **In the dark theme, the page no longer shifts sideways between short and long pages.** GanttApp styled the page's own scrollbar in the dark theme, which took 10 pixels from the page on a long page (the Changelog, a long chart) but not on a short one, so the header and everything below it moved. The dark scrollbar now styles only GanttApp's own scrolling panels.
+- **The favicon in the header has the faint white ring the other SPERT® apps draw.**
+
+### Internal
+
+- **The SPERT® frame's stylesheet, `styles/spert-frame.css`, is re-vendored at version 3** (md5 `b00d0759ec0a0a4d2db6ba10b16678f0`), byte for byte from `spert-suite-docs`. Version 3 adds the Welcome panel's classes (`.sf-empty`). `frame-stylesheet.test.ts` pins the new md5 and version.
+- **New `ProjectsWelcome.tsx`, `CrashScreen.tsx` (wrapping every provider in `pages/_app.tsx`), `AppNotices.tsx` (the notices slot, shared by the app's page and the 404), `pages/404.tsx` and `src/shared/utils/tabLink.ts`.** On the 404 page each tab links to `/?tab=<id>`; the app opens that tab on load and drops the parameter from the address, keeping any other.
+- **"Show archived" is the frame's filter row** (`data-sf="filters"`, 16 pixels below the heading row; it was 12), and the "All projects are archived" line sits 16 pixels below it. Its words are unchanged.
+- **`styles/globals.css`:** the dark scrollbar rules are scoped to `#__next`, so they never reach the page's own scrollbar (nor `body`'s direct children, where the suite's frame-check measures the platform's scrollbar); the duplicate `html { scrollbar-gutter: stable }` is gone, since the frame's stylesheet sets it; new `.ga-favicon`, `.ga-link` and `.chart-settings-toggle` rules.
+- **Tested in 2,926 automated tests in 144 files, all passing (2,890 before).** New: the sample's name in seven cases; the Welcome panel's markup, its two buttons and the message; the filter row; the chart card; the muted text against every background it sits on; the invitation's error line; the Chart Settings button; the scrollbar, gutter and favicon rules; the crash screen in both themes; the 404 page; and the tab links. Each new test was seen to fail with its change undone, and to pass again once the file was put back and matched to its saved copy by hash.
+- **Checked in Chrome on a production build:** the suite's frame-check tool found no unregistered deviations on Projects with data, on a first visit (48 before, all about the missing Welcome panel), on the Gantt Chart (3 before, the dark scrollbar's 10-pixel shift) and with classic scrollbars. The same tool, run over the first and second Load Sample, every project archived, Releases, Settings, About, the Changelog and the 404, found none either. The one exception is the Gantt Chart with Chart Settings open at 125 % and 150 % zoom, where the page is 124 and 295 pixels too wide: the same as in version 0.34.2, and not changed here. The crash screen was forced in both themes and its Reload reloaded the page.
+
 ## Version 0.34.2 (2026-11-23)
 
 ### Fixed: the header lines up with the other SPERT® apps when scrollbars are always shown

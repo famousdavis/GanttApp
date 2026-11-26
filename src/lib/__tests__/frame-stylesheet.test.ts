@@ -17,7 +17,7 @@ import { describe, it, expect } from 'vitest';
  * It is imported once, from pages/_app.tsx, and LAST: `.sf-btn` and `.pt-btn` are one class each, so source order
  * decides, and the frame's 36 px / 14 px / 500 must win on the toolbar buttons.
  */
-const MD5 = '69146fd77679c71e03d2f06cfea96cf1';
+const MD5 = 'b00d0759ec0a0a4d2db6ba10b16678f0';
 const ROOT = process.cwd();
 const VENDORED = join(ROOT, 'styles', 'spert-frame.css');
 
@@ -36,8 +36,8 @@ describe('the vendored frame stylesheet (FRAME26)', () => {
     expect(createHash('md5').update(readFileSync(VENDORED)).digest('hex')).toBe(MD5);
   });
 
-  it('declares version "2"', () => {
-    expect(readFileSync(VENDORED, 'utf8')).toMatch(/--sf-version:\s*"2";/);
+  it('declares version "3"', () => {
+    expect(readFileSync(VENDORED, 'utf8')).toMatch(/--sf-version:\s*"3";/);
   });
 
   it('pages/_app.tsx imports it exactly once, and last of the stylesheets', () => {

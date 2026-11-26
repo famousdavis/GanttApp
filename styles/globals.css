@@ -35,9 +35,8 @@
   margin: 0;
 }
 
-html {
-  scrollbar-gutter: stable;
-}
+/* No `html { scrollbar-gutter: stable }` here (v0.35.0): the frame's stylesheet sets it on every root that holds the
+   frame (`:root:has(.sf-app)`), and this copy only duplicated it. */
 
 /* No max-width here (v0.34.2). Chrome with classic scrollbars resolves 100vw on the root to the window minus the
    scrollbar gutter twice, so the old create-next-app `max-width: 100vw` made html 15 px narrower than the page and
@@ -127,23 +126,38 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
   color: var(--text-muted);
 }
 
-/* Dark mode scrollbar - vertical only */
-[data-theme="dark"] ::-webkit-scrollbar {
+/* Dark mode scrollbar - vertical only - on GanttApp's own panels (inside #__next), never the page's own scrollbar
+   (v0.35.0). Unscoped, `[data-theme="dark"] ::-webkit-scrollbar` also styled the root scroller: a styled scrollbar is a
+   classic one, so on a long page in dark the layout width lost 10 px and the frame's column moved (frame-check
+   `doc.overlay-width`). Not `body *` either: frame-check's classic probe measures the platform scrollbar with an
+   element it adds to body (Story Map's D5). Guarded by src/lib/__tests__/frame-cleanup.test.tsx (G6). */
+[data-theme="dark"] #__next ::-webkit-scrollbar {
   width: 10px;
   height: 0px; /* Hide horizontal scrollbars */
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-track {
+[data-theme="dark"] #__next ::-webkit-scrollbar-track {
   background: var(--surface);
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
+[data-theme="dark"] #__next ::-webkit-scrollbar-thumb {
   background: var(--border-light);
   border-radius: 5px;
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+[data-theme="dark"] #__next ::-webkit-scrollbar-thumb:hover {
   background: #5a6577;
+}
+
+/* A plain in-page link in the frame's link colour (#155dfc / #51a2ff, 5.25 / 6.72 on the page): the 404's "Back to
+   Projects" (v0.35.0). */
+.ga-link { color: var(--sf-link); text-decoration: underline; }
+.ga-link:focus-visible { outline: 2px solid var(--sf-focus); outline-offset: 2px; }
+
+/* The favicons' faint ring, as the other SPERT® apps draw it (Tailwind's `ring-1 ring-white/20`), v0.35.0. On the
+   app's own class, not the frame's `.sf-icon`. */
+.ga-favicon {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.2);
 }
 
 /* Hide scrollbar chrome on the snapshot chip bar while keeping scroll functional */
@@ -153,6 +167,21 @@ input[type="date"].has-value::-webkit-datetime-edit-text {
 .snapshot-bar-scroll::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Edge */
 }
+/* Chart Settings' toggle (v0.35.0): a button that looks like the heading it sits in. */
+.chart-settings-toggle {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+.chart-settings-toggle:focus { outline: none; }
+.chart-settings-toggle:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }
+[data-theme="dark"] .chart-settings-toggle:focus-visible { outline-color: #60a5fa; }
+
 /* Gantt Chart tab's project picker: a visible ring on keyboard focus only. */
 .chart-project-picker:focus { outline: none; }
 .chart-project-picker:focus-visible { outline: 2px solid #0070f3; outline-offset: 2px; }

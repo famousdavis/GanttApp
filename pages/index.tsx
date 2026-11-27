@@ -23,7 +23,7 @@ import { CloudStorageModal } from '../src/shared/components/CloudStorageModal';
 import { ProjectsTab } from '../src/features/projects/ProjectsTab';
 import { ProjectsLoadingHeading } from '../src/features/projects/ProjectsToolbar';
 import { ReleasesTab, ALL_ARCHIVED_MESSAGE } from '../src/features/releases/ReleasesTab';
-import { AboutTab } from '../src/features/about/AboutTab';
+import { AboutTab, AboutHeading } from '../src/features/about/AboutTab';
 import { ChangelogTab } from '../src/features/changelog/ChangelogTab';
 import { SettingsTab } from '../src/features/settings/SettingsTab';
 import { GanttChart } from '../src/features/chart/GanttChart';
@@ -269,6 +269,10 @@ function AppContent() {
   // selected project, the one both pickers show; Settings, About and the Changelog are capped (contract §8, X4).
   const heading = screenHeading(activeTab, selectedProject?.name);
   const capped = activeTab === 'settings' || activeTab === 'about' || activeTab === 'changelog';
+  // About's h1 carries the brand's ™ as the frame's .sf-mark (contract §3 About page, v0.36.0); every other heading is text.
+  const headingContent = activeTab === 'about' ? <AboutHeading /> : heading.text;
+  // The footer's Version button and About's What's new both open the Changelog tab, through this one handler.
+  const openChangelog = () => setActiveTab('changelog');
 
   return (
     // The SPERT® Suite app frame (contract FRAME-CONTRACT.md, styles/spert-frame.css): a full-height column of the
@@ -290,14 +294,22 @@ function AppContent() {
           <>
             {activeTab === 'projects'
               ? <ProjectsLoadingHeading />
-              : <HeadingRow title={heading.title}>{heading.text}</HeadingRow>}
+              : <HeadingRow title={heading.title}>{headingContent}</HeadingRow>}
             <p className="sf-below" style={{ color: colors.textSecondary }}>Loading...</p>
           </>
         ) : (
           <>
             {/* Every tab but Projects gets its heading row here, OUTSIDE the error boundary, so a view that throws
                 leaves the page's h1 in place. Projects draws its own, because its toolbar's state lives there. */}
-            {activeTab !== 'projects' && <HeadingRow title={heading.title}>{heading.text}</HeadingRow>}
+            {activeTab !== 'projects' && <HeadingRow title={heading.title}>{headingContent}</HeadingRow>}
+            {/* About's .sf-about is main's next child after the heading row, with no wrapper between (contract §3 About
+                page: 16 px below the row, its own margin). So it sits outside the .sf-below wrapper, in its own
+                boundary (FRAME26 pass 3, v0.36.0). */}
+            {activeTab === 'about' ? (
+              <ErrorBoundary key="about" resetKey={selectedProjectId}>
+                <AboutTab onOpenChangelog={openChangelog} />
+              </ErrorBoundary>
+            ) : (
             <div className={activeTab === 'projects' ? undefined : 'sf-below'}>
               {/* v0.29.10: an error in one view leaves the rest of the app up.
                   Keyed on the tab; a change of the selected project clears an
@@ -388,15 +400,15 @@ function AppContent() {
               )}
 
               {activeTab === 'settings' && <SettingsTab />}
-              {activeTab === 'about' && <AboutTab />}
               {activeTab === 'changelog' && <ChangelogTab />}
               </ErrorBoundary>
             </div>
+            )}
           </>
         )}
       </main>
 
-      <AppFooter onOpenChangelog={() => setActiveTab('changelog')} />
+      <AppFooter onOpenChangelog={openChangelog} />
 
       <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
     </div>

@@ -133,7 +133,7 @@ describe('the frame through the real page', () => {
     await loaded();
     for (const [tab, heading] of [
       ['Projects', 'Projects'], ['Releases', 'Alpha Platform'], ['Gantt Chart', 'Alpha Platform'],
-      ['Settings', 'Settings'], ['About', 'About This App'], ['Changelog', 'Changelog'],
+      ['Settings', 'Settings'], ['About', 'About GanttApp™'], ['Changelog', 'Changelog'],
     ] as const) {
       await open(tab);
       expectScreen(tab, heading);

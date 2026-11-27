@@ -8,7 +8,7 @@ import type { TabType } from '../types';
 const FIXED: Record<Exclude<TabType, 'releases' | 'chart'>, string> = {
   projects: 'Projects',
   settings: 'Settings',
-  about: 'About This App',
+  about: 'About GanttApp™',
   changelog: 'Changelog',
 };
 

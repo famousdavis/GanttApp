@@ -273,7 +273,7 @@ export function StorageSection({
           </p>
           {downloadStatus && (
             <p style={{
-              color: downloadStatus.includes('failed') ? '#e53e3e' : '#38a169',
+              color: downloadStatus.includes('failed') ? 'var(--sf-error-text)' : 'var(--sf-success-text)',
               fontSize: '0.85rem',
               marginTop: '0.25rem',
             }}>
@@ -301,20 +301,22 @@ export function StorageSection({
         </p>
       )}
 
+      {/* The error and success lines take the frame's text tokens (v0.36.0): --sf-error-text is 8.35:1 light and 12.21:1
+          dark on the page ground, where #e53e3e was 4.12 and 4.30; --sf-success-text replaces #38a169 (3.24). */}
       {switchError && (
-        <p style={{ color: '#e53e3e', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+        <p style={{ color: 'var(--sf-error-text)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
           {switchError}
         </p>
       )}
 
       {authError && (
-        <p style={{ color: '#e53e3e', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+        <p style={{ color: 'var(--sf-error-text)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
           {authError}
         </p>
       )}
 
       {saveError && (
-        <p style={{ color: '#e53e3e', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+        <p style={{ color: 'var(--sf-error-text)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
           Cloud sync error: {saveError}
         </p>
       )}

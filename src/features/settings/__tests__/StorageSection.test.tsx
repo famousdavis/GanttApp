@@ -304,6 +304,14 @@ describe('StorageSection', () => {
     expect(onSignOut).toHaveBeenCalledOnce();
   });
 
+  // G4 (FRAME26 pass 3, v0.36.0): the switch, sign-in and cloud sync errors take the frame's --sf-error-text.
+  it('G4: the switch, sign-in and cloud sync error lines are --sf-error-text', () => {
+    renderSection({ switchError: 'Could not switch.', authError: 'Could not sign in.', saveError: 'offline' });
+    for (const text of ['Could not switch.', 'Could not sign in.', 'Cloud sync error: offline']) {
+      expect(screen.getByText(text).style.color, text).toBe('var(--sf-error-text)');
+    }
+  });
+
   // === Download All Projects ===
 
   it('shows Download button in cloud mode when authenticated', () => {
@@ -380,6 +388,20 @@ describe('StorageSection', () => {
       expect(storage.readAppData).toHaveBeenCalledTimes(1);
       expect(screen.getByText('Export failed: No projects to export.')).toBeInTheDocument();
       expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+
+    // G4 (FRAME26 pass 3, v0.36.0): both arms of the status line take the frame's text tokens, 4.5:1 or more on the
+    // page ground in both themes (src/lib/__tests__/frame-about.test.tsx), where #e53e3e was 4.12 / 4.30 and #38a169 3.24.
+    it('G4: the success line is --sf-success-text', async () => {
+      renderCloud(storageThatReads(vi.fn().mockResolvedValue(threeProjects)));
+      await clickDownload();
+      expect(screen.getByText('3 project(s) exported successfully.').style.color).toBe('var(--sf-success-text)');
+    });
+
+    it('G4: the failure line is --sf-error-text', async () => {
+      renderCloud(storageThatReads(vi.fn().mockResolvedValue({ projects: [], releases: [] })));
+      await clickDownload();
+      expect(screen.getByText('Export failed: No projects to export.').style.color).toBe('var(--sf-error-text)');
     });
 
     it('reports an unknown error when the export fails with something that is not an Error', async () => {

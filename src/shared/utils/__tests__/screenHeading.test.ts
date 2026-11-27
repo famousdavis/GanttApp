@@ -22,7 +22,7 @@ describe('screenHeading', () => {
   it('every other screen has its fixed heading, whatever project is selected', () => {
     expect(screenHeading('projects', 'X').text).toBe('Projects');
     expect(screenHeading('settings', 'X').text).toBe('Settings');
-    expect(screenHeading('about', 'X').text).toBe('About This App');
+    expect(screenHeading('about', 'X').text).toBe('About GanttApp™');
     expect(screenHeading('changelog', 'X').text).toBe('Changelog');
   });
 });

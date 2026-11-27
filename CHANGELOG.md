@@ -1,5 +1,25 @@
 # Change Log
 
+## Version 0.36.0 (2026-11-27)
+
+### Changed: the About page
+
+- **The About page has a new layout, shared across the SPERT® Suite: what GanttApp™ is, how it works, its guide, your data and storage, and the version and license.** Its heading is "About GanttApp™" (it was "About This App"). "How it works" lists four steps, from creating a project to taking snapshots. The guide row opens the Quick Reference Guide in a new tab, with its description from the Help Center, and a link leads to GanttApp's page in the Help Center. "Your data and storage" says where your projects are kept with and without cloud storage, and which chart settings are yours alone: colors, toggles and default legend labels are personal, while a legend label you edit on a project's chart is saved with that project, so everyone who shares it sees it. "Version and license" shows the version, with a "What's new" link to the changelog, the source code, the license, the trademarks and the GNU GPL's warranty text. Before, About said that chart labels were personal on a shared project, which was not so for a label edited on the chart.
+- **The © year in the footer and on About is the current year.** It was fixed at 2026.
+
+### Fixed
+
+- **Chart Settings no longer runs off the side of the window at 125 % and 150 % zoom.** With Chart Settings open, the page was 124 and 295 pixels too wide there. Its six display settings and its row of toggles now wrap onto a second line when the window is narrow, and stay on one line when it is wide.
+- **On the Gantt Chart, Date Prepared and the copy button end at the chart's right edge**, not at the far side of the page (368 pixels past the chart on a 1,920-pixel window, 48 at 1,280). A copied chart image keeps its size; in it, Prepared By and Date Prepared now sit at the chart's right edge, as on screen.
+- **The Storage settings' error and success messages are easier to read.** The error lines were #e53e3e, 4.12:1 in the light theme and 4.30:1 in the dark; they are now the frame's error red, 8.35:1 and 12.21:1. The "exported successfully" line was #38a169, 3.24:1; it is now the frame's success green.
+
+### Internal
+
+- **The SPERT® frame's stylesheet, `styles/spert-frame.css`, is re-vendored at version 4** (md5 `7f8e40a37b008027e06123fe13e1b2f8`), byte for byte from `spert-suite-docs`. Version 4 adds the About page's classes (`.sf-about`, `.sf-guides`, `.sf-about-legal`). `frame-stylesheet.test.ts` pins the new md5 and version.
+- **`AboutTab.tsx` is rewritten on the frame's classes**, with no inline style and no colour of its own, and renders as `main`'s next child after the heading row, outside the `.sf-below` wrapper the other tabs keep. Its What's new is a link to `/?tab=changelog` that, on a plain click, opens the Changelog tab through the footer's own handler. New `src/shared/utils/copyrightYear.ts` gives the footer and About one © year. Chart Settings' display settings use the new `.chart-display-settings` rule in `styles/globals.css`.
+- **Tested in 2,945 automated tests in 146 files, all passing (2,926 before).** New: the About page's words, order, guide row, links, marks and year (`AboutTab.test.tsx`, rewritten); About's place, its heading, What's new and the year through the real page, and the chart's header row (`frame-about.page.test.tsx`); Chart Settings' wrapping, the footer's year and the Storage colours (`frame-about.test.tsx`, `StorageSection.test.tsx`). Each new test was seen to fail with its change undone, and to pass again once the file was put back and matched to its saved copy by hash.
+- **Checked in Chrome on a production build:** the suite's frame-check tool found no unregistered deviations on Projects, a first visit, the Gantt Chart, About and with classic scrollbars. The same tool, run over About in both themes, What's new from About, the Changelog, the 404 and the Gantt Chart with Chart Settings open at 125 % and 150 % zoom, found none either.
+
 ## Version 0.35.0 (2026-11-26)
 
 ### Added: a Welcome panel on an empty Projects tab

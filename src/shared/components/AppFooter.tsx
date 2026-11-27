@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { APP_VERSION } from '../../lib/version';
+import { copyrightYear } from '../utils/copyrightYear';
 
 interface AppFooterProps {
   /** Opens the Changelog tab (the Version button). */
@@ -14,14 +15,15 @@ interface AppFooterProps {
  * of 14 / 20 text, 69 px tall, flowing after `main`. Its links and the Version button take the frame's `--sf-link`
  * (#155dfc, 5.25:1 on #ffffff; #51a2ff, 6.72:1 on #101828) and its hover underline, so none of them carries a class or
  * a style of its own: an inline colour would beat the token (FRAME26 stage 0's FOOTER_LINK gave way to it). The
- * wording and the destinations are unchanged; the Version button still opens the Changelog tab.
+ * wording and the destinations are unchanged; the Version button still opens the Changelog tab. The © year is the
+ * current year (FRAME26 Y1, v0.36.0), from copyrightYear(), the source the About page's © line also uses.
  */
 export function AppFooter({ onOpenChangelog }: AppFooterProps) {
   return (
     <footer className="sf-footer" data-sf="footer">
       <div className="sf-col">
         <div>
-          &copy; 2026 William W. Davis, MSPM, PMP |{' '}
+          &copy; {copyrightYear()} William W. Davis, MSPM, PMP |{' '}
           <button type="button" className="sf-link" onClick={onOpenChangelog}>Version {APP_VERSION}</button>
           {' '}| Licensed under GNU GPL v3
         </div>

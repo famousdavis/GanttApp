@@ -217,6 +217,10 @@ export function GanttChart({
       />
 
       <div ref={chartRef}>
+        {/* The header row and the chart card share one block as wide as the card (FRAME26 pass 3 G3, v0.36.0), so Date
+            Prepared and the copy button end at the card's right edge, not at the column's (368 px past the card at
+            1920). The legend below stays outside it: it is wider than the card. Never wider than the column. */}
+        <div style={{ width: 'fit-content', maxWidth: '100%' }}>
         {/* Chart header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
           <select
@@ -404,6 +408,7 @@ export function GanttChart({
               />
             ))}
           </svg>
+        </div>
         </div>
 
         {/* Legend */}

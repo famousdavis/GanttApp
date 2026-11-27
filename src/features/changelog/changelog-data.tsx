@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: '0.36.0',
+    date: 'November 27, 2026',
+    items: [
+      <><strong>Changed</strong> &mdash; The About page has a new layout, shared across the SPERT&reg; Suite: what GanttApp&trade; is, how it works, its guide, your data and storage, and the version and license. Its heading is &ldquo;About GanttApp&trade;&rdquo;. &ldquo;Your data and storage&rdquo; now says that chart colors, toggles and default legend labels are personal, while a legend label you edit on a project&apos;s chart is saved with that project, so everyone who shares it sees it. &ldquo;Version and license&rdquo; has a &ldquo;What&rsquo;s new&rdquo; link to the changelog.</>,
+      <><strong>Changed</strong> &mdash; The &copy; year in the footer and on About is the current year.</>,
+      <><strong>Fixed</strong> &mdash; Chart Settings no longer runs off the side of the window at 125 % and 150 % zoom: its display settings and toggles wrap onto a second line when the window is narrow.</>,
+      <><strong>Fixed</strong> &mdash; On the Gantt Chart, Date Prepared and the copy button end at the chart&apos;s right edge, not at the far side of the page. A copied chart image keeps its size; in it, Prepared By and Date Prepared now sit at the chart&apos;s right edge, as on screen.</>,
+      <><strong>Fixed</strong> &mdash; The Storage settings&apos; error and success messages are easier to read: the error lines are 8.35:1 in the light theme and 12.21:1 in the dark, where they were 4.12:1 and 4.30:1, and the success line is the frame&apos;s green, where it was 3.24:1.</>,
+      <><strong>Internal</strong> &mdash; The SPERT&reg; frame&apos;s stylesheet is re-vendored at version 4 (md5 <code>7f8e40a37b008027e06123fe13e1b2f8</code>), which adds the About page&apos;s classes. <code>AboutTab.tsx</code> is rewritten on them and renders as <code>main</code>&apos;s next child after the heading row. New <code>copyrightYear.ts</code> gives the footer and About one &copy; year; new <code>.chart-display-settings</code> in <code>globals.css</code>.</>,
+      <><strong>Note</strong> &mdash; Tested in 2,945 automated tests in 146 files, all passing (2,926 before); each new test was seen to fail with its change undone. Checked in Chrome on a production build: the suite&apos;s frame-check tool found no unregistered deviations on Projects, a first visit, the Gantt Chart, About and with classic scrollbars, nor over About in both themes, What&rsquo;s new from About, the Changelog, the 404 and the Gantt Chart with Chart Settings open at 125 % and 150 % zoom.</>,
+    ],
+  },
+  {
     version: '0.35.0',
     date: 'November 26, 2026',
     items: [

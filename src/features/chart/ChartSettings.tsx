@@ -120,7 +120,8 @@ export function ChartSettings({
         <div id={panelId} style={{ padding: '1.5rem', background: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
           {/* Toggle Settings */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', gap: '2rem' }}>
+            {/* Wraps when the panel is narrow (125 % and 150 % zoom), rather than running off the window (v0.36.0). */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', rowGap: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   <input
@@ -242,7 +243,8 @@ export function ChartSettings({
 
           {/* Display Settings */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem' }}>
+            {/* One row when it fits, wrapping when the panel is narrow (styles/globals.css, v0.36.0). */}
+            <div className="chart-display-settings">
               <PresetButtonGroup
                 label="Release Name Font Size"
                 value={displaySettings.releaseNameFontSize}
